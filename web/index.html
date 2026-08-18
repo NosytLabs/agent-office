@@ -12,7 +12,7 @@
   html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
     font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
   #wrap{display:flex;flex-direction:column;height:100%}
-  #hdr{color:var(--gold);padding:6px 10px;font-size:12px;letter-spacing:1px;
+  #hdr{color:var(--gold);font-size:12px;letter-spacing:1px;
     border-bottom:2px solid var(--line);display:grid;
     grid-template-columns:auto auto 1fr auto;gap:6px 10px;align-items:center;
     background:var(--panel)}
@@ -29,7 +29,7 @@
   #hdr .btn:hover{border-color:var(--gold);color:var(--gold)}
   #hdr .btn.on{color:var(--ok);border-color:var(--ok)}
   #hdr #btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
-    grid-column:4;justify-content:flex-end}
+    grid-column:4;justify-content:flex-end;padding-right:6px}
   canvas{flex:1;image-rendering:pixelated;width:100%;height:100%;background:#151022}
   #toast{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;
     gap:6px;z-index:5;max-width:300px}
@@ -274,16 +274,21 @@ function label(a,x,y){
   drawLogo(platOf(a),x,y+18);
   ctx.font="10px ui-monospace,monospace";ctx.textAlign="center";
   ctx.fillStyle=a.kind==="subagent"?"#e8c170":"#cfc4e8";
-  ctx.fillText(a.label.slice(0,17),(x+9)*S,(y+22)*S);
+  const name=a.label.slice(0,16);
+  ctx.fillText(name,(x+9)*S,(y+22)*S);
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
   ctx.fillStyle={working:"#5fce7a",thinking:"#c9a227",idle:"#7a6f8f",
                  waiting:"#d84f6f",done:"#5fce7a",gone:"#555"}[a.status]||"#7a6f8f";
-  ctx.fillText(st.slice(0,17),(x+9)*S,(y+25)*S);
+  ctx.fillText(st.slice(0,16),(x+9)*S,(y+25)*S);
   if(a.detail){ctx.fillStyle="#6a5f80";
-    ctx.fillText(a.detail.slice(0,19),(x+9)*S,(y+27.5)*S)}
+    ctx.fillText(a.detail.slice(0,18),(x+9)*S,(y+27.5)*S)}
 }
 
+let soundOn=false, audioCtx=null;
+try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
+let settings = {layout:"open",sound:soundOn,show_chips:true,show_subagent_chips:false,
+  auto_focus_unlocks:true,max_chars:4,areas:{},folder_areas:{}};
 const LAYOUTS = [
   {id:"open",name:"Open floor",hint:"default",require:null},
   {id:"bullpen",name:"Bullpen",hint:"10 sessions ever",require:"layout_bullpen"},
@@ -292,8 +297,6 @@ const LAYOUTS = [
   {id:"mexico",name:"Roof deck",hint:"night owl + 5 sessions",require:"layout_mexico"},
 ];
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
-let settings = {layout:"open",sound:soundOn,show_chips:true,show_subagent_chips:false,
-  auto_focus_unlocks:true,max_chars:4,areas:{},folder_areas:{}};
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
 
 function fillLayout(){
@@ -450,8 +453,6 @@ function stepChars(perRow){
   }
 }
 
-let soundOn=false, audioCtx=null;
-try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 function chime(notes){
   if(!soundOn)return;
   try{
@@ -467,7 +468,7 @@ function chime(notes){
   }catch(e){}
 }
 const sBtn=document.getElementById("sound");
-function syncSoundBtn(){sBtn.textContent=soundOn?"♪ sound on":"♪ sound off";
+function syncSoundBtn(){sBtn.textContent=soundOn?"♪ on":"♪ off";
   sBtn.classList.toggle("on",soundOn)}
 sBtn.onclick=()=>{soundOn=!soundOn;
   try{localStorage.setItem("pixelOfficeSound",soundOn?"1":"0")}catch(e){}
@@ -593,11 +594,13 @@ function render(){
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
   const list=shown();
   const maxc=Math.max(2,settings.max_chars||4);
-  const rowsAt=c=>Math.ceil(list.length/Math.max(1,c));
-  // tile size so columns * max rows fit in canvas (no overlap)
-  const usableW=W-16, usableH=H-32;
-  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/36)));
-  let rows=rowsAt(perRow);
+  // tile size so columns * max rows fit in canvas (no overlap).
+  // Reserve room for the label below each desk (~4 rows of tile height).
+  const labelPx = Math.max(40, Math.round(60 * S / 4));
+  const usableW=W-16, usableH=H-32-labelPx;
+  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(36*S))));
+  let rows=Math.ceil(list.length/Math.max(1,perRow));
+  // pick tile size so columns fit width AND rows fit height
   S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*36), usableH/(rows*34)))));
   const gw=Math.floor(W/S),gh=Math.floor(H/S);
   drawOffice(gw,gh);
