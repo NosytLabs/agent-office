@@ -250,15 +250,14 @@ function drawBubble(a,x,y){
   const t=frame>>4;
   if(a.status==="waiting"){
     const by=y-6-((frame>>3)%2);
-    px(x+1,by,6,4,"#e8d8b0"); px(x+2,by+4,1,1,"#e8d8b0");
+    px(x+1,by,6,4,"#f5e6c8"); px(x+2,by+4,1,1,"#f5e6c8"); px(x,by+2,1,1,"#f5e6c8");
     px(x+4,by+1,1,2,"#c9302f"); px(x+4,by+3,1,1,"#c9302f");
-    // bubble text — show what needs approval
     ctx.save();
     ctx.font="9px ui-monospace,monospace";
     ctx.fillStyle="#1a1423";ctx.textAlign="left";
     const txt = (a.detail||"approval!").slice(0,10);
     if(txt){
-      ctx.fillStyle="#e8d8b0";
+      ctx.fillStyle="#f5e6c8";
       ctx.fillRect((x+8)*S, (by-1)*S, 12*S, 5*S);
       ctx.fillStyle="#1a1423";
       ctx.fillText(txt,(x+9)*S,(by+2)*S);
@@ -267,7 +266,6 @@ function drawBubble(a,x,y){
   }else if(a.status==="working"&&a.tool){
     px(x+3,y-4,3,3,"#e8c170"); px(x+4,y-3,1,1,"#1a1423");
   }else if(a.status==="thinking"){
-    // animated hourglass for thinking — flips every 30 frames
     const flip=(frame>>5)%2;
     if(!flip){
       px(x+2,y-3,1,2,"#cfc4e8"); px(x+4,y-3,1,2,"#cfc4e8");
@@ -293,15 +291,15 @@ function platOf(a){
 }
 function drawLogo(plat,x,y){
   if(plat==="opencode"){
-    px(x,y,5,4,"#0d3b2e"); px(x+1,y+1,1,1,"#5fce7a"); px(x+2,y+2,2,1,"#5fce7a");
+    px(x,y,5,4,"#0d3b2e"); px(x+1,y+1,1,1,"#5fce7a"); px(x+2,y+2,2,1,"#5fce7a"); px(x,y+3,1,1,"#4aa860");
   }else if(plat==="telegram"){
-    px(x,y+1,5,2,"#4fa4d8"); px(x+3,y,2,1,"#a8d4f0"); px(x+4,y+2,1,1,"#2b6fa8");
+    px(x,y+1,5,2,"#4fa4d8"); px(x+3,y,2,1,"#a8d4f0"); px(x+4,y+2,1,1,"#2b6fa8"); px(x+1,y+3,1,1,"#8fc8e8");
   }else if(plat==="claude"){
-    px(x,y,5,4,"#2b1a12"); px(x+1,y+1,3,2,"#d97746");
+    px(x,y,5,4,"#2b1a12"); px(x+1,y+1,3,2,"#d97746"); px(x+2,y+2,1,1,"#ff8c5a");
   }else if(plat==="cli"){
-    px(x,y,5,4,"#191524"); px(x+1,y+1,1,2,"#e8c170"); px(x+3,y+2,1,1,"#e8c170");
+    px(x,y,5,4,"#191524"); px(x+1,y+1,1,2,"#e8c170"); px(x+3,y+2,1,1,"#e8c170"); px(x+2,y+3,1,1,"#fff8c8");
   }else{
-    px(x+1,y,1,4,"#e8c170"); px(x+3,y,1,4,"#e8c170"); px(x+1,y+1,3,1,"#e8c170");
+    px(x+1,y,1,4,"#e8c170"); px(x+3,y,1,4,"#e8c170"); px(x+1,y+1,3,1,"#e8c170"); px(x+2,y+2,1,1,"#fff8c8");
   }
 }
 function label(a,x,y){
