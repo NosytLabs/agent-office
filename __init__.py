@@ -385,7 +385,7 @@ def _serve() -> None:
 
         def do_GET(self) -> None:
             try:
-                if self.path.split("?")[0] in ("/", "/index.html"):
+                if self.path.split("?")[0] == "/":
                     body = html_path.read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -414,7 +414,7 @@ def _serve() -> None:
                         self.send_response(404)
                         body = b"not found"
                         self.send_header("Content-Type", "text/plain")
-                elif self.path.split("?")[0] in ("/css/style.css", "/js/office.js", "/index.html", "/template.html"):
+                elif self.path.split("?")[0] in ("/css/style.css", "/js/office.js", "/template.html"):
                     static_path = web_dir / self.path.split("?")[0].lstrip("/")
                     if static_path.is_file():
                         ext = static_path.suffix
