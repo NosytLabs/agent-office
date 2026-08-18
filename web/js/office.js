@@ -729,12 +729,13 @@ function fillInspector(){
     return sid===focusedId;
   }).slice(-10);
   const rows=[
-    ["label",a.label],["platform",platOf(a)],["kind",a.kind],["status",a.status],
-    ["tool",a.tool||"—"],["detail",a.detail||"—"],
+    ["agent",a.label],["platform",platOf(a)],["kind",a.kind],["status",a.status],
+    ["tool",a.tool||"—"],["detail",a.detail||"—"],["id",a.id],["activity",a.activity||"—"],
   ];
-  box.innerHTML=rows.map(([k,v])=>"<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("")+
-    "<p class='h' style='margin-top:10px'>recent events for this agent</p>"+
-    evs.map(e=>"<div class='kv'><span>"+e.event+"</span><b>"+(e.tool_name||e.command||e.child_goal||"")+"</b></div>").join("");
+  box.innerHTML="<div class='n' style='margin-bottom:8px'>inspector</div>"+
+    rows.map(([k,v])=>"<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("")+
+    "<p class='h' style='margin-top:10px'>recent events</p>"+
+    (evs.length ? evs.map(e=>"<div class='kv'><span>"+e.event+"</span><b>"+(e.tool_name||e.command||e.child_goal||"")+"</b></div>").join("") : "<p class='h'>no recent events</p>");
 }
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
@@ -808,11 +809,11 @@ function renderPortraits(){
     const hair=["#2b2b2b","#5a3825","#c9a227","#8a8a8a"][Math.abs(h>>6)%4];
     const y=a.status==="working"?-1:0;
     // hair
-    cx.fillStyle=hair;cx.fillRect(2,1+y,5,2);
+    cx.fillStyle=hair;cx.fillRect(2,1+y,5,2); cx.fillStyle="#fff8c8";cx.fillRect(3,2+y,1,1);
     // face
-    cx.fillStyle=skin;cx.fillRect(2,3+y,5,3);
-    // shirt
-    cx.fillStyle=shirt;cx.fillRect(1,6+y,7,5);
+    cx.fillStyle=skin;cx.fillRect(2,3+y,5,3); cx.fillStyle="#ffb6c1";cx.fillRect(3,5+y,1,1);cx.fillRect(6,5+y,1,1);
+    // shirt + collar
+    cx.fillStyle=shirt;cx.fillRect(1,6+y,7,5); cx.fillStyle="#fff8c8";cx.fillRect(3,6+y,3,1);
     if(a.kind==="subagent"){cx.fillStyle="#e8c170";cx.fillRect(1,6+y,7,1);}
     // eyes
     cx.fillStyle="#111";cx.fillRect(3,4+y,1,1);cx.fillRect(6,4+y,1,1);
