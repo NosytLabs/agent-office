@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Agent Office</title>
+<link rel="stylesheet" href="css/style.css">
+
+
+</head>
+<body>
+<div id="wrap">
+  <div id="hdr">
+    <div class="row top">
+      <span class="mark"><img src="assets/hermes.svg?v=2" alt="" width="18" height="18">AGENT OFFICE</span>
+      <span id="rank">intern · 0 xp</span>
+      <span id="xpbar"><span id="xpfill"></span></span>
+      <span id="chips"></span>
+      <span class="dim" id="count">connecting…</span>
+    </div>
+    <div class="row icons">
+      <span class="btn" id="filterbtn" title="filter by runtime">every</span>
+      <span class="btn" id="layoutbtn" title="floor layout">layout</span>
+      <span class="btn" id="rosterbtn">roster</span>
+      <span class="btn" id="statsbtn">usage</span>
+      <span class="btn" id="achbtn">badges</span>
+      <span class="btn" id="settingsbtn">⚙</span>
+      <span class="btn" id="debugbtn" title="raw state">dbg</span>
+      <span class="btn" id="eventbtn" title="live event feed">live</span>
+      <span class="btn" id="legendbtn" title="status legend">legend</span>
+      <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
+      <span class="btn" id="themeNextbtn" title="cycle theme">theme</span>
+      <span class="btn" id="platformsbtn" title="what do the runtimes mean?">platforms</span>
+      <span class="btn" id="howbtn">guide</span>
+      <span class="btn" id="sound" title="chime on approval / unlock">sound</span>
+      <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+<div id="toast"></div>
+<div class="sheet" id="sheet-unlocks"><h2>BADGES</h2><div class="grid" id="achgrid"></div></div>
+<div class="sheet" id="sheet-roster"><h2>ROSTER</h2><div id="roster"></div></div>
+<div class="sheet" id="sheet-stats"><h2>USAGE</h2><div id="statbox"></div></div>
+<div class="sheet" id="sheet-layout"><h2>LAYOUT</h2><div id="layoutbox"></div></div>
+<div class="sheet" id="sheet-areas"><h2>AREAS</h2><div id="areabox"></div></div>
+<div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
+<div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
+<div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
+<div class="sheet" id="sheet-inspector"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
+<div class="sheet" id="sheet-legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
+<div class="sheet" id="sheet-platforms"><h2>PLATFORMS</h2><div id="platformsbox"></div></div>
+<div class="sheet" id="sheet-how">
+  <h2>GUIDE</h2>
+  <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
+  <p>Hooks are <b>observers only</b>. Nothing blocks, vetoes, or edits prompts.</p>
+  <p><b>layout</b> → bullpen / war room / lounge / roof deck unlock with usage. <b>areas</b> paint zones you can map to folders. <b>settings</b> persists across reloads.</p>
+  <p>Unlike Pixel Agents (Claude-only), this is <b>runtime-agnostic</b>. Drop a custom SVG in <code>~/.hermes/pixel-office/assets/</code> and it shows up under <b>logos</b>.</p>
+  <p>Buttons: <b>roster</b> = every agent · <b>usage</b> = real counters · <b>badges</b> = unlocks catalog · <b>dbg</b> = raw <code>/state</code>.</p>
+</div>
+
+<script src="js/office.js"></script>
+</body>
+</html>

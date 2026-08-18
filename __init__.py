@@ -376,7 +376,8 @@ def _serve() -> None:
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     _port = _resolve_port()
-    html_path = Path(__file__).resolve().parent / "web" / "index.html"
+    web_dir = Path(__file__).resolve().parent / "web"
+    html_path = web_dir / "template.html"
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args: Any) -> None:  # silence stdout
@@ -404,11 +405,25 @@ def _serve() -> None:
                     self.send_header("Content-Type", "application/json")
                 elif self.path.split("?")[0].startswith("/assets/"):
                     name = Path(self.path.split("?")[0]).name
-                    asset = html_path.parent / "assets" / name
+                    asset = web_dir / "assets" / name
                     if asset.is_file() and asset.suffix == ".svg":
                         body = asset.read_bytes()
                         self.send_response(200)
                         self.send_header("Content-Type", "image/svg+xml")
+                    else:
+                        self.send_response(404)
+                        body = b"not found"
+                        self.send_header("Content-Type", "text/plain")
+                elif self.path.split("?")[0] in ("/css/style.css", "/js/office.js", "/index.html", "/template.html"):
+                    static_path = web_dir / self.path.split("?")[0].lstrip("/")
+                    if static_path.is_file():
+                        ext = static_path.suffix
+                        ctype = "text/css" if ext==".css" else (
+                              "application/javascript" if ext==".js" else
+                              "text/html; charset=utf-8")
+                        body = static_path.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", ctype)
                     else:
                         self.send_response(404)
                         body = b"not found"

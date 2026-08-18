@@ -157,6 +157,12 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("sun")
     if "weather_storm" in unlocks:
         out.append("storm_lamp")
+    if "marathon" in unlocks:
+        out.append("desk_glass")
+    if "centurion" in unlocks:
+        out.append("desk_standing")
+    if "fashion" in unlocks:
+        out.append("desk_wood")
     return out
 
 
