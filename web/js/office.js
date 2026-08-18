@@ -70,9 +70,34 @@ function drawOffice(w,h){
   ctx.font="10px ui-monospace"; ctx.textAlign="left";
   ctx.fillStyle=dark?"#ff6ad5":"#e8c170";
   ctx.fillText("AGENT",(nx+1)*S,(6)*S);
-  // rug
-  const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
-  px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
+  // rug — varies per layout decor
+  const decor = LAYOUT_GEOMETRY[settings.layout]?.decor || "rug";
+  if(decor==="rug"){
+    const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
+    px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
+  }else if(decor==="war_table"){
+    // wide oval meeting table in the center
+    px(w/2-20,h/2-3,40,3,dark?"#5a3a14":"#8d5524");
+    px(w/2-18,h/2-2,36,1,dark?"#4a2a10":"#6b4a2f");
+    // monitors around the table
+    for(let i=-2;i<=2;i++){
+      px(w/2+i*8-3,h/2-5,3,2,"#191524");
+      px(w/2+i*8-2,h/2-6,1,1,(frame>>4)%2?"#5fce7a":"#0f2c1e");
+    }
+  }else if(decor==="roof"){
+    // wooden deck planks
+    for(let x=4;x<w-4;x+=8)px(x,h-9,7,3,dark?"#4a3818":"#6b4a2f");
+    // potted plants at edges
+    px(4,h-16,3,3,"#5fce7a"); px(5,h-15,1,1,"#4aa860");
+    px(w-7,h-16,3,3,"#5fce7a"); px(w-6,h-15,1,1,"#4aa860");
+  }else if(decor==="garden"){
+    // grass everywhere
+    for(let x=0;x<w;x+=6)px(x,h-9,4,1,"#5fce7a");
+    for(let x=2;x<w-2;x+=10){
+      if((frame>>3)%3===0)px(x,h-10,1,1,"#e8c170");
+    }
+    px(8,h-12,4,3,"#5fce7a"); px(w-12,h-12,4,3,"#5fce7a");
+  }
   // coffee bar (centered, above rug)
   px(w/2-5,h-21,10,1,"#6b4a2f"); px(w/2-5,h-20,10,4,"#54381f");
   px(w/2-3,h-23,5,3,"#33283f"); px(w/2-2,h-22,1,1,"#d84f6f");
@@ -300,6 +325,10 @@ try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},
   folder_areas:{},paint:false,paint_color:"#5fce7a",lock_floor:false};
+const _D = window.OFFICE_DATA;
+const RANKS = _D.RANKS;
+const RANKS_THRESHOLDS = _D.RANKS_THRESHOLDS;
+const THEMES = _D.THEMES;
 const LAYOUTS = [
   {id:"open",name:"Open floor",hint:"default",require:null},
   {id:"bullpen",name:"Bullpen",hint:"10 sessions ever",require:"layout_bullpen"},
@@ -311,15 +340,9 @@ const LAYOUTS = [
   {id:"arcade",name:"Arcade",hint:"5000 tools",require:"layout_arcade"},
   {id:"penthouse",name:"Penthouse",hint:"10k tools",require:"layout_penthouse"},
 ];
-const RANKS_THRESHOLDS = {intern:0,junior:50,staff:200,senior:500,principal:1200,distinguished:3000};
-const THEMES = [
-  {id:"default",name:"Default",bg:"#121018",tileA:"#2c2438",tileB:"#262033",wall:"#3a2f4b"},
-  {id:"midnight",name:"Midnight",bg:"#08080f",tileA:"#15102a",tileB:"#0c0820",wall:"#2a1d4a"},
-  {id:"forest",name:"Forest",bg:"#0e1a14",tileA:"#1c2e22",tileB:"#16241b",wall:"#2a3a2a"},
-  {id:"solar",name:"Solar",bg:"#1a1208",tileA:"#3a2a14",tileB:"#2c1d0e",wall:"#4a3818"},
-  {id:"cyber",name:"Cyberpunk",bg:"#0a0014",tileA:"#1a0830",tileB:"#100020",wall:"#3a1d6a"},
-  {id:"sunset",name:"Sunset",bg:"#2a0a14",tileA:"#4a1838",tileB:"#3a1228",wall:"#7a2848"},
-];
+const LAYOUT_GEOMETRY = _D.LAYOUT_GEOMETRY;
+const PLATFORMS = _D.PLATFORMS;
+const SHORTCUTS = _D.SHORTCUTS;
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
 
@@ -507,7 +530,10 @@ const _DEFAULTS = Object.keys(settings);
 
 const chars = new Map();
 const WALK = 0.55;
-function seatPos(i,perRow){return {x:10+(i%perRow)*36, y:14+Math.floor(i/perRow)*34}}
+function seatPos(i,perRow,geom){
+  const g = geom || LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
+  return {x:10+(i%perRow)*g.colStep, y:g.labelY+Math.floor(i/perRow)*g.rowStep};
+}
 function stepChars(perRow){
   if(settings.lock_floor)return; // freeze in place
   const seen=new Set();
@@ -577,6 +603,20 @@ function toggleSheet(id){
     }
   }
 }
+// attach X close button to every sheet header
+document.addEventListener("DOMContentLoaded",()=>{
+  document.querySelectorAll(".sheet").forEach(el=>{
+    const h=el.querySelector("h2");if(!h)return;
+    if(h.querySelector(".x"))return;
+    h.style.cssText="display:flex;justify-content:space-between;align-items:center";
+    const x=document.createElement("span");
+    x.className="x";
+    x.textContent="✕";
+    x.style.cssText="cursor:pointer;color:#7a6f8f;font-weight:normal;font-size:16px;padding:0 4px;line-height:1";
+    x.onclick=closeSheets;
+    h.appendChild(x);
+  });
+});
 document.getElementById("achbtn").onclick=()=>toggleSheet("sheet-unlocks");
 document.getElementById("rosterbtn").onclick=()=>toggleSheet("sheet-roster");
 document.getElementById("statsbtn").onclick=()=>toggleSheet("sheet-stats");
@@ -600,30 +640,6 @@ document.getElementById("themeNextbtn").onclick=()=>{
   fillSettings();
 };
 document.getElementById("platformsbtn").onclick=()=>{fillPlatforms();toggleSheet("sheet-platforms");};
-
-const PLATFORMS = [
-  {id:"hermes", name:"Hermes", icon:"hermes", what:"This machine's AI agent",
-   usedFor:"General coding, multi-agent orchestration, Telegram bridge",
-   install:"already running — it's the host",
-   url:"https://hermes.nousresearch.com"},
-  {id:"opencode", name:"OpenCode", icon:"opencode", what:"Terminal-first coding CLI from SST",
-   usedFor:"Quick scripts, multi-file edits, project scaffolding",
-   install:"brew install sst/tap/opencode (or sst/opencode on npm)",
-   url:"https://opencode.ai"},
-  {id:"claude", name:"Claude Code", icon:"claude", what:"Anthropic's CLI coding agent",
-   usedFor:"Long-running tasks, large refactors, deep codebase exploration",
-   install:"npm i -g @anthropic-ai/claude-code",
-   url:"https://docs.anthropic.com/en/docs/claude-code"},
-  {id:"telegram", name:"Telegram", icon:"telegram", what:"Hermes bridge to your phone via Telegram",
-   usedFor:"Chat with your agents from anywhere — runs through the gateway",
-   install:"set TELEGRAM_BOT_TOKEN in your .env",
-   url:"https://telegram.org"},
-  {id:"cli", name:"CLI / cron", icon:"cli", what:"Plain command-line sessions and cron jobs",
-   usedFor:"Shell agents, scheduled tasks, batch jobs",
-   install:"already wired — Hermes cron publishes events",
-   url:""},
-];
-
 function fillPlatforms(){
   const box=document.getElementById("platformsbox");if(!box)return;
   box.innerHTML="";
@@ -874,14 +890,19 @@ function render(){
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
   const list=shown();
   const maxc=Math.max(2,settings.max_chars||4);
+  // pick layout geometry first — overrides perRow/colStep/rowStep
+  const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
+  const colStep = geom.colStep, rowStep = geom.rowStep;
   // tile size so columns * max rows fit in canvas (no overlap).
   // Reserve room for the label below each desk (~4 rows of tile height).
-  const labelPx = Math.max(40, Math.round(60 * S / 4));
+  const labelPx = Math.max(40, Math.round(60 * 1)); // safe upper bound
   const usableW=W-16, usableH=H-32-labelPx;
-  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(36*S))));
+  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(colStep*S))));
+  // but the layout might want fewer columns
+  perRow = Math.min(perRow, geom.perRow);
   let rows=Math.ceil(list.length/Math.max(1,perRow));
   // pick tile size so columns fit width AND rows fit height
-  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*36), usableH/(rows*34)))));
+  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*rowStep)))));
   // theme background
   const theme = (THEMES.find(t=>t.id===settings.theme) || THEMES[0]);
   cv.style.background = theme.bg;
