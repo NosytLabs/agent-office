@@ -46,6 +46,16 @@ CATALOG = [
     {"id": "early_bird", "name": "Early bird", "hint": "work between 05:00–08:00", "xp": 15},
     {"id": "fashion", "name": "Office drip", "hint": "hit staff rank", "xp": 0},
     {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
+    {"id": "layout_bullpen", "name": "Bullpen layout", "hint": "10 sessions ever", "xp": 25},
+    {"id": "layout_war_room", "name": "War room", "hint": "principal rank", "xp": 40},
+    {"id": "layout_lounge", "name": "Lounge layout", "hint": "3+ runtimes at once", "xp": 30},
+    {"id": "layout_mexico", "name": "Roof deck", "hint": "night owl + 5 sessions", "xp": 35},
+    {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
+    {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
+    {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
+    {"id": "pet_plant", "name": "Office fern", "hint": "first session", "xp": 0},
+    {"id": "weather_storm", "name": "Stormy", "hint": "5 errors in one day", "xp": 15},
+    {"id": "weather_sun", "name": "Sunny", "hint": "100 sessions", "xp": 25},
 ]
 
 
@@ -125,6 +135,14 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("gold_trim")
     if "claude_desk" in unlocks:
         out.append("orange_scarf")
+    if "pet_plant" in unlocks:
+        out.append("fern")
+    if "pet_cat" in unlocks:
+        out.append("office_cat")
+    if "weather_sun" in unlocks:
+        out.append("sun")
+    if "weather_storm" in unlocks:
+        out.append("storm_lamp")
     return out
 
 
@@ -250,6 +268,23 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "fashion")
     if rk in ("principal", "distinguished"):
         _unlock(data, "corner_office")
+    if int(stats.get("sessions") or 0) >= 10:
+        _unlock(data, "layout_bullpen")
+        _unlock(data, "pet_cat")
+    if rk in ("principal", "distinguished"):
+        _unlock(data, "layout_war_room")
+    live_now = 0
+    if rk in ("staff", "principal", "distinguished"):
+        # unlock lounge if user has hit 3 platforms in their lifetime
+        if len(plats) >= 3:
+            _unlock(data, "layout_lounge")
+    if "night_owl" in (data.get("unlocks") or {}) and int(stats.get("sessions") or 0) >= 5:
+        _unlock(data, "layout_mexico")
+    _unlock(data, "pet_plant")
+    if int(stats.get("errors") or 0) >= 5:
+        _unlock(data, "weather_storm")
+    if int(stats.get("sessions") or 0) >= 100:
+        _unlock(data, "weather_sun")
 
     data["stats"] = stats
     data["last_ts"] = newest

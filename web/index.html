@@ -4,57 +4,86 @@
 <meta charset="utf-8">
 <title>Agent Office</title>
 <style>
-  html,body{margin:0;height:100%;background:#121018;overflow:hidden;
-    font-family:ui-monospace,Menlo,Consolas,monospace}
+  :root{
+    --bg:#121018; --panel:#1a1423; --panel2:#241c30; --line:#3a2f4b;
+    --gold:#e8c170; --dim:#7a6f8f; --ink:#cfc4e8; --ok:#5fce7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
+    font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
   #wrap{display:flex;flex-direction:column;height:100%}
-  #hdr{color:#e8c170;padding:7px 10px;font-size:12px;letter-spacing:1px;
-    border-bottom:2px solid #3a2f4b;display:flex;flex-wrap:wrap;
-    align-items:center;gap:6px;background:#1a1423}
-  #hdr .dim{color:#7a6f8f}
-  #hdr .btn{cursor:pointer;color:#cfc4e8;border:1px solid #3a2f4b;
-    border-radius:3px;padding:2px 8px;font-size:11px;background:#241c30;
-    user-select:none}
-  #hdr .btn:hover{border-color:#e8c170;color:#e8c170}
-  #hdr .btn.on{color:#5fce7a;border-color:#5fce7a}
+  #hdr{color:var(--gold);padding:6px 10px;font-size:12px;letter-spacing:1px;
+    border-bottom:2px solid var(--line);display:grid;
+    grid-template-columns:auto auto 1fr auto;gap:6px 10px;align-items:center;
+    background:var(--panel)}
   #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700}
-  #hdr .mark img{width:16px;height:16px;image-rendering:pixelated}
-  #chips{display:flex;gap:4px;align-items:center}
-  #chips img{width:14px;height:14px}
-  canvas{flex:1;image-rendering:pixelated;width:100%;height:100%}
-  #toast{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
-  #toast .card{background:#241c30;border:1px solid #e8c170;color:#e8c170;
+  #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
+  #hdr .dim{color:var(--dim)}
+  #hdr #chips{display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden}
+  #hdr #chips img{width:14px;height:14px}
+  #hdr #rank{color:#9b6fd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #hdr #count{color:var(--dim);white-space:nowrap}
+  #hdr .btn{cursor:pointer;color:var(--ink);border:1px solid var(--line);
+    border-radius:3px;padding:2px 8px;font-size:11px;background:var(--panel2);
+    user-select:none;white-space:nowrap}
+  #hdr .btn:hover{border-color:var(--gold);color:var(--gold)}
+  #hdr .btn.on{color:var(--ok);border-color:var(--ok)}
+  #hdr #btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    grid-column:4;justify-content:flex-end}
+  canvas{flex:1;image-rendering:pixelated;width:100%;height:100%;background:#151022}
+  #toast{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;
+    gap:6px;z-index:5;max-width:300px}
+  #toast .card{background:var(--panel2);border:1px solid var(--gold);color:var(--gold);
     padding:8px 12px;font-size:12px;min-width:200px;box-shadow:0 4px 0 #151022}
   #toast .card b{display:block;color:#fff8e0}
-  #toast .card span{color:#7a6f8f;font-size:11px}
+  #toast .card span{color:var(--dim);font-size:11px}
   .sheet{display:none;position:fixed;inset:48px 16px 16px 16px;background:#1a1423f2;
-    border:2px solid #3a2f4b;color:#cfc4e8;padding:16px;overflow:auto;z-index:4}
-  .sheet h2{margin:0 0 10px;color:#e8c170;font-size:14px;letter-spacing:1px}
+    border:2px solid var(--line);color:var(--ink);padding:16px;overflow:auto;z-index:4}
+  .sheet h2{margin:0 0 10px;color:var(--gold);font-size:14px;letter-spacing:1px}
   .sheet .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
-  .sheet .ach,.sheet .row{border:1px solid #3a2f4b;padding:8px;background:#241c30}
-  .sheet .ach.have{border-color:#5fce7a}
-  .sheet .n{color:#e8c170;font-size:12px}
-  .sheet .h{color:#7a6f8f;font-size:11px;margin-top:3px}
-  .sheet p{font-size:12px;line-height:1.55;color:#cfc4e8;max-width:62ch}
-  .sheet code{color:#e8c170}
-  .kv{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:4px 0;border-bottom:1px solid #2a2138}
-  .kv b{color:#e8c170}
+  .sheet .ach,.sheet .row{border:1px solid var(--line);padding:8px;background:var(--panel2)}
+  .sheet .ach.have{border-color:var(--ok)}
+  .sheet .ach.locked{opacity:.55}
+  .sheet .n{color:var(--gold);font-size:12px}
+  .sheet .h{color:var(--dim);font-size:11px;margin-top:3px}
+  .sheet p{font-size:12px;line-height:1.55;color:var(--ink);max-width:62ch}
+  .sheet code{color:var(--gold)}
+  .kv{display:flex;justify-content:space-between;gap:12px;font-size:12px;
+    padding:4px 0;border-bottom:1px solid #2a2138;align-items:baseline}
+  .kv b{color:var(--gold)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .seg span{padding:2px 10px;font-size:11px;cursor:pointer;color:var(--dim);
+    border-right:1px solid var(--line);user-select:none}
+  .seg span:last-child{border-right:0}
+  .seg span.on{background:var(--panel2);color:var(--gold)}
+  .seg span.locked{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+  input.txt{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:3px 6px;font-size:11px;border-radius:3px;font-family:inherit}
+  .swatch{width:18px;height:18px;border:1px solid var(--line);display:inline-block;
+    vertical-align:middle;margin-right:6px;border-radius:2px;cursor:pointer}
+  .row{display:flex;gap:6px;align-items:center;padding:6px 8px;border-bottom:1px solid #2a2138}
+  .row:last-child{border-bottom:0}
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="hdr">
     <span class="mark"><img src="assets/hermes.svg" alt="">AGENT OFFICE</span>
-    <span class="dim" id="rank">intern · 0 xp</span>
+    <span id="rank">intern · 0 xp</span>
     <span id="chips"></span>
-    <span style="flex:1"></span>
-    <span class="dim" id="count">connecting…</span>
-    <span class="btn" id="filterbtn" title="filter by runtime">all</span>
-    <span class="btn" id="rosterbtn">roster</span>
-    <span class="btn" id="statsbtn">usage</span>
-    <span class="btn" id="achbtn">badges</span>
-    <span class="btn" id="howbtn">guide</span>
-    <span class="btn" id="sound" title="chime on approval / unlock">♪ sound off</span>
-    <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
+    <span id="btns">
+      <span class="dim" id="count">connecting…</span>
+      <span class="btn" id="filterbtn" title="filter by runtime">all</span>
+      <span class="btn" id="layoutbtn" title="floor layout">layout</span>
+      <span class="btn" id="rosterbtn">roster</span>
+      <span class="btn" id="statsbtn">usage</span>
+      <span class="btn" id="achbtn">badges</span>
+      <span class="btn" id="settingsbtn">⚙</span>
+      <span class="btn" id="debugbtn" title="raw state">dbg</span>
+      <span class="btn" id="howbtn">guide</span>
+      <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
+      <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
+    </span>
   </div>
   <canvas id="c"></canvas>
 </div>
@@ -62,14 +91,17 @@
 <div class="sheet" id="sheet-unlocks"><h2>BADGES</h2><div class="grid" id="achgrid"></div></div>
 <div class="sheet" id="sheet-roster"><h2>ROSTER</h2><div id="roster"></div></div>
 <div class="sheet" id="sheet-stats"><h2>USAGE</h2><div id="statbox"></div></div>
+<div class="sheet" id="sheet-layout"><h2>LAYOUT</h2><div id="layoutbox"></div></div>
+<div class="sheet" id="sheet-areas"><h2>AREAS</h2><div id="areabox"></div></div>
+<div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
+<div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
 <div class="sheet" id="sheet-how">
-  <h2>HOW IT WORKS</h2>
-  <p>Every live agent session is a pixel character. Hermes CLI, Telegram, cron, and OpenCode all write the same event log. This page just folds that log into a floor plan.</p>
-  <p><code>agents → hooks → ~/.hermes/pixel-office/events.jsonl → /state → canvas</code></p>
-  <p>Hermes plugin observes tool/session hooks. OpenCode plugin maps <code>tool.execute.*</code> and session events onto the same JSONL. VS Code polls <code>/state</code> — the webview never talks to the agents.</p>
-  <p>XP and unlocks persist in <code>progress.json</code>. Cosmetics (beanie, visor, gold monitor, cape) unlock by rank and by runtime: Hermes caduceus, OpenCode <code>&gt;_</code>, Telegram plane, CLI prompt.</p>
-  <p>Unlike Pixel Agents (Claude Code only), this floor is runtime-agnostic. Visual only — nothing blocks, vetoes, or edits prompts.</p>
-  <p>Buttons: <b>roster</b> lists every agent, <b>stats</b> shows XP buckets, <b>unlocks</b> is the catalog, <b>all</b> cycles a platform filter.</p>
+  <h2>GUIDE</h2>
+  <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
+  <p>Hooks are <b>observers only</b>. Nothing blocks, vetoes, or edits prompts.</p>
+  <p><b>layout</b> → bullpen / war room / lounge / roof deck unlock with usage. <b>areas</b> paint zones you can map to folders. <b>settings</b> persists across reloads.</p>
+  <p>Unlike Pixel Agents (Claude-only), this is <b>runtime-agnostic</b>. Drop a custom SVG in <code>~/.hermes/pixel-office/assets/</code> and it shows up under <b>logos</b>.</p>
+  <p>Buttons: <b>roster</b> = every agent · <b>usage</b> = real counters · <b>badges</b> = unlocks catalog · <b>dbg</b> = raw <code>/state</code>.</p>
 </div>
 <script>
 "use strict";
@@ -252,6 +284,141 @@ function label(a,x,y){
     ctx.fillText(a.detail.slice(0,19),(x+9)*S,(y+27.5)*S)}
 }
 
+const LAYOUTS = [
+  {id:"open",name:"Open floor",hint:"default",require:null},
+  {id:"bullpen",name:"Bullpen",hint:"10 sessions ever",require:"layout_bullpen"},
+  {id:"war_room",name:"War room",hint:"principal rank",require:"layout_war_room"},
+  {id:"lounge",name:"Lounge",hint:"3+ runtimes at once",require:"layout_lounge"},
+  {id:"mexico",name:"Roof deck",hint:"night owl + 5 sessions",require:"layout_mexico"},
+];
+const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
+let settings = {layout:"open",sound:soundOn,show_chips:true,show_subagent_chips:false,
+  auto_focus_unlocks:true,max_chars:4,areas:{},folder_areas:{}};
+function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
+
+function fillLayout(){
+  const box=document.getElementById("layoutbox");
+  box.innerHTML="";
+  LAYOUTS.forEach(L=>{
+    const locked = L.require && !haveUnlock(L.require);
+    const row = document.createElement("div");
+    row.className="row";
+    row.innerHTML="<div style='flex:1'><div class='n'>"+
+      L.name+(locked?" <span class='h'>(locked)</span>":"")+"</div>"+
+      "<div class='h'>"+L.hint+"</div></div>"+
+      "<span class='btn "+(settings.layout===L.id?"on":"")+"'>"+
+      (settings.layout===L.id?"active":"use")+"</span>";
+    if(!locked) row.querySelector(".btn").onclick=()=>updateSetting("layout",L.id);
+    box.appendChild(row);
+  });
+}
+
+function fillAreas(){
+  const box=document.getElementById("areabox");
+  box.innerHTML="";
+  const cur = settings.areas || {};
+  const keys = Object.keys(cur);
+  if(!keys.length){
+    box.innerHTML="<p class='h'>No areas yet. Add one to paint zones on the floor and assign folders to them.</p>";
+  } else {
+    keys.forEach(name=>{
+      const row=document.createElement("div");
+      row.className="row";
+      const esc=name.replace(/'/g,"&#39;");
+      row.innerHTML="<span class='swatch' style='background:"+cur[name]+"'></span>"+
+        "<input class='txt' value='"+esc+"' data-name='"+esc+"' style='flex:1'>"+
+        "<span class='btn' data-rm='"+esc+"'>remove</span>";
+      box.appendChild(row);
+    });
+  }
+  const add=document.createElement("div");
+  add.className="row";
+  add.innerHTML="<input class='txt' id='newArea' placeholder='new area name'>"+
+    "<span class='btn' id='addArea'>add area</span>";
+  box.appendChild(add);
+  box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{
+    delete settings.areas[b.getAttribute("data-rm")];
+    saveSettings();fillAreas();
+  });
+  box.querySelectorAll("[data-name]").forEach(i=>i.onchange=()=>{
+    const old=i.getAttribute("data-name"), nw=i.value.trim();
+    if(!nw||nw===old)return;
+    settings.areas[nw]=settings.areas[old];delete settings.areas[old];
+    saveSettings();fillAreas();
+  });
+  box.querySelectorAll(".swatch").forEach(s=>s.onclick=()=>{
+    const name=s.nextElementSibling.value;
+    settings.areas[name]=AREA_PALETTE[(Object.keys(settings.areas).indexOf(name))%AREA_PALETTE.length];
+    saveSettings();fillAreas();
+  });
+  document.getElementById("addArea").onclick=()=>{
+    const v=document.getElementById("newArea").value.trim();
+    if(!v||settings.areas[v])return;
+    settings.areas[v]=AREA_PALETTE[Object.keys(settings.areas).length%AREA_PALETTE.length];
+    saveSettings();fillAreas();
+  };
+  const fr=document.createElement("div");fr.className="row";
+  fr.innerHTML="<input class='txt' id='newFolder' placeholder='/path/to/project' style='flex:1'>"+
+    "<select class='txt' id='newFolderArea'>"+(keys.map(k=>"<option>"+k+"</option>").join("")||"<option>api</option>")+"</select>"+
+    "<span class='btn' id='addFolder'>map</span>";
+  box.appendChild(fr);
+  if(Object.keys(settings.folder_areas||{}).length){
+    Object.entries(settings.folder_areas).forEach(([f,a])=>{
+      const row=document.createElement("div");row.className="row";
+      const esc=f.replace(/'/g,"&#39;");
+      row.innerHTML="<div style='flex:1'><div class='n'>"+f+"</div><div class='h'>→ "+a+"</div></div>"+
+        "<span class='btn' data-unmap='"+esc+"'>unmap</span>";
+      box.appendChild(row);
+    });
+    box.querySelectorAll("[data-unmap]").forEach(b=>b.onclick=()=>{
+      delete settings.folder_areas[b.getAttribute("data-unmap")];
+      saveSettings();fillAreas();
+    });
+  }
+  document.getElementById("addFolder").onclick=()=>{
+    const f=document.getElementById("newFolder").value.trim();
+    const a=document.getElementById("newFolderArea").value;
+    if(!f||!a)return;
+    settings.folder_areas[f]=a;
+    saveSettings();fillAreas();
+  };
+}
+
+function fillSettings(){
+  const box=document.getElementById("settingsbox");box.innerHTML="";
+  const items=[
+    ["show_chips","runtime chips",settings.show_chips],
+    ["show_subagent_chips","subagent chips",settings.show_subagent_chips],
+    ["auto_focus_unlocks","focus on unlock",settings.auto_focus_unlocks],
+  ];
+  items.forEach(([k,label,on])=>{
+    const r=document.createElement("div");r.className="row";
+    r.innerHTML="<div style='flex:1'><div class='n'>"+label+"</div></div>"+
+      "<span class='btn "+(on?"on":"")+"' data-tog='"+k+"'>"+(on?"on":"off")+"</span>";
+    box.appendChild(r);
+  });
+  box.querySelectorAll("[data-tog]").forEach(b=>b.onclick=()=>{
+    const k=b.getAttribute("data-tog");settings[k]=!settings[k];
+    saveSettings();fillSettings();applyProgress(progress);
+  });
+  const r=document.createElement("div");r.className="row";
+  r.innerHTML="<div style='flex:1'><div class='n'>grid columns</div></div>"+
+    "<input class='txt' type='number' id='mc' min='2' max='8' value='"+settings.max_chars+"' style='width:60px'>";
+  box.appendChild(r);
+  document.getElementById("mc").onchange=(e)=>{settings.max_chars=Math.max(2,Math.min(8,+e.target.value||4));saveSettings()};
+}
+
+async function saveSettings(){
+  try{await fetch("settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(settings)});}catch(e){}
+}
+async function loadSettings(){
+  try{const r=await fetch("settings");settings=await r.json();}catch(e){}
+}
+async function loadManifest(){
+  try{const r=await fetch("assets-manifest");window.__assets=await r.json();}catch(e){}
+}
+async function updateSetting(k,v){settings[k]=v;await saveSettings();fillLayout();fillAreas();fillSettings();}
+
 const chars = new Map();
 const WALK = 0.55;
 function seatPos(i,perRow){return {x:10+(i%perRow)*36, y:14+Math.floor(i/perRow)*34}}
@@ -321,6 +488,13 @@ function toggleSheet(id){
 document.getElementById("achbtn").onclick=()=>toggleSheet("sheet-unlocks");
 document.getElementById("rosterbtn").onclick=()=>toggleSheet("sheet-roster");
 document.getElementById("statsbtn").onclick=()=>toggleSheet("sheet-stats");
+document.getElementById("layoutbtn").onclick=()=>{fillLayout();toggleSheet("sheet-layout");};
+document.getElementById("settingsbtn").onclick=()=>{fillSettings();fillAreas();toggleSheet("sheet-settings");};
+document.getElementById("debugbtn").onclick=()=>{
+  const d=document.getElementById("debugbox");
+  d.textContent = JSON.stringify({agents:agents.length, progress:progress, settings:settings},null,2);
+  toggleSheet("sheet-debug");
+};
 document.getElementById("howbtn").onclick=()=>toggleSheet("sheet-how");
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
@@ -331,12 +505,19 @@ document.getElementById("filterbtn").onclick=()=>{
 function fillRoster(){
   const box=document.getElementById("roster");
   box.innerHTML="";
-  if(!agents.length){box.innerHTML="<p class='h'>empty floor</p>";return}
+  if(!agents.length){box.innerHTML="<p class='h'>empty floor — start Hermes, OpenCode, or Claude Code</p>";return}
   agents.forEach(a=>{
     const d=document.createElement("div");
     d.className="row";
-    d.innerHTML="<div class='n'>["+platOf(a)+"] "+(a.label||a.id)+"</div>"+
-      "<div class='h'>"+a.status+(a.tool?" · "+a.tool:"")+(a.detail?" · "+a.detail:"")+"</div>";
+    const plats=String(a.platform||"").toLowerCase();
+    const icon="assets/"+({hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"})[plats]||"hermes"+".svg";
+    d.innerHTML="<img src='"+icon+"' width='14' height='14'>"+
+      "<div style='flex:1'><div class='n'>"+(a.label||a.id)+
+      (a.kind==="subagent"?" <span class='h'>(sub)</span>":"")+
+      "</div><div class='h'>"+a.status+
+      (a.tool?" · "+a.tool:"")+
+      (a.detail?" · "+a.detail:"")+
+      "</div></div>";
     box.appendChild(d);
   });
 }
@@ -411,13 +592,31 @@ function render(){
   const W=cv.clientWidth,H=cv.clientHeight;
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
   const list=shown();
-  const rowsAt=s=>Math.ceil(list.length/Math.max(1,Math.floor((W/s-8)/36)));
-  S=4; while(S>2 && 14+rowsAt(S)*34*S>H-8*S && list.length) S--;
+  const maxc=Math.max(2,settings.max_chars||4);
+  const rowsAt=c=>Math.ceil(list.length/Math.max(1,c));
+  // tile size so columns * max rows fit in canvas (no overlap)
+  const usableW=W-16, usableH=H-32;
+  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/36)));
+  let rows=rowsAt(perRow);
+  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*36), usableH/(rows*34)))));
   const gw=Math.floor(W/S),gh=Math.floor(H/S);
   drawOffice(gw,gh);
-  const perRow=Math.max(1,Math.floor((gw-8)/36));
   const cosmetics=(progress&&progress.cosmetics)||[];
   const prev=agents; agents=list; stepChars(perRow); agents=prev;
+  // draw areas (behind desks) so each area is a colored tile cluster
+  const areas = settings.areas || {};
+  if(Object.keys(areas).length && list.length){
+    const names=Object.keys(areas);
+    list.forEach((a,i)=>{
+      const idx=i % names.length;
+      const color=areas[names[idx]];
+      const seat=seatPos(i,perRow);
+      ctx.globalAlpha=0.18;
+      ctx.fillStyle=color;
+      ctx.fillRect(Math.round((seat.x-2)*S), Math.round((seat.y-1)*S), 22*S, 22*S);
+      ctx.globalAlpha=1;
+    });
+  }
   list.forEach((a,i)=>{
     const seat=seatPos(i,perRow);
     drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
@@ -433,7 +632,12 @@ function render(){
     if(c.phase==="out"&&!list.find(a=>a.id===id))
       drawChar({id,kind:"main",status:"gone",activity:"",platform:""},c.x,c.y,false,cosmetics);
   }
+  // layout-specific accent
   ctx.font="13px ui-monospace";ctx.textAlign="center";
+  if(settings.layout && settings.layout!=="open"){
+    ctx.fillStyle="#7a6f8f";
+    ctx.fillText("layout: "+settings.layout, W-60, 14);
+  }
   if(offline){
     ctx.fillStyle="#d84f6f";
     ctx.fillText("office unreachable — "+offline,W/2,H/2);
@@ -441,15 +645,17 @@ function render(){
     ctx.fillText("hermes plugins enable pixel-office  ·  or run an opencode session",W/2,H/2+20);
   }else if(!list.length){
     ctx.fillStyle="#7a6f8f";
-    ctx.fillText(agents.length?"no agents on this filter":"empty floor — run Hermes or OpenCode",W/2,H/2);
+    ctx.fillText(agents.length?"no agents on this filter":"empty floor — run Hermes, OpenCode, or Claude Code",W/2,H/2);
   }
   requestAnimationFrame(render);
 }
 
 function applyState(state){
   offline=null; agents=(state&&state.agents)||[];
+  if(state&&state.settings)settings=Object.assign(settings,state.settings);
   applyProgress(state&&state.progress);
   fillRoster();
+  fillLayout();fillAreas();fillSettings();
   const n=agents.length, w=agents.filter(a=>a.status==="waiting").length;
   document.getElementById("count").textContent=
     n+" agent"+(n===1?"":"s")+(w?" · "+w+" waiting!":"");
@@ -469,6 +675,7 @@ if(IN_VSCODE){
     setTimeout(poll,1500);
   })();
 }
+loadSettings();loadManifest();
 render();
 </script>
 </body>

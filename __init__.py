@@ -81,6 +81,64 @@ def _events_path() -> Path:
     return _office_dir() / "events.jsonl"
 
 
+def _settings_path() -> Path:
+    return _office_dir() / "settings.json"
+
+
+_DEFAULTS = {
+    "layout": "open",                # open | bullpen | war_room | lounge | mexico
+    "sound": False,
+    "show_chips": True,
+    "show_subagent_chips": False,
+    "auto_focus_unlocks": True,
+    "max_chars": 4,                  # floor grid columns
+    "areas": {},                     # area name → color hex
+    "folder_areas": {},              # folder path → area name
+}
+
+
+def _load_settings() -> Dict[str, Any]:
+    try:
+        path = _settings_path()
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            data = {}
+    except Exception:
+        data = {}
+    out = dict(_DEFAULTS)
+    out.update({k: v for k, v in (data or {}).items() if k in _DEFAULTS})
+    return out
+
+
+def _save_settings(payload: Dict[str, Any]) -> None:
+    cur = _load_settings()
+    for k, v in (payload or {}).items():
+        if k in _DEFAULTS:
+            cur[k] = v
+    try:
+        path = _settings_path()
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(cur, indent=2), encoding="utf-8")
+        tmp.replace(path)
+    except Exception:
+        logger.debug("pixel-office settings save failed", exc_info=True)
+
+
+def _asset_manifest() -> Dict[str, Any]:
+    """List bundled + user-added SVG assets. External dirs are read at startup."""
+    bundled: List[Dict[str, str]] = []
+    base = Path(__file__).resolve().parent / "web" / "assets"
+    for f in sorted(base.glob("*.svg")):
+        bundled.append({"id": f.stem, "src": f"/assets/{f.name}", "kind": "logo"})
+    user: List[Dict[str, str]] = []
+    user_dir = _office_dir() / "assets"
+    if user_dir.is_dir():
+        for f in sorted(user_dir.glob("*.svg")):
+            user.append({"id": f"user:{f.stem}", "src": f"/user/{f.name}", "kind": "logo"})
+    return {"bundled": bundled, "user": user}
+
+
 # ---------------------------------------------------------------------------
 # Event publishing (hook side — must be cheap and never raise)
 # ---------------------------------------------------------------------------
@@ -254,6 +312,7 @@ def build_state() -> Dict[str, Any]:
         visible.append(a)
 
     visible.sort(key=lambda a: (a["kind"] != "main", a.get("first_seen", 0)))
+    settings = _load_settings()
     progress = {}
     try:
         try:
@@ -269,7 +328,7 @@ def build_state() -> Dict[str, Any]:
         progress = snapshot(pdata)
     except Exception:
         logger.debug("pixel-office progress fold failed", exc_info=True)
-    return {"agents": visible, "ts": now, "progress": progress}
+    return {"agents": visible, "ts": now, "progress": progress, "settings": settings}
 
 
 # ---------------------------------------------------------------------------
@@ -322,9 +381,29 @@ def _serve() -> None:
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
+                elif self.path.split("?")[0] == "/settings":
+                    body = json.dumps(_load_settings()).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Cache-Control", "no-store")
+                elif self.path.split("?")[0] == "/assets-manifest":
+                    body = json.dumps(_asset_manifest()).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
                 elif self.path.split("?")[0].startswith("/assets/"):
                     name = Path(self.path.split("?")[0]).name
                     asset = html_path.parent / "assets" / name
+                    if asset.is_file() and asset.suffix == ".svg":
+                        body = asset.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "image/svg+xml")
+                    else:
+                        self.send_response(404)
+                        body = b"not found"
+                        self.send_header("Content-Type", "text/plain")
+                elif self.path.split("?")[0].startswith("/user/"):
+                    name = Path(self.path.split("?")[0]).name
+                    asset = _office_dir() / "assets" / name
                     if asset.is_file() and asset.suffix == ".svg":
                         body = asset.read_bytes()
                         self.send_response(200)
@@ -342,6 +421,26 @@ def _serve() -> None:
                 self.wfile.write(body)
             except Exception:
                 logger.debug("pixel-office request failed", exc_info=True)
+
+        def do_POST(self) -> None:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length).decode("utf-8", errors="replace") if length else "{}"
+                payload = json.loads(raw) if raw else {}
+                if self.path.split("?")[0] == "/settings":
+                    _save_settings(payload)
+                    body = json.dumps(_load_settings()).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                else:
+                    self.send_response(404)
+                    body = b"not found"
+                    self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception:
+                logger.debug("pixel-office POST failed", exc_info=True)
 
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", _port), Handler)
