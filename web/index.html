@@ -22,6 +22,10 @@
   #hdr #chips{display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden}
   #hdr #chips img{width:14px;height:14px}
   #hdr #rank{color:#9b6fd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #hdr #xpbar{display:inline-block;width:80px;height:8px;border:1px solid var(--line);
+    background:var(--bg);vertical-align:middle;border-radius:2px;position:relative}
+  #hdr #xpfill{display:block;height:100%;background:linear-gradient(90deg,#5fce7a,#e8c170,#9b6fd8);
+    width:0%;transition:width .3s}
   #hdr #count{color:var(--dim);white-space:nowrap}
   #hdr .btn{cursor:pointer;color:var(--ink);border:1px solid var(--line);
     border-radius:3px;padding:2px 8px;font-size:11px;background:var(--panel2);
@@ -70,6 +74,7 @@
   <div id="hdr">
     <span class="mark"><img src="assets/hermes.svg" alt="" width="18" height="18">AGENT OFFICE</span>
     <span id="rank">intern · 0 xp</span>
+    <span id="xpbar"><span id="xpfill"></span></span>
     <span id="chips"></span>
     <span id="btns">
       <span class="dim" id="count">connecting…</span>
@@ -81,6 +86,8 @@
       <span class="btn" id="settingsbtn">⚙</span>
       <span class="btn" id="debugbtn" title="raw state">dbg</span>
       <span class="btn" id="eventbtn" title="live event feed">live</span>
+      <span class="btn" id="legendbtn" title="status legend">?</span>
+      <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
       <span class="btn" id="howbtn">guide</span>
       <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
@@ -97,6 +104,8 @@
 <div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
 <div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
 <div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
+<div class="sheet" id="sheet-inspector"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
+<div class="sheet" id="sheet-legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
 <div class="sheet" id="sheet-how">
   <h2>GUIDE</h2>
   <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
@@ -163,29 +172,30 @@ function drawOffice(w,h){
   // rug
   const rw=Math.min(28,w-12); px((w-rw)/2,h-9,rw,6,dark?"#3a2048":"#3a2f4b");
   px((w-rw)/2+1,h-8,rw-2,4,dark?"#4a2860":"#443358");
-  // coffee bar (left-bottom)
-  px(2,h-12,10,1,"#6b4a2f"); px(2,h-11,10,4,"#54381f");
-  px(4,h-15,5,3,"#33283f"); px(5,h-14,1,1,"#d84f6f");
-  px(8,h-13,2,1,"#e8c170");
-  // cooler (left wall)
-  px(2,h-19,4,6,"#7fa8d8"); px(3,h-20,2,1,"#a8c8e8"); px(2,h-13,4,2,"#4a4a5a");
-  // plant (right side, moved up so it's not lost)
-  px(w-7,h-22,4,2,"#5fce7a"); px(w-8,h-24,3,3,"#4aa860"); px(w-5,h-23,3,2,"#5fce7a");
-  px(w-6,h-20,2,4,"#8d5524"); px(w-7,h-16,4,1,"#54381f");
+  // coffee bar (left edge, away from door)
+  px(w/2-5,h-12,10,1,"#6b4a2f"); px(w/2-5,h-11,10,4,"#54381f");
+  px(w/2-3,h-15,5,3,"#33283f"); px(w/2-2,h-14,1,1,"#d84f6f");
+  px(w/2+1,h-13,2,1,"#e8c170");
+  // cooler (under coffee bar, moved right)
+  px(w/2+10,h-15,4,6,"#7fa8d8"); px(w/2+11,h-16,2,1,"#a8c8e8"); px(w/2+10,h-9,4,2,"#4a4a5a");
+  // plant (left wall, well inside)
+  px(2,h-19,4,2,"#5fce7a"); px(1,h-21,3,3,"#4aa860"); px(4,h-20,3,2,"#5fce7a");
+  px(3,h-17,2,4,"#8d5524"); px(2,h-13,4,1,"#54381f");
   // sleeping cat (night) / sitting cat (day) — clickable, bounces on interaction
-  const cx=w-14, cy=h-22;
-  // dog companion (right wall, below cat if unlocked)
+  // move cat to right wall, well inside the canvas
+  const cx=w-10, cy=h-12;
+  // dog companion (left wall, opposite corner)
   if(haveUnlock && haveUnlock("pet_dog")){
-    const dx=w-20, dy=h-12;
+    const dx=2, dy=h-30;
     px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
     px(dx+4,dy,1,1,"#d97746");
     if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
   }
   // fish tank (left wall if unlocked)
   if(haveUnlock && haveUnlock("pet_fish")){
-    px(2,h-28,8,6,"#3c5a7a"); px(3,h-27,6,4,"#4fa4d8");
-    if((frame>>2)%2)px(4,h-26,1,1,"#e8c170");
-    if((frame>>2)%3===0)px(7,h-25,1,1,"#d84f6f");
+    px(w/2-15,h-15,8,6,"#3c5a7a"); px(w/2-14,h-14,6,4,"#4fa4d8");
+    if((frame>>2)%2)px(w/2-13,h-13,1,1,"#e8c170");
+    if((frame>>2)%3===0)px(w/2-10,h-12,1,1,"#d84f6f");
   }
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
   px(cx,cy-bob,5,2,"#c9a227"); px(cx+1,cy-1-bob,1,1,"#c9a227"); px(cx+3,cy-1-bob,1,1,"#c9a227");
@@ -369,6 +379,7 @@ const LAYOUTS = [
   {id:"library",name:"Library",hint:"25 reads",require:"layout_library"},
   {id:"arcade",name:"Arcade",hint:"5000 tools",require:"layout_arcade"},
 ];
+const RANKS_THRESHOLDS = {intern:0,junior:50,staff:200,senior:500,principal:1200,distinguished:3000};
 const THEMES = [
   {id:"default",name:"Default",bg:"#121018",tileA:"#2c2438",tileB:"#262033",wall:"#3a2f4b"},
   {id:"midnight",name:"Midnight",bg:"#08080f",tileA:"#15102a",tileB:"#0c0820",wall:"#2a1d4a"},
@@ -622,6 +633,62 @@ document.getElementById("debugbtn").onclick=()=>{
 };
 document.getElementById("howbtn").onclick=()=>toggleSheet("sheet-how");
 document.getElementById("eventbtn").onclick=()=>{fillEvents();toggleSheet("sheet-events");};
+document.getElementById("legendbtn").onclick=()=>{fillLegend();toggleSheet("sheet-legend");};
+document.getElementById("inspectorbtn").onclick=()=>{fillInspector();toggleSheet("sheet-inspector");};
+function fillLegend(){
+  const box=document.getElementById("legendbox");if(!box)return;
+  box.innerHTML=
+    "<p class='h'>status</p>"+
+    ["working: tool running","thinking: between tools","waiting: approval needed",
+     "done: subagent finished","idle: nothing recent","gone: session ended"]
+       .map(s=>"<div class='kv'><span>"+s.split(":")[0]+"</span><b>"+s.split(":")[1]+"</b></div>").join("")+
+    "<p class='h' style='margin-top:10px'>activity</p>"+
+    ["typing: write/edit","reading: read/search","browsing: web_extract",
+     "running: terminal","delegating: subagent","working: other"]
+       .map(s=>"<div class='kv'><span>"+s.split(":")[0]+"</span><b>"+s.split(":")[1]+"</b></div>").join("")+
+    "<p class='h' style='margin-top:10px'>shortcuts</p>"+
+    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","esc close"]
+       .map(s=>"<div class='kv'><span><code>"+s.split(" ")[0]+"</code></span><b>"+s.split(" ").slice(1).join(" ")+"</b></div>").join("");
+}
+document.addEventListener("keydown",(e)=>{
+  if(e.target.tagName==="INPUT")return;
+  const k=e.key.toLowerCase();
+  const map={r:"sheet-roster",u:"sheet-stats",b:"sheet-unlocks",l:"sheet-layout",
+             s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend"};
+  if(k==="escape"){closeSheets();return;}
+  const id=map[k];if(!id)return;
+  e.preventDefault();
+  if(id==="sheet-layout")fillLayout();
+  if(id==="sheet-settings"){fillSettings();fillAreas();}
+  if(id==="sheet-legend")fillLegend();
+  if(id==="sheet-events")fillEvents();
+  if(id==="sheet-debug"){
+    document.getElementById("debugbox").textContent=
+      JSON.stringify({agents:agents.length,progress:progress,settings:settings},null,2);
+  }
+  toggleSheet(id);
+});
+function fillInspector(){
+  const box=document.getElementById("inspectorbox");if(!box)return;
+  if(!focusedId){
+    box.innerHTML="<p class='h'>click a character to inspect</p>";return;
+  }
+  const a=agents.find(x=>x.id===focusedId);
+  if(!a){
+    box.innerHTML="<p class='h'>agent "+(focusedId||"").slice(-6)+" gone</p>";return;
+  }
+  const evs=(window._stateEvents||[]).filter(e=>{
+    const sid=e.session_id||e.child_session_id||"";
+    return sid===focusedId;
+  }).slice(-10);
+  const rows=[
+    ["label",a.label],["platform",platOf(a)],["kind",a.kind],["status",a.status],
+    ["tool",a.tool||"—"],["detail",a.detail||"—"],
+  ];
+  box.innerHTML=rows.map(([k,v])=>"<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("")+
+    "<p class='h' style='margin-top:10px'>recent events for this agent</p>"+
+    evs.map(e=>"<div class='kv'><span>"+e.event+"</span><b>"+(e.tool_name||e.command||e.child_goal||"")+"</b></div>").join("");
+}
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
   document.getElementById("filterbtn").textContent=platFilter;
@@ -712,6 +779,14 @@ function applyProgress(p){
   if(!p)return;
   const next=p.next?(" → "+p.next.rank+" @ "+p.next.need):" · max rank";
   document.getElementById("rank").textContent=(p.rank||"intern")+" · "+(p.xp||0)+" xp"+next;
+  // XP bar fill
+  if(p.next){
+    const need=p.next.need;
+    const prev=RANKS_THRESHOLDS[p.rank]||0;
+    const pct=Math.min(100, Math.max(0, ((p.xp||0)-prev)/(need-prev)*100));
+    const fill=document.getElementById("xpfill");
+    if(fill)fill.style.width=pct.toFixed(1)+"%";
+  }
   const chips=document.getElementById("chips");
   if(chips){
     const plats=(p.stats&&p.stats.platforms)||[];
@@ -815,12 +890,13 @@ function render(){
     if(c.phase==="out"&&!list.find(a=>a.id===id))
       drawChar({id,kind:"main",status:"gone",activity:"",platform:""},c.x,c.y,false,cosmetics);
   }
-  // layout-specific accent (top-left, away from right-edge windows)
-  ctx.font="13px ui-monospace";ctx.textAlign="left";
+  // layout-specific accent (top-center, away from windows and door)
+  ctx.font="11px ui-monospace";ctx.textAlign="center";
   if(settings.layout && settings.layout!=="open"){
-    ctx.fillStyle="#7a6f8f";
-    ctx.fillText("layout: "+settings.layout, 12, 14);
+    ctx.fillStyle="#cfc4e8";
+    ctx.fillText("layout: "+settings.layout, W/2, 14);
   }
+  // live ticker (right edge, clamped to canvas — past the last window)
   if(_events.length){
     const visible=_events.slice(-5);
     ctx.textAlign="right";
@@ -832,12 +908,12 @@ function render(){
       ctx.globalAlpha=alpha;
       ctx.fillStyle={session_start:"#5fce7a",tool_start:"#cfc4e8",
                      approval_request:"#d84f6f",subagent_start:"#c9a227"}[e.kind]||"#9b6fd8";
-      ctx.fillText(e.text, W-12, y);
+      const txt = e.text.length>22 ? e.text.slice(0,21)+"…" : e.text;
+      ctx.fillText(txt, W-6, y);
       y+=11;
     });
     ctx.globalAlpha=1;
   }
-  ctx.textAlign="left"; // reset default
   if(offline){
     ctx.fillStyle="#d84f6f";
     ctx.fillText("office unreachable — "+offline,W/2,H/2);
@@ -853,10 +929,12 @@ function render(){
 function applyState(state){
   offline=null; agents=(state&&state.agents)||[];
   if(state&&state.settings)settings=Object.assign(settings,state.settings);
+  window._stateEvents = state&&state.events || [];
   applyProgress(state&&state.progress);
   fillRoster();
   fillLayout();fillAreas();fillSettings();
-  fillEvents();
+  fillEvents();fillInspector();
+  document.getElementById("inspectorbtn").style.display = focusedId ? "" : "none";
   const n=agents.length, w=agents.filter(a=>a.status==="waiting").length;
   document.getElementById("count").textContent=
     n+" agent"+(n===1?"":"s")+(w?" · "+w+" waiting!":"");
@@ -872,7 +950,9 @@ function applyState(state){
     if(text)_events.push({key:e.ts+"-"+e.event,kind:e.event,text,frame:frame});
   });
   while(_events.length>MAX_EVENTS)_events.shift();
-  if(focusedId && !agents.find(a=>a.id===focusedId))focusedId=null;
+  if(focusedId && !agents.find(a=>a.id===focusedId)){
+    focusedId=null; document.getElementById("inspectorbtn").style.display="none";
+  }
 }
 
 function fillEvents(){
@@ -931,6 +1011,8 @@ cv.addEventListener("click", (ev)=>{
     });
     if(best && bestD<14){
       focusedId = (focusedId===best.id) ? null : best.id;
+      document.getElementById("inspectorbtn").style.display = focusedId ? "" : "none";
+      if(focusedId){fillInspector();toggleSheet("sheet-inspector");}
     }
   }
 });
