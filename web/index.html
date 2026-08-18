@@ -84,7 +84,7 @@
       <span class="dim" id="count">connecting…</span>
     </div>
     <div class="row icons">
-      <span class="btn" id="filterbtn" title="filter by runtime">all</span>
+      <span class="btn" id="filterbtn" title="filter by runtime">every</span>
       <span class="btn" id="layoutbtn" title="floor layout">layout</span>
       <span class="btn" id="rosterbtn">roster</span>
       <span class="btn" id="statsbtn">usage</span>
@@ -92,11 +92,12 @@
       <span class="btn" id="settingsbtn">⚙</span>
       <span class="btn" id="debugbtn" title="raw state">dbg</span>
       <span class="btn" id="eventbtn" title="live event feed">live</span>
-      <span class="btn" id="legendbtn" title="status legend">?</span>
+      <span class="btn" id="legendbtn" title="status legend">legend</span>
       <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
       <span class="btn" id="themeNextbtn" title="cycle theme">theme</span>
+      <span class="btn" id="platformsbtn" title="what do the runtimes mean?">platforms</span>
       <span class="btn" id="howbtn">guide</span>
-      <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
+      <span class="btn" id="sound" title="chime on approval / unlock">sound</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
     </div>
   </div>
@@ -113,6 +114,7 @@
 <div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
 <div class="sheet" id="sheet-inspector"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
 <div class="sheet" id="sheet-legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
+<div class="sheet" id="sheet-platforms"><h2>PLATFORMS</h2><div id="platformsbox"></div></div>
 <div class="sheet" id="sheet-how">
   <h2>GUIDE</h2>
   <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
@@ -126,10 +128,10 @@
 const IN_VSCODE = typeof acquireVsCodeApi !== "undefined";
 const vsapi = IN_VSCODE ? acquireVsCodeApi() : null;
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
-let S = 4, agents = [], progress = null, frame = 0, offline = null, platFilter = "all";
-const FILTERS = ["all","hermes","opencode","claude","telegram","cli"];
+let S = 4, agents = [], progress = null, frame = 0, offline = null, platFilter = "every";
+const FILTERS = ["every","hermes","opencode","claude","telegram","cli"];
 function shown(){
-  if(platFilter==="all") return agents;
+  if(platFilter==="every") return agents;
   if(platFilter==="hermes") return agents.filter(a=>platOf(a)==="hermes"||platOf(a)==="cli");
   return agents.filter(a=>platOf(a)===platFilter);
 }
@@ -656,7 +658,7 @@ function chime(notes){
   }catch(e){}
 }
 const sBtn=document.getElementById("sound");
-function syncSoundBtn(){sBtn.textContent=soundOn?"♪ on":"♪ off";
+function syncSoundBtn(){sBtn.textContent=soundOn?"sound on":"sound off";
   sBtn.classList.toggle("on",soundOn)}
 sBtn.onclick=()=>{soundOn=!soundOn;
   try{localStorage.setItem("pixelOfficeSound",soundOn?"1":"0")}catch(e){}
@@ -703,6 +705,52 @@ document.getElementById("themeNextbtn").onclick=()=>{
   saveSettings();
   fillSettings();
 };
+document.getElementById("platformsbtn").onclick=()=>{fillPlatforms();toggleSheet("sheet-platforms");};
+
+const PLATFORMS = [
+  {id:"hermes", name:"Hermes", icon:"hermes", what:"This machine's AI agent",
+   usedFor:"General coding, multi-agent orchestration, Telegram bridge",
+   install:"already running — it's the host",
+   url:"https://hermes.nousresearch.com"},
+  {id:"opencode", name:"OpenCode", icon:"opencode", what:"Terminal-first coding CLI from SST",
+   usedFor:"Quick scripts, multi-file edits, project scaffolding",
+   install:"brew install sst/tap/opencode (or sst/opencode on npm)",
+   url:"https://opencode.ai"},
+  {id:"claude", name:"Claude Code", icon:"claude", what:"Anthropic's CLI coding agent",
+   usedFor:"Long-running tasks, large refactors, deep codebase exploration",
+   install:"npm i -g @anthropic-ai/claude-code",
+   url:"https://docs.anthropic.com/en/docs/claude-code"},
+  {id:"telegram", name:"Telegram", icon:"telegram", what:"Hermes bridge to your phone via Telegram",
+   usedFor:"Chat with your agents from anywhere — runs through the gateway",
+   install:"set TELEGRAM_BOT_TOKEN in your .env",
+   url:"https://telegram.org"},
+  {id:"cli", name:"CLI / cron", icon:"cli", what:"Plain command-line sessions and cron jobs",
+   usedFor:"Shell agents, scheduled tasks, batch jobs",
+   install:"already wired — Hermes cron publishes events",
+   url:""},
+];
+
+function fillPlatforms(){
+  const box=document.getElementById("platformsbox");if(!box)return;
+  box.innerHTML="";
+  PLATFORMS.forEach(p=>{
+    const d=document.createElement("div");
+    d.className="row";
+    d.style.cssText="padding:10px 8px;align-items:flex-start";
+    const installed = String((progress&&progress.stats&&progress.stats.platforms)||[]).includes(p.id) ||
+                     (p.id==="hermes") || (p.id==="cli");
+    d.innerHTML="<img src='assets/"+p.icon+".svg' width='28' height='28' style='flex-shrink:0;margin-top:2px'>"+
+      "<div style='flex:1;margin-left:10px'>"+
+      "<div class='n'>"+p.name+(installed?" <span class='h' style='color:#5fce7a'>· detected</span>":"")+"</div>"+
+      "<div class='h' style='margin-top:3px'>"+p.what+"</div>"+
+      "<div class='h' style='margin-top:6px'><b style='color:#e8c170'>use for:</b> "+p.usedFor+"</div>"+
+      "<div class='h' style='margin-top:3px'><b style='color:#e8c170'>install:</b> "+p.install+"</div>"+
+      (p.url?("<div class='h' style='margin-top:3px'><a href='"+p.url+"' target='_blank' style='color:#4fa4d8'>"+p.url+"</a></div>"):"")+
+      "</div>";
+    box.appendChild(d);
+  });
+  box.innerHTML += "<p class='h' style='margin-top:12px'>Observer only. Nothing here blocks, edits, or vetoes prompts — it just draws a pixel character.</p>";
+}
 function fillLegend(){
   const box=document.getElementById("legendbox");if(!box)return;
   box.innerHTML=
@@ -715,7 +763,7 @@ function fillLegend(){
      "running: terminal","delegating: subagent","working: other"]
        .map(s=>"<div class='kv'><span>"+s.split(":")[0]+"</span><b>"+s.split(":")[1]+"</b></div>").join("")+
     "<p class='h' style='margin-top:10px'>shortcuts</p>"+
-    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","T theme","esc close"]
+    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","T theme","P platforms","esc close"]
        .map(s=>"<div class='kv'><span><code>"+s.split(" ")[0]+"</code></span><b>"+s.split(" ").slice(1).join(" ")+"</b></div>").join("");
 }
 document.addEventListener("keydown",(e)=>{
@@ -723,7 +771,7 @@ document.addEventListener("keydown",(e)=>{
   const k=e.key.toLowerCase();
   const map={r:"sheet-roster",u:"sheet-stats",b:"sheet-unlocks",l:"sheet-layout",
              s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend",
-             t:"themeNext"};
+             t:"themeNext",p:"sheet-platforms"};
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
@@ -732,6 +780,7 @@ document.addEventListener("keydown",(e)=>{
   if(id==="sheet-legend")fillLegend();
   if(id==="sheet-events")fillEvents();
   if(id==="themeNext")document.getElementById("themeNextbtn").onclick();
+  if(id==="sheet-platforms")fillPlatforms();
   if(id==="sheet-debug"){
     document.getElementById("debugbox").textContent=
       JSON.stringify({agents:agents.length,progress:progress,settings:settings},null,2);
@@ -762,7 +811,7 @@ function fillInspector(){
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
   document.getElementById("filterbtn").textContent=platFilter;
-  document.getElementById("filterbtn").classList.toggle("on", platFilter!=="all");
+  document.getElementById("filterbtn").classList.toggle("on", platFilter!=="every");
 };
 
 function fillRoster(){

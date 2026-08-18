@@ -19,16 +19,16 @@ RANKS = (
 )
 
 CATALOG = [
-    {"id": "first_shift", "name": "First shift", "hint": "clock in once", "xp": 10},
+    {"id": "first_shift", "name": "First day", "hint": "clock in once", "xp": 10},
     {"id": "open_floor", "name": "Open floor", "hint": "an OpenCode session walks in", "xp": 25},
     {"id": "telegram_desk", "name": "Pager kid", "hint": "a Telegram session sits down", "xp": 15},
     {"id": "claude_desk", "name": "Orange desk", "hint": "a Claude Code session clocks in", "xp": 25},
-    {"id": "two_houses", "name": "Two houses", "hint": "Hermes + OpenCode on the same floor", "xp": 40},
-    {"id": "three_houses", "name": "Three houses", "hint": "Hermes + OpenCode + Claude", "xp": 60},
+    {"id": "two_houses", "name": "Two runtimes", "hint": "Hermes + OpenCode on the same floor", "xp": 40},
+    {"id": "three_houses", "name": "Three runtimes", "hint": "Hermes + OpenCode + Claude", "xp": 60},
     {"id": "polyglot", "name": "Polyglot", "hint": "3+ runtimes ever", "xp": 35},
     {"id": "pair_programming", "name": "Pair desk", "hint": "2 agents at once", "xp": 15},
     {"id": "full_floor", "name": "Full floor", "hint": "5 agents on the floor", "xp": 30},
-    {"id": "gold_collar", "name": "Gold collar", "hint": "spawn a subagent", "xp": 20},
+    {"id": "gold_collar", "name": "Boss moves", "hint": "spawn a subagent", "xp": 20},
     {"id": "swarm", "name": "Swarm", "hint": "10 subagents lifetime", "xp": 40},
     {"id": "coffee_break", "name": "Coffee break", "hint": "50 tools fired", "xp": 20},
     {"id": "centurion", "name": "Centurion", "hint": "100 tools", "xp": 30},
