@@ -52,10 +52,13 @@ CATALOG = [
     {"id": "layout_mexico", "name": "Roof deck", "hint": "night owl + 5 sessions", "xp": 35},
     {"id": "layout_garden", "name": "Garden", "hint": "25 writes + 100 sessions", "xp": 50},
     {"id": "layout_library", "name": "Library", "hint": "25 reads", "xp": 35},
+    {"id": "layout_arcade", "name": "Arcade", "hint": "5000 tools", "xp": 60},
     {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
     {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
     {"id": "pet_plant", "name": "Office fern", "hint": "first session", "xp": 0},
+    {"id": "pet_dog", "name": "Office dog", "hint": "100 sessions + 50 tools", "xp": 30},
+    {"id": "pet_fish", "name": "Office fish", "hint": "25 browse tools", "xp": 20},
     {"id": "weather_storm", "name": "Stormy", "hint": "5 errors in one day", "xp": 15},
     {"id": "weather_sun", "name": "Sunny", "hint": "100 sessions", "xp": 25},
 ]
@@ -255,6 +258,9 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "typer")
     if int(stats.get("browses") or 0) >= 15:
         _unlock(data, "browser_tab")
+        _unlock(data, "pet_fish")
+    if (int(stats.get("sessions") or 0) >= 100) and (int(stats.get("tools") or 0) >= 50):
+        _unlock(data, "pet_dog")
     if int(stats.get("shells") or 0) >= 25:
         _unlock(data, "shell_jockey")
     if int(stats.get("subagents") or 0) >= 10:
@@ -279,6 +285,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "layout_garden")
     if int(stats.get("reads") or 0) >= 25:
         _unlock(data, "layout_library")
+    if int(stats.get("tools") or 0) >= 5000:
+        _unlock(data, "layout_arcade")
     live_now = 0
     if rk in ("staff", "principal", "distinguished"):
         # unlock lounge if user has hit 3 platforms in their lifetime
