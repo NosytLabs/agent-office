@@ -98,6 +98,7 @@ _DEFAULTS = {
     "paint": False,
     "paint_color": "#5fce7a",
     "painted": {},
+    "lock_floor": False,
 }
 
 
@@ -328,6 +329,11 @@ def build_state() -> Dict[str, Any]:
         pdata = load(ppath)
         pdata = ingest(pdata, _read_events())
         apply_live(pdata, len(visible))
+        # expose painted areas into stats for progress bars
+        areas = settings.get("areas") or {}
+        pdata["stats"]["_have_areas"] = bool(areas)
+        pdata["stats"]["_area_count"] = len(areas)
+        pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
         save(ppath, pdata)
         progress = snapshot(pdata)
     except Exception:

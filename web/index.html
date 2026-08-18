@@ -72,7 +72,7 @@
 <body>
 <div id="wrap">
   <div id="hdr">
-    <span class="mark"><img src="assets/hermes.svg" alt="" width="18" height="18">AGENT OFFICE</span>
+    <span class="mark"><img src="assets/hermes.svg?v=2" alt="" width="18" height="18">AGENT OFFICE</span>
     <span id="rank">intern · 0 xp</span>
     <span id="xpbar"><span id="xpfill"></span></span>
     <span id="chips"></span>
@@ -88,6 +88,7 @@
       <span class="btn" id="eventbtn" title="live event feed">live</span>
       <span class="btn" id="legendbtn" title="status legend">?</span>
       <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
+      <span class="btn" id="themeNextbtn" title="cycle theme">theme</span>
       <span class="btn" id="howbtn">guide</span>
       <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
@@ -142,10 +143,13 @@ function night(){const h=new Date().getHours();return h<6||h>=19}
 let _gw=0,_gh=0;
 function drawOffice(w,h){
   const dark=night();
-  const T = window._theme || {};
-  const tileA = T.tileA || (dark?"#231c2e":"#2c2438");
-  const tileB = T.tileB || (dark?"#1c1626":"#262033");
-  const wall = T.wall || (dark?"#2a2038":"#3a2f4b");
+  const themeObj = window._theme || {};
+  const tileA = themeObj.tileA || (dark?"#231c2e":"#2c2438");
+  const tileB = themeObj.tileB || (dark?"#1c1626":"#262033");
+  const wall = themeObj.wall || (dark?"#2a2038":"#3a2f4b");
+  const isMidnight = themeObj.id==="midnight";
+  const isForest = themeObj.id==="forest";
+  const isSolar = themeObj.id==="solar";
   for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
     px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
   // back wall + trim
@@ -161,8 +165,14 @@ function drawOffice(w,h){
       px(x+1,3,10,3,"#7fa8d8"); px(x+2,3,3,1,"#c8dff8");
     }
   }
-  // door — left edge, fully inside
-  px(2,2,9,7,"#54381f"); px(3,3,7,6,"#6b4a2f"); px(9,6,1,1,"#e8c170");
+  // door — left edge, fully inside, 9 tiles tall, knob on right
+  // color shifts by theme: default=warm wood, midnight=dark steel, forest=bark, solar=rust
+  const doorWood = isMidnight ? "#0a0814" : isForest ? "#1a140a" : isSolar ? "#3a1a08" : "#3c2814";
+  const doorFrame = isMidnight ? "#1a1428" : isForest ? "#2a2010" : isSolar ? "#5a2810" : "#54381f";
+  const doorInner = isMidnight ? "#2a1f4a" : isForest ? "#4a3a2a" : isSolar ? "#9a5028" : "#6b4a2f";
+  const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a3a" : isSolar ? "#a06028" : "#7a5a3a";
+  px(2,2,10,9,doorWood); px(3,3,8,8,doorFrame); px(4,4,6,7,doorInner); px(5,5,4,6,doorPanel);
+  px(10,6,1,1,"#e8c170");
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
   px(nx,2,24,5,"#151022");
@@ -170,20 +180,20 @@ function drawOffice(w,h){
   ctx.fillStyle=dark?"#ff6ad5":"#e8c170";
   ctx.fillText("AGENT",(nx+1)*S,(6)*S);
   // rug
-  const rw=Math.min(28,w-12); px((w-rw)/2,h-9,rw,6,dark?"#3a2048":"#3a2f4b");
-  px((w-rw)/2+1,h-8,rw-2,4,dark?"#4a2860":"#443358");
-  // coffee bar (left edge, away from door)
-  px(w/2-5,h-12,10,1,"#6b4a2f"); px(w/2-5,h-11,10,4,"#54381f");
-  px(w/2-3,h-15,5,3,"#33283f"); px(w/2-2,h-14,1,1,"#d84f6f");
-  px(w/2+1,h-13,2,1,"#e8c170");
-  // cooler (under coffee bar, moved right)
-  px(w/2+10,h-15,4,6,"#7fa8d8"); px(w/2+11,h-16,2,1,"#a8c8e8"); px(w/2+10,h-9,4,2,"#4a4a5a");
+  const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
+  px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
+  // coffee bar (centered, above rug)
+  px(w/2-5,h-21,10,1,"#6b4a2f"); px(w/2-5,h-20,10,4,"#54381f");
+  px(w/2-3,h-23,5,3,"#33283f"); px(w/2-2,h-22,1,1,"#d84f6f");
+  px(w/2+1,h-21,2,1,"#e8c170");
+  // cooler (next to coffee bar, not overlapping)
+  px(w/2+12,h-21,4,6,"#7fa8d8"); px(w/2+13,h-22,2,1,"#a8c8e8"); px(w/2+12,h-15,4,2,"#4a4a5a");
   // plant (left wall, well inside)
-  px(2,h-19,4,2,"#5fce7a"); px(1,h-21,3,3,"#4aa860"); px(4,h-20,3,2,"#5fce7a");
-  px(3,h-17,2,4,"#8d5524"); px(2,h-13,4,1,"#54381f");
+  px(2,h-21,4,2,"#5fce7a"); px(1,h-23,3,3,"#4aa860"); px(4,h-22,3,2,"#5fce7a");
+  px(3,h-19,2,4,"#8d5524"); px(2,h-15,4,1,"#54381f");
   // sleeping cat (night) / sitting cat (day) — clickable, bounces on interaction
-  // move cat to right wall, well inside the canvas
-  const cx=w-10, cy=h-12;
+  // cat at bottom-RIGHT corner (well inside)
+  const cx=w-8, cy=h-8;
   // dog companion (left wall, opposite corner)
   if(haveUnlock && haveUnlock("pet_dog")){
     const dx=2, dy=h-30;
@@ -368,7 +378,7 @@ let soundOn=false, audioCtx=null;
 try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},
-  folder_areas:{},paint:false,paint_color:"#5fce7a"};
+  folder_areas:{},paint:false,paint_color:"#5fce7a",lock_floor:false};
 const LAYOUTS = [
   {id:"open",name:"Open floor",hint:"default",require:null},
   {id:"bullpen",name:"Bullpen",hint:"10 sessions ever",require:"layout_bullpen"},
@@ -480,11 +490,12 @@ function fillAreas(){
 function fillSettings(){
   const box=document.getElementById("settingsbox");box.innerHTML="";
   const items=[
-    ["show_chips","runtime chips",settings.show_chips],
-    ["show_subagent_chips","subagent chips",settings.show_subagent_chips],
-    ["auto_focus_unlocks","focus on unlock",settings.auto_focus_unlocks],
-    ["paint","paint mode (click tile to color)",settings.paint],
-  ];
+   ["show_chips","runtime chips",settings.show_chips],
+   ["show_subagent_chips","subagent chips",settings.show_subagent_chips],
+   ["auto_focus_unlocks","focus on unlock",settings.auto_focus_unlocks],
+   ["paint","paint mode (drag to color)",settings.paint],
+   ["lock_floor","lock to floor (no animations)",settings.lock_floor],
+ ];
   items.forEach(([k,label,on])=>{
     const r=document.createElement("div");r.className="row";
     r.innerHTML="<div style='flex:1'><div class='n'>"+label+"</div></div>"+
@@ -546,7 +557,18 @@ function fillSettings(){
 }
 
 async function saveSettings(){
-  try{await fetch("settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(settings)});}catch(e){}
+  const isThemeSwitch = settings.theme && !arguments[1];
+  try{
+    await fetch("settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(settings)});
+  }catch(e){}
+  // track theme switches for theme_designer badge
+  try{
+    const n=parseInt(localStorage.getItem("themeSwitches")||"0",10);
+    if(settings.theme!==(localStorage.getItem("lastTheme")||"default")){
+      localStorage.setItem("themeSwitches",String(n+1));
+      localStorage.setItem("lastTheme",settings.theme);
+    }
+  }catch(e){}
 }
 async function loadSettings(){
   try{const r=await fetch("settings");settings=await r.json();}catch(e){}
@@ -561,6 +583,7 @@ const chars = new Map();
 const WALK = 0.55;
 function seatPos(i,perRow){return {x:10+(i%perRow)*36, y:14+Math.floor(i/perRow)*34}}
 function stepChars(perRow){
+  if(settings.lock_floor)return; // freeze in place
   const seen=new Set();
   agents.forEach((a,i)=>{
     seen.add(a.id);
@@ -635,6 +658,14 @@ document.getElementById("howbtn").onclick=()=>toggleSheet("sheet-how");
 document.getElementById("eventbtn").onclick=()=>{fillEvents();toggleSheet("sheet-events");};
 document.getElementById("legendbtn").onclick=()=>{fillLegend();toggleSheet("sheet-legend");};
 document.getElementById("inspectorbtn").onclick=()=>{fillInspector();toggleSheet("sheet-inspector");};
+document.getElementById("themeNextbtn").onclick=()=>{
+  const ids=THEMES.map(t=>t.id);
+  const i=ids.indexOf(settings.theme);
+  const next=THEMES[(i+1)%THEMES.length].id;
+  settings.theme=next;
+  saveSettings();
+  fillSettings();
+};
 function fillLegend(){
   const box=document.getElementById("legendbox");if(!box)return;
   box.innerHTML=
@@ -647,14 +678,15 @@ function fillLegend(){
      "running: terminal","delegating: subagent","working: other"]
        .map(s=>"<div class='kv'><span>"+s.split(":")[0]+"</span><b>"+s.split(":")[1]+"</b></div>").join("")+
     "<p class='h' style='margin-top:10px'>shortcuts</p>"+
-    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","esc close"]
+    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","T theme","esc close"]
        .map(s=>"<div class='kv'><span><code>"+s.split(" ")[0]+"</code></span><b>"+s.split(" ").slice(1).join(" ")+"</b></div>").join("");
 }
 document.addEventListener("keydown",(e)=>{
   if(e.target.tagName==="INPUT")return;
   const k=e.key.toLowerCase();
   const map={r:"sheet-roster",u:"sheet-stats",b:"sheet-unlocks",l:"sheet-layout",
-             s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend"};
+             s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend",
+             t:"themeNext"};
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
@@ -662,6 +694,7 @@ document.addEventListener("keydown",(e)=>{
   if(id==="sheet-settings"){fillSettings();fillAreas();}
   if(id==="sheet-legend")fillLegend();
   if(id==="sheet-events")fillEvents();
+  if(id==="themeNext")document.getElementById("themeNextbtn").onclick();
   if(id==="sheet-debug"){
     document.getElementById("debugbox").textContent=
       JSON.stringify({agents:agents.length,progress:progress,settings:settings},null,2);
@@ -712,15 +745,22 @@ function fillRoster(){
   main.forEach(a=>{
     const d=document.createElement("div");
     d.className="row";
+    // animated portrait canvas
+    const port=document.createElement("canvas");
+    port.width=16;port.height=20;port.style.cssText="width:24px;height:30px;image-rendering:pixelated;border:1px solid #3a2f4b;background:#151022";
+    port._a=a;
+    d.appendChild(port);
+    const info=document.createElement("div");info.style.flex="1";
     const plats=String(a.platform||"").toLowerCase();
-    const icon="assets/"+({hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"})[plats]||"hermes"+".svg";
-    d.innerHTML="<img src='"+icon+"' width='14' height='14'>"+
-      "<div style='flex:1'><div class='n'>"+(a.label||a.id)+
+    const platIcon="assets/"+({hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"})[plats]||"hermes"+".svg";
+    info.innerHTML="<div class='n'>"+(a.label||a.id)+
       (a.kind==="subagent"?" <span class='h'>(sub)</span>":"")+
+      " <img src='"+platIcon+"' width='10' height='10' style='vertical-align:middle'>"+
       "</div><div class='h'>"+a.status+
       (a.tool?" · "+a.tool:"")+
       (a.detail?" · "+a.detail:"")+
-      "</div></div>";
+      "</div>";
+    d.appendChild(info);
     box.appendChild(d);
     if(teams[a.id]){
       const team=document.createElement("div");
@@ -738,6 +778,36 @@ function fillRoster(){
       });
     }
   });
+  // start rendering portraits
+  if(!window._portraitRAF)renderPortraits();
+}
+function renderPortraits(){
+  const list=document.querySelectorAll("#roster canvas");
+  list.forEach(cv=>{
+    const a=cv._a;if(!a)return;
+    const cx=cv.getContext("2d");
+    cx.clearRect(0,0,16,20);
+    const S=2;
+    const h=a.id.split("").reduce((x,c)=>(x*31+c.charCodeAt(0))|0,0);
+    const skin=["#f0c8a0","#c68b59","#8d5524","#ffdbac","#e0ac69"][Math.abs(h)%5];
+    const shirt=["#4fa4d8","#d84f6f","#5fce7a","#c9a227","#9b6fd8"][Math.abs(h>>3)%5];
+    const hair=["#2b2b2b","#5a3825","#c9a227","#8a8a8a"][Math.abs(h>>6)%4];
+    const y=a.status==="working"?-1:0;
+    // hair
+    cx.fillStyle=hair;cx.fillRect(2,1+y,5,2);
+    // face
+    cx.fillStyle=skin;cx.fillRect(2,3+y,5,3);
+    // shirt
+    cx.fillStyle=shirt;cx.fillRect(1,6+y,7,5);
+    if(a.kind==="subagent"){cx.fillStyle="#e8c170";cx.fillRect(1,6+y,7,1);}
+    // eyes
+    cx.fillStyle="#111";cx.fillRect(3,4+y,1,1);cx.fillRect(6,4+y,1,1);
+    // status pixel
+    cx.fillStyle={working:"#5fce7a",thinking:"#c9a227",idle:"#7a6f8f",
+                  waiting:"#d84f6f",done:"#5fce7a",gone:"#555"}[a.status]||"#7a6f8f";
+    cx.fillRect(0,11,3,1);
+  });
+  window._portraitRAF = requestAnimationFrame(renderPortraits);
 }
 function fillStats(){
   const s=(progress&&progress.stats)||{};
@@ -800,8 +870,13 @@ function applyProgress(p){
   grid.innerHTML="";
   (p.catalog||[]).forEach(c=>{
     const d=document.createElement("div");
-    d.className="ach"+(c.have?" have":"");
-    d.innerHTML="<div class='n'>"+(c.have?"★ ":"○ ")+c.name+"</div><div class='h'>"+c.hint+"</div>";
+    d.className="ach"+(c.have?" have":" locked");
+    const pct = c.progress || 0;
+    d.innerHTML="<div class='n'>"+(c.have?"★ ":"○ ")+c.name+"</div>"+
+      "<div class='h'>"+c.hint+(pct?" · "+pct+"%":"")+"</div>"+
+      "<div style='height:3px;background:#151022;margin-top:4px;border:1px solid #3a2f4b'>"+
+      "<div style='height:100%;width:"+pct+"%;background:"+(c.have?"#5fce7a":"#e8c170")+
+      ";transition:width .3s'></div></div>";
     grid.appendChild(d);
   });
   (p.recent||[]).forEach(u=>{
@@ -833,21 +908,18 @@ function render(){
   const tileA = (night() && theme.id==="default")?"#231c2e":theme.tileA;
   const tileB = (night() && theme.id==="default")?"#1c1626":theme.tileB;
   const wall = (night() && theme.id==="default")?"#2a2038":theme.wall;
-  // override the static tile colors that drawOffice uses by patching px via wrapping
-  // (simpler: just re-call drawOffice with themed colors via globals)
-  window._theme = {tileA,tileB,wall,isDark:night()};
+  window._theme = {id:theme.id, tileA, tileB, wall, isDark:night()};
   const gw=Math.floor(W/S),gh=Math.floor(H/S); _gw=gw; _gh=gh;
   drawOffice(gw,gh);
   // painted tile overlay (user-clicked area colors)
-  if(settings.areas && Object.keys(settings.areas).length){
-    Object.entries(settings.areas).forEach(([name,col])=>{
-      ctx.globalAlpha=0.25;
+  if(settings.painted){
+    Object.entries(settings.painted).forEach(([key,name])=>{
+      const [tx,ty] = key.split(",").map(Number);
+      const col=(settings.areas||{})[name]||"#5fce7a";
+      ctx.globalAlpha=0.4;
       ctx.fillStyle=col;
-      ctx.fillRect(2*S, (10+name.length)*S, 22*S, 8*S);
+      ctx.fillRect(tx*S, ty*S, S, S);
       ctx.globalAlpha=1;
-      ctx.font="10px ui-monospace";
-      ctx.fillStyle="#151022";
-      ctx.fillText(name, (12)*S, (10+name.length+5)*S);
     });
   }
   const cosmetics=(progress&&progress.cosmetics)||[];
@@ -985,6 +1057,29 @@ loadSettings();loadManifest();
 render();
 
 // click canvas → paint tile, focus character, or pet
+let _painting = false;
+cv.addEventListener("mousedown", (ev)=>{
+  if(!settings.paint)return;
+  _painting = true;
+  paintAt(ev);
+});
+cv.addEventListener("mousemove", (ev)=>{
+  if(!_painting)return;
+  paintAt(ev);
+});
+cv.addEventListener("mouseup", ()=>{ _painting=false; });
+cv.addEventListener("mouseleave", ()=>{ _painting=false; });
+function paintAt(ev){
+  const r=cv.getBoundingClientRect();
+  const tx=Math.floor((ev.clientX-r.left)/S);
+  const ty=Math.floor((ev.clientY-r.top)/S);
+  const areas=settings.areas;
+  if(!Object.keys(areas).length)return;
+  const name=Object.keys(areas)[0];
+  settings.painted = settings.painted || {};
+  settings.painted[tx+","+ty]=name;
+  saveSettings();
+}
 cv.addEventListener("click", (ev)=>{
   const r=cv.getBoundingClientRect();
   const tx=Math.floor((ev.clientX-r.left)/S);
@@ -997,7 +1092,7 @@ cv.addEventListener("click", (ev)=>{
     settings.painted = settings.painted || {};
     settings.painted[key]=name;
     saveSettings();
-  } else if(tx>_gw-15 && ty>_gh-22){
+  } else if(tx>_gw-12 && ty>_gh-8){
     petBounce=true; petTimer=120; chime([520,780]);
   } else {
     // try to focus the clicked character

@@ -61,6 +61,9 @@ CATALOG = [
     {"id": "pet_fish", "name": "Office fish", "hint": "25 browse tools", "xp": 20},
     {"id": "weather_storm", "name": "Stormy", "hint": "5 errors in one day", "xp": 15},
     {"id": "weather_sun", "name": "Sunny", "hint": "100 sessions", "xp": 25},
+    {"id": "canvas_artisan", "name": "Canvas artisan", "hint": "paint 30 tiles", "xp": 30},
+    {"id": "auto_arrange", "name": "Auto-arrange", "hint": "50 sessions", "xp": 25},
+    {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
 ]
 
 
@@ -295,10 +298,11 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
     if "night_owl" in (data.get("unlocks") or {}) and int(stats.get("sessions") or 0) >= 5:
         _unlock(data, "layout_mexico")
     _unlock(data, "pet_plant")
-    if int(stats.get("errors") or 0) >= 5:
-        _unlock(data, "weather_storm")
     if int(stats.get("sessions") or 0) >= 100:
         _unlock(data, "weather_sun")
+        _unlock(data, "auto_arrange")
+    if int(stats.get("errors") or 0) >= 5:
+        _unlock(data, "weather_storm")
 
     data["stats"] = stats
     data["last_ts"] = newest
@@ -323,17 +327,89 @@ def snapshot(data: Dict[str, Any]) -> Dict[str, Any]:
         if xp < need:
             nxt = {"rank": label, "need": need}
             break
+    stats = data.get("stats") or {}
+    by_tool = stats.get("by_tool") or {}
+    by_platform = stats.get("by_platform") or {}
+    plats = set(stats.get("platforms") or [])
     return {
         "xp": xp,
         "rank": rank_for(xp),
         "next": nxt,
-        "stats": data.get("stats") or {},
+        "stats": stats,
         "cosmetics": cosmetics_for(xp, data.get("unlocks") or {}),
         "unlocks": [
             {"id": k, "name": v.get("name") or k, "at": v.get("at")}
             for k, v in sorted((data.get("unlocks") or {}).items(), key=lambda kv: kv[1].get("at") or 0)
         ],
         "recent": data.get("recent") or [],
-        "catalog": [{"id": c["id"], "name": c["name"], "hint": c["hint"],
-                     "have": c["id"] in (data.get("unlocks") or {})} for c in CATALOG],
+        "catalog": [
+            {"id": c["id"], "name": c["name"], "hint": c["hint"],
+             "have": c["id"] in (data.get("unlocks") or {}),
+             "progress": _progress_for(c["id"], stats, xp, plats, by_tool, by_platform)}
+            for c in CATALOG
+        ],
     }
+
+
+def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
+                  plats: set, by_tool: dict, by_platform: dict) -> int:
+    """Return 0..100 progress for a badge so the front-end can show a bar."""
+    def pct(num: int, den: int) -> int:
+        return min(100, max(0, int(round(num / max(1, den) * 100))))
+
+    tools = int(stats.get("tools") or 0)
+    sessions = int(stats.get("sessions") or 0)
+    reads = int(stats.get("reads") or 0)
+    writes = int(stats.get("writes") or 0)
+    browses = int(stats.get("browses") or 0)
+    shells = int(stats.get("shells") or 0)
+    subs = int(stats.get("subagents") or 0)
+    errors = int(stats.get("errors") or 0)
+    rk = rank_for(xp)
+    has_nightowl = "night_owl" in (stats.get("_unlocks") or {})
+    return {
+        "first_shift": 100 if sessions >= 1 else 0,
+        "open_floor": 100 if "opencode" in plats else 0,
+        "telegram_desk": 100 if "telegram" in plats else 0,
+        "claude_desk": 100 if any("claude" in p for p in plats) else 0,
+        "two_houses": 100 if "opencode" in plats and (plats & {"cli","telegram","gateway","hermes"}) else pct(2,2),
+        "three_houses": 100 if ("opencode" in plats and any("claude" in p for p in plats)
+                               and (plats & {"cli","telegram","gateway","hermes"})) else pct(2,3),
+        "polyglot": pct(len(plats),3),
+        "pair_programming": pct(int(stats.get("max_concurrent") or 0),2),
+        "full_floor": pct(int(stats.get("max_concurrent") or 0),5),
+        "gold_collar": pct(subs,1),
+        "swarm": pct(subs,10),
+        "coffee_break": pct(tools,50),
+        "centurion": pct(tools,100),
+        "thousand_cuts": pct(tools,1000),
+        "five_k": pct(tools,5000),
+        "reader": pct(reads,25),
+        "typer": pct(writes,25),
+        "browser_tab": pct(browses,15),
+        "shell_jockey": pct(shells,25),
+        "toolkit": pct(len(by_tool),10),
+        "specialist": pct(max(int(v) for v in by_tool.values()) if by_tool else 0, 50),
+        "oops": pct(errors,10),
+        "red_alert": pct(int(stats.get("approvals") or 0),1),
+        "night_owl": 100 if has_nightowl else 0,
+        "early_bird": 100 if has_nightowl else 0,
+        "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,50),
+        "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,300),
+        "layout_bullpen": pct(sessions,10),
+        "layout_war_room": 100 if rk in ("principal","distinguished") else pct(xp,1200),
+        "layout_lounge": pct(len(plats),3),
+        "layout_mexico": pct(sessions,5),
+        "layout_garden": min(pct(writes,25), pct(sessions,100)),
+        "layout_library": pct(reads,25),
+        "layout_arcade": pct(tools,5000),
+        "areas_q1": 100 if stats.get("_have_areas") else 0,
+        "areas_q2": pct(int(stats.get("_area_count") or 0),3),
+        "pet_cat": pct(sessions,50),
+        "pet_plant": 100 if sessions >= 1 else 0,
+        "pet_dog": min(pct(sessions,100), pct(tools,50)),
+        "pet_fish": pct(browses,25),
+        "weather_storm": pct(errors,5),
+        "weather_sun": pct(sessions,100),
+        "canvas_artisan": pct(int(stats.get("_painted_count") or 0), 30),
+    }.get(badge_id, 0)

@@ -47,7 +47,8 @@ def test_catalog_grew():
             "layout_mexico", "layout_garden", "layout_library",
             "layout_arcade", "pet_dog", "pet_fish",
             "areas_q1", "areas_q2",
-            "pet_cat", "pet_plant", "weather_storm", "weather_sun"} <= ids
+            "pet_cat", "pet_plant", "weather_storm", "weather_sun",
+            "canvas_artisan", "auto_arrange", "theme_designer"} <= ids
 
 
 def test_ranks_still_intact():
