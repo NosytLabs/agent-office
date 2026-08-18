@@ -488,7 +488,7 @@ function fillSettings(){
       r.onload=()=>{
         try{
           const o=JSON.parse(r.result);
-          Object.keys(o).forEach(k=>{if(k in _DEFAULTS)settings[k]=o[k]});
+          Object.keys(o).forEach(k=>{if(k in _DEFAULTS)settings[k]=o[k];});
           saveSettings();fillSettings();fillLayout();fillAreas();
           localStorage.setItem("didImport","1");
         }catch(e){alert("bad layout json: "+e.message);}
