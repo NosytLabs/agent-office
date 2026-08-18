@@ -824,6 +824,7 @@ function renderPortraits(){
   window._portraitRAF = requestAnimationFrame(renderPortraits);
 }
 function fillStats(){
+  const box=document.getElementById("statbox");if(!box)return;
   const s=(progress&&progress.stats)||{};
   const byt=s.by_tool||{};
   const top=Object.entries(byt).sort((a,b)=>b[1]-a[1]).slice(0,8)
