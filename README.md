@@ -3,13 +3,13 @@
 **Multi-runtime pixel-art virtual office for AI coding agents.**
 
 One floor for every agent you run — Hermes, OpenCode, Claude Code,
-Telegram, CLI, cron. Watch them sit at desks, type, browse, and ask
-for approval. Earn ranks, unlock layouts, collect cats.
+Telegram, CLI, and cron. Watch agents sit at desks, type, browse, and ask
+for approval. Earn ranks, unlock layouts, collect pets, and map real
+project folders to colored office zones.
 
-**Observer only.** Never blocks, vetoes, or rewrites prompts.
+Observer only. Runtime-agnostic. MIT.
 
 Inspired by [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents).
-Runtime-agnostic. MIT.
 
 ![screenshot](docs/screenshot.png)
 
@@ -23,8 +23,8 @@ python3 install.py    # detects Hermes / OpenCode / Claude / VS Code
 
 Then open **http://127.0.0.1:8113** — no agents handy? `python3 demo_feed.py`
 
-The installer wires **only what you already have**. Run it again any
-time to add a new runtime.
+The installer wires only what you already have. Run it again any time to add
+a new runtime.
 
 ## supported runtimes
 
@@ -36,18 +36,18 @@ time to add a new runtime.
 | **Telegram** | Hermes phone bridge | set `TELEGRAM_BOT_TOKEN` |
 | **CLI / cron** | shell + scheduled tasks | already wired |
 
-Click **platforms** in the header (or press `P`) for the full panel
-with logos, install commands, and live detection.
+Click **platforms** in the header, or press `P`, for logos, install commands,
+and live detection.
 
 ## features
 
 - **48 badges** with progress bars — unlock by using agents
 - **6 ranks** — intern → junior → staff → senior → principal → distinguished
-- **9 unlockable layouts** — bullpen, war room, lounge, roof deck,
-  garden, library, arcade, penthouse + open
+- **9 unlockable layouts** — bullpen, war room, lounge, roof deck, garden,
+  library, arcade, penthouse + open
 - **6 themes** — default, midnight, forest, solar, cyberpunk, sunset
-- **3 pets** — cat (default), dog (100 sessions + 50 tools), fish tank
-- **3 desk types** — wood (fashion), standing (centurion), glass (marathon)
+- **3 pets** — cat, dog, fish tank
+- **3 desk types** — wood, standing, glass
 - **named areas** painted behind desks + folder→area mapping
 - **paint mode** with drag-paint, click character to focus + inspect
 - **live event ticker** + speech bubbles + health bar + hourglass
@@ -58,33 +58,40 @@ with logos, install commands, and live detection.
 
 ## how to use
 
-Open http://127.0.0.1:8113.
+Open **http://127.0.0.1:8113**.
 
-**Click any character** to focus (gold ring + inspector panel).
-**Click again** to unfocus. **Click the cat** to pet it.
-**Drag on the canvas** in paint mode to color tiles.
-**Type any key** to use a shortcut (see `?` button or press `?`).
+- Click any character to focus — gold ring + inspector panel
+- Click again to unfocus
+- Click the cat to pet it
+- Drag on the canvas in paint mode to color tiles
+- Press `?` to see keyboard shortcuts
 
-Buttons in the header:
-- `every` — runtime filter (every/hermes/opencode/claude/telegram/cli)
+Header buttons:
+
+- `every` — runtime filter
 - `layout` — choose floor layout
 - `roster` — every agent + subagent teams
-- `usage` — real counters (tools, reads/writes, errors, by-tool)
+- `usage` — real counters
 - `badges` — catalog with progress bars
-- `⚙` — settings (themes, paint mode, lock floor, import/export)
+- `⚙` — settings
 - `dbg` — raw JSON state
 - `live` — last 30 events
-- `legend` — what every status/activity color means
+- `legend` — status key
 - `theme` — cycle theme
-- `platforms` — what each runtime is + install commands
+- `platforms` — runtimes + install commands
 - `guide` — quick how-to
 - `sound` — chime on approval/unlock
 
+## plugin setup
+
+Hermes plugin metadata is in `plugin.yaml`. VS Code extension + Claude hook
++ OpenCode bridge are installed by `install.py`. Re-run it after cloning.
+
 ## architecture
 
-see [docs/architecture.md](docs/architecture.md).
+See [docs/architecture.md](docs/architecture.md).
 
-```
+```text
 Hermes hooks ───┐
 OpenCode plugin ┼──► ~/.hermes/pixel-office/events.jsonl ──► /state ──► canvas
 Claude hook ────┘                     │
@@ -100,7 +107,7 @@ python3 -m pytest tests/ -q    # 18 tests
 
 ## repo layout
 
-```
+```text
 agent-office/
 ├── README.md                  (you are here)
 ├── LICENSE                    (MIT)
