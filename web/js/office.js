@@ -37,8 +37,8 @@ function drawOffice(w,h){
   const isSolar = themeObj.id==="solar";
   for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
     px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
-  // back wall + trim
-  px(0,0,w,8,wall); px(0,8,w,1,"#1a1423");
+  // back wall + trim + wainscoting
+  px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
   // windows — cap inside canvas, every 22 tiles, skip first 2 to leave room for door
   for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
     px(x,2,12,5,"#151022");
@@ -49,26 +49,27 @@ function drawOffice(w,h){
     }else{
       px(x+1,3,10,3,"#7fa8d8"); px(x+2,3,3,1,"#c8dff8");
     }
+    px(x,6,12,1,"#3a2f4b"); px(x,2,1,5,"#3a2f4b"); px(x+11,2,1,5,"#3a2f4b");
   }
   // door — left edge, theme-aware, with visible inner panel + knob
   const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
   const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
   const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
   const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : isSolar ? "#a06028" : "#a07040";
-  // outer wood frame
-  px(2,2,9,9,doorWood);
+  // outer wood frame + shadow
+  px(2,2,9,9,doorWood); px(3,3,1,7,"#1a1423"); px(10,3,1,7,"#1a1423");
   // inner darker rect (the door surface, recessed look)
-  px(3,3,7,7,doorFrame);
+  px(3,3,8,8,doorFrame);
   // raised panel
-  px(4,4,5,5,doorPanel);
+  px(4,4,6,6,doorPanel);
   // inset darker line
-  px(5,5,3,3,doorInner);
+  px(5,5,4,4,doorInner);
   // brass knob on the right
   px(10,6,1,1,"#e8c170");
   px(10,7,1,1,"#c9a227");
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
-  px(nx,2,24,5,"#151022");
+  px(nx,2,24,5,"#151022"); px(nx,6,24,1,"#3a2f4b");
   ctx.font="10px ui-monospace"; ctx.textAlign="left";
   ctx.fillStyle=dark?"#ff6ad5":"#e8c170";
   ctx.fillText("AGENT",(nx+1)*S,(6)*S);
@@ -102,14 +103,15 @@ function drawOffice(w,h){
   }
   // coffee bar (centered, above rug)
   px(w/2-5,h-21,10,1,"#6b4a2f"); px(w/2-5,h-20,10,4,"#54381f");
-  px(w/2-3,h-23,5,3,"#33283f"); px(w/2-2,h-22,1,1,"#d84f6f");
-  px(w/2+1,h-21,2,1,"#e8c170");
+  px(w/2-3,h-23,5,3,"#33283f"); px(w/2-3,h-22,3,1,"#3e334f");
+  px(w/2-2,h-22,1,1,"#d84f6f"); px(w/2+1,h-21,2,1,"#e8c170"); px(w/2+2,h-22,1,1,"#5fce7a");
   // cooler (next to coffee bar, not overlapping)
   px(w/2+12,h-21,4,6,"#7fa8d8"); px(w/2+13,h-22,2,1,"#a8c8e8"); px(w/2+12,h-15,4,2,"#4a4a5a");
+  px(w/2+13,h-19,1,2,"#6a8ab8"); px(w/2+14,h-20,1,1,"#a8c8e8");
   // plant (left wall, well inside, with multiple leaves)
   px(2,h-22,4,2,"#4aa860"); px(1,h-24,3,3,"#5fce7a");
   px(4,h-23,3,2,"#4aa860"); px(0,h-22,1,2,"#5fce7a");
-  px(3,h-20,2,4,"#8d5524"); px(2,h-16,4,1,"#54381f");
+  px(3,h-20,2,4,"#8d5524"); px(2,h-16,4,1,"#54381f"); px(3,h-17,1,1,"#6b4a2f");
   // small flower
   if((frame>>4)%2) px(2,h-24,1,1,"#e8c170");
   // cat — bottom-right, larger and clearer (head + body + tail + ears)
@@ -118,25 +120,26 @@ function drawOffice(w,h){
   if(haveUnlock && haveUnlock("pet_dog")){
     const dx=2, dy=h-32;
     px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
-    px(dx+4,dy,1,1,"#d97746");
+    px(dx+4,dy,1,1,"#d97746"); px(dx+1,dy+1,1,1,"#a04020"); px(dx+4,dy+1,1,1,"#a04020");
     if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
   }
   // fish tank (bottom-center, between cooler and cat)
   if(haveUnlock && haveUnlock("pet_fish")){
     px(w/2-15,h-26,8,6,"#3c5a7a"); px(w/2-14,h-25,6,4,"#4fa4d8");
-    if((frame>>2)%2)px(w/2-13,h-24,1,1,"#e8c170");
+    px(w/2-14,h-22,6,1,"#6b4a2f"); px(w/2-13,h-24,1,1,"#e8c170"); px(w/2-12,h-25,1,1,"#5fce7a");
     if((frame>>2)%3===0)px(w/2-10,h-23,1,1,"#d84f6f");
   }
   // body
   px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
+  px(cx-1,cy,1,1,"#a0801a"); px(cx+1,cy,1,1,"#a0801a"); px(cx+3,cy,1,1,"#a0801a");
   // head
   px(cx+2,cy-3,4,3,"#c9a227");
   // ears
   px(cx+2,cy-4,1,1,"#a0801a"); px(cx+4,cy-4,1,1,"#a0801a");
   // eyes (open during day / when awake)
   if(!dark||(frame>>5)%2){px(cx+3,cy-2,1,1,"#1a1423");px(cx+5,cy-2,1,1,"#1a1423");}
-  // tail
-  px(cx-3,cy-1,1,2,"#c9a227");
+  // tail with tip
+  px(cx-3,cy-1,1,2,"#c9a227"); px(cx-4,cy-2,1,1,"#a0801a");
   // bob animation when petted
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
   if(bob){px(cx+2,cy-5,4,1,"#fff8c8");}
