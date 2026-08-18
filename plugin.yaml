@@ -1,0 +1,13 @@
+name: pixel-office
+version: "0.3.0"
+description: "Pixel-art virtual office for Hermes + OpenCode — animated characters, ranks, unlocks. Visual only."
+author: "NousResearch"
+hooks:
+  - pre_tool_call
+  - post_tool_call
+  - subagent_start
+  - subagent_stop
+  - on_session_start
+  - on_session_end
+  - pre_approval_request
+  - post_approval_response

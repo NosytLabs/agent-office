@@ -1,0 +1,59 @@
+{
+  "name": "agent-office",
+  "displayName": "Agent Office",
+  "description": "Pixel-art virtual office for Hermes agents \u2014 watch sessions, tools, and subagents as animated pixel characters inside VS Code.",
+  "version": "0.2.0",
+  "publisher": "teknium",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teknium1/agent-office-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "hermesPixelOffice.open",
+        "title": "Hermes: Open Pixel Office"
+      }
+    ],
+    "configuration": {
+      "title": "Agent Office",
+      "properties": {
+        "hermesPixelOffice.stateUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8113/state",
+          "description": "URL of the Hermes pixel-office plugin's /state endpoint."
+        },
+        "hermesPixelOffice.openOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open the pixel office panel automatically when VS Code starts."
+        }
+      }
+    }
+  },
+  "icon": "icon.png",
+  "keywords": [
+    "hermes",
+    "agents",
+    "pixel art",
+    "visualization",
+    "ai",
+    "office"
+  ],
+  "bugs": {
+    "url": "https://github.com/teknium1/agent-office-vscode/issues"
+  },
+  "homepage": "https://github.com/teknium1/agent-office-vscode#readme"
+}

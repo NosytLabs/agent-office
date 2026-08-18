@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.hermes/
+progress.json
+events.jsonl
+*.tmp
+.DS_Store
+node_modules/

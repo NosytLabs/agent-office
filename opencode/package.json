@@ -1,0 +1,13 @@
+{
+  "name": "pixel-office-bridge",
+  "version": "0.1.0",
+  "description": "Feed OpenCode sessions into Hermes Pixel Office (events.jsonl)",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": { "import": "./index.js" },
+    "./server": { "import": "./index.js" }
+  },
+  "files": ["index.js"],
+  "license": "MIT"
+}
