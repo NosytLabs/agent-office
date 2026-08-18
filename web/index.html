@@ -12,10 +12,12 @@
   html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
     font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
   #wrap{display:flex;flex-direction:column;height:100%}
-  #hdr{color:var(--gold);font-size:12px;letter-spacing:1px;
-    border-bottom:2px solid var(--line);display:grid;
-    grid-template-columns:auto auto 1fr auto;gap:6px 10px;align-items:center;
-    background:var(--panel)}
+  #hdr{padding:8px 14px;display:flex;flex-direction:column;gap:4px}
+  #hdr .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  #hdr .row.icons{flex:1;justify-content:flex-end}
+  #hdr .dim{color:var(--dim)}
+  #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+  #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
   #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700}
   #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
   #hdr .dim{color:var(--dim)}
@@ -34,6 +36,8 @@
   #hdr .btn.on{color:var(--ok);border-color:var(--ok)}
   #hdr #btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
     grid-column:4;justify-content:flex-end;padding-right:6px}
+  #hdr #chips{display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden}
+  #hdr #chips img{width:14px;height:14px}
   canvas{flex:1;image-rendering:pixelated;width:100%;height:100%;background:#151022}
   #toast{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;
     gap:6px;z-index:5;max-width:300px}
@@ -72,12 +76,14 @@
 <body>
 <div id="wrap">
   <div id="hdr">
-    <span class="mark"><img src="assets/hermes.svg?v=2" alt="" width="18" height="18">AGENT OFFICE</span>
-    <span id="rank">intern · 0 xp</span>
-    <span id="xpbar"><span id="xpfill"></span></span>
-    <span id="chips"></span>
-    <span id="btns">
+    <div class="row top">
+      <span class="mark"><img src="assets/hermes.svg?v=2" alt="" width="18" height="18">AGENT OFFICE</span>
+      <span id="rank">intern · 0 xp</span>
+      <span id="xpbar"><span id="xpfill"></span></span>
+      <span id="chips"></span>
       <span class="dim" id="count">connecting…</span>
+    </div>
+    <div class="row icons">
       <span class="btn" id="filterbtn" title="filter by runtime">all</span>
       <span class="btn" id="layoutbtn" title="floor layout">layout</span>
       <span class="btn" id="rosterbtn">roster</span>
@@ -92,7 +98,7 @@
       <span class="btn" id="howbtn">guide</span>
       <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
-    </span>
+    </div>
   </div>
   <canvas id="c"></canvas>
 </div>
@@ -165,14 +171,25 @@ function drawOffice(w,h){
       px(x+1,3,10,3,"#7fa8d8"); px(x+2,3,3,1,"#c8dff8");
     }
   }
-  // door — left edge, fully inside, 9 tiles tall, knob on right
-  // color shifts by theme: default=warm wood, midnight=dark steel, forest=bark, solar=rust
-  const doorWood = isMidnight ? "#0a0814" : isForest ? "#1a140a" : isSolar ? "#3a1a08" : "#3c2814";
-  const doorFrame = isMidnight ? "#1a1428" : isForest ? "#2a2010" : isSolar ? "#5a2810" : "#54381f";
-  const doorInner = isMidnight ? "#2a1f4a" : isForest ? "#4a3a2a" : isSolar ? "#9a5028" : "#6b4a2f";
-  const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a3a" : isSolar ? "#a06028" : "#7a5a3a";
-  px(2,2,10,9,doorWood); px(3,3,8,8,doorFrame); px(4,4,6,7,doorInner); px(5,5,4,6,doorPanel);
+  // door — left edge, theme-aware, with visible inner panel + knob
+  const isMidnight = themeObj.id==="midnight";
+  const isForest = themeObj.id==="forest";
+  const isSolar = themeObj.id==="solar";
+  const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
+  const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
+  const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
+  const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : isSolar ? "#a06028" : "#a07040";
+  // outer wood frame
+  px(2,2,9,9,doorWood);
+  // inner darker rect (the door surface, recessed look)
+  px(3,3,7,7,doorFrame);
+  // raised panel
+  px(4,4,5,5,doorPanel);
+  // inset darker line
+  px(5,5,3,3,doorInner);
+  // brass knob on the right
   px(10,6,1,1,"#e8c170");
+  px(10,7,1,1,"#c9a227");
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
   px(nx,2,24,5,"#151022");
@@ -188,29 +205,40 @@ function drawOffice(w,h){
   px(w/2+1,h-21,2,1,"#e8c170");
   // cooler (next to coffee bar, not overlapping)
   px(w/2+12,h-21,4,6,"#7fa8d8"); px(w/2+13,h-22,2,1,"#a8c8e8"); px(w/2+12,h-15,4,2,"#4a4a5a");
-  // plant (left wall, well inside)
-  px(2,h-21,4,2,"#5fce7a"); px(1,h-23,3,3,"#4aa860"); px(4,h-22,3,2,"#5fce7a");
-  px(3,h-19,2,4,"#8d5524"); px(2,h-15,4,1,"#54381f");
-  // sleeping cat (night) / sitting cat (day) — clickable, bounces on interaction
-  // cat at bottom-RIGHT corner (well inside)
+  // plant (left wall, well inside, with multiple leaves)
+  px(2,h-22,4,2,"#4aa860"); px(1,h-24,3,3,"#5fce7a");
+  px(4,h-23,3,2,"#4aa860"); px(0,h-22,1,2,"#5fce7a");
+  px(3,h-20,2,4,"#8d5524"); px(2,h-16,4,1,"#54381f");
+  // small flower
+  if((frame>>4)%2) px(2,h-24,1,1,"#e8c170");
+  // cat — bottom-right, larger and clearer (head + body + tail + ears)
   const cx=w-8, cy=h-8;
-  // dog companion (left wall, opposite corner)
+  // dog companion (left wall) — sits below the plant
   if(haveUnlock && haveUnlock("pet_dog")){
-    const dx=2, dy=h-30;
+    const dx=2, dy=h-32;
     px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
     px(dx+4,dy,1,1,"#d97746");
     if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
   }
-  // fish tank (left wall if unlocked)
+  // fish tank (bottom-center, between cooler and cat)
   if(haveUnlock && haveUnlock("pet_fish")){
-    px(w/2-15,h-15,8,6,"#3c5a7a"); px(w/2-14,h-14,6,4,"#4fa4d8");
-    if((frame>>2)%2)px(w/2-13,h-13,1,1,"#e8c170");
-    if((frame>>2)%3===0)px(w/2-10,h-12,1,1,"#d84f6f");
+    px(w/2-15,h-26,8,6,"#3c5a7a"); px(w/2-14,h-25,6,4,"#4fa4d8");
+    if((frame>>2)%2)px(w/2-13,h-24,1,1,"#e8c170");
+    if((frame>>2)%3===0)px(w/2-10,h-23,1,1,"#d84f6f");
   }
+  // body
+  px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
+  // head
+  px(cx+2,cy-3,4,3,"#c9a227");
+  // ears
+  px(cx+2,cy-4,1,1,"#a0801a"); px(cx+4,cy-4,1,1,"#a0801a");
+  // eyes (open during day / when awake)
+  if(!dark||(frame>>5)%2){px(cx+3,cy-2,1,1,"#1a1423");px(cx+5,cy-2,1,1,"#1a1423");}
+  // tail
+  px(cx-3,cy-1,1,2,"#c9a227");
+  // bob animation when petted
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
-  px(cx,cy-bob,5,2,"#c9a227"); px(cx+1,cy-1-bob,1,1,"#c9a227"); px(cx+3,cy-1-bob,1,1,"#c9a227");
-  px(cx+4,cy+1-bob,2,1,"#c9a227");
-  if(!dark||(frame>>5)%2){px(cx+1,cy-bob,1,1,"#1a1423");px(cx+3,cy-bob,1,1,"#1a1423")}
+  if(bob){px(cx+2,cy-5,4,1,"#fff8c8");}
   if(petBounce){petTimer--; if(petTimer<=0)petBounce=false;}
 }
 
@@ -962,11 +990,11 @@ function render(){
     if(c.phase==="out"&&!list.find(a=>a.id===id))
       drawChar({id,kind:"main",status:"gone",activity:"",platform:""},c.x,c.y,false,cosmetics);
   }
-  // layout-specific accent (top-center, away from windows and door)
-  ctx.font="11px ui-monospace";ctx.textAlign="center";
+  // layout-specific accent — bottom-right corner, away from anything
+  ctx.font="11px ui-monospace";ctx.textAlign="right";
   if(settings.layout && settings.layout!=="open"){
     ctx.fillStyle="#cfc4e8";
-    ctx.fillText("layout: "+settings.layout, W/2, 14);
+    ctx.fillText("· "+settings.layout+" ·", W-6, H-2);
   }
   // live ticker (right edge, clamped to canvas — past the last window)
   if(_events.length){
