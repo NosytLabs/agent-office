@@ -12,11 +12,6 @@
   #hdr .dim{color:var(--dim)}
   #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
   #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
-  #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700}
-  #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
-  #hdr .dim{color:var(--dim)}
-  #hdr #chips{display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden}
-  #hdr #chips img{width:14px;height:14px}
   #hdr #rank{color:#9b6fd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #hdr #xpbar{display:inline-block;width:80px;height:8px;border:1px solid var(--line);
     background:var(--bg);vertical-align:middle;border-radius:2px;position:relative}
@@ -68,3 +63,10 @@
 
 .sheet .x{color:#7a6f8f;font-weight:normal;font-size:16px;padding:0 6px;line-height:1;cursor:pointer}
 .sheet .x:hover{color:#e8c170}
+
+@media (max-width: 720px){
+  #hdr{padding:6px 8px}
+  #hdr .btn{padding:2px 6px;font-size:10px}
+  .sheet{inset:42px 10px 10px 10px;padding:12px}
+  canvas{image-rendering:pixelated}
+}
