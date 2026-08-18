@@ -100,7 +100,7 @@ def enable_vscode() -> str:
             shutil.copy2(src / name, ext / name)
     media = ext / "media"
     media.mkdir(exist_ok=True)
-    html = HERE / "web/index.html"
+    html = HERE / "web/template.html"
     if html.exists():
         shutil.copy2(html, media / "office.html")
     return f"vscode ext → {ext} (reload window)"

@@ -42,7 +42,7 @@ vetoes, or rewrites prompts.
 | `progress.json` | JSON | ranks, unlocks, stats — 28+ badge catalog |
 | `settings.json` | JSON | layout, theme, areas, painted tiles, folders |
 
-## front-end (`web/index.html`)
+## front-end (`web/template.html`)
 
 single file, no build step, ~1150 lines. Vanilla canvas + DOM.
 8 sheets open with keyboard shortcuts (`R/U/B/L/S/D/E/?/T/esc`).
