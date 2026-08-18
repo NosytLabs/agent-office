@@ -530,16 +530,16 @@ const _DEFAULTS = Object.keys(settings);
 
 const chars = new Map();
 const WALK = 0.55;
-function seatPos(i,perRow,geom){
+function seatPos(i,perRow,geom,padLeft){
   const g = geom || LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
-  return {x:10+(i%perRow)*g.colStep, y:g.labelY+Math.floor(i/perRow)*g.rowStep};
+  return {x:(padLeft==null?10:padLeft)+(i%perRow)*g.colStep, y:g.labelY+Math.floor(i/perRow)*g.rowStep};
 }
-function stepChars(perRow){
+function stepChars(perRow,padLeft){
   if(settings.lock_floor)return; // freeze in place
   const seen=new Set();
   agents.forEach((a,i)=>{
     seen.add(a.id);
-    const seat=seatPos(i,perRow);
+    const seat=seatPos(i,perRow,geom,padLeft);
     let c=chars.get(a.id);
     if(!c){ c={x:2,y:2,seat,phase:"in",lastStatus:a.status}; chars.set(a.id,c); }
     c.seat=seat;
@@ -924,7 +924,9 @@ function render(){
     });
   }
   const cosmetics=(progress&&progress.cosmetics)||[];
-  const prev=agents; agents=list; stepChars(perRow); agents=prev;
+  const rowWidth = perRow * colStep;
+  const padLeft = Math.max(10, Math.floor((usableW/S - rowWidth)/2));
+  const prev=agents; agents=list; stepChars(perRow,padLeft); agents=prev;
   // draw areas (behind desks) so each area is a colored tile cluster
   const areas = settings.areas || {};
   if(Object.keys(areas).length && list.length){
@@ -932,7 +934,7 @@ function render(){
     list.forEach((a,i)=>{
       const idx=i % names.length;
       const color=areas[names[idx]];
-      const seat=seatPos(i,perRow);
+      const seat=seatPos(i,perRow,geom,padLeft);
       ctx.globalAlpha=0.18;
       ctx.fillStyle=color;
       ctx.fillRect(Math.round((seat.x-2)*S), Math.round((seat.y-1)*S), 22*S, 22*S);
@@ -940,7 +942,7 @@ function render(){
     });
   }
   list.forEach((a,i)=>{
-    const seat=seatPos(i,perRow);
+    const seat=seatPos(i,perRow,geom,padLeft);
     drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
     drawHealthBar(a,seat.x,seat.y);
   });
@@ -948,11 +950,11 @@ function render(){
     const c=chars.get(a.id); if(!c)return;
     const seated=c.phase==="seated";
     drawChar(a,c.x,c.y,seated,cosmetics);
-    if(seated){const seat=seatPos(i,perRow);
+    if(seated){const seat=seatPos(i,perRow,geom,padLeft);
       drawBubble(a,seat.x+2,seat.y); label(a,seat.x,seat.y);}
     if(focusedId===a.id){
       // outline ring around the focused agent
-      const seat=seatPos(i,perRow);
+      const seat=seatPos(i,perRow,geom,padLeft);
       ctx.strokeStyle="#e8c170";
       ctx.lineWidth=2;
       ctx.strokeRect((seat.x-1)*S, (seat.y-1)*S, 20*S, 22*S);
