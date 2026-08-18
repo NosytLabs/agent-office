@@ -331,7 +331,7 @@ let soundOn=false, audioCtx=null;
 try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},
-  folder_areas:{},paint:false,paint_color:"#5fce7a",lock_floor:false};
+  folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false};
 const _D = window.OFFICE_DATA;
 const RANKS = _D.RANKS;
 const RANKS_THRESHOLDS = _D.RANKS_THRESHOLDS;
@@ -505,7 +505,7 @@ function fillSettings(){
     const s=document.createElement("span");
     s.textContent=t.name;
     if(settings.theme===t.id) s.className="on";
-    s.onclick=()=>{settings.theme=t.id;saveSettings();fillSettings();};
+    s.onclick=()=>{settings.theme=t.id;saveSettings();applyTheme(t.id);fillSettings();};
     seg.appendChild(s);
   });
   th.appendChild(seg);
@@ -528,6 +528,14 @@ async function saveSettings(){
 }
 async function loadSettings(){
   try{const r=await fetch("settings");settings=await r.json();}catch(e){}
+}
+function applyTheme(id){
+  const theme = THEMES.find(t=>t.id===id) || THEMES[0];
+  cv.style.background = theme.bg;
+  const tileA = (night() && theme.id==="default") ? "#231c2e" : theme.tileA;
+  const tileB = (night() && theme.id==="default") ? "#1c1626" : theme.tileB;
+  const wall  = (night() && theme.id==="default") ? "#2a2038" : theme.wall;
+  window._theme = {id:theme.id, tileA, tileB, wall, isDark:night()};
 }
 async function loadManifest(){
   try{const r=await fetch("assets-manifest");window.__assets=await r.json();}catch(e){}
@@ -593,8 +601,10 @@ sBtn.onclick=()=>{soundOn=!soundOn;
 syncSoundBtn();
 
 const spawnBtn=document.getElementById("spawn");
+const inspectorBtn=document.getElementById("inspectorbtn");
 if(IN_VSCODE){spawnBtn.style.display="";
   spawnBtn.onclick=()=>vsapi.postMessage({type:"spawnAgent"});}
+function syncInspectorBtn(){if(!inspectorBtn)return;inspectorBtn.style.display=focusedId?"":"none"}
 
 function closeSheets(){document.querySelectorAll(".sheet").forEach(el=>el.style.display="none")}
 function toggleSheet(id){
@@ -644,6 +654,7 @@ document.getElementById("themeNextbtn").onclick=()=>{
   const next=THEMES[(i+1)%THEMES.length].id;
   settings.theme=next;
   saveSettings();
+  applyTheme(next);
   fillSettings();
 };
 document.getElementById("platformsbtn").onclick=()=>{fillPlatforms();toggleSheet("sheet-platforms");};
