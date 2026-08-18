@@ -311,18 +311,18 @@ function label(a,x,y){
   ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 16*S);
   ctx.clip();
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
+  const name=a.label.slice(0,14);
+  ctx.fillStyle="#1a1423";
+  ctx.fillText(name,cx,(y+21)*S);
+  ctx.fillStyle=a.kind==="subagent"?"#3a2a10":"#2a2038";
+  ctx.fillRect(Math.round((x+2)*S), Math.round((y+22)*S), (colW-4*S), 10*S);
   ctx.fillStyle=a.kind==="subagent"?"#e8c170":"#cfc4e8";
-  const name=a.label.slice(0,16);
-  ctx.fillText(name,cx,(y+22)*S);
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
-  ctx.fillStyle={working:"#5fce7a",thinking:"#c9a227",idle:"#7a6f8f",
-                 waiting:"#d84f6f",done:"#5fce7a",gone:"#555"}[a.status]||"#7a6f8f";
   ctx.fillText(st.slice(0,14),cx,(y+25)*S);
   if(a.detail){ctx.fillStyle="#6a5f80";
     ctx.fillText(a.detail.slice(0,16),cx,(y+27.5)*S)}
   ctx.restore();
-  // platform glyph moved to its own clean row above the label box
   drawLogo(platOf(a),x,y+13);
 }
 
