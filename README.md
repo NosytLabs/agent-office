@@ -1,68 +1,41 @@
 # Agent Office
 
-One pixel floor for **whatever agents you actually run**.
+Multi-runtime pixel-art virtual office. **Observer only** — never blocks,
+vetoes, or rewrites prompts. Inspired by [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents);
+runtime-agnostic and MIT-licensed.
 
-Hermes-only? Just Hermes. Add OpenCode later — they sit at the same desks. Claude Code hooks in the same way. Telegram sessions walk in from the gateway.
-
-Inspired by [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) (Claude-only). Agent Office is runtime-agnostic, MIT, no telemetry.
-
-## Guided install
+## one-command install
 
 ```bash
 git clone https://github.com/NosytLabs/agent-office
-cd agent-office
-python3 install.py
+python3 install.py    # detects Hermes / OpenCode / Claude / VS Code
 ```
 
-The installer **detects** Hermes / OpenCode / Claude Code / VS Code and only wires what exists. Hermes-only machines never get Claude hooks.
+open **http://127.0.0.1:8113** — no agents handy? `python3 demo_feed.py`
 
-Then start a **new** process of whatever you use, and open:
+## what you get
 
-**http://127.0.0.1:8113**
+- **one character per agent session** — Hermes, OpenCode, Claude Code, Telegram, CLI, cron
+- **real usage stats** — tools, reads/writes, browse/shell, subagents, errors, by-tool, by-runtime
+- **30+ badges with progress bars** — rank up intern → distinguished
+- **8 unlockable layouts** — bullpen, war room, lounge, roof deck, garden, library, arcade, penthouse
+- **6 themes** — default, midnight, forest, solar, cyberpunk, sunset
+- **multi-pet** — cat (default) + dog (100 sessions/50 tools) + fish tank (25 browse)
+- **named areas** painted behind desks + folder→area mapping
+- **paint mode** with drag-paint, click character to focus + inspector
+- **live event ticker** + speech bubbles + health bar + animated hourglass
+- **import/export layout** + settings persistence
+- **keyboard shortcuts** (R/U/B/L/S/D/E/?/T/esc) + status legend + inspector
+- **VS Code extension** + Claude Code hook + OpenCode bridge plugin
 
-or VS Code command **Agent Office: Open Floor**.
+## architecture
 
-No agents handy?
-
-```bash
-python3 demo_feed.py
-```
-
-## What you get
-
-| surface | what it is |
-|---|---|
-| floor | canvas office, day/night, cosmetics |
-| **roster** | every live session + status + tool |
-| **usage** | real counts: tools, reads/writes, errors, peak concurrent, top tools, by runtime |
-| **badges** | 27 unlocks — first shift → three houses → 5k tools |
-| **guide** | how the event log works |
-
-Observer only. Nothing blocks tools or edits prompts.
+see `docs/architecture.md`. 18 tests, all green:
 
 ```
-Hermes hooks ─┐
-OpenCode     ─┼─► events.jsonl ─► /state ─► floor
-Claude hooks ─┘
+python3 -m pytest tests/ -q
 ```
 
-## Manual (if you skip install.py)
-
-```bash
-# Hermes
-ln -s "$(pwd)" ~/.hermes/plugins/pixel-office
-hermes plugins enable pixel-office
-
-# OpenCode — add this repo's opencode/ path to plugin[]
-# Claude — python3 claude/hook.py on SessionStart/PreToolUse/… (installer appends)
-```
-
-## Tests
-
-```bash
-python3 -m pytest tests/test_progress.py tests/test_claude_hook.py
-```
-
-## License
+## license
 
 MIT.

@@ -172,9 +172,6 @@ function drawOffice(w,h){
     }
   }
   // door — left edge, theme-aware, with visible inner panel + knob
-  const isMidnight = themeObj.id==="midnight";
-  const isForest = themeObj.id==="forest";
-  const isSolar = themeObj.id==="solar";
   const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
   const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
   const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
@@ -416,6 +413,7 @@ const LAYOUTS = [
   {id:"garden",name:"Garden",hint:"25 writes + 100 sessions",require:"layout_garden"},
   {id:"library",name:"Library",hint:"25 reads",require:"layout_library"},
   {id:"arcade",name:"Arcade",hint:"5000 tools",require:"layout_arcade"},
+  {id:"penthouse",name:"Penthouse",hint:"10k tools",require:"layout_penthouse"},
 ];
 const RANKS_THRESHOLDS = {intern:0,junior:50,staff:200,senior:500,principal:1200,distinguished:3000};
 const THEMES = [
@@ -423,6 +421,8 @@ const THEMES = [
   {id:"midnight",name:"Midnight",bg:"#08080f",tileA:"#15102a",tileB:"#0c0820",wall:"#2a1d4a"},
   {id:"forest",name:"Forest",bg:"#0e1a14",tileA:"#1c2e22",tileB:"#16241b",wall:"#2a3a2a"},
   {id:"solar",name:"Solar",bg:"#1a1208",tileA:"#3a2a14",tileB:"#2c1d0e",wall:"#4a3818"},
+  {id:"cyber",name:"Cyberpunk",bg:"#0a0014",tileA:"#1a0830",tileB:"#100020",wall:"#3a1d6a"},
+  {id:"sunset",name:"Sunset",bg:"#2a0a14",tileA:"#4a1838",tileB:"#3a1228",wall:"#7a2848"},
 ];
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
@@ -560,9 +560,11 @@ function fillSettings(){
       const f=inp.files[0];if(!f)return;
       const r=new FileReader();
       r.onload=()=>{
-        try{const o=JSON.parse(r.result);
+        try{
+          const o=JSON.parse(r.result);
           Object.keys(o).forEach(k=>{if(k in _DEFAULTS)settings[k]=o[k]});
           saveSettings();fillSettings();fillLayout();fillAreas();
+          localStorage.setItem("didImport","1");
         }catch(e){alert("bad layout json: "+e.message);}
       };
       r.readAsText(f);
@@ -670,7 +672,14 @@ function toggleSheet(id){
   const el=document.getElementById(id);
   const open=el.style.display==="block";
   closeSheets();
-  if(!open) el.style.display="block";
+  if(!open){
+    el.style.display="block";
+    const seen = JSON.parse(localStorage.getItem("sheetsSeen")||"[]");
+    if(!seen.includes(id)){
+      seen.push(id);
+      localStorage.setItem("sheetsSeen", JSON.stringify(seen));
+    }
+  }
 }
 document.getElementById("achbtn").onclick=()=>toggleSheet("sheet-unlocks");
 document.getElementById("rosterbtn").onclick=()=>toggleSheet("sheet-roster");

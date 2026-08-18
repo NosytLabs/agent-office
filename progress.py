@@ -53,6 +53,7 @@ CATALOG = [
     {"id": "layout_garden", "name": "Garden", "hint": "25 writes + 100 sessions", "xp": 50},
     {"id": "layout_library", "name": "Library", "hint": "25 reads", "xp": 35},
     {"id": "layout_arcade", "name": "Arcade", "hint": "5000 tools", "xp": 60},
+    {"id": "layout_penthouse", "name": "Penthouse", "hint": "10000 tools", "xp": 100},
     {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
     {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
@@ -64,6 +65,11 @@ CATALOG = [
     {"id": "canvas_artisan", "name": "Canvas artisan", "hint": "paint 30 tiles", "xp": 30},
     {"id": "auto_arrange", "name": "Auto-arrange", "hint": "50 sessions", "xp": 25},
     {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
+    {"id": "tour_guide", "name": "Tour guide", "hint": "open 5 different sheets", "xp": 15},
+    {"id": "screenshotter", "name": "Screenshotter", "hint": "import a layout", "xp": 10},
+    {"id": "decorator", "name": "Decorator", "hint": "paint 100 tiles", "xp": 50},
+    {"id": "architect", "name": "Architect", "hint": "3 areas + folder maps", "xp": 40},
+    {"id": "marathon", "name": "Marathon", "hint": "10k tools", "xp": 80},
 ]
 
 
@@ -290,6 +296,9 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "layout_library")
     if int(stats.get("tools") or 0) >= 5000:
         _unlock(data, "layout_arcade")
+    if int(stats.get("tools") or 0) >= 10000:
+        _unlock(data, "layout_penthouse")
+        _unlock(data, "marathon")
     live_now = 0
     if rk in ("staff", "principal", "distinguished"):
         # unlock lounge if user has hit 3 platforms in their lifetime
@@ -403,6 +412,7 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "layout_garden": min(pct(writes,25), pct(sessions,100)),
         "layout_library": pct(reads,25),
         "layout_arcade": pct(tools,5000),
+        "layout_penthouse": pct(tools,10000),
         "areas_q1": 100 if stats.get("_have_areas") else 0,
         "areas_q2": pct(int(stats.get("_area_count") or 0),3),
         "pet_cat": pct(sessions,50),
@@ -412,4 +422,10 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "weather_storm": pct(errors,5),
         "weather_sun": pct(sessions,100),
         "canvas_artisan": pct(int(stats.get("_painted_count") or 0), 30),
+        "decorator": pct(int(stats.get("_painted_count") or 0), 100),
+        "architect": 100 if (stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3
+                            and len(stats.get("_folder_areas") or {}) >= 1) else 0,
+        "tour_guide": pct(int(stats.get("_sheets_opened") or 0), 5),
+        "screenshotter": 100 if stats.get("_did_import") else 0,
+        "marathon": pct(tools,10000),
     }.get(badge_id, 0)

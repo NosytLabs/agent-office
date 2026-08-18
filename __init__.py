@@ -334,6 +334,7 @@ def build_state() -> Dict[str, Any]:
         pdata["stats"]["_have_areas"] = bool(areas)
         pdata["stats"]["_area_count"] = len(areas)
         pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
+        pdata["stats"]["_folder_areas"] = settings.get("folder_areas") or {}
         save(ppath, pdata)
         progress = snapshot(pdata)
     except Exception:
