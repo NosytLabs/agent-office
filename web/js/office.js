@@ -21,6 +21,8 @@ const SHIRT=["#4fa4d8","#d84f6f","#5fce7a","#c9a227","#9b6fd8","#d87f4f","#3d6b8
 const HAIR=["#2b2b2b","#5a3825","#c9a227","#8a8a8a","#7a3030","#4a6741","#1a1a22","#d8c4a0"];
 function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return Math.abs(h)}
 function px(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x*S),Math.round(y*S),w*S,h*S)}
+function lighten(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.min(255,Math.max(0,Math.round(r*1.15)));const mix2=Math.min(255,Math.max(0,Math.round(g*1.15)));const mix3=Math.min(255,Math.max(0,Math.round(b*1.15)));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
+function darken(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.max(0,Math.round(r*0.85));const mix2=Math.max(0,Math.round(g*0.85));const mix3=Math.max(0,Math.round(b*0.85));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
 function night(){const h=new Date().getHours();return h<6||h>=19}
 
 let _gw=0,_gh=0;
@@ -203,23 +205,27 @@ function drawChar(a,fx,fy,seated,cosmetics){
   const walking=!seated, bob=((a.status==="working"||walking)&&(t%2))?1:0;
   const x=fx, y=fy+bob;
   if(a.status==="gone")ctx.globalAlpha=0.35;
-  // cape
-  if(cosmetics.includes("cape")) px(x,y+5,8,6,"#7a3030");
-  // hair
+  // cape / cloak
+  if(cosmetics.includes("cape")){px(x,y+5,8,6,"#7a3030");px(x+1,y+6,1,2,"#8a4040")}
+  // hair with highlight
   px(x+2,y,5,3,hair);
   if(h%3===0)px(x+1,y+1,1,3,hair);
   if(h%5===0)px(x+2,y-1,5,1,hair);
+  px(x+3,y+1,1,1,lighten(hair));
   // hats / visor / crown / beanie / headphones
   if(cosmetics.includes("crown")){px(x+2,y-2,5,2,"#e8c170");px(x+3,y-3,1,1,"#e8c170");px(x+5,y-3,1,1,"#e8c170")}
   else if(cosmetics.includes("beanie")){px(x+1,y-1,6,2,"#d84f6f");px(x+3,y-2,2,1,"#d84f6f")}
   else if(cosmetics.includes("visor") && a.platform==="opencode"){px(x+1,y+1,6,1,"#4fa4d8")}
   if(cosmetics.includes("headphones")){px(x+1,y+1,1,3,"#2b2b2b");px(x+7,y+1,1,3,"#2b2b2b");px(x+2,y,5,1,"#2b2b2b")}
-  // face
+  // face with cheeks
   px(x+2,y+2,5,3,skin);
+  px(x+3,y+4,1,1,darken(skin)); px(x+5,y+4,1,1,darken(skin));
   if(h%4===0||cosmetics.includes("plant")){px(x+2,y+3,2,1,"#222a44");px(x+5,y+3,2,1,"#222a44")}
   else{px(x+3,y+3,1,1,"#111");px(x+6,y+3,1,1,"#111")}
-  // body
+  px(x+4,y+4,1,1,"#ffb6c1"); px(x+6,y+4,1,1,"#ffb6c1");
+  // body with collar
   px(x+1,y+5,7,5,shirt);
+  px(x+3,y+5,3,1,lighten(shirt));
   if(a.kind==="subagent"||cosmetics.includes("gold_trim"))px(x+1,y+5,7,1,"#e8c170");
   if(cosmetics.includes("pin") && a.platform==="telegram")px(x+6,y+6,1,1,"#4fa4d8");
   px(x+0,y+6,1,3,skin); px(x+8,y+6,1,3,skin);
