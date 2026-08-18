@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <rect width="16" height="16" rx="2" fill="#191524"/>
+  <text x="3" y="12" font-size="8" font-family="ui-monospace,monospace" fill="#e8c170">$</text>
+  <path d="M8 11h5" stroke="#e8c170" stroke-width="1.2"/>
+</svg>

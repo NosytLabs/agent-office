@@ -1,30 +1,23 @@
 {
   "name": "agent-office",
   "displayName": "Agent Office",
-  "description": "Pixel-art virtual office for Hermes agents \u2014 watch sessions, tools, and subagents as animated pixel characters inside VS Code.",
-  "version": "0.2.0",
-  "publisher": "teknium",
+  "description": "Pixel floor for Hermes, OpenCode, Claude Code, and Telegram — one office, real usage stats, badges.",
+  "version": "0.3.0",
+  "publisher": "nosytlabs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teknium1/agent-office-vscode"
+    "url": "https://github.com/NosytLabs/agent-office"
   },
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Visualization",
-    "Other"
-  ],
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Visualization", "Other"],
   "main": "./extension.js",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
       {
         "command": "hermesPixelOffice.open",
-        "title": "Hermes: Open Pixel Office"
+        "title": "Agent Office: Open Floor"
       }
     ],
     "configuration": {
@@ -33,27 +26,15 @@
         "hermesPixelOffice.stateUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8113/state",
-          "description": "URL of the Hermes pixel-office plugin's /state endpoint."
+          "description": "URL of the Agent Office /state endpoint."
         },
         "hermesPixelOffice.openOnStartup": {
           "type": "boolean",
           "default": false,
-          "description": "Open the pixel office panel automatically when VS Code starts."
+          "description": "Open the floor when VS Code starts."
         }
       }
     }
   },
-  "icon": "icon.png",
-  "keywords": [
-    "hermes",
-    "agents",
-    "pixel art",
-    "visualization",
-    "ai",
-    "office"
-  ],
-  "bugs": {
-    "url": "https://github.com/teknium1/agent-office-vscode/issues"
-  },
-  "homepage": "https://github.com/teknium1/agent-office-vscode#readme"
+  "keywords": ["hermes", "opencode", "claude", "agents", "pixel art", "office"]
 }

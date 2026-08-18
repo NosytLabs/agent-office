@@ -322,6 +322,17 @@ def _serve() -> None:
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
+                elif self.path.split("?")[0].startswith("/assets/"):
+                    name = Path(self.path.split("?")[0]).name
+                    asset = html_path.parent / "assets" / name
+                    if asset.is_file() and asset.suffix == ".svg":
+                        body = asset.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "image/svg+xml")
+                    else:
+                        self.send_response(404)
+                        body = b"not found"
+                        self.send_header("Content-Type", "text/plain")
                 else:
                     self.send_response(404)
                     body = b"not found"

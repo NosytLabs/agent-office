@@ -1,57 +1,68 @@
 # Agent Office
 
-Pixel-art floor plan for **every** live coding agent on the machine — Hermes, OpenCode, Telegram, CLI, cron. Not Claude-only.
+One pixel floor for **whatever agents you actually run**.
 
-Hermes' answer to [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), but runtime-agnostic: one event log, one office, platform logos, XP / unlocks.
+Hermes-only? Just Hermes. Add OpenCode later — they sit at the same desks. Claude Code hooks in the same way. Telegram sessions walk in from the gateway.
 
-## What you see
+Inspired by [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) (Claude-only). Agent Office is runtime-agnostic, MIT, no telemetry.
 
-- One character per session. Gold collar = subagent.
-- Activity: typing / reading / browsing / terminal / pointing.
-- Red `!` when something needs approval.
-- Rank + cosmetics (beanie → visor → gold monitor → cape) that persist in `~/.hermes/pixel-office/progress.json`.
-- Buttons: **roster**, **stats**, **unlocks**, **how**, **all** (cycle Hermes / OpenCode / Telegram / CLI).
-
-## Install
+## Guided install
 
 ```bash
-git clone https://github.com/NosytLabs/agent-office ~/.hermes/plugins/pixel-office
-hermes plugins enable pixel-office
+git clone https://github.com/NosytLabs/agent-office
+cd agent-office
+python3 install.py
 ```
 
-New Hermes process, then open http://127.0.0.1:8113
+The installer **detects** Hermes / OpenCode / Claude Code / VS Code and only wires what exists. Hermes-only machines never get Claude hooks.
 
-OpenCode (same office):
+Then start a **new** process of whatever you use, and open:
 
-```bash
-# plugin path already in this repo under opencode/
-# add the absolute path to ~/.config/opencode/opencode.json → plugin[]
-```
+**http://127.0.0.1:8113**
 
-VS Code: copy `vscode/` into `~/.vscode/extensions/teknium.hermes-pixel-office-0.2.0` (or vsce package later) → **Hermes: Open Pixel Office**. `+ agent` can spawn `hermes` or `opencode`.
+or VS Code command **Agent Office: Open Floor**.
 
-Demo with no agents:
+No agents handy?
 
 ```bash
 python3 demo_feed.py
 ```
 
-## How it works
+## What you get
+
+| surface | what it is |
+|---|---|
+| floor | canvas office, day/night, cosmetics |
+| **roster** | every live session + status + tool |
+| **usage** | real counts: tools, reads/writes, errors, peak concurrent, top tools, by runtime |
+| **badges** | 27 unlocks — first shift → three houses → 5k tools |
+| **guide** | how the event log works |
+
+Observer only. Nothing blocks tools or edits prompts.
 
 ```
-Hermes hooks  ─┐
-OpenCode plugin─┼─► events.jsonl ─► /state ─► canvas office
-               ┘
+Hermes hooks ─┐
+OpenCode     ─┼─► events.jsonl ─► /state ─► floor
+Claude hooks ─┘
 ```
 
-Observer only. No prompt edits, no tool blocking.
+## Manual (if you skip install.py)
+
+```bash
+# Hermes
+ln -s "$(pwd)" ~/.hermes/plugins/pixel-office
+hermes plugins enable pixel-office
+
+# OpenCode — add this repo's opencode/ path to plugin[]
+# Claude — python3 claude/hook.py on SessionStart/PreToolUse/… (installer appends)
+```
 
 ## Tests
 
 ```bash
-python3 -m pytest tests/test_progress.py
+python3 -m pytest tests/test_progress.py tests/test_claude_hook.py
 ```
 
 ## License
 
-MIT. Forked conceptually from Teknium's Hermes Pixel Office v0.2; this tree is the Agent Office fork with ranks, multi-runtime logos, and the OpenCode bridge.
+MIT.

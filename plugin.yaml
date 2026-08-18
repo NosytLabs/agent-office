@@ -1,6 +1,6 @@
 name: pixel-office
 version: "0.3.0"
-description: "Pixel-art virtual office for Hermes + OpenCode — animated characters, ranks, unlocks. Visual only."
+description: "Agent Office — pixel floor for Hermes, OpenCode, Claude Code, Telegram. Ranks, badges, usage."
 author: "NousResearch"
 hooks:
   - pre_tool_call

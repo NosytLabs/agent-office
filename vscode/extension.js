@@ -1,12 +1,5 @@
 "use strict";
-/**
- * Hermes Pixel Office — VS Code extension.
- *
- * The extension host polls the Hermes pixel-office plugin's /state endpoint
- * (Node-side http, so the webview needs no network access at all) and posts
- * each snapshot into a webview panel that renders the pixel office on a
- * canvas. Pure visualization: nothing here talks back to Hermes.
- */
+/** Agent Office — VS Code panel. Polls /state, never talks back to agents. */
 const vscode = require("vscode");
 const http = require("http");
 const https = require("https");
@@ -23,11 +16,7 @@ function fetchState(url) {
       let body = "";
       res.on("data", (c) => (body += c));
       res.on("end", () => {
-        try {
-          resolve(JSON.parse(body));
-        } catch (e) {
-          reject(e);
-        }
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
       });
     });
     req.on("timeout", () => req.destroy(new Error("timeout")));
@@ -35,22 +24,15 @@ function fetchState(url) {
   });
 }
 
-function startPolling(context) {
+function startPolling() {
   stopPolling();
   const tick = async () => {
     if (!panel) return;
-    const url = vscode.workspace
-      .getConfiguration("hermesPixelOffice")
-      .get("stateUrl");
+    const url = vscode.workspace.getConfiguration("hermesPixelOffice").get("stateUrl");
     try {
-      const state = await fetchState(url);
-      panel.webview.postMessage({ type: "state", state });
+      panel.webview.postMessage({ type: "state", state: await fetchState(url) });
     } catch (e) {
-      panel.webview.postMessage({
-        type: "offline",
-        url,
-        error: String(e && e.message ? e.message : e),
-      });
+      panel.webview.postMessage({ type: "offline", url, error: String(e && e.message ? e.message : e) });
     }
   };
   timer = setInterval(tick, 1500);
@@ -58,20 +40,14 @@ function startPolling(context) {
 }
 
 function stopPolling() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+  if (timer) { clearInterval(timer); timer = null; }
 }
 
 function openOffice(context) {
-  if (panel) {
-    panel.reveal();
-    return;
-  }
+  if (panel) { panel.reveal(); return; }
   panel = vscode.window.createWebviewPanel(
-    "hermesPixelOffice",
-    "☤ Hermes Pixel Office",
+    "agentOffice",
+    "Agent Office",
     vscode.ViewColumn.Beside,
     { enableScripts: true, retainContextWhenHidden: true }
   );
@@ -81,38 +57,31 @@ function openOffice(context) {
     if (msg && msg.type === "spawnAgent") {
       const pick = await vscode.window.showQuickPick(
         [
-          { label: "hermes", description: "Hermes CLI session" },
-          { label: "opencode", description: "OpenCode session" },
+          { label: "hermes", description: "Hermes CLI" },
+          { label: "opencode", description: "OpenCode" },
+          { label: "claude", description: "Claude Code" },
         ],
-        { placeHolder: "spawn which agent?" }
+        { placeHolder: "which runtime?" }
       );
       if (!pick) return;
-      const term = vscode.window.createTerminal({ name: pick.label + " agent" });
+      const term = vscode.window.createTerminal({ name: pick.label });
       term.show(false);
       term.sendText(pick.label, true);
     }
   });
-  panel.onDidDispose(() => {
-    panel = null;
-    stopPolling();
-  });
-  startPolling(context);
+  panel.onDidDispose(() => { panel = null; stopPolling(); });
+  startPolling();
 }
 
 function activate(context) {
   context.subscriptions.push(
-    vscode.commands.registerCommand("hermesPixelOffice.open", () =>
-      openOffice(context)
-    )
+    vscode.commands.registerCommand("hermesPixelOffice.open", () => openOffice(context))
   );
-  const cfg = vscode.workspace.getConfiguration("hermesPixelOffice");
-  if (cfg.get("openOnStartup")) {
+  if (vscode.workspace.getConfiguration("hermesPixelOffice").get("openOnStartup")) {
     openOffice(context);
   }
 }
 
-function deactivate() {
-  stopPolling();
-}
+function deactivate() { stopPolling(); }
 
 module.exports = { activate, deactivate };

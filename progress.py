@@ -22,7 +22,10 @@ CATALOG = [
     {"id": "first_shift", "name": "First shift", "hint": "clock in once", "xp": 10},
     {"id": "open_floor", "name": "Open floor", "hint": "an OpenCode session walks in", "xp": 25},
     {"id": "telegram_desk", "name": "Pager kid", "hint": "a Telegram session sits down", "xp": 15},
-    {"id": "two_houses", "name": "Two houses", "hint": "Hermes + OpenCode in the same office", "xp": 40},
+    {"id": "claude_desk", "name": "Orange desk", "hint": "a Claude Code session clocks in", "xp": 25},
+    {"id": "two_houses", "name": "Two houses", "hint": "Hermes + OpenCode on the same floor", "xp": 40},
+    {"id": "three_houses", "name": "Three houses", "hint": "Hermes + OpenCode + Claude", "xp": 60},
+    {"id": "polyglot", "name": "Polyglot", "hint": "3+ runtimes ever", "xp": 35},
     {"id": "pair_programming", "name": "Pair desk", "hint": "2 agents at once", "xp": 15},
     {"id": "full_floor", "name": "Full floor", "hint": "5 agents on the floor", "xp": 30},
     {"id": "gold_collar", "name": "Gold collar", "hint": "spawn a subagent", "xp": 20},
@@ -30,13 +33,19 @@ CATALOG = [
     {"id": "coffee_break", "name": "Coffee break", "hint": "50 tools fired", "xp": 20},
     {"id": "centurion", "name": "Centurion", "hint": "100 tools", "xp": 30},
     {"id": "thousand_cuts", "name": "Thousand cuts", "hint": "1000 tools", "xp": 80},
+    {"id": "five_k", "name": "Five thousand", "hint": "5000 tools", "xp": 120},
     {"id": "reader", "name": "Librarian", "hint": "25 read/search tools", "xp": 15},
     {"id": "typer", "name": "Keyboard warrior", "hint": "25 write/edit tools", "xp": 15},
     {"id": "browser_tab", "name": "Tab hoarder", "hint": "15 browse tools", "xp": 15},
     {"id": "shell_jockey", "name": "Shell jockey", "hint": "25 terminal/bash tools", "xp": 15},
+    {"id": "toolkit", "name": "Toolkit", "hint": "10 distinct tools used", "xp": 25},
+    {"id": "specialist", "name": "Specialist", "hint": "one tool 50 times", "xp": 25},
+    {"id": "oops", "name": "Oops", "hint": "10 tool errors", "xp": 10},
     {"id": "red_alert", "name": "Red alert", "hint": "an approval pops", "xp": 10},
     {"id": "night_owl", "name": "Night owl", "hint": "work between 00:00–05:00", "xp": 20},
+    {"id": "early_bird", "name": "Early bird", "hint": "work between 05:00–08:00", "xp": 15},
     {"id": "fashion", "name": "Office drip", "hint": "hit staff rank", "xp": 0},
+    {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
 ]
 
 
@@ -54,6 +63,9 @@ def _empty() -> Dict[str, Any]:
             "shells": 0,
             "max_concurrent": 0,
             "platforms": [],
+            "errors": 0,
+            "by_tool": {},
+            "by_platform": {},
         },
         "unlocks": {},
         "last_ts": 0.0,
@@ -111,6 +123,8 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("headphones")
     if "gold_collar" in unlocks:
         out.append("gold_trim")
+    if "claude_desk" in unlocks:
+        out.append("orange_scarf")
     return out
 
 
@@ -136,10 +150,13 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
     max_seen = int(stats.get("max_concurrent") or 0)
     newest = last
 
-    READ = {"read_file", "search_files", "skill_view", "read", "glob", "grep", "list"}
-    WRITE = {"write_file", "patch", "skill_manage", "edit", "write", "apply_patch"}
-    BROWSE = {"web_search", "web_extract", "browser_navigate", "webfetch", "websearch"}
-    SHELL = {"terminal", "execute_code", "process", "bash"}
+    READ = {"read_file", "search_files", "skill_view", "read", "glob", "grep", "list", "Read", "Grep", "Glob"}
+    WRITE = {"write_file", "patch", "skill_manage", "edit", "write", "apply_patch", "Edit", "Write"}
+    BROWSE = {"web_search", "web_extract", "browser_navigate", "webfetch", "websearch", "WebFetch", "WebSearch"}
+    SHELL = {"terminal", "execute_code", "process", "bash", "Bash"}
+
+    by_tool = dict(stats.get("by_tool") or {})
+    by_plat = dict(stats.get("by_platform") or {})
 
     for ev in events:
         ts = float(ev.get("ts") or 0)
@@ -150,6 +167,7 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         plat = str(ev.get("platform") or "")
         if plat:
             plats.add(plat)
+            by_plat[plat] = int(by_plat.get(plat) or 0) + 1
         if kind == "session_start":
             stats["sessions"] = int(stats.get("sessions") or 0) + 1
             data["xp"] = int(data.get("xp") or 0) + 5
@@ -159,15 +177,21 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
             hour = time.localtime(ts).tm_hour
             if 0 <= hour < 5:
                 _unlock(data, "night_owl")
+            if 5 <= hour < 8:
+                _unlock(data, "early_bird")
             _unlock(data, "first_shift")
             if plat == "opencode":
                 _unlock(data, "open_floor")
             if plat == "telegram":
                 _unlock(data, "telegram_desk")
+            if plat in ("claude", "claude-code"):
+                _unlock(data, "claude_desk")
         elif kind == "tool_start":
             stats["tools"] = int(stats.get("tools") or 0) + 1
             data["xp"] = int(data.get("xp") or 0) + 1
             tool = str(ev.get("tool_name") or "")
+            if tool:
+                by_tool[tool] = int(by_tool.get(tool) or 0) + 1
             if tool in READ:
                 stats["reads"] = int(stats.get("reads") or 0) + 1
             elif tool in WRITE:
@@ -176,6 +200,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
                 stats["browses"] = int(stats.get("browses") or 0) + 1
             elif tool in SHELL:
                 stats["shells"] = int(stats.get("shells") or 0) + 1
+        elif kind == "tool_end" and ev.get("status") == "error":
+            stats["errors"] = int(stats.get("errors") or 0) + 1
         elif kind == "subagent_start":
             stats["subagents"] = int(stats.get("subagents") or 0) + 1
             data["xp"] = int(data.get("xp") or 0) + 8
@@ -185,18 +211,24 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
             data["xp"] = int(data.get("xp") or 0) + 3
             _unlock(data, "red_alert")
 
-    # concurrent from current fold isn't in this loop; caller can pass live count
+    stats["by_tool"] = by_tool
+    stats["by_platform"] = by_plat
     stats["platforms"] = sorted(plats)
-    if len(plats) >= 2 and ("opencode" in plats) and (
-        "cli" in plats or "telegram" in plats or "gateway" in plats
-    ):
+    hermesish = bool(plats & {"cli", "telegram", "gateway", "hermes"})
+    if hermesish and "opencode" in plats:
         _unlock(data, "two_houses")
+    if hermesish and "opencode" in plats and (plats & {"claude", "claude-code"}):
+        _unlock(data, "three_houses")
+    if len(plats) >= 3:
+        _unlock(data, "polyglot")
     if int(stats.get("tools") or 0) >= 50:
         _unlock(data, "coffee_break")
     if int(stats.get("tools") or 0) >= 100:
         _unlock(data, "centurion")
     if int(stats.get("tools") or 0) >= 1000:
         _unlock(data, "thousand_cuts")
+    if int(stats.get("tools") or 0) >= 5000:
+        _unlock(data, "five_k")
     if int(stats.get("reads") or 0) >= 25:
         _unlock(data, "reader")
     if int(stats.get("writes") or 0) >= 25:
@@ -207,8 +239,17 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "shell_jockey")
     if int(stats.get("subagents") or 0) >= 10:
         _unlock(data, "swarm")
-    if rank_for(int(data.get("xp") or 0)) in ("staff", "principal", "distinguished"):
+    if len(by_tool) >= 10:
+        _unlock(data, "toolkit")
+    if any(int(v) >= 50 for v in by_tool.values()):
+        _unlock(data, "specialist")
+    if int(stats.get("errors") or 0) >= 10:
+        _unlock(data, "oops")
+    rk = rank_for(int(data.get("xp") or 0))
+    if rk in ("staff", "principal", "distinguished"):
         _unlock(data, "fashion")
+    if rk in ("principal", "distinguished"):
+        _unlock(data, "corner_office")
 
     data["stats"] = stats
     data["last_ts"] = newest
