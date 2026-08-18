@@ -332,7 +332,8 @@ def build_state() -> Dict[str, Any]:
         progress = snapshot(pdata)
     except Exception:
         logger.debug("pixel-office progress fold failed", exc_info=True)
-    return {"agents": visible, "ts": now, "progress": progress, "settings": settings}
+    return {"agents": visible, "ts": now, "progress": progress, "settings": settings,
+            "events": _read_events()[-30:]}
 
 
 # ---------------------------------------------------------------------------

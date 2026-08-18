@@ -80,6 +80,7 @@
       <span class="btn" id="achbtn">badges</span>
       <span class="btn" id="settingsbtn">⚙</span>
       <span class="btn" id="debugbtn" title="raw state">dbg</span>
+      <span class="btn" id="eventbtn" title="live event feed">live</span>
       <span class="btn" id="howbtn">guide</span>
       <span class="btn" id="sound" title="chime on approval / unlock">♪</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
@@ -95,6 +96,7 @@
 <div class="sheet" id="sheet-areas"><h2>AREAS</h2><div id="areabox"></div></div>
 <div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
 <div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
+<div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
 <div class="sheet" id="sheet-how">
   <h2>GUIDE</h2>
   <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
@@ -117,6 +119,9 @@ function shown(){
 }
 const seenUnlocks = new Set();
 try{ (JSON.parse(localStorage.getItem("pixelOfficeSeen")||"[]")||[]).forEach(id=>seenUnlocks.add(id)); }catch(e){}
+let focusedId = null;
+const _events = [];
+const MAX_EVENTS = 20;
 
 const SKIN=["#f0c8a0","#c68b59","#8d5524","#ffdbac","#e0ac69","#a1665e","#f5d0c5","#6d3b2a"];
 const SHIRT=["#4fa4d8","#d84f6f","#5fce7a","#c9a227","#9b6fd8","#d87f4f","#3d6b8a","#e8c170"];
@@ -136,8 +141,8 @@ function drawOffice(w,h){
     px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
   // back wall + trim
   px(0,0,w,8,wall); px(0,8,w,1,"#1a1423");
-  // windows — cap inside canvas, every 22 tiles
-  for(let x=16;x<Math.min(w-14, _gw-10);x+=22){
+  // windows — cap inside canvas, every 22 tiles, skip first 2 to leave room for door
+  for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
     px(x,2,12,5,"#151022");
     if(dark){
       px(x+1,3,10,3,"#151a33");
@@ -147,8 +152,8 @@ function drawOffice(w,h){
       px(x+1,3,10,3,"#7fa8d8"); px(x+2,3,3,1,"#c8dff8");
     }
   }
-  // door
-  px(1,2,8,7,"#54381f"); px(2,3,6,6,"#6b4a2f"); px(7,6,1,1,"#e8c170");
+  // door — left edge, fully inside
+  px(2,2,8,7,"#54381f"); px(3,3,6,6,"#6b4a2f"); px(8,6,1,1,"#e8c170");
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
   px(nx,2,24,5,"#151022");
@@ -158,17 +163,17 @@ function drawOffice(w,h){
   // rug
   const rw=Math.min(28,w-12); px((w-rw)/2,h-9,rw,6,dark?"#3a2048":"#3a2f4b");
   px((w-rw)/2+1,h-8,rw-2,4,dark?"#4a2860":"#443358");
-  // coffee bar
-  px(10,h-12,10,1,"#6b4a2f"); px(10,h-11,10,4,"#54381f");
-  px(12,h-15,5,3,"#33283f"); px(13,h-14,1,1,"#d84f6f");
-  px(16,h-13,2,1,"#e8c170");
-  // cooler
-  px(2,h-15,4,6,"#7fa8d8"); px(3,h-16,2,1,"#a8c8e8"); px(2,h-9,4,2,"#4a4a5a");
-  // plant
-  px(w-7,h-16,4,2,"#5fce7a"); px(w-8,h-18,3,3,"#4aa860"); px(w-5,h-17,3,2,"#5fce7a");
-  px(w-6,h-14,2,4,"#8d5524"); px(w-7,h-10,4,1,"#54381f");
+  // coffee bar (left-bottom)
+  px(2,h-12,10,1,"#6b4a2f"); px(2,h-11,10,4,"#54381f");
+  px(4,h-15,5,3,"#33283f"); px(5,h-14,1,1,"#d84f6f");
+  px(8,h-13,2,1,"#e8c170");
+  // cooler (left wall)
+  px(2,h-19,4,6,"#7fa8d8"); px(3,h-20,2,1,"#a8c8e8"); px(2,h-13,4,2,"#4a4a5a");
+  // plant (right side, moved up so it's not lost)
+  px(w-7,h-22,4,2,"#5fce7a"); px(w-8,h-24,3,3,"#4aa860"); px(w-5,h-23,3,2,"#5fce7a");
+  px(w-6,h-20,2,4,"#8d5524"); px(w-7,h-16,4,1,"#54381f");
   // sleeping cat (night) / sitting cat (day) — clickable, bounces on interaction
-  const cx=w-14, cy=h-8;
+  const cx=w-14, cy=h-22;
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
   px(cx,cy-bob,5,2,"#c9a227"); px(cx+1,cy-1-bob,1,1,"#c9a227"); px(cx+3,cy-1-bob,1,1,"#c9a227");
   px(cx+4,cy+1-bob,2,1,"#c9a227");
@@ -245,6 +250,18 @@ function drawBubble(a,x,y){
     const by=y-6-((frame>>3)%2);
     px(x+1,by,6,4,"#e8d8b0"); px(x+2,by+4,1,1,"#e8d8b0");
     px(x+4,by+1,1,2,"#c9302f"); px(x+4,by+3,1,1,"#c9302f");
+    // bubble text — show what needs approval
+    ctx.save();
+    ctx.font="9px ui-monospace,monospace";
+    ctx.fillStyle="#1a1423";ctx.textAlign="left";
+    const txt = (a.detail||"approval!").slice(0,10);
+    if(txt){
+      ctx.fillStyle="#e8d8b0";
+      ctx.fillRect((x+8)*S, (by-1)*S, 12*S, 5*S);
+      ctx.fillStyle="#1a1423";
+      ctx.fillText(txt,(x+9)*S,(by+2)*S);
+    }
+    ctx.restore();
   }else if(a.status==="working"&&a.tool){
     px(x+3,y-4,3,3,"#e8c170"); px(x+4,y-3,1,1,"#1a1423");
   }else if(a.status==="thinking"){
@@ -436,6 +453,36 @@ function fillSettings(){
     "<input class='txt' type='number' id='mc' min='2' max='8' value='"+settings.max_chars+"' style='width:60px'>";
   box.appendChild(r);
   document.getElementById("mc").onchange=(e)=>{settings.max_chars=Math.max(2,Math.min(8,+e.target.value||4));saveSettings()};
+  // import / export layout (settings + areas + painted)
+  const ie=document.createElement("div");ie.className="row";
+  ie.innerHTML="<div style='flex:1'><div class='n'>layout import/export</div></div>"+
+    "<span class='btn' id='exportLayout'>export</span>"+
+    "<span class='btn' id='importLayout'>import</span>";
+  box.appendChild(ie);
+  document.getElementById("exportLayout").onclick=()=>{
+    const data=JSON.stringify(settings,null,2);
+    const blob=new Blob([data],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="agent-office-layout.json";
+    a.click();
+  };
+  document.getElementById("importLayout").onclick=()=>{
+    const inp=document.createElement("input");
+    inp.type="file";inp.accept=".json,application/json";
+    inp.onchange=()=>{
+      const f=inp.files[0];if(!f)return;
+      const r=new FileReader();
+      r.onload=()=>{
+        try{const o=JSON.parse(r.result);
+          Object.keys(o).forEach(k=>{if(k in _DEFAULTS)settings[k]=o[k]});
+          saveSettings();fillSettings();fillLayout();fillAreas();
+        }catch(e){alert("bad layout json: "+e.message);}
+      };
+      r.readAsText(f);
+    };
+    inp.click();
+  };
   // theme picker
   const th=document.createElement("div");th.className="row";
   th.innerHTML="<div style='flex:1'><div class='n'>theme</div></div>";
@@ -461,6 +508,7 @@ async function loadManifest(){
   try{const r=await fetch("assets-manifest");window.__assets=await r.json();}catch(e){}
 }
 async function updateSetting(k,v){settings[k]=v;await saveSettings();fillLayout();fillAreas();fillSettings();}
+const _DEFAULTS = Object.keys(settings);
 
 const chars = new Map();
 const WALK = 0.55;
@@ -537,6 +585,7 @@ document.getElementById("debugbtn").onclick=()=>{
   toggleSheet("sheet-debug");
 };
 document.getElementById("howbtn").onclick=()=>toggleSheet("sheet-how");
+document.getElementById("eventbtn").onclick=()=>{fillEvents();toggleSheet("sheet-events");};
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
   document.getElementById("filterbtn").textContent=platFilter;
@@ -691,16 +740,40 @@ function render(){
     drawChar(a,c.x,c.y,seated,cosmetics);
     if(seated){const seat=seatPos(i,perRow);
       drawBubble(a,seat.x+2,seat.y); label(a,seat.x,seat.y);}
+    if(focusedId===a.id){
+      // outline ring around the focused agent
+      const seat=seatPos(i,perRow);
+      ctx.strokeStyle="#e8c170";
+      ctx.lineWidth=2;
+      ctx.strokeRect((seat.x-1)*S, (seat.y-1)*S, 20*S, 22*S);
+      ctx.lineWidth=1;
+    }
   });
   for(const [id,c] of chars){
     if(c.phase==="out"&&!list.find(a=>a.id===id))
       drawChar({id,kind:"main",status:"gone",activity:"",platform:""},c.x,c.y,false,cosmetics);
   }
-  // layout-specific accent
-  ctx.font="13px ui-monospace";ctx.textAlign="center";
+  // layout-specific accent + live event ticker (top-right)
+  ctx.font="13px ui-monospace";ctx.textAlign="right";
   if(settings.layout && settings.layout!=="open"){
     ctx.fillStyle="#7a6f8f";
-    ctx.fillText("layout: "+settings.layout, W-60, 14);
+    ctx.fillText("layout: "+settings.layout, W-12, 14);
+  }
+  if(_events.length){
+    const visible=_events.slice(-5);
+    ctx.textAlign="right";
+    ctx.font="10px ui-monospace,monospace";
+    let y=24;
+    visible.slice().reverse().forEach((e,i)=>{
+      const age=frame-e.frame;
+      const alpha=Math.max(0.3, 1-age/240);
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle={session_start:"#5fce7a",tool_start:"#cfc4e8",
+                     approval_request:"#d84f6f",subagent_start:"#c9a227"}[e.kind]||"#9b6fd8";
+      ctx.fillText(e.text, W-12, y);
+      y+=11;
+    });
+    ctx.globalAlpha=1;
   }
   if(offline){
     ctx.fillStyle="#d84f6f";
@@ -720,9 +793,35 @@ function applyState(state){
   applyProgress(state&&state.progress);
   fillRoster();
   fillLayout();fillAreas();fillSettings();
+  fillEvents();
   const n=agents.length, w=agents.filter(a=>a.status==="waiting").length;
   document.getElementById("count").textContent=
     n+" agent"+(n===1?"":"s")+(w?" · "+w+" waiting!":"");
+  // detect new events for the ticker
+  const ev=(state&&state.events)||[];
+  ev.slice(-30).forEach(e=>{
+    if(_events.find(x=>x.key===e.ts+"-"+e.event))return;
+    let text="";
+    if(e.event==="session_start")text="+ "+(e.platform||"agent")+" session";
+    else if(e.event==="tool_start")text=e.tool_name+" "+(e.platform||"");
+    else if(e.event==="approval_request")text="! approval: "+(e.command||"");
+    else if(e.event==="subagent_start")text="↳ subagent: "+((e.child_goal||"goal").slice(0,18));
+    if(text)_events.push({key:e.ts+"-"+e.event,kind:e.event,text,frame:frame});
+  });
+  while(_events.length>MAX_EVENTS)_events.shift();
+  if(focusedId && !agents.find(a=>a.id===focusedId))focusedId=null;
+}
+
+function fillEvents(){
+  const box=document.getElementById("eventbox");
+  if(!box)return;
+  box.innerHTML="";
+  if(!_events.length){box.innerHTML="<p class='h'>no recent activity</p>";return}
+  _events.slice().reverse().forEach(e=>{
+    const d=document.createElement("div");d.className="row";
+    d.innerHTML="<span class='n'>"+e.kind.replace("_"," ")+"</span><span class='h'>"+e.text+"</span>";
+    box.appendChild(d);
+  });
 }
 if(IN_VSCODE){
   window.addEventListener("message",(ev)=>{
@@ -742,7 +841,7 @@ if(IN_VSCODE){
 loadSettings();loadManifest();
 render();
 
-// click canvas → paint tile (paint mode) or pet (click on cat area)
+// click canvas → paint tile, focus character, or pet
 cv.addEventListener("click", (ev)=>{
   const r=cv.getBoundingClientRect();
   const tx=Math.floor((ev.clientX-r.left)/S);
@@ -751,13 +850,25 @@ cv.addEventListener("click", (ev)=>{
     const key=tx+","+ty;
     const areas=settings.areas;
     if(!Object.keys(areas).length)return;
-    const name=Object.keys(areas)[0]; // use first area; areas box can rename
+    const name=Object.keys(areas)[0];
     settings.painted = settings.painted || {};
     settings.painted[key]=name;
     saveSettings();
-  } else if(tx>_gw-15 && ty>_gh-10){
-    // pet interaction
+  } else if(tx>_gw-15 && ty>_gh-22){
     petBounce=true; petTimer=120; chime([520,780]);
+  } else {
+    // try to focus the clicked character
+    const list=shown();
+    const perRow=Math.max(1,Math.floor(_gw/36));
+    let best=null,bestD=99999;
+    list.forEach((a,i)=>{
+      const s=seatPos(i,perRow);
+      const d=Math.hypot(tx-s.x-4, ty-s.y-6);
+      if(d<bestD){bestD=d;best=a;}
+    });
+    if(best && bestD<14){
+      focusedId = (focusedId===best.id) ? null : best.id;
+    }
   }
 });
 </script>
