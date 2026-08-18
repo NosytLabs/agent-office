@@ -44,7 +44,8 @@ def test_claude_platform_unlocks(tmp_path):
 def test_catalog_grew():
     ids = {c["id"] for c in CATALOG}
     assert {"layout_bullpen", "layout_war_room", "layout_lounge",
-            "layout_mexico", "areas_q1", "areas_q2",
+            "layout_mexico", "layout_garden", "layout_library",
+            "areas_q1", "areas_q2",
             "pet_cat", "pet_plant", "weather_storm", "weather_sun"} <= ids
 
 

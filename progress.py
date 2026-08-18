@@ -50,6 +50,8 @@ CATALOG = [
     {"id": "layout_war_room", "name": "War room", "hint": "principal rank", "xp": 40},
     {"id": "layout_lounge", "name": "Lounge layout", "hint": "3+ runtimes at once", "xp": 30},
     {"id": "layout_mexico", "name": "Roof deck", "hint": "night owl + 5 sessions", "xp": 35},
+    {"id": "layout_garden", "name": "Garden", "hint": "25 writes + 100 sessions", "xp": 50},
+    {"id": "layout_library", "name": "Library", "hint": "25 reads", "xp": 35},
     {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
     {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
@@ -273,6 +275,10 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "pet_cat")
     if rk in ("principal", "distinguished"):
         _unlock(data, "layout_war_room")
+    if (int(stats.get("writes") or 0) >= 25) and (int(stats.get("sessions") or 0) >= 100):
+        _unlock(data, "layout_garden")
+    if int(stats.get("reads") or 0) >= 25:
+        _unlock(data, "layout_library")
     live_now = 0
     if rk in ("staff", "principal", "distinguished"):
         # unlock lounge if user has hit 3 platforms in their lifetime

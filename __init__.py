@@ -86,14 +86,18 @@ def _settings_path() -> Path:
 
 
 _DEFAULTS = {
-    "layout": "open",                # open | bullpen | war_room | lounge | mexico
+    "layout": "open",
+    "theme": "default",
     "sound": False,
     "show_chips": True,
     "show_subagent_chips": False,
     "auto_focus_unlocks": True,
-    "max_chars": 4,                  # floor grid columns
-    "areas": {},                     # area name → color hex
-    "folder_areas": {},              # folder path → area name
+    "max_chars": 4,
+    "areas": {},
+    "folder_areas": {},
+    "paint": False,
+    "paint_color": "#5fce7a",
+    "painted": {},
 }
 
 
