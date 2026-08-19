@@ -173,6 +173,9 @@ function drawDesk(x,y,a,cosmetics){
   px(x+13,y+10,3,1,"#4a4a5a");
   if(cosmetics.includes("plant")){px(x+1,y+7,2,3,"#5fce7a");px(x+1,y+10,2,1,"#8d5524")}
   if(cosmetics.includes("mug")){px(x+4,y+8,2,2,"#d84f6f");px(x+6,y+8,1,1,"#d84f6f")}
+  if(cosmetics.includes("lamp")){px(x+8,y+7,1,2,"#e8c170");px(x+7,y+6,3,1,"#e8c170")}
+  if(cosmetics.includes("book")){px(x+10,y+9,2,1,"#c9a227");px(x+11,y+8,1,2,"#d84f6f")}
+  if(cosmetics.includes("headphones")){px(x+10,y+5,1,2,"#2b2b2b");px(x+11,y+4,1,3,"#2b2b2b");px(x+10,y+4,3,1,"#2b2b2b")}
 }
 
 function deskScreen(x,y,a){
@@ -233,8 +236,8 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(cosmetics.includes("pin") && a.platform==="telegram")px(x+6,y+6,1,1,"#4fa4d8");
   px(x+0,y+6,1,3,skin); px(x+8,y+6,1,3,skin);
   if(walking){
-    if(t%2){px(x+2,y+10,2,3,"#2d2d3d");px(x+5,y+11,2,2,"#2d2d3d")}
-    else{px(x+2,y+11,2,2,"#2d2d3d");px(x+5,y+10,2,3,"#2d2d3d")}
+    if(t%2){px(x+2,y+10,2,3,"#2d2d3d");px(x+5,y+11,2,2,"#2d2d3d");px(x+9,y+9,1,1,"#e8c170")}
+    else{px(x+2,y+11,2,2,"#2d2d3d");px(x+5,y+10,2,3,"#2d2d3d");px(x+8,y+9,1,1,"#e8c170")}
   }else{
     px(x+2,y+10,2,3,"#2d2d3d"); px(x+5,y+10,2,3,"#2d2d3d");
   }
