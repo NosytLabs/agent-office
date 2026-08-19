@@ -19,6 +19,9 @@ const THEMES = [
   {id:"solar",   name:"Solar",      bg:"#1a1208", tileA:"#3a2a14", tileB:"#2c1d0e", wall:"#4a3818"},
   {id:"cyber",   name:"Cyberpunk",  bg:"#0a0014", tileA:"#1a0830", tileB:"#100020", wall:"#3a1d6a"},
   {id:"sunset",  name:"Sunset",     bg:"#2a0a14", tileA:"#4a1838", tileB:"#3a1228", wall:"#7a2848"},
+  {id:"ocean",   name:"Ocean",      bg:"#03133a", tileA:"#0e2a5a", tileB:"#08204a", wall:"#2058a8"},
+  {id:"candy",   name:"Candy",      bg:"#321a3a", tileA:"#5a2a5a", tileB:"#4a205a", wall:"#a060a8"},
+  {id:"casino",  name:"Casino",     bg:"#08200a", tileA:"#1a4020", tileB:"#0a2a14", wall:"#3a7838"},
 ];
 
 const LAYOUTS = [
@@ -31,6 +34,9 @@ const LAYOUTS = [
   {id:"library", name:"Library",    hint:"25 reads",                    require:"layout_library"},
   {id:"arcade",  name:"Arcade",     hint:"5000 tools",                  require:"layout_arcade"},
   {id:"penthouse",name:"Penthouse", hint:"10k tools",                   require:"layout_penthouse"},
+  {id:"beach",   name:"Beach",      hint:"100 sessions + 10 themes",    require:"layout_beach"},
+  {id:"atelier", name:"Atelier",    hint:"100 writes + 100 sessions",   require:"layout_atelier"},
+  {id:"spaceship",name:"Spaceship", hint:"10k tools + 3 platforms",    require:"layout_spaceship"},
 ];
 
 const LAYOUT_GEOMETRY = {
@@ -43,6 +49,9 @@ const LAYOUT_GEOMETRY = {
   library:   {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug"},
   arcade:    {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug"},
   penthouse: {perRow:3, colStep:48, rowStep:38, labelY:14, decor:"rug"},
+  beach:     {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"beach"},
+  atelier:   {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"atelier"},
+  spaceship: {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"spaceship"},
 };
 
 const PLATFORMS = [

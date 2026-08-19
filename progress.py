@@ -312,6 +312,12 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
             _unlock(data, "layout_lounge")
     if "night_owl" in (data.get("unlocks") or {}) and int(stats.get("sessions") or 0) >= 5:
         _unlock(data, "layout_mexico")
+    if (int(stats.get("sessions") or 0) >= 100) and len(plats) >= 10:
+        _unlock(data, "layout_beach")
+    if (int(stats.get("writes") or 0) >= 100) and (int(stats.get("sessions") or 0) >= 100):
+        _unlock(data, "layout_atelier")
+    if (int(stats.get("tools") or 0) >= 10000) and len(plats) >= 3:
+        _unlock(data, "layout_spaceship")
     _unlock(data, "pet_plant")
     if int(stats.get("sessions") or 0) >= 100:
         _unlock(data, "weather_sun")
@@ -433,5 +439,9 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
                             and len(stats.get("_folder_areas") or {}) >= 1) else 0,
         "tour_guide": pct(int(stats.get("_sheets_opened") or 0), 5),
         "screenshotter": 100 if stats.get("_did_import") else 0,
+        "layout_beach": min(pct(sessions,100), pct(len(plats),10)),
+        "layout_atelier": min(pct(writes,100), pct(sessions,100)),
+        "layout_spaceship": min(pct(tools,10000), pct(len(plats),3)),
+        "mood_master": pct(int(stats.get("_moods_clicked") or 0), 10),
         "marathon": pct(tools,10000),
     }.get(badge_id, 0)
