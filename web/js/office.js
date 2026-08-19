@@ -348,7 +348,7 @@ function label(a,x,y){
   // clip label text to the seat width (18 tiles) but only Y from 16-32 down
   ctx.save();
   ctx.beginPath();
-  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 16*S);
+  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colStep*S, 16*S);
   ctx.clip();
   ctx.clip();
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
@@ -910,7 +910,7 @@ function applyProgress(p){
     const plats=(p.stats&&p.stats.platforms&&p.stats.platforms.length)?p.stats.platforms:["cli","hermes"];
     const icon={hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes","main":"hermes"};
     // always show the "local" chip so the user sees the host
-    const _plats = plats.length ? Array.from(new Set([..."cli", ..."hermes", ...plats])) : [];
+    const _plats = Array.from(new Set(["cli","hermes", ...plats]));
     chips.innerHTML=_plats.map(pl=>{
       const n=icon[pl]||"hermes";
       return "<img src='assets/"+n+".svg' title='"+pl+"' alt='"+pl+"'>";
@@ -1028,7 +1028,7 @@ function render(){
   ctx.font="11px ui-monospace";ctx.textAlign="left";
   if(settings.layout && settings.layout!=="open"){
     ctx.fillStyle="#cfc4e8";
-    ctx.fillText("· "+settings.layout+" ·", 6, H-2);
+    ctx.fillText(" · " + settings.layout + " ·", 6, H-6);
   }
   // live ticker (right edge, starts BELOW the wall, clamps inside canvas)
   if(_events.length){
@@ -1051,7 +1051,6 @@ function render(){
     });
     ctx.globalAlpha=1;
   }
-  requestAnimationFrame(render);
   if(offline){
     ctx.fillText("office unreachable — "+offline,W/2,H/2);
     ctx.fillStyle="#7a6f8f";
@@ -1061,7 +1060,7 @@ function render(){
     ctx.fillText(agents.length?"no agents on this filter":"empty floor — run Hermes, OpenCode, or Claude Code",W/2,H/2);
   }
   requestAnimationFrame(render);
-}
+
 
 function applyState(state){
   offline=null; agents=(state&&state.agents)||[];
@@ -1176,10 +1175,11 @@ cv.addEventListener("click", (ev)=>{
     // try to focus the clicked character
     const list=shown();
     const _geom2=LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open;
-    const perRow=Math.max(1,Math.floor(_gw/_geom2.colStep));
+    const _perRow=Math.min(maxc, Math.max(1, Math.floor((W-16)/_geom2.colStep)));
+    const _padLeft = Math.max(10, Math.floor(((W-16)/S - _perRow*_geom2.colStep)/2));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
-      const s=seatPos(i,perRow,_geom2,1);
+      const s=seatPos(i,_perRow,_geom2,_padLeft);
       const d=Math.hypot(tx-s.x-4, ty-s.y-6);
       if(d<bestD){bestD=d;best=a;}
     });
