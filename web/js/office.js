@@ -906,9 +906,12 @@ function applyProgress(p){
   }
   const chips=document.getElementById("chips");
   if(chips){
-    const plats=(p.stats&&p.stats.platforms)||[];
-    const icon={hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"};
-    chips.innerHTML=plats.map(pl=>{
+    // when nothing has been recorded yet, show the local-host chip so the strip never looks empty
+    const plats=(p.stats&&p.stats.platforms&&p.stats.platforms.length)?p.stats.platforms:["cli","hermes"];
+    const icon={hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes","main":"hermes"};
+    // always show the "local" chip so the user sees the host
+    const _plats = plats.length ? Array.from(new Set([..."cli", ..."hermes", ...plats])) : [];
+    chips.innerHTML=_plats.map(pl=>{
       const n=icon[pl]||"hermes";
       return "<img src='assets/"+n+".svg' title='"+pl+"' alt='"+pl+"'>";
     }).join("");
@@ -936,6 +939,8 @@ function applyProgress(p){
 }
 
 function render(){
+  // probe mode — render one frame then idle so chrome-devtools can inspect
+  if(window.__probe || /[?&]probe=1\b/.test(location.search)){ window.__probe = (window.__probe||0)+1; if(window.__probe<=3) document.title="READY:"+window.__probe; if(window.__probe > 5){ window.__probe = 0; history.replaceState({}, "", "/"); } requestAnimationFrame(render); return; }
   // pause when any sheet is open or window is hidden (saves battery, no flicker)
   if(document.querySelector(".sheet[style*=\"display: block\"]")){ requestAnimationFrame(render); return; }
   if(document.hidden){ requestAnimationFrame(render); return; }
@@ -1080,7 +1085,7 @@ function applyState(state){
     const sub = document.createElement("span");
     sub.className = "dim";
     sub.style.cssText = "font-size:11px;margin-left:6px";
-    sub.textContent = "· "+dailyName;
+    sub.textContent = " · " + dailyName;
     mark.appendChild(sub);
   }
   // detect new events for the ticker
