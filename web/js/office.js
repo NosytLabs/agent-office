@@ -348,8 +348,7 @@ function label(a,x,y){
   // clip label text to the seat width (18 tiles) but only Y from 16-32 down
   ctx.save();
   ctx.beginPath();
-  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colStep*S, 16*S);
-  ctx.clip();
+  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 16*S);
   ctx.clip();
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
   const name=a.label.slice(0,14);
@@ -1060,7 +1059,7 @@ function render(){
     ctx.fillText(agents.length?"no agents on this filter":"empty floor — run Hermes, OpenCode, or Claude Code",W/2,H/2);
   }
   requestAnimationFrame(render);
-
+}
 
 function applyState(state){
   offline=null; agents=(state&&state.agents)||[];
@@ -1175,8 +1174,9 @@ cv.addEventListener("click", (ev)=>{
     // try to focus the clicked character
     const list=shown();
     const _geom2=LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open;
-    const _perRow=Math.min(maxc, Math.max(1, Math.floor((W-16)/_geom2.colStep)));
-    const _padLeft = Math.max(10, Math.floor(((W-16)/S - _perRow*_geom2.colStep)/2));
+    const _maxc=Math.max(2,settings.max_chars||4);
+    const _perRow=Math.min(_maxc, Math.max(1, Math.floor((_gw-2)/_geom2.colStep)));
+    const _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
       const s=seatPos(i,_perRow,_geom2,_padLeft);
