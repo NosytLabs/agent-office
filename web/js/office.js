@@ -52,15 +52,33 @@ function spriteFor(a){
   if(!charSheets.length)return null;
   const sheet=charSheets[hash(a.id)%charSheets.length];
   if(!sheet)return null;
-  // activity → frame set: walk(0-3), typing/reading(4-5), idle(6)
-  let frames, idx;
-  if(!seatedNow(a)) { frames=sheet.down.concat(sheet.up,sheet.right); idx=(frame>>3)%4; return frames[idx]; }
-  if(a.activity==="reading"){ frames=sheet.down; idx=4+((frame>>4)%2); }
-  else if(a.activity==="typing"||a.activity==="running"){ frames=sheet.down; idx=4+((frame>>3)%2); }
-  else { frames=sheet.down; idx=6; }
-  return frames[Math.min(idx,CHAR_COLS-1)];
+  // sheet layout (verified): col 0 = idle stand, cols 1-6 = 6-frame walk. no typing frames.
+  if(!seatedNow(a)){
+    const all=sheet.down.concat(sheet.right);
+    return all[1+((frame>>3)%6)];
+  }
+  if(a.activity==="reading"||a.activity==="typing"||a.activity==="running"){
+    // no dedicated typing frames — use subtle 2-frame walk-in-place from cols 1-2
+    return sheet.down[1+((frame>>4)%2)];
+  }
+  return sheet.down[0]; // idle
 }
 function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
+
+// ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
+const decorImg={};  // name -> HTMLImageElement
+["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
+ "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png"]
+ .forEach(p=>{const im=new Image();im.src="assets/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
+function drawDecorImg(name,dx,dy,dw,dh){
+  const im=decorImg[name];
+  if(im&&im.complete&&im.naturalWidth>0){
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(im,Math.round(dx*S),Math.round(dy*S),Math.round(dw*S),Math.round(dh*S));
+    return true;
+  }
+  return false;
+}
 
 let _gw=0,_gh=0;
 function drawOffice(w,h){
@@ -164,22 +182,39 @@ function drawOffice(w,h){
   // cooler (next to coffee bar, not overlapping)
   px(w/2+12,h-21,4,6,"#7fa8d8"); px(w/2+13,h-22,2,1,"#a8c8e8"); px(w/2+12,h-15,4,2,"#4a4a5a");
   px(w/2+13,h-19,1,2,"#6a8ab8"); px(w/2+14,h-20,1,1,"#a8c8e8");
-  // plant (left wall, well inside the office — clamped away from edges)
+  // plant (left wall) — sprite version when loaded, procedural fallback
   const plantX = Math.max(4, 2);
   const plantY = Math.max(20, h-26);
-  px(plantX,plantY,4,2,"#4aa860"); px(plantX-1,plantY-2,3,3,"#5fce7a");
-  px(plantX+2,plantY-1,3,2,"#4aa860"); px(plantX-1,plantY,1,2,"#5fce7a");
-  px(plantX+1,plantY+2,2,4,"#8d5524"); px(plantX,plantY+6,4,1,"#54381f"); px(plantX+1,plantY+5,1,1,"#6b4a2f");
+  if(!drawDecorImg("LARGE_PLANT",plantX-1,plantY-6,6,12)){
+    px(plantX,plantY,4,2,"#4aa860"); px(plantX-1,plantY-2,3,3,"#5fce7a");
+    px(plantX+2,plantY-1,3,2,"#4aa860"); px(plantX-1,plantY,1,2,"#5fce7a");
+    px(plantX+1,plantY+2,2,4,"#8d5524"); px(plantX,plantY+6,4,1,"#54381f"); px(plantX+1,plantY+5,1,1,"#6b4a2f");
+  }
   // small flower
   if((frame>>4)%2) px(plantX,plantY-2,1,1,"#e8c170");
-  // cat — bottom-right, well inside the office (avoid the rug edge)
+  // cat — bottom-right; sprite sheet (claudio) when loaded, procedural fallback
   const cx=Math.max(14, w-10), cy=Math.max(18, h-12);
-  // dog companion (left wall) — sits below the plant, inside the office
+  if(!drawDecorImg("claudio",cx-4,cy-6,6,6)){
+    // body
+    px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
+    px(cx-1,cy,1,1,"#a0801a"); px(cx+1,cy,1,1,"#a0801a"); px(cx+3,cy,1,1,"#a0801a");
+    // head
+    px(cx+2,cy-3,4,3,"#c9a227");
+    // ears
+    px(cx+2,cy-4,1,1,"#a0801a"); px(cx+4,cy-4,1,1,"#a0801a");
+    // eyes (open during day / when awake)
+    if(!dark||(frame>>5)%2){px(cx+3,cy-2,1,1,"#1a1423");px(cx+5,cy-2,1,1,"#1a1423");}
+    // tail with tip
+    px(cx-3,cy-1,1,2,"#c9a227"); px(cx-4,cy-2,1,1,"#a0801a");
+  }
+  // dog companion (left wall) — gitcat sprite when loaded, procedural fallback
   if(haveUnlock && haveUnlock("pet_dog")){
     const dx=Math.max(4, 4), dy=Math.max(20, h-34);
-    px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
-    px(dx+4,dy,1,1,"#d97746"); px(dx+1,dy+1,1,1,"#a04020"); px(dx+4,dy+1,1,1,"#a04020");
-    if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
+    if(!drawDecorImg("gitcat",dx-2,dy-6,6,6)){
+      px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
+      px(dx+4,dy,1,1,"#d97746"); px(dx+1,dy+1,1,1,"#a04020"); px(dx+4,dy+1,1,1,"#a04020");
+      if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
+    }
   }
   // fish tank (bottom-center, between cooler and cat)
   if(haveUnlock && haveUnlock("pet_fish")){
@@ -187,20 +222,9 @@ function drawOffice(w,h){
     px(w/2-14,h-22,6,1,"#6b4a2f"); px(w/2-13,h-24,1,1,"#e8c170"); px(w/2-12,h-25,1,1,"#5fce7a");
     if((frame>>2)%3===0)px(w/2-10,h-23,1,1,"#d84f6f");
   }
-  // body
-  px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
-  px(cx-1,cy,1,1,"#a0801a"); px(cx+1,cy,1,1,"#a0801a"); px(cx+3,cy,1,1,"#a0801a");
-  // head
-  px(cx+2,cy-3,4,3,"#c9a227");
-  // ears
-  px(cx+2,cy-4,1,1,"#a0801a"); px(cx+4,cy-4,1,1,"#a0801a");
-  // eyes (open during day / when awake)
-  if(!dark||(frame>>5)%2){px(cx+3,cy-2,1,1,"#1a1423");px(cx+5,cy-2,1,1,"#1a1423");}
-  // tail with tip
-  px(cx-3,cy-1,1,2,"#c9a227"); px(cx-4,cy-2,1,1,"#a0801a");
   // bob animation when petted
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
-  if(bob){px(cx+2,cy-5,4,1,"#fff8c8");}
+  if(bob && !decorImg.claudio?.complete){px(cx+2,cy-5,4,1,"#fff8c8");}
   if(petBounce){petTimer--; if(petTimer<=0)petBounce=false;}
 }
 
