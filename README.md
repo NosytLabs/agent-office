@@ -41,12 +41,12 @@ and live detection.
 
 ## features
 
-- **48 badges** with progress bars — unlock by using agents
+- **54 badges** with progress bars — unlock by using agents
 - **6 ranks** — intern → junior → staff → senior → principal → distinguished
-- **9 unlockable layouts** — bullpen, war room, lounge, roof deck, garden,
-  library, arcade, penthouse + open
-- **6 themes** — default, midnight, forest, solar, cyberpunk, sunset
-- **3 pets** — cat, dog, fish tank
+- **12 unlockable layouts** — open, bullpen, war room, lounge, roof deck, garden,
+  library, arcade, penthouse, beach, atelier, spaceship
+- **9 themes** — default, midnight, forest, solar, cyberpunk, sunset, ocean, candy, casino
+- **4 pets** — cat, dog, fern, fish tank
 - **3 desk types** — wood, standing, glass
 - **named areas** painted behind desks + folder→area mapping
 - **paint mode** with drag-paint, click character to focus + inspect

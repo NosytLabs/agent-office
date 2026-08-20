@@ -348,15 +348,15 @@ function label(a,x,y){
   // clip label text to the seat width (18 tiles) but only Y from 16-32 down
   ctx.save();
   ctx.beginPath();
-  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 16*S);
+  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 17*S);
   ctx.clip();
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
   const name=a.label.slice(0,14);
-  ctx.fillStyle="#1a1423";
-  ctx.fillText(name,cx,(y+21)*S);
   ctx.fillStyle=a.kind==="subagent"?"#3a2a10":"#2a2038";
-  ctx.fillRect(Math.round((x+2)*S), Math.round((y+22)*S), (colW-4*S), 10*S);
-  ctx.fillStyle=a.kind==="subagent"?"#e8c170":"#cfc4e8";
+  ctx.fillRect(Math.round((x+2)*S), Math.round((y+20)*S), (colW-4*S), 12*S);
+  ctx.fillStyle=a.kind==="subagent"?"#ffd98a":"#ffffff";
+  ctx.fillText(name,cx,(y+24)*S);
+  ctx.fillStyle="#8a7fa8";
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
   ctx.fillText(st.slice(0,14),cx,(y+25)*S);
@@ -1043,7 +1043,7 @@ function render(){
       ctx.globalAlpha=alpha;
       ctx.fillStyle={session_start:"#5fce7a",tool_start:"#cfc4e8",
                      approval_request:"#d84f6f",subagent_start:"#c9a227"}[e.kind]||"#9b6fd8";
-      const txt = e.text.length>22 ? e.text.slice(0,21)+"…" : e.text;
+      const txt = e.text.length>30 ? e.text.slice(0,29)+"…" : e.text;
       ctx.fillText(txt, xRight, y);
       y+=11;
       if(y>H-10) return;   // stop if past canvas
