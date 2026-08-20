@@ -403,6 +403,19 @@ def _serve() -> None:
                     body = json.dumps(_asset_manifest()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
+                elif self.path.split("?")[0].startswith("/assets/sprites/"):
+                    # sprite sheets (PNG) — subdirectory-safe, name-checked
+                    rel = self.path.split("?")[0].lstrip("/")
+                    static_path = (web_dir / rel).resolve()
+                    if static_path.is_file() and static_path.suffix == ".png" and str(web_dir.resolve()) in str(static_path):
+                        body = static_path.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "image/png")
+                        self.send_header("Cache-Control", "max-age=86400")
+                    else:
+                        self.send_response(404)
+                        body = b"not found"
+                        self.send_header("Content-Type", "text/plain")
                 elif self.path.split("?")[0].startswith("/assets/"):
                     name = Path(self.path.split("?")[0]).name
                     asset = web_dir / "assets" / name

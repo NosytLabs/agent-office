@@ -25,6 +25,43 @@ function lighten(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2)
 function darken(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.max(0,Math.round(r*0.85));const mix2=Math.max(0,Math.round(g*0.85));const mix3=Math.max(0,Math.round(b*0.85));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
 function night(){const h=new Date().getHours();return h<6||h>=19}
 
+// ═══ sprite-sheet characters (from pixel-agents, MIT — see ATTRIBUTION.md) ═══
+// 112×96 sheet: 3 rows (down,up,right) × 7 frames of 16×32. walk=4f, typing/reading=2f.
+const CHAR_FW=16, CHAR_FH=32, CHAR_ROWS=3, CHAR_COLS=7;
+const charSheets=[];   // charSheets[i] = {down:[7 canvases], up:[...], right:[...]}
+(function loadCharSheets(){
+  for(let i=0;i<6;i++){
+    const img=new Image();
+    img.onload=()=>{
+      const rows=[];
+      for(let r=0;r<CHAR_ROWS;r++){
+        const frames=[];
+        for(let f=0;f<CHAR_COLS;f++){
+          const c=document.createElement("canvas");c.width=CHAR_FW;c.height=CHAR_FH;
+          c.getContext("2d").drawImage(img,f*CHAR_FW,r*CHAR_FH,CHAR_FW,CHAR_FH,0,0,CHAR_FW,CHAR_FH);
+          frames.push(c);
+        }
+        rows.push(frames);
+      }
+      charSheets[i]={down:rows[0],up:rows[1],right:rows[2]};
+    };
+    img.src="assets/sprites/characters/char_"+i+".png";
+  }
+})();
+function spriteFor(a){
+  if(!charSheets.length)return null;
+  const sheet=charSheets[hash(a.id)%charSheets.length];
+  if(!sheet)return null;
+  // activity → frame set: walk(0-3), typing/reading(4-5), idle(6)
+  let frames, idx;
+  if(!seatedNow(a)) { frames=sheet.down.concat(sheet.up,sheet.right); idx=(frame>>3)%4; return frames[idx]; }
+  if(a.activity==="reading"){ frames=sheet.down; idx=4+((frame>>4)%2); }
+  else if(a.activity==="typing"||a.activity==="running"){ frames=sheet.down; idx=4+((frame>>3)%2); }
+  else { frames=sheet.down; idx=6; }
+  return frames[Math.min(idx,CHAR_COLS-1)];
+}
+function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
+
 let _gw=0,_gh=0;
 function drawOffice(w,h){
   const dark=night();
@@ -232,6 +269,23 @@ function drawChar(a,fx,fy,seated,cosmetics){
   const walking=!seated, bob=((a.status==="working"||walking)&&(t%2))?1:0;
   const x=fx, y=fy+bob;
   if(a.status==="gone")ctx.globalAlpha=0.35;
+  // ── sprite-sheet path: real 16×32 pixel-art frames when loaded ──
+  const spr=spriteFor(a);
+  if(spr){
+    // drop shadow (polish cue from upstream)
+    ctx.fillStyle="rgba(0,0,0,0.30)";
+    ctx.fillRect(Math.round(x*S), Math.round((y+15)*S), 9*S, 1*S);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH, Math.round((x-3.5)*S), Math.round((y-16)*S), 16*S, 32*S);
+    // cosmetics overlay (crown/beanie/headphones) on sprite head
+    const hx=x+2, hy=y-14;
+    if(cosmetics.includes("crown")){px(hx,hy,5,2,"#e8c170");px(hx+1,hy-1,1,1,"#e8c170");px(hx+3,hy-1,1,1,"#e8c170")}
+    else if(cosmetics.includes("beanie")){px(hx-1,hy+1,7,2,"#d84f6f");px(hx+1,hy,3,1,"#d84f6f")}
+    if(cosmetics.includes("cape")){ctx.fillStyle="rgba(122,48,48,0.85)";ctx.fillRect(Math.round((x+1)*S),Math.round((y-9)*S),7*S,6*S)}
+    ctx.globalAlpha=1;
+    return;
+  }
+  // ── procedural fallback (sheets still loading) ──
   // cape / cloak
   if(cosmetics.includes("cape")){px(x,y+5,8,6,"#7a3030");px(x+1,y+6,1,2,"#8a4040")}
   // hair with highlight
