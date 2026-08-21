@@ -470,6 +470,35 @@ def _serve() -> None:
             except Exception:
                 logger.debug("pixel-office request failed", exc_info=True)
 
+        def do_DELETE(self) -> None:
+            """DELETE /state — wipe progress + event history (fresh start)."""
+            try:
+                if self.path.split("?")[0] != "/state":
+                    self.send_response(404)
+                    body = b"not found"
+                    self.send_header("Content-Type", "text/plain")
+                else:
+                    removed = []
+                    for f in ("progress.json", "events.jsonl"):
+                        p = _office_dir() / f
+                        if p.exists():
+                            p.unlink()
+                            removed.append(f)
+                    # reset painted tiles too
+                    st = _load_settings()
+                    st["painted"] = {}
+                    st["areas"] = {}
+                    _save_settings(st)
+                    logger.info("pixel-office: state reset (removed %s)", ", ".join(removed) or "nothing")
+                    body = json.dumps({"ok": True, "removed": removed}).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception:
+                logger.debug("pixel-office DELETE failed", exc_info=True)
+
         def do_POST(self) -> None:
             try:
                 length = int(self.headers.get("Content-Length") or 0)

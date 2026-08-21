@@ -600,6 +600,20 @@ function fillSettings(){
     };
     inp.click();
   };
+  // reset — wipe progress, event history, painted tiles (fresh start)
+  const rst=document.createElement("div");rst.className="row";
+  rst.innerHTML="<div style='flex:1'><div class='n'>reset everything</div><div class='d'>wipe XP, badges, history, painted tiles</div></div>";
+  const rbtn=document.createElement("button");rbtn.textContent="reset";
+  rbtn.onclick=()=>{
+    if(!confirm("Reset ALL office progress? XP, badges, unlock history and painted tiles will be wiped. This cannot be undone."))return;
+    fetch("/state",{method:"DELETE"}).then(r=>r.json()).then(()=>{
+      localStorage.removeItem("pixelOfficeSeen");
+      localStorage.removeItem("didImport");
+      location.reload();
+    }).catch(()=>alert("reset failed — is the office server running?"));
+  };
+  rst.appendChild(rbtn);
+  document.getElementById("settingsbox").appendChild(rst);
   // theme picker
   const th=document.createElement("div");th.className="row";
   th.innerHTML="<div style='flex:1'><div class='n'>theme</div></div>";
