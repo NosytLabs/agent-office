@@ -106,22 +106,27 @@ function drawOffice(w,h){
     return "#"+pa.map((v,i)=>Math.round(v*(1-t)+pb[i]*t).toString(16).padStart(2,"0")).join("");
   }
   const lf=geom.floor||["#2c2438","#262033"];
-  const tileA = mix(lf[0], themeObj.tileA||lf[0], 0.4);
-  const tileB = mix(lf[1], themeObj.tileB||lf[1], 0.4);
-  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, 0.4);
+  const tileA = mix(lf[0], themeObj.tileA||lf[0], 0.25);
+  const tileB = mix(lf[1], themeObj.tileB||lf[1], 0.25);
+  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, 0.25);
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
   // outdoor layouts: sky gradient band above the wall instead of interior wall
   if(geom.sky){
     const skyTop = dark?"#0a0a20":"#7fa8d8", skyBot = dark?"#1a1a40":"#a8c8e8";
-    for(let y=0;y<8;y++){
-      const c=mix(y<4?skyTop:skyBot, y<4?skyTop:skyBot, 0);
-      px(0,y,w,1,y<4?skyTop:skyBot);
+    for(let y=0;y<18;y++){
+      // smooth gradient: blend top→bot over the full sky band
+      const t=Math.min(1,y/17);
+      const c=mix(skyTop,skyBot,t);
+      px(0,y,w,1,c);
     }
     if(dark){ for(let x=2;x<w;x+=7)if((frame>>3+x)%9===0)px(x,1+((x*3)%4),1,1,"#fff8c8"); }
     else { px(4,1,3,3,"#fff8c8"); px(5,2,1,1,"#f0d060"); } // sun
     px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
+    // outdoor layouts still get their themed floor below the sky band
+    for(let y=18;y<h;y+=8)for(let x=0;x<w;x+=8)
+      px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
   } else {
     for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
       px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
@@ -187,17 +192,20 @@ function drawOffice(w,h){
     px(4,h-16,3,3,"#5fce7a"); px(5,h-15,1,1,"#4aa860");
     px(w-7,h-16,3,3,"#5fce7a"); px(w-6,h-15,1,1,"#4aa860");
   }else if(decor==="garden"){
-    // grass everywhere
-    for(let x=0;x<w;x+=6)px(x,h-9,4,1,"#5fce7a");
-    for(let x=2;x<w-2;x+=10){
-      if((frame>>3)%3===0)px(x,h-10,1,1,"#e8c170");
-    }
-    px(8,h-12,4,3,"#5fce7a"); px(w-12,h-12,4,3,"#5fce7a");
+    // grass field: two-tone tufts + flowers + hedges along the wall base
+    for(let x=0;x<w;x+=4)px(x,h-10,3,1,(x/4)%2?"#4aa860":"#5fce7a");
+    for(let x=2;x<w-2;x+=9)if((frame>>3+x)%4===0)px(x+((frame>>4)%2),h-11,1,1,"#e8c170");
+    for(let x=6;x<w-6;x+=13)if((frame>>2+x)%5===0)px(x,h-12,1,1,"#d84f6f");
+    // hedges flanking the floor
+    px(4,h-13,5,3,"#3a7a4a"); px(w-9,h-13,5,3,"#3a7a4a");
+    px(5,h-14,3,1,"#5fce7a"); px(w-8,h-14,3,1,"#5fce7a");
   }else if(decor==="beach"){
-    // ocean edge along the bottom — animated waves
-    for(let x=0;x<w;x+=4)px(x,h-7,4,1,(x/4+frame/8)%2?"#4fa4d8":"#5fbbec");
-    px(0,h-9,w,2,"#c2b580"); // sand
-    // sandcastle at the corner
+    // ocean band with animated waves + foam + sand
+    px(0,h-8,w,2,"#c2b580");                                   // sand
+    for(let x=0;x<w;x+=3)px(x,h-6,3,1,((x/3)+(frame>>3))%2?"#4fa4d8":"#5fbbec");  // waves
+    for(let x=1;x<w;x+=7)if(((x>>2)+(frame>>4))%3===0)px(x,h-9,2,1,"#fff8e8");    // foam
+    // beach umbrella + sandcastle
+    px(w-16,h-16,1,8,"#8d5524"); px(w-19,h-18,7,2,"#d84f6f"); px(w-18,h-17,5,1,"#e8c170");
     px(8,h-15,6,5,"#d8c4a0"); px(10,h-16,2,1,"#a06028");
   }else if(decor==="atelier"){
     // art supplies & easels
@@ -213,13 +221,13 @@ function drawOffice(w,h){
     // floor grating
     for(let x=0;x<w;x+=8)px(x,h-9,6,1,"#3a2f4b");
   }
-  // coffee bar (centered, above rug)
-  px(w/2-5,h-21,10,1,"#6b4a2f"); px(w/2-5,h-20,10,4,"#54381f");
-  px(w/2-3,h-23,5,3,"#33283f"); px(w/2-3,h-22,3,1,"#3e334f");
-  px(w/2-2,h-22,1,1,"#d84f6f"); px(w/2+1,h-21,2,1,"#e8c170"); px(w/2+2,h-22,1,1,"#5fce7a");
-  // cooler (next to coffee bar, not overlapping)
-  px(w/2+12,h-21,4,6,"#7fa8d8"); px(w/2+13,h-22,2,1,"#a8c8e8"); px(w/2+12,h-15,4,2,"#4a4a5a");
-  px(w/2+13,h-19,1,2,"#6a8ab8"); px(w/2+14,h-20,1,1,"#a8c8e8");
+  // kitchenette against the right wall: counter + machine + cooler, one grouped unit
+  const kx=w-24;
+  px(kx,h-16,14,1,"#6b4a2f"); px(kx,h-15,14,3,"#54381f");          // counter
+  px(kx+2,h-19,5,3,"#33283f"); px(kx+3,h-18,3,1,"#3e334f");        // coffee machine
+  px(kx+3,h-19,1,1,"#d84f6f"); px(kx+5,h-18,1,1,"#e8c170");        // buttons
+  px(kx+9,h-19,3,3,"#7fa8d8"); px(kx+10,h-20,1,1,"#a8c8e8");       // cooler jug
+  px(kx+9,h-16,3,1,"#4a4a5a");                                      // cooler base
   // plant (left wall) — sprite version when loaded, procedural fallback
   const plantX = Math.max(4, 2);
   const plantY = Math.max(20, h-26);
@@ -230,8 +238,8 @@ function drawOffice(w,h){
   }
   // small flower
   if((frame>>4)%2) px(plantX,plantY-2,1,1,"#e8c170");
-  // cat — bottom-right; sprite sheet (claudio) when loaded, procedural fallback
-  const cx=Math.max(14, w-10), cy=Math.max(18, h-12);
+  // cat — bottom-right corner, ON the floor line (feet at h-4)
+  const cx=Math.max(14, w-8), cy=h-4;
   if(!drawDecorImg("claudio",cx-4,cy-6,6,6)){
     // body
     px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
@@ -247,7 +255,7 @@ function drawOffice(w,h){
   }
   // dog companion (left wall) — gitcat sprite when loaded, procedural fallback
   if(haveUnlock && haveUnlock("pet_dog")){
-    const dx=Math.max(4, 4), dy=Math.max(20, h-34);
+    const dx=8, dy=h-8;   // bottom-left, on the floor near the plant
     if(!drawDecorImg("gitcat",dx-2,dy-6,6,6)){
       px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
       px(dx+4,dy,1,1,"#d97746"); px(dx+1,dy+1,1,1,"#a04020"); px(dx+4,dy+1,1,1,"#a04020");
@@ -256,9 +264,10 @@ function drawOffice(w,h){
   }
   // fish tank (bottom-center, between cooler and cat)
   if(haveUnlock && haveUnlock("pet_fish")){
-    px(w/2-15,h-26,8,6,"#3c5a7a"); px(w/2-14,h-25,6,4,"#4fa4d8");
-    px(w/2-14,h-22,6,1,"#6b4a2f"); px(w/2-13,h-24,1,1,"#e8c170"); px(w/2-12,h-25,1,1,"#5fce7a");
-    if((frame>>2)%3===0)px(w/2-10,h-23,1,1,"#d84f6f");
+    const fx=Math.floor(w/2)-4, fy=h-10;   // on the floor, center
+    px(fx,fy-6,8,6,"#3c5a7a"); px(fx+1,fy-5,6,4,"#4fa4d8");
+    px(fx+1,fy-2,6,1,"#6b4a2f"); px(fx+2,fy-4,1,1,"#e8c170"); px(fx+3,fy-5,1,1,"#5fce7a");
+    if((frame>>2)%3===0)px(fx+5,fy-3,1,1,"#d84f6f");
   }
   // bob animation when petted
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
@@ -279,11 +288,13 @@ function drawDesk(x,y,a,cosmetics){
   }else if(wood){
     px(x,y+10,18,1,"#8d5524"); px(x,y+11,18,3,"#6b4a2f"); px(x,y+14,18,1,"#54381f");
   }else{
-    px(x,y+10,18,1,"#6b4a2f"); px(x,y+11,18,3,"#54381f");
+    px(x,y+9,18,1,"#8d5524");   // top surface highlight
+    px(x,y+10,18,2,"#6b4a2f");  // slab
+    px(x,y+12,18,3,"#54381f");  // front panel
   }
-  // legs (skip if glass or standing)
+  // legs (skip if glass or standing) — flush under the front panel
   if(!glass && !standing) {
-    px(x+1,y+14,2,4,"#3c2814"); px(x+15,y+14,2,4,"#3c2814");
+    px(x+1,y+15,2,4,"#3c2814"); px(x+15,y+15,2,4,"#3c2814");
   }
   if(standing){
     px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b"); // tall legs
@@ -339,11 +350,11 @@ function drawChar(a,fx,fy,seated,cosmetics){
     const cs = Math.max(1, Math.floor(S/3));   // sprite scale: chars ~2 tiles wide, 4 tall — room proportion
     ctx.fillRect(Math.round((x+7)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
-    // feet at y+14: torso+head clear of the desk front (desk top at y+10)
+    // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
     ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH,
-      Math.round((x+7)*S), Math.round((y+14)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
+      Math.round((x+7)*S), Math.round((y+12)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
     // cosmetics overlay — anchored to the sprite's actual top-left in pixels
-    const sx0 = Math.round((x+7)*S), sy0 = Math.round((y+14)*S - CHAR_FH*cs);
+    const sx0 = Math.round((x+7)*S), sy0 = Math.round((y+12)*S - CHAR_FH*cs);
     const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
@@ -483,7 +494,7 @@ function label(a,x,y){
   if(a.detail){ctx.fillStyle="#6a5f80";
     ctx.fillText(a.detail.slice(0,16),cx,(y+27.5)*S)}
   ctx.restore();
-  drawLogo(platOf(a),x,y+13);
+  drawLogo(platOf(a),x+1,y+8);   // platform chip sits ON the desk top, left edge
 }
 
 let petBounce=false, petTimer=0;
