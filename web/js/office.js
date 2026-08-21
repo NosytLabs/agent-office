@@ -144,6 +144,12 @@ function drawOffice(w,h){
       px(x+1,3,10,3,"#7fa8d8"); px(x+2,3,3,1,"#c8dff8");
     }
     px(x,6,12,1,"#3a2f4b"); px(x,2,1,5,"#3a2f4b"); px(x+11,2,1,5,"#3a2f4b");
+    if(dark && (frame>>5)%2===0){
+      // warm lamplight pooling on the floor below the window
+      ctx.globalAlpha=0.10;
+      px(x-2,10,16,4,"#e8c170");
+      ctx.globalAlpha=1;
+    }
   }
   // door — interior layouts only (outdoor/sky layouts have no wall door)
   if(!geom.sky){
@@ -229,6 +235,14 @@ function drawOffice(w,h){
   px(kx,h-16,14,1,"#6b4a2f"); px(kx,h-15,14,3,"#54381f");          // counter
   px(kx+2,h-19,5,3,"#33283f"); px(kx+3,h-18,3,1,"#3e334f");        // coffee machine
   px(kx+3,h-19,1,1,"#d84f6f"); px(kx+5,h-18,1,1,"#e8c170");        // buttons
+  // steam wisps rising from the machine (animated, 3-frame drift)
+  if((frame>>3)%7<5){
+    const ph=(frame>>3)%3;
+    const sx=kx+4, sy=h-21;
+    if(ph===0)px(sx,sy,1,1,"#c8c8d8");
+    else if(ph===1){px(sx-1,sy-1,1,1,"#b8b8cc");px(sx+1,sy,1,1,"#c8c8d8");}
+    else {px(sx,sy-2,1,1,"#a8a8c0");px(sx-2,sy-1,1,1,"#b8b8cc");px(sx+2,sy-1,1,1,"#c8c8d8");}
+  }
   px(kx+9,h-19,3,3,"#7fa8d8"); px(kx+10,h-20,1,1,"#a8c8e8");       // cooler jug
   px(kx+9,h-16,3,1,"#4a4a5a");                                      // cooler base
   // plant (left wall) — sprite version when loaded, procedural fallback
@@ -1165,6 +1179,14 @@ function render(){
       const seat=seatPos(i,perRow,geom,padLeft);
       // redraw desk top over the seated char's lower body so they sit BEHIND the desk
       drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
+      // night idle: drifting z's above the head
+      if(night() && a.status==="idle" && (frame>>4)%3!==2){
+        const zx=seat.x+13, zy=8+((frame>>4)%3);
+        ctx.font="bold "+Math.max(5,S)+"px ui-monospace,monospace";
+        ctx.fillStyle="rgba(232,224,200,"+(0.9-((frame>>4)%3)*0.25)+")";
+        ctx.fillText("z", zx*S, zy*S);
+        if((frame>>4)%3>0){ctx.fillText("z",(zx+1.5)*S,(zy-1.5)*S);}
+      }
       drawBubble(a,seat.x+2,seat.y); label(a,seat.x,seat.y);
     }
     if(focusedId===a.id){
@@ -1292,10 +1314,42 @@ render();
 // click canvas → paint tile, focus character, or pet
 let _painting = false;
 cv.addEventListener("mousedown", (ev)=>{
-  if(!settings.paint)return;
+  if(!settings.paint){ deskClick(ev); return; }
   _painting = true;
   paintAt(ev);
 });
+// click a desk → copy that agent's cwd to clipboard + toast
+function deskClick(ev){
+  const r=cv.getBoundingClientRect();
+  const tx=(ev.clientX-r.left)/S, ty=(ev.clientY-r.top)/S;
+  const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
+  const list=shown(); const maxc=Math.max(2,settings.max_chars||4);
+  const usableW=cv.clientWidth-16;
+  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(geom.colStep*S))));
+  perRow=Math.min(perRow, geom.perRow);
+  const rowWidth=perRow*geom.colStep;
+  const padLeft=Math.max(10, Math.floor((usableW/S - rowWidth)/2));
+  for(let i=0;i<list.length;i++){
+    const seat=seatPos(i,perRow,geom,padLeft);
+    if(tx>=seat.x&&tx<=seat.x+18&&ty>=seat.y&&ty<=seat.y+16){
+      const a=list[i];
+      const txt=a.label?a.label+(a.detail?" — "+a.detail:""):a.detail||"";
+      if(txt && navigator.clipboard){
+        navigator.clipboard.writeText(txt).then(()=>toast("copied: "+txt.slice(0,40)));
+      }
+      return;
+    }
+  }
+}
+let _toastT=null;
+function toast(msg){
+  let t=document.getElementById("office-toast");
+  if(!t){t=document.createElement("div");t.id="office-toast";
+    t.style.cssText="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#2a2038;color:#fff;padding:6px 14px;border-radius:6px;font:11px ui-monospace,monospace;z-index:9999;opacity:0;transition:opacity .2s";
+    document.body.appendChild(t);}
+  t.textContent=msg; t.style.opacity=1;
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.style.opacity=0, 1800);
+}
 cv.addEventListener("mousemove", (ev)=>{
   if(!_painting)return;
   paintAt(ev);
