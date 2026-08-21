@@ -167,6 +167,11 @@ def _publish(event: Dict[str, Any]) -> None:
                 fh.write(line + "\n")
             _maybe_trim(path)
         _ensure_server()
+        # If the serve thread exited without binding (port raced with a dying
+        # predecessor), clear the flag so a later event retries the bind.
+        if not _server_bound():
+            global _server_started
+            _server_started = False
     except Exception as exc:  # observers must never break the loop — but say so
         logger.warning("pixel-office: failed to record event (%s: %s)",
                        type(exc).__name__, exc)
@@ -380,6 +385,15 @@ def _ensure_server() -> None:
     t.start()
 
 
+def _server_bound() -> bool:
+    """True if a pixel-office HTTP server is actually listening on _port."""
+    try:
+        with socket.create_connection(("127.0.0.1", _port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
 def _serve() -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -534,6 +548,16 @@ def _serve() -> None:
                 "(another Hermes process) — this process will feed events only",
                 _port,
             )
+        elif verdict.startswith("dead/"):
+            # Port looked bound but nothing answers — a predecessor's socket
+            # raced us. Log it and fall through so a later _ensure_server()
+            # retry (flag cleared by _publish) can bind once it's truly free.
+            logger.warning(
+                "pixel-office: bind on %s failed (%s) and probe says %s — "
+                "will retry on next event",
+                _port, exc, verdict,
+            )
+            return
         else:
             logger.warning(
                 "pixel-office: could NOT bind 127.0.0.1:%s (%s) and the "

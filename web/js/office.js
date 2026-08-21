@@ -69,11 +69,21 @@ function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
 const decorImg={};  // name -> HTMLImageElement
 ["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
  "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png"]
- .forEach(p=>{const im=new Image();im.src="assets/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
+ .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
   const im=decorImg[name];
   if(im&&im.complete&&im.naturalWidth>0){
     ctx.imageSmoothingEnabled=false;
+    // pet sheets are 6x3 grids of 16x32 frames (walk / idle / flip rows) —
+    // draw ONE frame, not the whole squished sheet
+    if(im.naturalWidth===96&&im.naturalHeight===96){
+      const fw=16,fh=32;
+      const walking=(frame>>4)%2;                 // gentle 2-frame idle/walk cycle
+      const col=walking?1+((frame>>4)%2):0;       // cols 1-2 walk frames, col 0 idle stand
+      const sx=col*fw, sy=0;
+      ctx.drawImage(im,sx,sy,fw,fh,Math.round(dx*S),Math.round(dy*S),Math.round(dw*S),Math.round(dh*S));
+      return true;
+    }
     ctx.drawImage(im,Math.round(dx*S),Math.round(dy*S),Math.round(dw*S),Math.round(dh*S));
     return true;
   }
@@ -126,7 +136,9 @@ function drawOffice(w,h){
     }
     px(x,6,12,1,"#3a2f4b"); px(x,2,1,5,"#3a2f4b"); px(x+11,2,1,5,"#3a2f4b");
   }
-  // door — left edge, theme-aware, with visible inner panel + knob
+  // door — interior layouts only (outdoor/sky layouts have no wall door)
+  if(!geom.sky){
+    // door — left edge, theme-aware, with visible inner panel + knob
   const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
   const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
   const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
@@ -142,6 +154,7 @@ function drawOffice(w,h){
   // brass knob on the right
   px(10,6,1,1,"#e8c170");
   px(10,7,1,1,"#c9a227");
+  } // end interior-door guard
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
   px(nx,2,24,5,"#151022"); px(nx,6,24,1,"#3a2f4b");
@@ -155,12 +168,12 @@ function drawOffice(w,h){
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
   }else if(decor==="war_table"){
     // wide oval meeting table in the center
-    px(w/2-20,h/2-3,40,3,dark?"#5a3a14":"#8d5524");
-    px(w/2-18,h/2-2,36,1,dark?"#4a2a10":"#6b4a2f");
+    px(w/2-12,h/2-2,24,2,dark?"#5a3a14":"#8d5524");
+    px(w/2-11,h/2-1,22,1,dark?"#4a2a10":"#6b4a2f");
     // monitors around the table
     for(let i=-2;i<=2;i++){
-      px(w/2+i*8-3,h/2-5,3,2,"#191524");
-      px(w/2+i*8-2,h/2-6,1,1,(frame>>4)%2?"#5fce7a":"#0f2c1e");
+      px(w/2+i*5-2,h/2-4,2,2,"#191524");
+      px(w/2+i*5-1,h/2-5,1,1,(frame>>4)%2?"#5fce7a":"#0f2c1e");
     }
   }else if(decor==="roof"){
     // wooden deck planks
@@ -318,14 +331,18 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(spr){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
-    ctx.fillRect(Math.round(x*S), Math.round((y+15)*S), 9*S, 1*S);
+    const cs = Math.max(1, Math.floor(S/2));   // sprite scale: half tile size so chars fit the room
+    ctx.fillRect(Math.round(x*S), Math.round((y+10)*S), 9*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH, Math.round((x-3.5)*S), Math.round((y-16)*S), 16*S, 32*S);
-    // cosmetics overlay (crown/beanie/headphones) on sprite head
-    const hx=x+2, hy=y-14;
-    if(cosmetics.includes("crown")){px(hx,hy,5,2,"#e8c170");px(hx+1,hy-1,1,1,"#e8c170");px(hx+3,hy-1,1,1,"#e8c170")}
-    else if(cosmetics.includes("beanie")){px(hx-1,hy+1,7,2,"#d84f6f");px(hx+1,hy,3,1,"#d84f6f")}
-    if(cosmetics.includes("cape")){ctx.fillStyle="rgba(122,48,48,0.85)";ctx.fillRect(Math.round((x+1)*S),Math.round((y-9)*S),7*S,6*S)}
+    // feet land at desk-top level (y+10) with 2px overlap so they sit IN the desk
+    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH,
+      Math.round((x-3.5)*S), Math.round((y+12)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
+    // cosmetics overlay — anchored to the sprite's actual top-left in pixels
+    const sx0 = Math.round((x-3.5)*S), sy0 = Math.round((y+12)*S - CHAR_FH*cs);
+    const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
+    if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
+    else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
+    if(cosmetics.includes("cape")){ctx.fillStyle="rgba(122,48,48,0.85)";ctx.fillRect(sx0+3*cs,sy0+10*cs,10*cs,12*cs)}
     ctx.globalAlpha=1;
     return;
   }
@@ -1053,7 +1070,11 @@ function render(){
   // probe mode — render one frame then idle so chrome-devtools can inspect
   if(window.__probe || /[?&]probe=1\b/.test(location.search)){ window.__probe = (window.__probe||0)+1; if(window.__probe<=3) document.title="READY:"+window.__probe; if(window.__probe > 5){ window.__probe = 0; history.replaceState({}, "", "/"); } requestAnimationFrame(render); return; }
   // pause when any sheet is open or window is hidden (saves battery, no flicker)
-  if(document.querySelector(".sheet[style*=\"display: block\"]")){ requestAnimationFrame(render); return; }
+  // but keep a slow 4fps heartbeat so the office doesn't look frozen/dead behind sheets
+  if(document.querySelector(".sheet[style*=\"display: block\"]")){
+    if(!render._sheetTick || performance.now()-render._sheetTick>250){ render._sheetTick=performance.now(); }
+    else { requestAnimationFrame(render); return; }
+  }
   if(document.hidden){ requestAnimationFrame(render); return; }
   frame++;
   const W=cv.clientWidth,H=cv.clientHeight;
@@ -1105,9 +1126,10 @@ function render(){
       const idx=i % names.length;
       const color=areas[names[idx]];
       const seat=seatPos(i,perRow,geom,padLeft);
-      ctx.globalAlpha=0.18;
+      ctx.globalAlpha=0.12;
       ctx.fillStyle=color;
-      ctx.fillRect(Math.round((seat.x-2)*S), Math.round((seat.y-1)*S), 22*S, 22*S);
+      // desk mat sized to the workstation footprint
+      ctx.fillRect(Math.round((seat.x)*S), Math.round((seat.y+8)*S), 18*S, 8*S);
       ctx.globalAlpha=1;
     });
   }
@@ -1120,8 +1142,12 @@ function render(){
     const c=chars.get(a.id); if(!c)return;
     const seated=c.phase==="seated";
     drawChar(a,c.x,c.y,seated,cosmetics);
-    if(seated){const seat=seatPos(i,perRow,geom,padLeft);
-      drawBubble(a,seat.x+2,seat.y); label(a,seat.x,seat.y);}
+    if(seated){
+      const seat=seatPos(i,perRow,geom,padLeft);
+      // redraw desk top over the seated char's lower body so they sit BEHIND the desk
+      drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
+      drawBubble(a,seat.x+2,seat.y); label(a,seat.x,seat.y);
+    }
     if(focusedId===a.id){
       // outline ring around the focused agent
       const seat=seatPos(i,perRow,geom,padLeft);
