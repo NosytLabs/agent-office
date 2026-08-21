@@ -28,10 +28,12 @@ vetoes, or rewrites prompts.
 |---|---|---|
 | `/` | GET | pixel office HTML |
 | `/state` | GET | folded agents + progress + settings + last 30 events |
+| `/state` | DELETE | reset everything — wipe progress + event history + painted tiles |
 | `/settings` | GET | persisted layout/areas/toggles |
-| `/settings` | POST | save partial settings (whitelisted keys) |
+| `/settings` | POST | save partial settings (whitelisted keys; theme changes tracked for unlocks) |
 | `/assets-manifest` | GET | list bundled + user SVGs |
 | `/assets/<name>.svg` | GET | bundled logo |
+| `/assets/sprites/**.png` | GET | pixel-art character/pet sheets (24h cache) |
 | `/user/<name>.svg` | GET | user-uploaded logo from `~/.hermes/pixel-office/assets/` |
 
 ## persistence
@@ -39,13 +41,15 @@ vetoes, or rewrites prompts.
 | file | format | purpose |
 |---|---|---|
 | `events.jsonl` | newline-delimited JSON | raw hook events, trimmed to 512 KB |
-| `progress.json` | JSON | ranks, unlocks, stats — 28+ badge catalog |
+| `progress.json` | JSON | ranks, unlocks, stats — 55 badge catalog |
 | `settings.json` | JSON | layout, theme, areas, painted tiles, folders |
 
-## front-end (`web/template.html`)
+## front-end (`web/template.html` + `web/js/`)
 
-single file, no build step, ~1150 lines. Vanilla canvas + DOM.
-8 sheets open with keyboard shortcuts (`R/U/B/L/S/D/E/?/T/esc`).
+Vanilla canvas + DOM, no build step. 13 sheets open via header buttons or
+keyboard shortcuts (`R/U/B/L/S/D/E/?/T/P/esc`). Characters render from
+pixel-art sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
+with a procedural fallback while sheets load.
 
 ## plugins (4 runtimes + 1 obs)
 

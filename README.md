@@ -41,17 +41,20 @@ and live detection.
 
 ## features
 
-- **54 badges** with progress bars — unlock by using agents
+- **55 badges** with progress bars — unlock by using agents
 - **6 ranks** — intern → junior → staff → senior → principal → distinguished
 - **12 unlockable layouts** — open, bullpen, war room, lounge, roof deck, garden,
   library, arcade, penthouse, beach, atelier, spaceship
 - **9 themes** — default, midnight, forest, solar, cyberpunk, sunset, ocean, candy, casino
 - **4 pets** — cat, dog, fern, fish tank
+- **real pixel-art sprite sheets** — 6 characters × 3 directions × 7 frames (walk,
+  typing, idle), animated pets (adapted from pixel-agents, MIT — see ATTRIBUTION.md)
 - **3 desk types** — wood, standing, glass
 - **named areas** painted behind desks + folder→area mapping
 - **paint mode** with drag-paint, click character to focus + inspect
 - **live event ticker** + speech bubbles + health bar + hourglass
 - **import/export layout** + settings persistence
+- **reset everything** — settings ⚙ → wipe XP/badges/history/painted tiles
 - **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/P/esc`
 - **status legend** + platforms explainer + live feed + raw debug
 - **VS Code extension** + Claude Code hook + OpenCode bridge plugin
@@ -114,7 +117,7 @@ agent-office/
 ├── install.py                 (guided installer)
 ├── plugin.yaml                (Hermes plugin metadata)
 ├── __init__.py                (hooks + HTTP server)
-├── progress.py                (48 badges, ranks, stats)
+├── progress.py                (55 badges, ranks, stats)
 ├── claude/hook.py             (Claude Code hook)
 ├── opencode/index.js          (OpenCode bridge plugin)
 ├── vscode/extension.js        (VS Code extension)
@@ -123,7 +126,8 @@ agent-office/
 │   ├── css/style.css          (all styles)
 │   ├── js/data.js             (themes, layouts, platforms, ranks)
 │   ├── js/office.js           (canvas + UI)
-│   └── assets/*.svg           (5 runtime logos)
+│   ├── assets/*.svg           (5 runtime logos)
+│   └── assets/sprites/        (pixel-art character/pet sheets — see ATTRIBUTION.md)
 ├── tests/                     (18 unit tests)
 ├── docs/architecture.md
 └── .github/workflows/test.yml
