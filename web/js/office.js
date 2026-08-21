@@ -84,16 +84,36 @@ let _gw=0,_gh=0;
 function drawOffice(w,h){
   const dark=night();
   const themeObj = window._theme || {};
-  const tileA = themeObj.tileA || (dark?"#231c2e":"#2c2438");
-  const tileB = themeObj.tileB || (dark?"#1c1626":"#262033");
-  const wall = themeObj.wall || (dark?"#2a2038":"#3a2f4b");
+  const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
+  // layout floor/wall blended with theme tint (60% layout, 40% theme) so both matter
+  function mix(a,b,t){
+    const pa=[1,3,5].map(i=>parseInt(a.substr(i,2),16));
+    const pb=[1,3,5].map(i=>parseInt(b.substr(i,2),16));
+    return "#"+pa.map((v,i)=>Math.round(v*(1-t)+pb[i]*t).toString(16).padStart(2,"0")).join("");
+  }
+  const lf=geom.floor||["#2c2438","#262033"];
+  const tileA = mix(lf[0], themeObj.tileA||lf[0], 0.4);
+  const tileB = mix(lf[1], themeObj.tileB||lf[1], 0.4);
+  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, 0.4);
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
-  for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
-    px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
-  // back wall + trim + wainscoting
-  px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
+  // outdoor layouts: sky gradient band above the wall instead of interior wall
+  if(geom.sky){
+    const skyTop = dark?"#0a0a20":"#7fa8d8", skyBot = dark?"#1a1a40":"#a8c8e8";
+    for(let y=0;y<8;y++){
+      const c=mix(y<4?skyTop:skyBot, y<4?skyTop:skyBot, 0);
+      px(0,y,w,1,y<4?skyTop:skyBot);
+    }
+    if(dark){ for(let x=2;x<w;x+=7)if((frame>>3+x)%9===0)px(x,1+((x*3)%4),1,1,"#fff8c8"); }
+    else { px(4,1,3,3,"#fff8c8"); px(5,2,1,1,"#f0d060"); } // sun
+    px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
+  } else {
+    for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
+      px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
+    // back wall + trim + wainscoting
+    px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
+  }
   // windows — cap inside canvas, every 22 tiles, skip first 2 to leave room for door
   for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
     px(x,2,12,5,"#151022");
