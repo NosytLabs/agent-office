@@ -183,6 +183,20 @@ def _unlock(data: Dict[str, Any], aid: str) -> None:
     data["recent"] = rec[-8:]
 
 
+def record_theme_switch(path=None) -> None:
+    """Count a theme switch (called from POST /settings when theme changes)."""
+    ppath = path or (Path.home() / ".hermes" / "pixel-office" / "progress.json")
+    data = load(ppath) if Path(ppath).exists() else _empty()
+    stats = data["stats"]
+    stats["theme_switches"] = int(stats.get("theme_switches") or 0) + 1
+    n = stats["theme_switches"]
+    if n >= 5:
+        _unlock(data, "theme_designer")
+    if n >= 10 and int(stats.get("sessions") or 0) >= 100:
+        _unlock(data, "layout_beach")
+    save(ppath, data)
+
+
 def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
     last = float(data.get("last_ts") or 0)
     stats = data["stats"]

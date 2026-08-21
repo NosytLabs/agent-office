@@ -118,9 +118,17 @@ def _load_settings() -> Dict[str, Any]:
 
 def _save_settings(payload: Dict[str, Any]) -> None:
     cur = _load_settings()
+    prev_theme = cur.get("theme")
     for k, v in (payload or {}).items():
         if k in _DEFAULTS:
             cur[k] = v
+    # track theme switches for theme_designer badge + beach layout
+    if cur.get("theme") and cur.get("theme") != prev_theme:
+        try:
+            from .progress import record_theme_switch
+            record_theme_switch(_office_dir() / "progress.json")
+        except Exception:
+            logger.debug("pixel-office theme switch tracking failed", exc_info=True)
     try:
         path = _settings_path()
         tmp = path.with_suffix(".json.tmp")
