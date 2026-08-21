@@ -799,6 +799,7 @@ function syncInspectorBtn(){if(!inspectorBtn)return;inspectorBtn.style.display=f
 function closeSheets(){document.querySelectorAll(".sheet").forEach(el=>el.style.display="none")}
 function toggleSheet(id){
   const el=document.getElementById(id);
+  if(!el)return;
   const open=el.style.display==="block";
   closeSheets();
   if(!open){
@@ -894,11 +895,13 @@ document.addEventListener("keydown",(e)=>{
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
+  if(!id.startsWith("sheet-")){ // action shortcut (themeNext etc), not a sheet
+      return;
+  }
   if(id==="sheet-layout")fillLayout();
   if(id==="sheet-settings"){fillSettings();fillAreas();}
   if(id==="sheet-legend")fillLegend();
   if(id==="sheet-events")fillEvents();
-  if(id==="themeNext")document.getElementById("themeNextbtn").onclick();
   if(id==="sheet-platforms")fillPlatforms();
   if(id==="sheet-debug"){
     document.getElementById("debugbox").textContent=
@@ -1317,31 +1320,16 @@ render();
 // click canvas → paint tile, focus character, or pet
 let _painting = false;
 cv.addEventListener("mousedown", (ev)=>{
-  if(!settings.paint){ deskClick(ev); return; }
+  if(!settings.paint)return;
   _painting = true;
   paintAt(ev);
 });
-// click a desk → copy that agent's cwd to clipboard + toast
-function deskClick(ev){
-  const r=cv.getBoundingClientRect();
-  const tx=(ev.clientX-r.left)/S, ty=(ev.clientY-r.top)/S;
-  const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
-  const list=shown(); const maxc=Math.max(2,settings.max_chars||4);
-  const usableW=cv.clientWidth-16;
-  let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(geom.colStep*S))));
-  perRow=Math.min(perRow, geom.perRow);
-  const rowWidth=perRow*geom.colStep;
-  const padLeft=Math.max(10, Math.floor((usableW/S - rowWidth)/2));
-  for(let i=0;i<list.length;i++){
-    const seat=seatPos(i,perRow,geom,padLeft);
-    if(tx>=seat.x&&tx<=seat.x+18&&ty>=seat.y&&ty<=seat.y+16){
-      const a=list[i];
-      const txt=a.label?a.label+(a.detail?" — "+a.detail:""):a.detail||"";
-      if(txt && navigator.clipboard){
-        navigator.clipboard.writeText(txt).then(()=>toast("copied: "+txt.slice(0,40)));
-      }
-      return;
-    }
+// click a desk → copy agent label+activity with toast
+function copyAgent(a){
+  const txt=a.label?a.label+(a.detail?" — "+a.detail:""):a.detail||"";
+  if(txt && navigator.clipboard){
+    navigator.clipboard.writeText(txt).then(()=>toast("copied: "+txt.slice(0,40)))
+      .catch(()=>toast(txt.slice(0,60)));
   }
 }
 let _toastT=null;
@@ -1398,9 +1386,11 @@ cv.addEventListener("click", (ev)=>{
       if(d<bestD){bestD=d;best=a;}
     });
     if(best && bestD<14){
-      focusedId = (focusedId===best.id) ? null : best.id;
+      const wasFocused = focusedId===best.id;
+      focusedId = wasFocused ? null : best.id;
       document.getElementById("inspectorbtn").style.display = focusedId ? "" : "none";
       if(focusedId){fillInspector();toggleSheet("sheet-inspector");}
+      if(!wasFocused) copyAgent(best);
     }
   }
 });
