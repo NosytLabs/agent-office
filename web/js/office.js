@@ -534,11 +534,14 @@ function fillLayout(){
     const row = document.createElement("div");
     row.className="row";
     row.innerHTML="<div style='flex:1'><div class='n'>"+
-      L.name+(locked?" <span class='h'>(locked)</span>":"")+"</div>"+
+      L.name+(locked?" <span class='h'>\u{1F512}</span>":"")+"</div>"+
       "<div class='h'>"+L.hint+"</div></div>"+
-      "<span class='btn "+(settings.layout===L.id?"on":"")+"'>"+
-      (settings.layout===L.id?"active":"use")+"</span>";
+      (locked
+        ? "<span class='h' style='align-self:center'>locked</span>"
+        : "<span class='btn "+(settings.layout===L.id?"on":"")+"'>"+
+          (settings.layout===L.id?"active":"use")+"</span>");
     if(!locked) row.querySelector(".btn").onclick=()=>updateSetting("layout",L.id);
+    else row.style.opacity="0.55";
     box.appendChild(row);
   });
 }
