@@ -176,10 +176,13 @@ function drawOffice(w,h){
     const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
   }else if(decor==="war_table"){
-    // wide oval meeting table in the center
-    const ty=Math.floor(h*0.55);
-    px(w/2-12,ty,24,2,dark?"#5a3a14":"#8d5524");
-    px(w/2-11,ty+1,22,1,dark?"#4a2a10":"#6b4a2f");
+    // wide meeting table in the center — legs to the floor so it doesn't float
+    const ty=Math.floor(h*0.62);
+    px(w/2-12,ty,24,2,dark?"#5a3a14":"#8d5524");     // top
+    px(w/2-11,ty+2,22,1,dark?"#4a2a10":"#6b4a2f");   // apron
+    px(w/2-11,ty+3,2,4,dark?"#3a2410":"#54381f");    // left leg
+    px(w/2+9,ty+3,2,4,dark?"#3a2410":"#54381f");     // right leg
+    px(w/2-10,ty+7,20,1,dark?"#241408":"#3c2814");   // floor shadow
     // monitors around the table
     for(let i=-2;i<=2;i++){
       px(w/2+i*5-2,ty-2,2,2,"#191524");
