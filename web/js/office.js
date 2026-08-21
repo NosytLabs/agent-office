@@ -172,7 +172,7 @@ function drawOffice(w,h){
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
   }else if(decor==="war_table"){
     // wide oval meeting table in the center
-    const ty=h-18;
+    const ty=Math.floor(h*0.55);
     px(w/2-12,ty,24,2,dark?"#5a3a14":"#8d5524");
     px(w/2-11,ty+1,22,1,dark?"#4a2a10":"#6b4a2f");
     // monitors around the table
@@ -337,13 +337,13 @@ function drawChar(a,fx,fy,seated,cosmetics){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
     const cs = Math.max(1, Math.floor(S/3));   // sprite scale: chars ~2 tiles wide, 4 tall — room proportion
-    ctx.fillRect(Math.round(x*S), Math.round((y+10)*S), 9*cs, 1*cs);
+    ctx.fillRect(Math.round((x+7)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
     // feet at y+14: torso+head clear of the desk front (desk top at y+10)
     ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH,
-      Math.round((x-3.5)*S), Math.round((y+14)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
+      Math.round((x+7)*S), Math.round((y+14)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
     // cosmetics overlay — anchored to the sprite's actual top-left in pixels
-    const sx0 = Math.round((x-3.5)*S), sy0 = Math.round((y+14)*S - CHAR_FH*cs);
+    const sx0 = Math.round((x+7)*S), sy0 = Math.round((y+14)*S - CHAR_FH*cs);
     const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
@@ -473,9 +473,9 @@ function label(a,x,y){
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
   const name=a.label.slice(0,14);
   ctx.fillStyle=a.kind==="subagent"?"#3a2a10":"#2a2038";
-  ctx.fillRect(Math.round((x+2)*S), Math.round((y+20)*S), (colW-4*S), 12*S);
+  ctx.fillRect(Math.round((x+2)*S), Math.round((y+20)*S), (colW-4*S), 7*S);
   ctx.fillStyle=a.kind==="subagent"?"#ffd98a":"#ffffff";
-  ctx.fillText(name,cx,(y+24)*S);
+  ctx.fillText(name,cx,(y+23)*S);
   ctx.fillStyle="#8a7fa8";
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
