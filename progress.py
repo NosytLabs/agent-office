@@ -69,6 +69,7 @@ CATALOG = [
     {"id": "auto_arrange", "name": "Auto-arrange", "hint": "50 sessions", "xp": 25},
     {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
     {"id": "tour_guide", "name": "Tour guide", "hint": "open 5 different sheets", "xp": 15},
+    {"id": "mood_master", "name": "Mood master", "hint": "click 10 moods", "xp": 15},
     {"id": "screenshotter", "name": "Screenshotter", "hint": "import a layout", "xp": 10},
     {"id": "decorator", "name": "Decorator", "hint": "paint 100 tiles", "xp": 50},
     {"id": "architect", "name": "Architect", "hint": "3 areas + folder maps", "xp": 40},
@@ -183,8 +184,30 @@ def _unlock(data: Dict[str, Any], aid: str) -> None:
     data["recent"] = rec[-8:]
 
 
+def apply_client_unlocks(data: Dict[str, Any]) -> None:
+    """Unlock badges driven by client-side state (settings/sheet actions).
+    Called from the /state fold after _have_* stats are injected."""
+    stats = data["stats"]
+    if stats.get("_have_areas"):
+        _unlock(data, "areas_q1")
+    if int(stats.get("_area_count") or 0) >= 3:
+        _unlock(data, "areas_q2")
+    if int(stats.get("_painted_count") or 0) >= 30:
+        _unlock(data, "canvas_artisan")
+    if int(stats.get("_painted_count") or 0) >= 100:
+        _unlock(data, "decorator")
+    if stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3 \
+            and len(stats.get("_folder_areas") or {}) >= 1:
+        _unlock(data, "architect")
+    if int(stats.get("_sheets_opened") or 0) >= 5:
+        _unlock(data, "tour_guide")
+    if stats.get("_did_import"):
+        _unlock(data, "screenshotter")
+    if int(stats.get("_moods_clicked") or 0) >= 10:
+        _unlock(data, "mood_master")
+
+
 def record_theme_switch(path=None) -> None:
-    """Count a theme switch (called from POST /settings when theme changes)."""
     ppath = path or (Path.home() / ".hermes" / "pixel-office" / "progress.json")
     data = load(ppath) if Path(ppath).exists() else _empty()
     stats = data["stats"]

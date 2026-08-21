@@ -329,9 +329,9 @@ def build_state() -> Dict[str, Any]:
     progress = {}
     try:
         try:
-            from .progress import apply_live, ingest, load, save, snapshot
+            from .progress import apply_client_unlocks, apply_live, ingest, load, save, snapshot
         except ImportError:
-            from progress import apply_live, ingest, load, save, snapshot
+            from progress import apply_client_unlocks, apply_live, ingest, load, save, snapshot
 
         ppath = _office_dir() / "progress.json"
         pdata = load(ppath)
@@ -343,6 +343,7 @@ def build_state() -> Dict[str, Any]:
         pdata["stats"]["_area_count"] = len(areas)
         pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
         pdata["stats"]["_folder_areas"] = settings.get("folder_areas") or {}
+        apply_client_unlocks(pdata)
         save(ppath, pdata)
         progress = snapshot(pdata)
     except Exception:
