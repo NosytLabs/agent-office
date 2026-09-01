@@ -129,8 +129,7 @@ agent-office/
 │   ├── assets/*.svg           (5 runtime logos)
 │   └── assets/sprites/        (pixel-art character/pet sheets — see ATTRIBUTION.md)
 ├── tests/                     (18 unit tests)
-├── docs/architecture.md
-└── .github/workflows/test.yml
+└── docs/architecture.md
 ```
 
 ## license
