@@ -99,6 +99,9 @@ _DEFAULTS = {
     "paint_color": "#5fce7a",
     "painted": {},
     "lock_floor": False,
+    "moods_clicked": 0,
+    "sheets_opened": [],
+    "did_import": False,
 }
 
 
@@ -348,6 +351,9 @@ def build_state() -> Dict[str, Any]:
         pdata["stats"]["_area_count"] = len(areas)
         pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
         pdata["stats"]["_folder_areas"] = settings.get("folder_areas") or {}
+        pdata["stats"]["_moods_clicked"] = int(settings.get("moods_clicked") or 0)
+        pdata["stats"]["_sheets_opened"] = len(set((settings.get("sheets_opened") or [])))
+        pdata["stats"]["_did_import"] = bool(settings.get("did_import"))
         apply_client_unlocks(pdata)
         save(ppath, pdata)
         progress = snapshot(pdata)

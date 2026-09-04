@@ -23,7 +23,7 @@ function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}
 function px(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x*S),Math.round(y*S),w*S,h*S)}
 function lighten(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.min(255,Math.max(0,Math.round(r*1.15)));const mix2=Math.min(255,Math.max(0,Math.round(g*1.15)));const mix3=Math.min(255,Math.max(0,Math.round(b*1.15)));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
 function darken(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.max(0,Math.round(r*0.85));const mix2=Math.max(0,Math.round(g*0.85));const mix3=Math.max(0,Math.round(b*0.85));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
-function night(){const h=new Date().getHours();return h<6||h>=19}
+function night(){ if(window._nightOverride!==null&&window._nightOverride!==undefined)return window._nightOverride; const h=new Date().getHours();return h<6||h>=19}
 
 // ═══ sprite-sheet characters (from pixel-agents, MIT — see ATTRIBUTION.md) ═══
 // 112×96 sheet: 3 rows (down,up,right) × 7 frames of 16×32. walk=4f, typing/reading=2f.
@@ -95,7 +95,8 @@ function drawDecorImg(name,dx,dy,dw,dh){
 }
 
 let _gw=0,_gh=0;
-function drawOffice(w,h){
+function drawOffice(w,h,cosmetics){
+  cosmetics=cosmetics||window._cosmetics||[];
   const dark=night();
   const themeObj = window._theme || {};
   const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
@@ -106,8 +107,9 @@ function drawOffice(w,h){
     return "#"+pa.map((v,i)=>Math.round(v*(1-t)+pb[i]*t).toString(16).padStart(2,"0")).join("");
   }
   const lf=geom.floor||["#2c2438","#262033"];
-  const tileA = mix(lf[0], themeObj.tileA||lf[0], 0.25);
-  const tileB = mix(lf[1], themeObj.tileB||lf[1], 0.25);
+  const themeBlend = 0.45;   // 0.25 washed tints out — 6 theme pairs were near-identical
+  const tileA = mix(lf[0], themeObj.tileA||lf[0], themeBlend);
+  const tileB = mix(lf[1], themeObj.tileB||lf[1], themeBlend);
   const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, 0.25);
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
@@ -122,6 +124,12 @@ function drawOffice(w,h){
       px(0,y,w,1,c);
     }
     if(dark){ for(let x=2;x<w;x+=7)if((frame>>3+x)%9===0)px(x,1+((x*3)%4),1,1,"#fff8c8"); }
+    else if(cosmetics.includes("sun")){
+      // weather_sun unlock: bigger radiant sun with animated rays
+      px(3,1,5,5,"#fff8c8"); px(4,2,3,3,"#f0d060");
+      for(let r=0;r<8;r++){const a=r*Math.PI/4+((frame>>4)%16)/16*Math.PI/8;
+        px(5.5+Math.cos(a)*4.5, 3.5+Math.sin(a)*3, 1,1,"#f0d060");}
+    }
     else { px(4,1,3,3,"#fff8c8"); px(5,2,1,1,"#f0d060"); } // sun
     px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
     // outdoor layouts still get their themed floor below the sky band
@@ -133,8 +141,8 @@ function drawOffice(w,h){
     // back wall + trim + wainscoting
     px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
   }
-  // windows — cap inside canvas, every 22 tiles, skip first 2 to leave room for door
-  for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
+  // windows — interior layouts only (outdoor sky band gets no window frames)
+  if(!geom.sky) for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
     px(x,2,12,5,"#151022");
     if(dark){
       px(x+1,3,10,3,"#151a33");
@@ -178,10 +186,49 @@ function drawOffice(w,h){
   ctx.fillText("AGENT",(nx+1)*S,(6)*S);
   // rug — varies per layout decor
   const decor = LAYOUT_GEOMETRY[settings.layout]?.decor || "rug";
-  if(decor==="rug"){
+  if(decor==="library"){
+    // bookshelves along the back wall + reading rug
+    drawDecorImg("BOOKSHELF",6,4,10,5);
+    drawDecorImg("BOOKSHELF",18,4,10,5);
+    drawDecorImg("BOOKSHELF",w-18,4,10,5);
+    const rw=Math.min(24,w-16); px((w-rw)/2,h-13,rw,6,"#4a3020");
+    px((w-rw)/2+1,h-12,rw-2,4,"#5c3e2a");
+    drawDecorImg("BIN",w-12,h-8,3,3);
+  }else if(decor==="lounge"){
+    // sofa + wall clock + plant corner — chill room
+    drawDecorImg("SOFA_FRONT",w/2-6,h-14,12,6);
+    drawDecorImg("CLOCK",w-14,2,4,4);
+    drawDecorImg("CACTUS",6,h-16,4,8);
+    const rw=Math.min(26,w-14); px((w-rw)/2,h-12,rw,5,"#2f4a42");
+    px((w-rw)/2+1,h-11,rw-2,3,"#3a5c50");
+  }else if(decor==="arcade"){
+    // arcade cabinets along the back wall (procedural, neon-lit)
+    for(let i=0;i<3;i++){
+      const ax=w/2-16+i*12;
+      px(ax,3,7,10,"#191524");                    // cabinet body
+      px(ax+1,4,5,3,(frame>>3)%2?["#ff6ad5","#5fce7a","#4fa4d8"][i]:["#d84f6f","#4fa4d8","#e8c170"][i]); // screen glow
+      px(ax+1,8,5,1,"#3a2f4b");                   // control deck
+      px(ax+2,9,1,1,"#d84f6f"); px(ax+4,9,1,1,"#5fce7a"); // buttons
+    }
+  }else if(decor==="penthouse"){
+    // luxury: wall clock, cactus pair, sleek dark rug, bin
+    drawDecorImg("CLOCK",w/2-2,2,4,4);
+    drawDecorImg("CACTUS",8,h-16,4,8);
+    drawDecorImg("CACTUS",w-12,h-16,4,8);
+    const rw=Math.min(30,w-10); px((w-rw)/2,h-13,rw,6,"#1a1622");
+    px((w-rw)/2+1,h-12,rw-2,4,"#2a2438");
+    px((w-rw)/2,h-13,rw,1,"#e8c170");             // gold trim
+    drawDecorImg("BIN",w-16,h-8,3,3);
+  }else if(decor==="bullpen"){
+    // utilitarian: bins between desk clusters + one cactus
+    drawDecorImg("BIN",w/2-1,h-9,3,3);
+    drawDecorImg("CACTUS",w-14,h-16,4,8);
+  }else if(decor==="rug"){
     const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
   }else if(decor==="war_table"){
+    // strategy whiteboard on the wall above the table
+    drawDecorImg("WHITEBOARD",w/2-7,1,14,6);
     // wide meeting table in the center — legs to the floor so it doesn't float
     const ty=Math.floor(h*0.62);
     px(w/2-12,ty,24,2,dark?"#5a3a14":"#8d5524");     // top
@@ -197,9 +244,19 @@ function drawOffice(w,h){
   }else if(decor==="roof"){
     // wooden deck planks
     for(let x=4;x<w-4;x+=8)px(x,h-9,7,3,dark?"#4a3818":"#6b4a2f");
-    // potted plants at edges
-    px(4,h-16,3,3,"#5fce7a"); px(5,h-15,1,1,"#4aa860");
-    px(w-7,h-16,3,3,"#5fce7a"); px(w-6,h-15,1,1,"#4aa860");
+    // safety railing along the front edge
+    px(2,h-6,w-4,1,dark?"#5a4a28":"#7a6a38");
+    for(let x=4;x<w-4;x+=10)px(x,h-5,1,2,dark?"#4a3818":"#6b4a2f");
+    // string lights across the sky band (animated twinkle)
+    for(let x=6;x<w-6;x+=8){
+      const ly=6+((x/8)%2?1:0);
+      px(x,ly-1,1,1,dark?"#3a2f4b":"#5a4a28");       // wire droop
+      px(x,ly,1,1,(frame>>4+x)%3?"#e8c170":"#fff8c8"); // bulb
+    }
+    // grill + potted plants
+    px(w/2+14,h-14,5,3,dark?"#3a3a44":"#4a4a54"); px(w/2+15,h-15,3,1,"#d84f6f");
+    drawDecorImg("PLANT",6,h-24,4,10);
+    drawDecorImg("PLANT",w-10,h-24,4,10);
   }else if(decor==="garden"){
     // grass field: two-tone tufts + flowers + hedges along the wall base
     for(let x=0;x<w;x+=4)px(x,h-10,3,1,(x/4)%2?"#4aa860":"#5fce7a");
@@ -217,11 +274,16 @@ function drawOffice(w,h){
     px(w-16,h-16,1,8,"#8d5524"); px(w-19,h-18,7,2,"#d84f6f"); px(w-18,h-17,5,1,"#e8c170");
     px(8,h-15,6,5,"#d8c4a0"); px(10,h-16,2,1,"#a06028");
   }else if(decor==="atelier"){
-    // art supplies & easels
+    // art supplies & easels + PLANT sprite + coffee station corner
+    drawDecorImg("PLANT",4,h-24,4,10);
+    drawDecorImg("COFFEE",w-12,h-12,4,4);
     px(w/2-10,h-15,8,8,"#191524"); px(w/2-9,h-16,1,1,"#e8c170"); px(w/2-3,h-16,1,1,"#d84f6f");
     px(w/2+2,h-15,8,8,"#191524"); px(w/2+3,h-16,1,1,"#5fce7a"); px(w/2+7,h-16,1,1,"#4fa4d8");
     // paint splatter on floor
     for(let x=2;x<w-2;x+=7)if((frame>>2+x)%5===0)px(x,h-9,1,1,"#d84f6f");
+    // canvas on the wall (framed art)
+    px(w/2-4,2,8,5,"#e8e0d0"); px(w/2-4,2,8,1,"#8d5524"); px(w/2-4,6,8,1,"#8d5524");
+    px(w/2-2,3,2,2,"#4fa4d8"); px(w/2+2,4,2,1,"#d84f6f");
   }else if(decor==="spaceship"){
     // control panels + windows on the wall
     px(20,2,10,5,"#151022"); px(21,3,2,1,"#5fce7a"); px(24,3,2,1,"#d84f6f"); px(27,3,2,1,"#e8c170");
@@ -256,7 +318,15 @@ function drawOffice(w,h){
   // small flower
   if((frame>>4)%2) px(plantX,plantY-2,1,1,"#e8c170");
   // cat — bottom-right corner, ON the floor line (feet at h-4)
+  // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
   const cx=Math.max(14, w-8), cy=h-4;
+  if(cosmetics && cosmetics.includes("office_cat")){
+    const ox=kx-6, oy=h-4;
+    px(ox,oy,4,2,"#8a6a4a"); px(ox-1,oy+1,6,1,"#6a4a2a");          // curled body
+    px(ox+3,oy-1,2,2,"#8a6a4a"); px(ox+3,oy-2,1,1,"#6a4a2a");      // head + ear
+    if((frame>>6)%8) px(ox+4,oy,1,1,"#1a1423");                    // eye, mostly closed (sleeping)
+    px(ox-2,oy-1,1,3,"#8a6a4a");                                    // tail curled up
+  }
   if(!drawDecorImg("claudio",cx-4,cy-6,6,6)){
     // body
     px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
@@ -290,6 +360,39 @@ function drawOffice(w,h){
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
   if(bob && !decorImg.claudio?.complete){px(cx+2,cy-5,4,1,"#fff8c8");}
   if(petBounce){petTimer--; if(petTimer<=0)petBounce=false;}
+  // ── night lighting pass ──
+  // dim the whole scene, then punch warm light pools back in around light sources
+  if(dark && !geom.sky){
+    ctx.fillStyle="rgba(8,6,20,0.42)";                 // ambient night dim
+    ctx.fillRect(0,0,w*S,h*S);
+    ctx.globalCompositeOperation="lighter";             // additive glow
+    const pool=(x,y,r,c)=>{                             // radial light pool
+      const g=ctx.createRadialGradient(x*S,y*S,1,x*S,y*S,r*S);
+      g.addColorStop(0,c); g.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle=g; ctx.fillRect(x*S-r*S,y*S-r*S,2*r*S,2*r*S);
+    };
+    const flick=(frame>>3)%5===0?0.8:1;                 // subtle neon flicker
+    pool(nx+12,5,26,"rgba(232,120,200,"+(0.22*flick)+")");  // AGENT neon sign
+    pool(w-17,h-14,20,"rgba(255,190,90,0.20)");             // kitchenette
+    pool(plantX+2,plantY,12,"rgba(120,220,150,0.10)");      // plant uplight
+    // monitor glow from each seated agent desk
+    for(const d of (window._deskAnchors||[])){ pool(d[0]+4,d[1]-2,14,"rgba(110,180,255,0.14)"); }
+    ctx.globalCompositeOperation="source-over";
+  }
+  // sky layouts: moonlit night — cool dim + moon glow, no indoor pools
+  if(dark && geom.sky){
+    ctx.fillStyle="rgba(6,8,24,0.38)";
+    ctx.fillRect(0,0,w*S,h*S);
+    ctx.globalCompositeOperation="lighter";
+    const pool=(x,y,r,c)=>{
+      const g=ctx.createRadialGradient(x*S,y*S,1,x*S,y*S,r*S);
+      g.addColorStop(0,c); g.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle=g; ctx.fillRect(x*S-r*S,y*S-r*S,2*r*S,2*r*S);
+    };
+    pool(w*0.2,4,22,"rgba(230,235,255,0.20)");            // moon glow
+    for(const d of (window._deskAnchors||[])){ pool(d[0]+4,d[1]-2,12,"rgba(110,180,255,0.12)"); }
+    ctx.globalCompositeOperation="source-over";
+  }
 }
 
 function drawDesk(x,y,a,cosmetics){
@@ -297,21 +400,30 @@ function drawDesk(x,y,a,cosmetics){
   const glass = cosmetics.includes("desk_glass");
   const standing = cosmetics.includes("desk_standing");
   const wood = cosmetics.includes("desk_wood");
+  // per-agent desk finish: hash-stable variant so each desk keeps its look
+  let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
+  const variant = h%3;   // 0 walnut, 1 oak, 2 dark ebony
+  const finishes=[
+    {top:"#8d5524",slab:"#6b4a2f",front:"#54381f",leg:"#3c2814"}, // walnut
+    {top:"#b08040",slab:"#8d6530",front:"#6b4a2f",leg:"#4a3420"}, // oak
+    {top:"#4a3a5a",slab:"#3a2c48",front:"#2c2138",leg:"#1e1628"}, // ebony
+  ];
+  const fin = finishes[variant];
   // desk top
   if(glass){
     px(x,y+10,18,1,"#7fa8d8"); px(x,y+11,18,3,"#3c5a7a"); px(x,y+14,18,1,"#4fa4d8");
   }else if(standing){
-    px(x,y+9,18,1,"#7a6f8f"); px(x,y+10,18,1,"#4a4a5a"); px(x,y+12,3,3,"#1a1423");
+    px(x,y+9,18,1,fin.top); px(x,y+10,18,1,fin.slab); px(x,y+12,3,3,"#1a1423");
   }else if(wood){
-    px(x,y+10,18,1,"#8d5524"); px(x,y+11,18,3,"#6b4a2f"); px(x,y+14,18,1,"#54381f");
+    px(x,y+10,18,1,fin.top); px(x,y+11,18,3,fin.slab); px(x,y+14,18,1,fin.front);
   }else{
-    px(x,y+9,18,1,"#8d5524");   // top surface highlight
-    px(x,y+10,18,2,"#6b4a2f");  // slab
-    px(x,y+12,18,3,"#54381f");  // front panel
+    px(x,y+9,18,1,fin.top);      // top surface highlight
+    px(x,y+10,18,2,fin.slab);    // slab
+    px(x,y+12,18,3,fin.front);   // front panel
   }
   // legs (skip if glass or standing) — flush under the front panel
   if(!glass && !standing) {
-    px(x+1,y+15,2,4,"#3c2814"); px(x+15,y+15,2,4,"#3c2814");
+    px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
   }
   if(standing){
     px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b"); // tall legs
@@ -324,6 +436,10 @@ function drawDesk(x,y,a,cosmetics){
   if(cosmetics.includes("lamp")){px(x+8,y+7,1,2,"#e8c170");px(x+7,y+6,3,1,"#e8c170")}
   if(cosmetics.includes("book")){px(x+10,y+9,2,1,"#c9a227");px(x+11,y+8,1,2,"#d84f6f")}
   if(cosmetics.includes("headphones")){px(x+10,y+5,1,2,"#2b2b2b");px(x+11,y+4,1,3,"#2b2b2b");px(x+10,y+4,3,1,"#2b2b2b")}
+  // fern (pet_plant unlock): small potted fern on the desk's left edge
+  if(cosmetics.includes("fern")){px(x+1,y+6,1,1,"#3a7a4a");px(x,y+7,3,1,"#5fce7a");px(x+1,y+8,1,1,"#4aa860");px(x,y+9,3,1,"#8d5524")}
+  // storm lamp (weather_storm unlock): tiny desk lamp glow at night
+  if(cosmetics.includes("storm_lamp")&&night()){ctx.globalAlpha=0.5;px(x+7,y+5,3,2,"#e8c170");ctx.globalAlpha=1;px(x+8,y+7,1,2,"#8d5524")}
 }
 
 function deskScreen(x,y,a){
@@ -376,6 +492,8 @@ function drawChar(a,fx,fy,seated,cosmetics){
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
     if(cosmetics.includes("cape")){ctx.fillStyle="rgba(122,48,48,0.85)";ctx.fillRect(sx0+3*cs,sy0+10*cs,10*cs,12*cs)}
+    // orange scarf (claude_desk unlock) over the sprite's shoulders
+    if(cosmetics.includes("orange_scarf")){ctx.fillStyle="#d97a3a";ctx.fillRect(sx0+2*cs,sy0+9*cs,12*cs,2*cs);}
     ctx.globalAlpha=1;
     return;
   }
@@ -403,6 +521,8 @@ function drawChar(a,fx,fy,seated,cosmetics){
   px(x+3,y+5,3,1,lighten(shirt));
   if(a.kind==="subagent"||cosmetics.includes("gold_trim"))px(x+1,y+5,7,1,"#e8c170");
   if(cosmetics.includes("pin") && a.platform==="telegram")px(x+6,y+6,1,1,"#4fa4d8");
+  // orange scarf (claude_desk unlock) draped over the shoulders
+  if(cosmetics.includes("orange_scarf")){px(x+1,y+5,7,1,"#d97a3a");px(x+1,y+6,1,2,"#d97a3a");px(x+7,y+6,1,2,"#d97a3a");}
   px(x+0,y+6,1,3,skin); px(x+8,y+6,1,3,skin);
   if(walking){
     if(t%2){px(x+2,y+10,2,3,"#2d2d3d");px(x+5,y+11,2,2,"#2d2d3d");px(x+9,y+9,1,1,"#e8c170")}
@@ -518,7 +638,7 @@ let petBounce=false, petTimer=0;
 let soundOn=false, audioCtx=null;
 try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
-  show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},
+  show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},moods_clicked:0,sheets_opened:[],did_import:false,
   folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false};
 const _D = window.OFFICE_DATA;
 // RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS provided by data.js
@@ -665,6 +785,7 @@ function fillSettings(){
         try{
           const o=JSON.parse(r.result);
           Object.keys(o).forEach(k=>{if(k in _DEFAULTS)settings[k]=o[k];});
+          settings.did_import = true;
           saveSettings();fillSettings();fillLayout();fillAreas();
           localStorage.setItem("didImport","1");
         }catch(e){alert("bad layout json: "+e.message);}
@@ -742,13 +863,35 @@ function seatPos(i,perRow,geom,padLeft){
 function stepChars(perRow,padLeft,geom){
   if(settings.lock_floor)return; // freeze in place
   const seen=new Set();
+  // ── pair-programming: agents occasionally visit a colleague's desk ──
+  if(frame>=nextPairAt && agents.length>=2){
+    const seated=agents.filter(a=>{const c=chars.get(a.id);return c&&c.phase==="seated"&&!c.pair;});
+    if(seated.length>=2){
+      const visitor=seated[(Math.random()*seated.length)|0];
+      const others=seated.filter(a=>a.id!==visitor.id);
+      const host=others[(Math.random()*others.length)|0];
+      const vc=chars.get(visitor.id);
+      vc.pair={host:host.id, until:frame+900+((Math.random()*1200)|0)};   // 15-35s
+      nextPairAt=frame+3600+((Math.random()*7200)|0);                     // next in 60-180s
+    }
+    else nextPairAt=frame+600;
+  }
   agents.forEach((a,i)=>{
     seen.add(a.id);
     const seat=seatPos(i,perRow,geom,padLeft);
     let c=chars.get(a.id);
     if(!c){ c={x:2,y:2,seat,phase:"in",lastStatus:a.status}; chars.set(a.id,c); }
     c.seat=seat;
-    const tx=c.phase==="out"?2:c.seat.x+3, ty=c.phase==="out"?2:c.seat.y;
+    // pair state ends on time or when the VISITOR starts working (host status irrelevant)
+    if(c.pair&&(frame>=c.pair.until))c.pair=null;
+    let tx,ty;
+    if(c.pair){
+      // stand beside the host's desk (right side)
+      const hc=chars.get(c.pair.host);
+      if(hc){tx=hc.seat.x+6; ty=hc.seat.y;}
+      else {c.pair=null; tx=c.seat.x+3; ty=c.seat.y;}
+    }
+    else {tx=c.phase==="out"?2:c.seat.x+3; ty=c.phase==="out"?2:c.seat.y;}
     const dx=tx-c.x, dy=ty-c.y, d=Math.hypot(dx,dy);
     if(d<WALK){ c.x=tx;c.y=ty; if(c.phase==="in")c.phase="seated"; }
     else { c.x+=dx/d*WALK; c.y+=dy/d*WALK; }
@@ -794,7 +937,35 @@ const spawnBtn=document.getElementById("spawn");
 const inspectorBtn=document.getElementById("inspectorbtn");
 if(IN_VSCODE){spawnBtn.style.display="";
   spawnBtn.onclick=()=>vsapi.postMessage({type:"spawnAgent"});}
-function syncInspectorBtn(){if(!inspectorBtn)return;inspectorBtn.style.display=focusedId?"":"none"}
+
+try{const n=localStorage.getItem("pixelOfficeNight");if(n!==null)window._nightOverride=n==="1"}catch(e){}
+
+// weather: deterministic per-day roll per outdoor layout (clear/rain/snow/stars)
+function weather(){
+  if(!LAYOUT_GEOMETRY[settings.layout]?.sky)return null;
+  const day=Math.floor(Date.now()/86400000);
+  const r=(day*7+settings.layout.length*13)%10;
+  if(r<6)return null;          // 60% clear
+  return r<8?"rain":"snow";    // 20% rain, 20% snow
+}
+function drawWeather(w,h){
+  const wx=weather(); if(!wx)return;
+  if(wx==="rain"){
+    ctx.strokeStyle="rgba(140,180,255,0.45)"; ctx.lineWidth=Math.max(1,S/8);
+    for(let i=0;i<40;i++){
+      const rx=((i*53+((frame>>1)*7)%(w*8))%(w*8))/8;
+      const ry=((i*29+(frame>>1)*11)%(h*8))/8;
+      ctx.beginPath();ctx.moveTo(rx*S,ry*S);ctx.lineTo(rx*S-S/3,ry*S+S);ctx.stroke();
+    }
+  }else{
+    ctx.fillStyle="rgba(255,255,255,0.8)";
+    for(let i=0;i<30;i++){
+      const sx=((i*61+Math.sin((frame+i*9)/40)*3+w*8)% (w*8))/8;
+      const sy=((i*37+(frame>>2)*(1+(i%3)))%(h*8))/8;
+      ctx.fillRect(sx*S,sy*S,S/2,S/2);
+    }
+  }
+}
 
 function closeSheets(){document.querySelectorAll(".sheet").forEach(el=>el.style.display="none")}
 function toggleSheet(id){
@@ -808,6 +979,11 @@ function toggleSheet(id){
     if(!seen.includes(id)){
       seen.push(id);
       localStorage.setItem("sheetsSeen", JSON.stringify(seen));
+    }
+    settings.sheets_opened = settings.sheets_opened || [];
+    if(!settings.sheets_opened.includes(id)){
+      settings.sheets_opened.push(id);
+      saveSettings();
     }
   }
 }
@@ -895,7 +1071,8 @@ document.addEventListener("keydown",(e)=>{
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
-  if(!id.startsWith("sheet-")){ // action shortcut (themeNext etc), not a sheet
+  if(!id.startsWith("sheet-")){ // action shortcut (themeNext etc)
+      if(id==="themeNext"){document.getElementById("themeNextbtn").click();}
       return;
   }
   if(id==="sheet-layout")fillLayout();
@@ -1105,6 +1282,137 @@ function applyProgress(p){
   fillStats();
 }
 
+// ═══ NPC visitors — wander in through the door, linger, leave ═══
+// names + colors: little pixel folk that make the office feel alive
+const VISITOR_KINDS=[
+  {name:"mail carrier", shirt:"#4fa4d8", hat:true,
+   lines:["mail's here","big envelope today","anyone order parts?","sign here please"]},
+  {name:"delivery",     shirt:"#d8a24f", hat:true, box:true,
+   lines:["package drop","heavy one today","where do I leave this?","next-day, no signature"]},
+  {name:"cleaner",      shirt:"#8fbf6f", hat:false, mop:true,
+   lines:["mopping around ya","mind the wet floor","this place needs dusting","nice plant"]},
+  {name:"intern",       shirt:"#c98fd8", hat:false, coffee:true,
+   lines:["coffee run!","first day nerves","which desk is mine?","so... this is the office"]},
+  {name:"inspector",    shirt:"#d86f6f", hat:true, clipboard:true,
+   lines:["everything up to code","hmm, noting that","fire exit clear","nice setup in here"]},
+];
+const VISITOR_LINES=vis=>vis.kind.lines[(vis.seed+((frame/300)|0))%vis.kind.lines.length];
+// ── season: deterministic from the date. 0=spring,1=summer,2=fall,3=winter ──
+function season(){
+  const m=new Date().getMonth();   // 0-11
+  if(m>=9) return 2;               // Oct-Dec: fall (jack-o-lantern in Oct, leaves Nov)
+  if(m>=6) return 1;               // Jul-Sep: summer
+  if(m>=3) return 0;               // Apr-Jun: spring
+  return 3;                        // Jan-Mar: winter
+}
+function drawSeasonal(w,gh,geom){
+  const s=season(), m=new Date().getMonth();
+  // jack-o-lantern by the door in October
+  if(m===9){
+    const jx=7, jy=Math.max(20,gh-10);
+    px(jx,jy,4,3,"#e8802a");                       // pumpkin body
+    px(jx+1,jy+3,2,1,"#54381f");                   // stem
+    px(jx+1,jy+1,1,1,"#f0d060");px(jx+3,jy+1,1,1,"#f0d060");   // eyes
+    px(jx+1+(frame>>4)%2,jy+2,2,1,"#f0d060");      // flickering mouth
+  }
+  // sky layouts: fall leaves drifting / winter snow falling + snow caps on the wall line
+  if(geom&&geom.sky){
+    if(s===2){ for(let x=0;x<w;x+=11){const t=(frame>>3)+x; px(x%(w),8+(t*7+x*13)%9,1,1,(t%3)?"#d97a3a":"#c9a227");} }
+    else if(s===3){
+      for(let x=1;x<w;x+=7){const t=(frame>>2); px((x+t)%w, 6+((t*5+x*11)%11), 1,1,"#fff8ff");}
+      px(0,17,w,1,"#e8ecf4");                      // snow cap along the wall top
+    }
+    else if(s===0){ for(let x=3;x<w;x+=13)if(((frame>>4)+x)%5===0)px(x,16,1,1,"#e8c170"); }  // spring petals
+  }
+}
+const visitors=[];   // {x,y,tx,ty,phase,dwell,kind,frameSeed}
+let nextVisitorAt=600+((Math.random()*1800)|0);   // first visit 10-40s in
+let nextPairAt=2400+((Math.random()*3600)|0);     // first pair session 40-100s in
+function stepVisitors(gw,gh){
+  if(frame>=nextVisitorAt && visitors.length<2){
+    const kind=VISITOR_KINDS[(Math.random()*VISITOR_KINDS.length)|0];
+    visitors.push({x:4,y:6,tx:8+((Math.random()*(gw-20))|0),ty:(gh-12)+((Math.random()*4)|0),
+                   phase:"in",dwell:400+((Math.random()*600)|0),kind,seed:(Math.random()*9999)|0,wp:null});
+    if(soundOn)chime([392,523]);   // door-open chime
+    nextVisitorAt=frame+1800+((Math.random()*5400)|0);   // next in 30-120s
+  }
+  for(let i=visitors.length-1;i>=0;i--){
+    const v=visitors[i];
+    const speed=0.06;
+    // waypoint pathing: door → down the left wall to the floor band → across
+    // (straight diagonals cut through desk clusters)
+    function nextWp(v,gw,gh){
+      if(v.phase==="out") return {x:4, y:6};              // leaving: head to the door (x=4) then up
+      if(v.y<gh-13) return {x:v.x, y:gh-10};              // wall zone → go down first
+      return {x:v.tx, y:Math.min(v.ty, gh-8)};            // floor band → cross to target
+    }
+    function arrived(v){
+      return v.phase==="in" ? (Math.abs(v.x-v.tx)<0.5 && Math.abs(v.y-v.ty)<0.5)
+                            : (v.x<5 && v.y<8);
+    }
+    if(v.phase==="in"||v.phase==="out"){
+      if(arrived(v)){
+        if(v.phase==="in"){ v.phase="dwell"; v.wp=null; }
+        else { if(soundOn)chime([523,392]); visitors.splice(i,1); }   // door-close chime
+      }else{
+        if(!v.wp||Math.hypot(v.wp.x-v.x,v.wp.y-v.y)<0.5) v.wp=nextWp(v,gw,gh);
+        const dx=v.wp.x-v.x, dy=v.wp.y-v.y, d=Math.hypot(dx,dy);
+        if(d>=0.5){ v.x+=dx/d*speed; v.y+=dy/d*speed; }
+      }
+    }else if(v.phase==="dwell"){
+      if(--v.dwell<=0){
+        v.phase="out"; v.tx=4; v.ty=6; v.wp=null;   // head back to the door
+      }
+      // occasional idle shuffle during dwell — else-branch so a shuffle frame
+      // never also decrements past zero; bounded so the visitor always leaves
+      else if(v.dwell>240 && v.dwell%180===0){ v.tx=Math.max(8,Math.min(gw-8,v.tx+(((Math.random()*10)|0)-5))); v.phase="in"; v.dwell+=120; v.wp=null; }
+    }
+  }
+}
+function drawVisitors(){
+  for(const v of visitors){
+    const px0=Math.round(v.x*S), py0=Math.round(v.y*S);
+    const walkBob=(v.phase!=="dwell"&&(frame>>3)%2)?1:0;
+    const k=v.kind;
+    // body (12px tall at S scale)
+    ctx.fillStyle=k.shirt;
+    ctx.fillRect(px0+2*S,py0+(4+walkBob)*S,6*S,6*S);
+    // legs
+    ctx.fillStyle="#3c2814";
+    ctx.fillRect(px0+2*S,py0+10*S,2*S,2*S); ctx.fillRect(px0+6*S,py0+10*S,2*S,2*S);
+    // head
+    ctx.fillStyle="#e8c49a";
+    ctx.fillRect(px0+2*S,py0*1+walkBob*S,6*S,4*S);
+    // hat
+    if(k.hat){ ctx.fillStyle="#2b2b3b"; ctx.fillRect(px0+1*S,(walkBob-1)*S+py0,8*S,S); ctx.fillRect(px0+2*S,(walkBob-2)*S+py0,6*S,S); }
+    // carried item
+    if(k.box){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,3*S,2*S); }
+    if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,S,2*S); }
+    if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,2*S,3*S); }
+    if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*S,(2+walkBob)*S+py0,S,9*S); ctx.fillStyle="#c9c9d8"; ctx.fillRect(px0+6*S,(11+walkBob)*S+py0,3*S,2*S); }
+    // eyes
+    ctx.fillStyle="#1a1423";
+    ctx.fillRect(px0+3*S,(1+walkBob)*S+py0,S,S); ctx.fillRect(px0+5*S,(1+walkBob)*S+py0,S,S);
+    // name tag (tiny, above head, fades in)
+    ctx.font=Math.max(7,S+3)+"px ui-monospace,monospace"; ctx.textAlign="center";
+    ctx.fillStyle="rgba(207,196,232,0.75)";
+    ctx.fillText(k.name, px0+4*S, py0-4*S);
+    // speech bubble while dwelling — rotates through the kind's lines every ~5s
+    if(v.phase==="dwell"){
+      const line=VISITOR_LINES(v);
+      ctx.font=Math.max(8,S+4)+"px ui-monospace,monospace";
+      const tw=ctx.measureText(line).width;
+      const bx=px0+4*S-tw/2-4, by=py0-9*S;
+      ctx.fillStyle="rgba(255,255,255,0.92)";
+      ctx.fillRect(bx,by,tw+8,S*2.2);
+      // little tail pointing at the head
+      ctx.beginPath();ctx.moveTo(px0+3*S,by+S*2.2);ctx.lineTo(px0+5*S,by+S*2.2);ctx.lineTo(px0+4*S,by+S*3.1);ctx.fill();
+      ctx.fillStyle="#241c33";
+      ctx.fillText(line, px0+4*S, by+S*1.6);
+    }
+  }
+}
+
 function render(){
   // probe mode — render one frame then idle so chrome-devtools can inspect
   if(window.__probe || /[?&]probe=1\b/.test(location.search)){ window.__probe = (window.__probe||0)+1; if(window.__probe<=3) document.title="READY:"+window.__probe; if(window.__probe > 5){ window.__probe = 0; history.replaceState({}, "", "/"); } requestAnimationFrame(render); return; }
@@ -1141,7 +1449,7 @@ function render(){
   const wall = (night() && theme.id==="default")?"#2a2038":theme.wall;
   window._theme = {id:theme.id, tileA, tileB, wall, isDark:night()};
   const gw=Math.floor(W/S),gh=Math.floor(H/S); _gw=gw; _gh=gh;
-  drawOffice(gw,gh);
+  drawOffice(gw,gh); drawWeather(gw,gh); drawSeasonal(gw,gh,LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open);   // drawOffice reads window._cosmetics
   // painted tile overlay (user-clicked area colors)
   if(settings.painted){
     Object.entries(settings.painted).forEach(([key,name])=>{
@@ -1154,6 +1462,7 @@ function render(){
     });
   }
   const cosmetics=(progress&&progress.cosmetics)||[];
+  window._cosmetics=cosmetics;
   const rowWidth = perRow * colStep;
   const padLeft = Math.max(10, Math.floor((usableW/S - rowWidth)/2));
   const prev=agents; agents=list; stepChars(perRow,padLeft,geom); agents=prev;
@@ -1174,6 +1483,7 @@ function render(){
   }
   list.forEach((a,i)=>{
     const seat=seatPos(i,perRow,geom,padLeft);
+    window._deskAnchors=(window._deskAnchors||[]); window._deskAnchors[i]=[seat.x,seat.y];
     drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
     drawHealthBar(a,seat.x,seat.y);
   });
@@ -1181,6 +1491,13 @@ function render(){
     const c=chars.get(a.id); if(!c)return;
     const seated=c.phase==="seated";
     drawChar(a,c.x,c.y,seated,cosmetics);
+    // pairing indicator: two overlapping screens above the visiting agent
+    if(c.pair){
+      ctx.font=Math.max(7,S+2)+"px ui-monospace,monospace"; ctx.textAlign="center";
+      const bx=(c.x+4)*S, by=(c.y-1.5)*S;
+      ctx.fillStyle="rgba(95,206,122,0.9)";
+      ctx.fillText("⌨↔⌨", bx, by);
+    }
     if(seated){
       const seat=seatPos(i,perRow,geom,padLeft);
       // redraw desk top over the seated char's lower body so they sit BEHIND the desk
@@ -1208,6 +1525,8 @@ function render(){
     if(c.phase==="out"&&!list.find(a=>a.id===id))
       drawChar({id,kind:"main",status:"gone",activity:"",platform:""},c.x,c.y,false,cosmetics);
   }
+  stepVisitors(gw,gh);
+  drawVisitors();
   // layout-specific accent — bottom-left corner so it never clips the cat
   ctx.font="11px ui-monospace";ctx.textAlign="left";
   if(settings.layout && settings.layout!=="open"){
@@ -1389,7 +1708,11 @@ cv.addEventListener("click", (ev)=>{
       const wasFocused = focusedId===best.id;
       focusedId = wasFocused ? null : best.id;
       document.getElementById("inspectorbtn").style.display = focusedId ? "" : "none";
-      if(focusedId){fillInspector();toggleSheet("sheet-inspector");}
+      if(focusedId){
+        fillInspector();toggleSheet("sheet-inspector");
+        settings.moods_clicked = (settings.moods_clicked||0)+1;
+        saveSettings();
+      }
       if(!wasFocused) copyAgent(best);
     }
   }
