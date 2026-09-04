@@ -938,7 +938,22 @@ const inspectorBtn=document.getElementById("inspectorbtn");
 if(IN_VSCODE){spawnBtn.style.display="";
   spawnBtn.onclick=()=>vsapi.postMessage({type:"spawnAgent"});}
 
+// day/night manual toggle — cycles auto → day → night → auto
+const dnBtn=document.getElementById("daynight");
+function syncDnBtn(){if(!dnBtn)return;
+  const mode=window._nightOverride===null||window._nightOverride===undefined?"auto":(window._nightOverride?"night":"day");
+  dnBtn.textContent=mode==="auto"?"◐ auto":mode==="night"?"☾ night":"☀ day";
+  dnBtn.classList.toggle("on",mode!=="auto")}
+if(dnBtn){dnBtn.onclick=()=>{
+  const cur=window._nightOverride===null||window._nightOverride===undefined?"auto":(window._nightOverride?"night":"day");
+  const next=cur==="auto"?"night":cur==="night"?"day":"auto";
+  if(next==="auto"){window._nightOverride=null;try{localStorage.removeItem("pixelOfficeNight")}catch(e){}}
+  else{window._nightOverride=next==="night";try{localStorage.setItem("pixelOfficeNight",window._nightOverride?"1":"0")}catch(e){}}
+  try{const saved=JSON.parse(localStorage.getItem("pixelOfficeSettings")||"{}");saveSettings()}catch(e){}
+  syncDnBtn(); chime([520,next==="night"?390:660]);
+};}
 try{const n=localStorage.getItem("pixelOfficeNight");if(n!==null)window._nightOverride=n==="1"}catch(e){}
+syncDnBtn();
 
 // weather: deterministic per-day roll per outdoor layout (clear/rain/snow/stars)
 function weather(){
