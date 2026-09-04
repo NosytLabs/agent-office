@@ -51,6 +51,23 @@ and live detection.
   typing, idle), animated pets (adapted from pixel-agents, MIT — see ATTRIBUTION.md)
 - **3 desk types** — wood, standing, glass
 - **named areas** painted behind desks + folder→area mapping
+- **day/night cycle** — ambient dim + additive light pools (neon flicker, kitchenette
+  warmth, plant uplights, monitor glows) after 19:00, moonlit sky layouts; manual
+  ◐ auto / ☾ night / ☀ day toggle in the header (persists)
+- **weather + seasons** — deterministic per-day rain/snow rolls on outdoor layouts,
+  animated drifting weather; seasonal decor (fall leaves, winter snow caps,
+  spring petals, October jack-o-lantern by the door)
+- **NPC visitors** — mail carriers, cleaners, interns, inspectors wander in through
+  the door with waypoint pathing, idle shuffles, rotating speech bubbles, door chime;
+  max 2 concurrent, 30–120s between visits
+- **pair-programming** — seated agents occasionally walk to a colleague's desk with a
+  green pairing indicator for 15–35s, then return
+- **per-agent desk finishes** — walnut/oak/ebony, hash-stable per agent
+- **per-layout furniture** — bookshelves (library), sofa+clock+cacti (lounge),
+  whiteboard (war room), neon arcade cabinets, gold-trim rugs (penthouse),
+  framed canvases + coffee (atelier), string lights + railing + grill (roof deck)
+- **cosmetics** — pets on desks, orange scarf, sleeping office cat by the kitchenette,
+  radiant animated sun; granted cosmetics all render
 - **paint mode** with drag-paint, click character to focus + inspect
 - **live event ticker** + speech bubbles + health bar + hourglass
 - **import/export layout** + settings persistence
