@@ -4,11 +4,10 @@
 
 const RANKS = [
   ["intern", 0],
-  ["junior", 50],
-  ["staff", 200],
-  ["senior", 500],
-  ["principal", 1200],
-  ["distinguished", 3000],
+  ["junior", 40],
+  ["staff", 150],
+  ["principal", 400],
+  ["distinguished", 1200],
 ];
 const RANKS_THRESHOLDS = Object.fromEntries(RANKS);
 
@@ -47,17 +46,17 @@ const LAYOUT_GEOMETRY = {
   war_room:  {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"war_table",
               floor:["#30262a","#2a2024"], wall:"#4a2f2f"},
   lounge:    {perRow:3, colStep:42, rowStep:40, labelY:14, decor:"lounge",
-              floor:["#243030","#1e2828"], wall:"#2f4a42"},
+              floor:["#243030","#1e2828"], wall:"#2f4a42", warm:true},
   mexico:    {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"roof",
               floor:["#383226","#302a20"], wall:"#5a4a28", sky:true},
   garden:    {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"garden",
               floor:["#1e3020","#18281a"], wall:"#2a4a2e", sky:true},
   library:   {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"library",
-              floor:["#302a20","#2a241a"], wall:"#4a3a22"},
+              floor:["#302a20","#2a241a"], wall:"#4a3a22", warm:true},
   arcade:    {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"arcade",
               floor:["#201830","#1a1228"], wall:"#3a2060", neon:true},
   penthouse: {perRow:3, colStep:48, rowStep:38, labelY:14, decor:"penthouse",
-              floor:["#2e2a36","#282430"], wall:"#46405a"},
+              floor:["#2e2a36","#282430"], wall:"#46405a", warm:true},
   beach:     {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"beach",
               floor:["#3a3424","#342e1e"], wall:"#4a6a8a", sky:true},
   atelier:   {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"atelier",

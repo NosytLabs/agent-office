@@ -21,8 +21,13 @@ const SHIRT=["#4fa4d8","#d84f6f","#5fce7a","#c9a227","#9b6fd8","#d87f4f","#3d6b8
 const HAIR=["#2b2b2b","#5a3825","#c9a227","#8a8a8a","#7a3030","#4a6741","#1a1a22","#d8c4a0"];
 function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return Math.abs(h)}
 function px(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x*S),Math.round(y*S),w*S,h*S)}
-function lighten(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.min(255,Math.max(0,Math.round(r*1.15)));const mix2=Math.min(255,Math.max(0,Math.round(g*1.15)));const mix3=Math.min(255,Math.max(0,Math.round(b*1.15)));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
-function darken(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mix=Math.max(0,Math.round(r*0.85));const mix2=Math.max(0,Math.round(g*0.85));const mix3=Math.max(0,Math.round(b*0.85));return "#"+((1<<24)+(mix<<16)+(mix2<<8)+mix3).toString(16).slice(1)}
+function mix(a,b,t){
+  const pa=[1,3,5].map(i=>parseInt(a.substr(i,2),16));
+  const pb=[1,3,5].map(i=>parseInt(b.substr(i,2),16));
+  return "#"+pa.map((v,i)=>Math.round(v*(1-t)+pb[i]*t).toString(16).padStart(2,"0")).join("");
+}
+function lighten(hex){return mix(hex,"#ffffff",0.13)}
+function darken(hex){return mix(hex,"#000000",0.15)}
 function night(){ if(window._nightOverride!==null&&window._nightOverride!==undefined)return window._nightOverride; const h=new Date().getHours();return h<6||h>=19}
 
 // ═══ sprite-sheet characters (from pixel-agents, MIT — see ATTRIBUTION.md) ═══
@@ -81,7 +86,7 @@ function drawDecorImg(name,dx,dy,dw,dh){
       const walking=(frame>>4)%2;                 // gentle 2-frame idle/walk cycle
       const col=walking?1+((frame>>4)%2):0;       // cols 1-2 walk frames, col 0 idle stand
       const sx=col*fw, sy=0;
-      const pcs = Math.max(1, Math.floor(S/3));   // same scale as characters
+      const pcs = Math.max(2, Math.floor(S/2));   // same scale as characters
       const pw = fw*pcs, ph = fh*pcs;
       // anchor: bottom-center of the (dw x dh) tile box, so feet sit on the floor
       const px0 = Math.round((dx+dw/2)*S - pw/2), py0 = Math.round((dy+dh)*S - ph);
@@ -100,17 +105,15 @@ function drawOffice(w,h,cosmetics){
   const dark=night();
   const themeObj = window._theme || {};
   const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
-  // layout floor/wall blended with theme tint (60% layout, 40% theme) so both matter
-  function mix(a,b,t){
-    const pa=[1,3,5].map(i=>parseInt(a.substr(i,2),16));
-    const pb=[1,3,5].map(i=>parseInt(b.substr(i,2),16));
-    return "#"+pa.map((v,i)=>Math.round(v*(1-t)+pb[i]*t).toString(16).padStart(2,"0")).join("");
-  }
+  // layout floor/wall blended with theme tint so both matter
   const lf=geom.floor||["#2c2438","#262033"];
-  const themeBlend = 0.45;   // 0.25 washed tints out — 6 theme pairs were near-identical
+  // warm-wood layouts (library, lounge, penthouse) keep most of their floor warmth;
+  // cool-wood layouts (bullpen, atelier) lean into the theme tint
+  const warm = geom.warm===true;
+  const themeBlend = warm ? 0.35 : 0.65;
   const tileA = mix(lf[0], themeObj.tileA||lf[0], themeBlend);
   const tileB = mix(lf[1], themeObj.tileB||lf[1], themeBlend);
-  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, 0.25);
+  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, warm ? 0.35 : 0.5);
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
@@ -480,7 +483,7 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(spr){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
-    const cs = Math.max(1, Math.floor(S/3));   // sprite scale: chars ~2 tiles wide, 4 tall — room proportion
+    const cs = Math.max(2, Math.floor(S/2));   // sprite scale: chars ~2 tiles wide, 4 tall — room proportion
     ctx.fillRect(Math.round((x+7)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
     // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
@@ -639,7 +642,7 @@ let soundOn=false, audioCtx=null;
 try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},moods_clicked:0,sheets_opened:[],did_import:false,
-  folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false};
+  folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false,fog:false};
 // RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS are top-level globals from data.js
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
 const THEME_DAILY = ["Lobby","Studio","Tower","Loft","Bunker","Library","Dojo","Salon","Lab","Pier","Atrium","Cabin"];
@@ -744,6 +747,7 @@ function fillSettings(){
    ["auto_focus_unlocks","focus on unlock",settings.auto_focus_unlocks],
    ["paint","paint mode (drag to color)",settings.paint],
    ["lock_floor","lock to floor (no animations)",settings.lock_floor],
+   ["fog","fog of war (unexplored dark)",settings.fog],
  ];
   items.forEach(([k,label,on])=>{
     const r=document.createElement("div");r.className="row";
@@ -788,7 +792,7 @@ function fillSettings(){
           settings.did_import = true;
           saveSettings();fillSettings();fillLayout();fillAreas();
           localStorage.setItem("didImport","1");
-        }catch(e){alert("bad layout json: "+e.message);}
+        }catch(e){console.error("bad layout json: "+e.message);}
       };
       r.readAsText(f);
     };
@@ -804,7 +808,7 @@ function fillSettings(){
       localStorage.removeItem("pixelOfficeSeen");
       localStorage.removeItem("didImport");
       location.reload();
-    }).catch(()=>alert("reset failed — is the office server running?"));
+    }).catch(()=>console.error("reset failed — is the office server running?"));
   };
   rst.appendChild(rbtn);
   document.getElementById("settingsbox").appendChild(rst);
@@ -839,6 +843,18 @@ async function saveSettings(){
 }
 async function loadSettings(){
   try{const r=await fetch("settings");settings=await r.json();}catch(e){}
+  // fallback: if saved layout is locked (require not unlocked), reset to "open"
+  // prevents the office from rendering a layout the user hasn't earned
+  const L = (typeof LAYOUTS!=="undefined") ? LAYOUTS.find(x=>x.id===settings.layout) : null;
+  if(L && L.require && !haveUnlock(L.require)) {
+    settings.layout = "open";
+    saveSettings();
+  }
+  // also validate theme — fall back to default if the saved id is gone
+  if(typeof THEMES!=="undefined" && !THEMES.find(t=>t.id===settings.theme)){
+    settings.theme = "default";
+    saveSettings();
+  }
 }
 function applyTheme(id){
   const theme = THEMES.find(t=>t.id===id) || THEMES[0];
@@ -954,6 +970,52 @@ if(dnBtn){dnBtn.onclick=()=>{
 };}
 try{const n=localStorage.getItem("pixelOfficeNight");if(n!==null)window._nightOverride=n==="1"}catch(e){}
 syncDnBtn();
+
+// fog of war — header toggle + settings sheet row share this
+const fogBtn=document.getElementById("fogbtn");
+function syncFogBtn(){if(!fogBtn)return;
+  fogBtn.textContent=settings.fog?"fog on":"fog";
+  fogBtn.classList.toggle("on",!!settings.fog)}
+if(fogBtn){fogBtn.onclick=async()=>{settings.fog=!settings.fog;syncFogBtn();await saveSettings();fillSettings();};}
+syncFogBtn();
+
+// fog of war: dark unexplored floor, radial holes around agents/desks/door.
+// offscreen canvas + destination-out (per MDN createRadialGradient /
+// globalCompositeOperation) so the office underneath is never erased.
+function drawFog(){
+  if(!settings.fog)return;
+  const W=cv.width,H=cv.height;
+  if(!W||!H)return;
+  let fc=window._fogCanvas;
+  if(!fc||fc.width!==W||fc.height!==H){
+    fc=document.createElement("canvas");fc.width=W;fc.height=H;
+    window._fogCanvas=fc;
+  }
+  const f=fc.getContext("2d");
+  f.globalCompositeOperation="source-over";
+  f.clearRect(0,0,W,H);
+  f.fillStyle="rgba(5,3,14,0.84)";
+  f.fillRect(0,0,W,H);
+  f.globalCompositeOperation="destination-out";
+  const hole=(tx,ty,r,a)=>{
+    const x=tx*S,y=ty*S,rad=Math.max(2,r*S);
+    const g=f.createRadialGradient(x,y,rad*0.25,x,y,rad);
+    g.addColorStop(0,"rgba(0,0,0,"+a+")");
+    g.addColorStop(1,"rgba(0,0,0,0)");
+    f.fillStyle=g;
+    f.beginPath();f.arc(x,y,rad,0,Math.PI*2);f.fill();
+  };
+  // door always visible
+  hole(6,6,9,0.95);
+  // every desk anchor: warm readable pool
+  for(const d of (window._deskAnchors||[])){hole(d[0]+4,d[1]+2,15,0.98);}
+  // walking chars + visitors reveal as they move
+  for(const c of chars.values()){
+    if(c.phase!=="seated")hole(c.x+2,c.y+4,10,0.9);
+  }
+  try{for(const v of visitors){hole(v.x,v.y,10,0.9);}}catch(e){}
+  ctx.drawImage(fc,0,0,W,H);
+}
 
 // weather: deterministic per-day roll per outdoor layout (clear/rain/snow/stars)
 function weather(){
@@ -1551,6 +1613,7 @@ function render(){
   }
   stepVisitors(gw,gh);
   drawVisitors();
+  drawFog();
   // layout-specific accent — bottom-left corner so it never clips the cat
   ctx.font="11px ui-monospace";ctx.textAlign="left";
   if(settings.layout && settings.layout!=="open"){
@@ -1596,6 +1659,7 @@ function applyState(state){
   applyProgress(state&&state.progress);
   fillRoster();
   fillLayout();fillAreas();fillSettings();
+  try{syncFogBtn();}catch(e){}
   fillEvents();fillInspector();
   document.getElementById("inspectorbtn").style.display = focusedId ? "" : "none";
   const n=agents.length, w=agents.filter(a=>a.status==="waiting").length;
