@@ -757,7 +757,8 @@ function fillSettings(){
   });
   const r=document.createElement("div");r.className="row";
   r.innerHTML="<div style='flex:1'><div class='n'>grid columns</div></div>"+
-    "<input class='txt' type='number' id='mc' name='max_chars' min='2' max='8' value='"+settings.max_chars+"' style='width:60px' aria-label='grid columns'>";
+    "<input class='txt' type='number' id='mc' name='max_chars' min='2' max='8' value='"+settings.max_chars+"' style='width:60px' aria-label='grid columns'>"+
+    "<span class='dim' style='font-size:10px;margin-left:6px'>desks per row</span>";
   box.appendChild(r);
   document.getElementById("mc").onchange=(e)=>{settings.max_chars=Math.max(2,Math.min(8,+e.target.value||4));saveSettings()};
   // import / export layout (settings + areas + painted)
