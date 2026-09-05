@@ -190,20 +190,23 @@ function drawOffice(w,h,cosmetics){
   // rug — varies per layout decor
   const decor = LAYOUT_GEOMETRY[settings.layout]?.decor || "rug";
   if(decor==="library"){
-    // bookshelves along the back wall + reading rug
+    // bookshelves along the back wall + reading rug centered on the bottom band
     drawDecorImg("BOOKSHELF",6,4,10,5);
     drawDecorImg("BOOKSHELF",18,4,10,5);
     drawDecorImg("BOOKSHELF",w-18,4,10,5);
-    const rw=Math.min(24,w-16); px((w-rw)/2,h-13,rw,6,"#4a3020");
-    px((w-rw)/2+1,h-12,rw-2,4,"#5c3e2a");
+    const rugY = Math.max(20, h-7);
+    const rw=Math.min(28,w-16); px((w-rw)/2,rugY,rw,2,"#4a3020");
+    px((w-rw)/2+1,rugY+1,rw-2,1,"#5c3e2a");
     drawDecorImg("BIN",w-12,h-8,3,3);
   }else if(decor==="lounge"){
     // sofa + wall clock + plant corner — chill room
-    drawDecorImg("SOFA_FRONT",w/2-6,h-14,12,6);
+    // place sofa in the bottom band so it doesn't fight agent chairs
+    const sofaY = Math.max(20, h-8);
+    drawDecorImg("SOFA_FRONT",w/2-6,sofaY,12,4);
     drawDecorImg("CLOCK",w-14,2,4,4);
-    drawDecorImg("CACTUS",6,h-16,4,8);
-    const rw=Math.min(26,w-14); px((w-rw)/2,h-12,rw,5,"#2f4a42");
-    px((w-rw)/2+1,h-11,rw-2,3,"#3a5c50");
+    drawDecorImg("CACTUS",6,h-12,4,8);
+    const rw=Math.min(26,w-14); px((w-rw)/2,sofaY-2,rw,2,"#2f4a42");
+    px((w-rw)/2+1,sofaY-1,rw-2,1,"#3a5c50");
   }else if(decor==="arcade"){
     // arcade cabinets along the back wall (procedural, neon-lit)
     for(let i=0;i<3;i++){
@@ -232,24 +235,26 @@ function drawOffice(w,h,cosmetics){
   }else if(decor==="war_table"){
     // strategy whiteboard on the wall above the table
     drawDecorImg("WHITEBOARD",w/2-7,1,14,6);
-    // wide meeting table in the center — legs to the floor so it doesn't float
-    const ty=Math.floor(h*0.62);
-    px(w/2-12,ty,24,2,dark?"#5a3a14":"#8d5524");     // top
-    px(w/2-11,ty+2,22,1,dark?"#4a2a10":"#6b4a2f");   // apron
-    px(w/2-11,ty+3,2,4,dark?"#3a2410":"#54381f");    // left leg
-    px(w/2+9,ty+3,2,4,dark?"#3a2410":"#54381f");     // right leg
-    px(w/2-10,ty+7,20,1,dark?"#241408":"#3c2814");   // floor shadow
-    // monitors around the table
-    for(let i=-2;i<=2;i++){
-      px(w/2+i*5-2,ty-2,2,2,"#191524");
-      px(w/2+i*5-1,ty-3,1,1,(frame>>4)%2?"#5fce7a":"#0f2c1e");
+    // wide meeting table at the back of the room — above the front-row desks
+    // so it doesn't fight for floor space with the agent chairs in row 0
+    const ty = 9;  // above the desk-row band (agents sit at labelY=14)
+    px(w/2-14,ty,28,2,dark?"#5a3a14":"#8d5524");     // wider table top
+    px(w/2-13,ty+2,26,1,dark?"#4a2a10":"#6b4a2f");   // apron
+    px(w/2-13,ty+3,2,3,dark?"#3a2410":"#54381f");    // left leg
+    px(w/2+11,ty+3,2,3,dark?"#3a2410":"#54381f");    // right leg
+    // monitors around the table (status lights)
+    for(let i=-3;i<=3;i++){
+      const mx=w/2+i*4-1;
+      px(mx,ty-2,2,2,"#191524");
+      px(mx,ty-3,2,1,(frame>>4+i)%2?"#5fce7a":"#0f2c1e");
     }
   }else if(decor==="roof"){
-    // wooden deck planks
-    for(let x=4;x<w-4;x+=8)px(x,h-9,7,3,dark?"#4a3818":"#6b4a2f");
+    // wooden deck planks — span the full floor area below the sky band
+    const plankY = Math.max(20, h-12);  // bottom band, not too close to bottom edge
+    for(let x=4;x<w-4;x+=8)px(x,plankY,7,2,dark?"#4a3818":"#6b4a2f");
     // safety railing along the front edge
-    px(2,h-6,w-4,1,dark?"#5a4a28":"#7a6a38");
-    for(let x=4;x<w-4;x+=10)px(x,h-5,1,2,dark?"#4a3818":"#6b4a2f");
+    px(2,plankY+2,w-4,1,dark?"#5a4a28":"#7a6a38");
+    for(let x=4;x<w-4;x+=10)px(x,plankY+3,1,2,dark?"#4a3818":"#6b4a2f");
     // string lights across the sky band (animated twinkle)
     for(let x=6;x<w-6;x+=8){
       const ly=6+((x/8)%2?1:0);
@@ -257,9 +262,9 @@ function drawOffice(w,h,cosmetics){
       px(x,ly,1,1,(frame>>4+x)%3?"#e8c170":"#fff8c8"); // bulb
     }
     // grill + potted plants
-    px(w/2+14,h-14,5,3,dark?"#3a3a44":"#4a4a54"); px(w/2+15,h-15,3,1,"#d84f6f");
-    drawDecorImg("PLANT",6,h-24,4,10);
-    drawDecorImg("PLANT",w-10,h-24,4,10);
+    px(w/2+14,h-8,5,3,dark?"#3a3a44":"#4a4a54"); px(w/2+15,h-9,3,1,"#d84f6f");
+    drawDecorImg("PLANT",6,h-12,4,10);
+    drawDecorImg("PLANT",w-10,h-12,4,10);
   }else if(decor==="garden"){
     // grass field: two-tone tufts + flowers + hedges along the wall base
     for(let x=0;x<w;x+=4)px(x,h-10,3,1,(x/4)%2?"#4aa860":"#5fce7a");
@@ -872,11 +877,12 @@ const _DEFAULTS = Object.keys(settings);
 
 const chars = new Map();
 const WALK = 0.55;
-function seatPos(i,perRow,geom,padLeft){
+function seatPos(i,perRow,geom,padLeft,rowStep){
   const g = geom || LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
-  return {x:(padLeft==null?10:padLeft)+(i%perRow)*g.colStep, y:g.labelY+Math.floor(i/perRow)*g.rowStep};
+  const rs = rowStep || g.rowStep;
+  return {x:(padLeft==null?10:padLeft)+(i%perRow)*g.colStep, y:g.labelY+Math.floor(i/perRow)*rs};
 }
-function stepChars(perRow,padLeft,geom){
+function stepChars(perRow,padLeft,geom,rowStep){
   if(settings.lock_floor)return; // freeze in place
   const seen=new Set();
   // ── pair-programming: agents occasionally visit a colleague's desk ──
@@ -894,7 +900,7 @@ function stepChars(perRow,padLeft,geom){
   }
   agents.forEach((a,i)=>{
     seen.add(a.id);
-    const seat=seatPos(i,perRow,geom,padLeft);
+    const seat=seatPos(i,perRow,geom,padLeft,rowStep);
     let c=chars.get(a.id);
     if(!c){ c={x:2,y:2,seat,phase:"in",lastStatus:a.status}; chars.set(a.id,c); }
     c.seat=seat;
@@ -1517,6 +1523,7 @@ function render(){
   // pick layout geometry first — overrides perRow/colStep/rowStep
   const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
   const colStep = geom.colStep, rowStep = geom.rowStep;
+  const labelY = geom.labelY;
   // tile size so columns * max rows fit in canvas (no overlap).
   // Reserve room for the label below each desk (~4 rows of tile height).
   const labelPx = Math.max(40, Math.round(60 * 1)); // safe upper bound
@@ -1525,8 +1532,13 @@ function render(){
   // but the layout might want fewer columns
   perRow = Math.min(perRow, geom.perRow);
   let rows=Math.ceil(list.length/Math.max(1,perRow));
+  // fit rows into usable height — shrink rowStep when there are more rows than
+  // the static rowStep would fit. Without this the bottom of the canvas is
+  // dead empty floor on tall viewports.
+  const availH = (H/S) - labelY - 4;
+  const dynRowStep = Math.min(rowStep, Math.max(12, Math.floor(availH / Math.max(1, rows))));
   // pick tile size so columns fit width AND rows fit height
-  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*rowStep)))));
+  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*dynRowStep)))));
   // theme background
   const theme = (THEMES.find(t=>t.id===settings.theme) || THEMES[0]);
   cv.style.background = theme.bg;
@@ -1551,7 +1563,7 @@ function render(){
   window._cosmetics=cosmetics;
   const rowWidth = perRow * colStep;
   const padLeft = Math.max(10, Math.floor((usableW/S - rowWidth)/2));
-  const prev=agents; agents=list; stepChars(perRow,padLeft,geom); agents=prev;
+  const prev=agents; agents=list; stepChars(perRow,padLeft,geom,dynRowStep); agents=prev;
   // draw areas (behind desks) so each area is a colored tile cluster
   const areas = settings.areas || {};
   if(Object.keys(areas).length && list.length){
@@ -1559,7 +1571,7 @@ function render(){
     list.forEach((a,i)=>{
       const idx=i % names.length;
       const color=areas[names[idx]];
-      const seat=seatPos(i,perRow,geom,padLeft);
+      const seat=seatPos(i,perRow,geom,padLeft,dynRowStep);
       ctx.globalAlpha=0.12;
       ctx.fillStyle=color;
       // desk mat sized to the workstation footprint
@@ -1568,7 +1580,7 @@ function render(){
     });
   }
   list.forEach((a,i)=>{
-    const seat=seatPos(i,perRow,geom,padLeft);
+    const seat=seatPos(i,perRow,geom,padLeft,dynRowStep);
     window._deskAnchors=(window._deskAnchors||[]); window._deskAnchors[i]=[seat.x,seat.y];
     drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
     drawHealthBar(a,seat.x,seat.y);
@@ -1585,7 +1597,7 @@ function render(){
       ctx.fillText("⌨↔⌨", bx, by);
     }
     if(seated){
-      const seat=seatPos(i,perRow,geom,padLeft);
+      const seat=seatPos(i,perRow,geom,padLeft,dynRowStep);
       // redraw desk top over the seated char's lower body so they sit BEHIND the desk
       drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
       // night idle: drifting z's above the head
@@ -1600,7 +1612,7 @@ function render(){
     }
     if(focusedId===a.id){
       // outline ring around the focused agent
-      const seat=seatPos(i,perRow,geom,padLeft);
+      const seat=seatPos(i,perRow,geom,padLeft,dynRowStep);
       ctx.strokeStyle="#e8c170";
       ctx.lineWidth=2;
       ctx.strokeRect((seat.x-1)*S, (seat.y-1)*S, 20*S, 22*S);
@@ -1786,9 +1798,12 @@ cv.addEventListener("click", (ev)=>{
     const _maxc=Math.max(2,settings.max_chars||4);
     const _perRow=Math.min(_maxc, Math.max(1, Math.floor((_gw-2)/_geom2.colStep)));
     const _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
+    const _rows=Math.ceil(list.length/Math.max(1,_perRow));
+    const _availH=_gh-_geom2.labelY-4;
+    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(12, Math.floor(_availH/Math.max(1,_rows))));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
-      const s=seatPos(i,_perRow,_geom2,_padLeft);
+      const s=seatPos(i,_perRow,_geom2,_padLeft,_dynRowStep);
       const d=Math.hypot(tx-s.x-4, ty-s.y-6);
       if(d<bestD){bestD=d;best=a;}
     });
