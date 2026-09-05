@@ -640,8 +640,7 @@ try{soundOn=localStorage.getItem("pixelOfficeSound")==="1"}catch(e){}
 let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   show_subagent_chips:false,auto_focus_unlocks:true,max_chars:4,areas:{},moods_clicked:0,sheets_opened:[],did_import:false,
   folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false};
-const _D = window.OFFICE_DATA;
-// RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS provided by data.js
+// RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS are top-level globals from data.js
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
 const THEME_DAILY = ["Lobby","Studio","Tower","Loft","Bunker","Library","Dojo","Salon","Lab","Pier","Atrium","Cabin"];
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
@@ -1039,7 +1038,16 @@ document.getElementById("themeNextbtn").onclick=()=>{
   applyTheme(next);
   fillSettings();
   applyProgress(progress);   // refresh chips so the new theme bg shows through
+  // show current theme name next to the button
+  const tn=document.getElementById("themename");
+  if(tn){ const t=THEMES.find(x=>x.id===next); tn.textContent=t?t.name:next; tn.title="current theme — click the button to cycle"; }
 };
+// initial theme name on load (after loadSettings resolves)
+(async()=>{
+  await loadSettings();
+  const tn=document.getElementById("themename");
+  if(tn){ const t=THEMES.find(x=>x.id===settings.theme); tn.textContent=t?t.name:(settings.theme||"default"); }
+})();
 document.getElementById("platformsbtn").onclick=()=>{fillPlatforms();toggleSheet("sheet-platforms");};
 function fillPlatforms(){
   const box=document.getElementById("platformsbox");if(!box)return;
