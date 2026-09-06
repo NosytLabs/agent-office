@@ -54,8 +54,9 @@ const charSheets=[];   // charSheets[i] = {down:[7 canvases], up:[...], right:[.
   }
 })();
 function spriteFor(a){
-  if(!charSheets.length)return null;
-  const sheet=charSheets[hash(a.id)%charSheets.length];
+  const loaded=charSheets.filter(s=>s&&s.down&&s.down[0]);
+  if(!loaded.length)return null;
+  const sheet=loaded[hash(a.id)%loaded.length];
   if(!sheet)return null;
   // sheet layout (verified): col 0 = idle stand, cols 1-6 = 6-frame walk. no typing frames.
   if(!seatedNow(a)){
@@ -72,7 +73,7 @@ function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
 
 // ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
 const decorImg={};  // name -> HTMLImageElement
-["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
+["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/PLANT.png","furniture/CACTUS.png",
  "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png",
  "furniture/DOOR.png","furniture/CLOCK.png","furniture/COFFEE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
@@ -80,21 +81,27 @@ function drawDecorImg(name,dx,dy,dw,dh){
   const im=decorImg[name];
   if(im&&im.complete&&im.naturalWidth>0){
     ctx.imageSmoothingEnabled=false;
-    // pet sheets are 6x3 grids of 16x32 frames (walk / idle / flip rows) —
-    // draw ONE frame, not the whole squished sheet
+    const boxW=Math.max(1,dw*S), boxH=Math.max(1,dh*S);
+    const boxX=dx*S, boxY=dy*S;
+    // pet sheets are 6x3 grids of 16x32 frames — draw ONE frame, integer-scaled
     if(im.naturalWidth===96&&im.naturalHeight===96){
       const fw=16,fh=32;
-      const walking=(frame>>4)%2;                 // gentle 2-frame idle/walk cycle
-      const col=walking?1+((frame>>4)%2):0;       // cols 1-2 walk frames, col 0 idle stand
+      const walking=(frame>>4)%2;
+      const col=walking?1+((frame>>4)%2):0;
       const sx=col*fw, sy=0;
-      const pcs = Math.max(3, Math.floor(S/1.5));   // pets slightly bigger than chars
+      const pcs = Math.max(3, Math.floor(S/1.5));
       const pw = fw*pcs, ph = fh*pcs;
-      // anchor: bottom-center of the (dw x dh) tile box, so feet sit on the floor
-      const px0 = Math.round((dx+dw/2)*S - pw/2), py0 = Math.round((dy+dh)*S - ph);
+      const px0 = Math.round(boxX + boxW/2 - pw/2), py0 = Math.round(boxY + boxH - ph);
       ctx.drawImage(im,sx,sy,fw,fh,px0,py0,pw,ph);
       return true;
     }
-    ctx.drawImage(im,Math.round(dx*S),Math.round(dy*S),Math.round(dw*S),Math.round(dh*S));
+    // furniture: integer nearest-neighbor scale, contain, bottom-center.
+    // fractional dest sizes (16px → 72px) were the main "glitched sprite" look.
+    const nw=im.naturalWidth, nh=im.naturalHeight;
+    const sc=Math.max(1, Math.floor(Math.min(boxW/nw, boxH/nh)));
+    const pw=nw*sc, ph=nh*sc;
+    const px0=Math.round(boxX + (boxW-pw)/2), py0=Math.round(boxY + boxH - ph);
+    ctx.drawImage(im,0,0,nw,nh,px0,py0,pw,ph);
     return true;
   }
   return false;
@@ -511,7 +518,7 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(spr){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
-    const cs = Math.max(2, Math.floor(S/2));   // sprite scale: chars ~2 tiles wide, 4 tall — room proportion
+    const cs = Math.max(2, Math.floor(S/2));   // 16×32 source × cs; dest px must stay integer
     ctx.fillRect(Math.round((x+7)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
     // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
@@ -1559,6 +1566,8 @@ function render(){
   // would otherwise overflow the canvas (mexico with 10 agents etc).
   // initial perRow: prefer the layout's perRow (e.g. mexico=2), but grow up if the
   // resulting rows don't fit at the static rowStep. Cap to perRow only AFTER growing.
+  // estimate S from canvas BEFORE perRow so we don't use last-frame S
+  S=Math.max(2, Math.min(8, Math.floor(usableW/((geom.perRow||4)*colStep))));
   let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(colStep*S))));
   // compute how many rows we'd need at this perRow, then bump perRow up if they
   // can't fit at the layout's static rowStep (room for desk + label).
