@@ -435,68 +435,49 @@ function drawOffice(w,h,cosmetics){
 
 function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
-  const glass = cosmetics.includes("desk_glass");
-  const standing = cosmetics.includes("desk_standing");
-  const wood = cosmetics.includes("desk_wood");
-  // per-agent desk finish: hash-stable variant so each desk keeps its look
   let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
-  const variant = h%3;   // 0 walnut, 1 oak, 2 dark ebony
   const finishes=[
-    {top:"#8d5524",slab:"#6b4a2f",front:"#54381f",leg:"#3c2814"}, // walnut
-    {top:"#b08040",slab:"#8d6530",front:"#6b4a2f",leg:"#4a3420"}, // oak
-    {top:"#4a3a5a",slab:"#3a2c48",front:"#2c2138",leg:"#1e1628"}, // ebony
+    {top:"#c4894a",slab:"#8d5524",front:"#6b3e1c",leg:"#3c2814",edge:"#e8c170"},
+    {top:"#d4a05a",slab:"#b08040",front:"#8d6530",leg:"#4a3420",edge:"#f0d090"},
+    {top:"#6a5a7a",slab:"#4a3a5a",front:"#2c2138",leg:"#1e1628",edge:"#9b8ab0"},
   ];
-  const fin = finishes[variant];
-  // desk top
-  if(glass){
-    px(x,y+10,18,1,"#7fa8d8"); px(x,y+11,18,3,"#3c5a7a"); px(x,y+14,18,1,"#4fa4d8");
-  }else if(standing){
-    px(x,y+9,18,1,fin.top); px(x,y+10,18,1,fin.slab); px(x,y+12,3,3,"#1a1423");
-  }else if(wood){
-    px(x,y+10,18,1,fin.top); px(x,y+11,18,3,fin.slab); px(x,y+14,18,1,fin.front);
-  }else{
-    px(x,y+9,18,1,fin.top);      // top surface highlight
-    px(x,y+10,18,2,fin.slab);    // slab
-    px(x,y+12,18,3,fin.front);   // front panel
-  }
+  const fin = finishes[h%3];
   if(!frontOnly){
-    if(!glass && !standing) {
-      px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
-    }
-    if(standing){
-      px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b");
-    }
-    // chair back behind the sitter
-    px(x+3,y+7,6,1,fin.leg); px(x+3,y+8,1,7,fin.leg); px(x+8,y+8,1,7,fin.leg);
+    // chair: seat + back, behind the sitter
+    px(x+2,y+8,7,1,fin.leg);
+    px(x+2,y+9,1,6,fin.leg); px(x+8,y+9,1,6,fin.leg);
+    px(x+3,y+14,5,2,fin.front); // seat
+    px(x+1,y+17,2,3,fin.leg); px(x+15,y+17,2,3,fin.leg);
   }
-  // keyboard + monitor always (second pass covers the legs)
-  px(x+4,y+10,6,1,"#2a2438"); px(x+5,y+10,4,1,"#3a3448");
-  // monitor
-  px(x+11,y+4,7,6,gold?"#3a2a10":"#191524");
-  px(x+13,y+10,3,1,"#4a4a5a");
-  if(cosmetics.includes("plant")){px(x+1,y+7,2,3,"#5fce7a");px(x+1,y+10,2,1,"#8d5524")}
-  if(cosmetics.includes("mug")){px(x+4,y+8,2,2,"#d84f6f");px(x+6,y+8,1,1,"#d84f6f")}
-  if(cosmetics.includes("lamp")){px(x+8,y+7,1,2,"#e8c170");px(x+7,y+6,3,1,"#e8c170")}
-  if(cosmetics.includes("book")){px(x+10,y+9,2,1,"#c9a227");px(x+11,y+8,1,2,"#d84f6f")}
-  if(cosmetics.includes("headphones")){px(x+10,y+5,1,2,"#2b2b2b");px(x+11,y+4,1,3,"#2b2b2b");px(x+10,y+4,3,1,"#2b2b2b")}
-  // fern (pet_plant unlock): small potted fern on the desk's left edge
-  if(cosmetics.includes("fern")){px(x+1,y+6,1,1,"#3a7a4a");px(x,y+7,3,1,"#5fce7a");px(x+1,y+8,1,1,"#4aa860");px(x,y+9,3,1,"#8d5524")}
-  // storm lamp (weather_storm unlock): tiny desk lamp glow at night
-  if(cosmetics.includes("storm_lamp")&&night()){ctx.globalAlpha=0.5;px(x+7,y+5,3,2,"#e8c170");ctx.globalAlpha=1;px(x+8,y+7,1,2,"#8d5524")}
+  // desk body — thick enough to read as furniture, not a brown stamp
+  px(x,y+11,18,1,fin.edge);
+  px(x,y+12,18,2,fin.top);
+  px(x,y+14,18,3,fin.slab);
+  px(x,y+17,18,1,fin.front);
+  // keyboard
+  px(x+3,y+12,7,2,"#2a2438"); px(x+4,y+12,5,1,"#4a4460");
+  // monitor: bezel + lit screen (must contrast with the dark room)
+  px(x+11,y+3,7,8, gold?"#5a4010":"#0c0a12");
+  px(x+12,y+4,5,6, gold?"#c9a227":"#1a3d28");
+  px(x+13,y+11,3,1,"#4a4a5a"); // stand
+  px(x+12,y+12,5,1,"#3a3a48");
+  if(cosmetics.includes("plant")){px(x+1,y+9,2,3,"#5fce7a");px(x+1,y+12,2,1,"#8d5524")}
+  if(cosmetics.includes("mug")){px(x+10,y+10,2,2,"#d84f6f");px(x+12,y+10,1,1,"#d84f6f")}
+  if(cosmetics.includes("fern")){px(x+1,y+8,1,1,"#3a7a4a");px(x,y+9,3,1,"#5fce7a");px(x,y+11,3,1,"#8d5524")}
 }
 
 function deskScreen(x,y,a){
   const t=frame>>3;
-  let col="#0f2c1e";
+  let col="#3ecf6a";
   if(a){
-    if(a.activity==="running")col=(t%4<2)?"#0f3c1e":"#0f2c16";
-    else if(a.activity==="browsing")col=(t%6<3)?"#1e2c4a":"#24365a";
-    else if(a.activity==="typing")col=(t%2)?"#12321e":"#0f2c1e";
-    else if(a.status==="waiting")col="#3c1e28";
+    if(a.activity==="running")col=(t%4<2)?"#5fce7a":"#2a8a44";
+    else if(a.activity==="browsing")col=(t%6<3)?"#6ab0ff":"#3a70c0";
+    else if(a.activity==="typing")col=(t%2)?"#b8ff9a":"#3ecf6a";
+    else if(a.status==="waiting")col="#d84f6f";
+    else if(a.status==="idle")col="#1a4a30";
   }
-  px(x+12,y+5,5,4,col);
+  px(x+12,y+4,5,6,col);
 }
-
 function drawHealthBar(a,x,y){
   // health bar shows waiting vs working progress; only for focused agent
   if(focusedId !== a.id) return;
@@ -656,29 +637,26 @@ function drawLogo(plat,x,y){
   }
 }
 function label(a,x,y){
-  // clip + ellipsize so labels never bleed into adjacent columns
   const cx=(x+9)*S;
   const colW=18*S;
-  // clip label text to the seat width (18 tiles) but only Y from 16-32 down
   ctx.save();
   ctx.beginPath();
-  ctx.rect(Math.round(x*S), Math.round(y*S)+16*S, colW, 17*S);
+  ctx.rect(Math.round(x*S), Math.round((y+20)*S), colW, 14*S);
   ctx.clip();
   ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
   const name=a.label.slice(0,14);
   ctx.fillStyle=a.kind==="subagent"?"#3a2a10":"#2a2038";
-  ctx.fillRect(Math.round((x+2)*S), Math.round((y+20)*S), (colW-4*S), 7*S);
+  ctx.fillRect(Math.round((x+2)*S), Math.round((y+21)*S), (colW-4*S), 8*S);
   ctx.fillStyle=a.kind==="subagent"?"#ffd98a":"#ffffff";
-  ctx.fillText(name,cx,(y+23)*S);
+  ctx.fillText(name,cx,(y+24)*S);
   ctx.fillStyle="#8a7fa8";
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
-  ctx.fillText(st.slice(0,14),cx,(y+25)*S);
+  ctx.fillText(st.slice(0,14),cx,(y+26)*S);
   if(a.detail){ctx.fillStyle="#6a5f80";
-    ctx.fillText(a.detail.slice(0,16),cx,(y+27.5)*S)}
+    ctx.fillText(a.detail.slice(0,16),cx,(y+28)*S)}
   ctx.restore();
-  // platform chip on the desk surface, left of the keyboard — not on the head
-  drawLogo(platOf(a),x+1,y+11);
+  drawLogo(platOf(a),x+1,y+13);
 }
 
 let petBounce=false, petTimer=0;
