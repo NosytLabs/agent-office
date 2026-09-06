@@ -4,7 +4,7 @@ const IN_VSCODE = typeof acquireVsCodeApi !== "undefined";
 const vsapi = IN_VSCODE ? acquireVsCodeApi() : null;
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
 let S = 4, agents = [], progress = null, frame = 0, offline = null, platFilter = "every";
-function charScale(){ return Math.max(2, Math.min(S>=10?4:3, Math.round(S/2.5))); }
+function charScale(){ return Math.max(2, Math.floor(S/2)); }
 function opaqueBox(im){
   if(im._box) return im._box;
   const nw=im.naturalWidth, nh=im.naturalHeight;
