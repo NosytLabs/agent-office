@@ -4,6 +4,20 @@ const IN_VSCODE = typeof acquireVsCodeApi !== "undefined";
 const vsapi = IN_VSCODE ? acquireVsCodeApi() : null;
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
 let S = 4, agents = [], progress = null, frame = 0, offline = null, platFilter = "every";
+function charScale(){ return Math.max(2, Math.min(S>=10?4:3, Math.round(S/2.5))); }
+function opaqueBox(im){
+  if(im._box) return im._box;
+  const nw=im.naturalWidth, nh=im.naturalHeight;
+  const c=document.createElement("canvas"); c.width=nw; c.height=nh;
+  const g=c.getContext("2d"); g.drawImage(im,0,0);
+  const d=g.getImageData(0,0,nw,nh).data;
+  let minx=nw,miny=nh,maxx=0,maxy=0;
+  for(let y=0;y<nh;y++) for(let x=0;x<nw;x++){
+    if(d[(y*nw+x)*4+3]>12){ if(x<minx)minx=x; if(y<miny)miny=y; if(x>maxx)maxx=x; if(y>maxy)maxy=y; }
+  }
+  if(maxx<minx) return im._box={sx:0,sy:0,sw:nw,sh:nh};
+  return im._box={sx:minx,sy:miny,sw:maxx-minx+1,sh:maxy-miny+1};
+}
 const FILTERS = ["every","hermes","opencode","claude","telegram","cli"];
 function shown(){
   if(platFilter==="every") return agents;
@@ -89,19 +103,20 @@ function drawDecorImg(name,dx,dy,dw,dh){
       const walking=(frame>>4)%2;
       const col=walking?1+((frame>>4)%2):0;
       const sx=col*fw, sy=0;
-      const pcs = 2; // match char scale — S/1.5 made 80px cats next to 32px desks
+      const pcs = charScale();
       const pw = fw*pcs, ph = fh*pcs;
       const px0 = Math.round(boxX + boxW/2 - pw/2), py0 = Math.round(boxY + boxH - ph);
       ctx.drawImage(im,sx,sy,fw,fh,px0,py0,pw,ph);
       return true;
     }
     // furniture: integer nearest-neighbor scale, contain, bottom-center.
-    // fractional dest sizes (16px → 72px) were the main "glitched sprite" look.
-    const nw=im.naturalWidth, nh=im.naturalHeight;
-    const sc=Math.max(1, Math.floor(Math.min(boxW/nw, boxH/nh)));
-    const pw=nw*sc, ph=nh*sc;
+    // crop transparent padding first — cactus/plant sheets are half-empty and
+    // otherwise render as tiny blobs in a huge dest box.
+    const bb=opaqueBox(im);
+    const sc=Math.max(1, Math.floor(Math.min(boxW/bb.sw, boxH/bb.sh)));
+    const pw=bb.sw*sc, ph=bb.sh*sc;
     const px0=Math.round(boxX + (boxW-pw)/2), py0=Math.round(boxY + boxH - ph);
-    ctx.drawImage(im,0,0,nw,nh,px0,py0,pw,ph);
+    ctx.drawImage(im,bb.sx,bb.sy,bb.sw,bb.sh,px0,py0,pw,ph);
     return true;
   }
   return false;
@@ -118,10 +133,14 @@ function drawOffice(w,h,cosmetics){
   // warm-wood layouts (library, lounge, penthouse) keep most of their floor warmth;
   // cool-wood layouts (bullpen, atelier) lean into the theme tint
   const warm = geom.warm===true;
-  const themeBlend = warm ? 0.35 : 0.65;
+  // default theme is a generic purple — if we blend it in at 0.65 every layout
+  // collapses to the same floor (PIL diffs <1). Named themes still tint.
+  const named = themeObj.id && themeObj.id!=="default";
+  const themeBlend = named ? (warm ? 0.35 : 0.65) : (warm ? 0.12 : 0.18);
+  const wallBlend  = named ? (warm ? 0.35 : 0.5) : (warm ? 0.10 : 0.16);
   const tileA = mix(lf[0], themeObj.tileA||lf[0], themeBlend);
   const tileB = mix(lf[1], themeObj.tileB||lf[1], themeBlend);
-  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, warm ? 0.35 : 0.5);
+  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, wallBlend);
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
@@ -144,11 +163,11 @@ function drawOffice(w,h,cosmetics){
     else { px(4,1,3,3,"#fff8c8"); px(5,2,1,1,"#f0d060"); } // sun
     px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
     // outdoor layouts still get their themed floor below the sky band
-    for(let y=18;y<h;y+=8)for(let x=0;x<w;x+=8)
-      px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
+    for(let y=18;y<h;y+=4)for(let x=0;x<w;x+=4)
+      px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
   } else {
-    for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8)
-      px(x,y,8,8,((x+y)/8)%2?tileA:tileB);
+    for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4)
+      px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
     // back wall + trim + wainscoting
     px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
   }
@@ -208,20 +227,22 @@ function drawOffice(w,h,cosmetics){
   }else if(decor==="lounge"){
     // sofa + wall clock + plant corner — chill room
     // place sofa in the bottom band so it doesn't fight agent chairs
-    const sofaY = Math.max(20, h-10);
-    drawDecorImg("SOFA_FRONT",w/2-8,sofaY,16,6);
-    drawDecorImg("CLOCK",w-16,2,6,6);
-    drawDecorImg("CACTUS",6,h-14,5,10);
-    const rw=Math.min(26,w-14); px((w-rw)/2,sofaY-2,rw,2,"#2f4a42");
-    px((w-rw)/2+1,sofaY-1,rw-2,1,"#3a5c50");
+    const sofaY = Math.max(20, h-12);
+    drawDecorImg("SOFA_FRONT",w/2-14,sofaY,28,10);
+    // analog CLOCK.png reads as noise at wall scale — simple face instead
+    px(w-14,2,5,5,"#1a1423"); px(w-13,3,3,3,"#e8e0d0");
+    px(w-12,4,1,1,"#3a2f4b"); px(w-12,3,1,1,"#1a1423"); px(w-11,4,1,1,"#1a1423");
+    drawDecorImg("CACTUS",Math.max(14, w-34),h-16,6,12);
+    const rw=Math.min(40,w-12); px((w-rw)/2,sofaY-3,rw,3,"#2f4a42");
+    px((w-rw)/2+1,sofaY-2,rw-2,2,"#3a5c50");
   }else if(decor==="arcade"){
     // arcade cabinets along the back wall (procedural, neon-lit)
     for(let i=0;i<3;i++){
-      const ax=w/2-16+i*12;
-      px(ax,3,7,10,"#191524");                    // cabinet body
-      px(ax+1,4,5,3,(frame>>3)%2?["#ff6ad5","#5fce7a","#4fa4d8"][i]:["#d84f6f","#4fa4d8","#e8c170"][i]); // screen glow
-      px(ax+1,8,5,1,"#3a2f4b");                   // control deck
-      px(ax+2,9,1,1,"#d84f6f"); px(ax+4,9,1,1,"#5fce7a"); // buttons
+      const ax=w/2-20+i*14;
+      px(ax,2,10,12,"#191524");
+      px(ax+1,3,8,4,(frame>>3)%2?["#ff6ad5","#5fce7a","#4fa4d8"][i]:["#d84f6f","#4fa4d8","#e8c170"][i]);
+      px(ax+1,8,8,2,"#3a2f4b");
+      px(ax+2,10,2,1,"#d84f6f"); px(ax+6,10,2,1,"#5fce7a");
     }
   }else if(decor==="penthouse"){
     // luxury: wall clock, cactus pair, sleek dark rug, bin
@@ -244,11 +265,11 @@ function drawOffice(w,h,cosmetics){
     drawDecorImg("WHITEBOARD",w/2-7,1,14,6);
     // wide meeting table at the back of the room — above the front-row desks
     // so it doesn't fight for floor space with the agent chairs in row 0
-    const ty = 9;  // above the desk-row band (agents sit at labelY=14)
-    px(w/2-14,ty,28,2,dark?"#5a3a14":"#8d5524");     // wider table top
-    px(w/2-13,ty+2,26,1,dark?"#4a2a10":"#6b4a2f");   // apron
-    px(w/2-13,ty+3,2,3,dark?"#3a2410":"#54381f");    // left leg
-    px(w/2+11,ty+3,2,3,dark?"#3a2410":"#54381f");    // right leg
+    const ty = 9;
+    px(w/2-18,ty,36,3,dark?"#5a3a14":"#8d5524");
+    px(w/2-17,ty+3,34,2,dark?"#4a2a10":"#6b4a2f");
+    px(w/2-16,ty+5,2,3,dark?"#3a2410":"#54381f");
+    px(w/2+14,ty+5,2,3,dark?"#3a2410":"#54381f");
     // monitors around the table (status lights)
     for(let i=-3;i<=3;i++){
       const mx=w/2+i*4-1;
@@ -357,7 +378,7 @@ function drawOffice(w,h,cosmetics){
   }
   // cat — bottom-right corner, ON the floor line (feet at h-4)
   // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
-  const cx=Math.max(16, w-12), cy=h-5;
+  const cx=Math.max(16, w-6), cy=h-5;
   if(cosmetics && cosmetics.includes("office_cat")){
     const ox=kx-8, oy=h-5;
     px(ox,oy,4,2,"#8a6a4a"); px(ox-1,oy+1,6,1,"#6a4a2a");          // curled body
@@ -380,7 +401,7 @@ function drawOffice(w,h,cosmetics){
   }
   // dog companion (left wall) — gitcat sprite when loaded, procedural fallback
   if(haveUnlock && haveUnlock("pet_dog")){
-    const dx=8, dy=h-8;   // bottom-left, on the floor near the plant
+    const dx=18, dy=h-6;   // right of LARGE_PLANT, not on top of it
     if(!drawDecorImg("gitcat",dx-2,dy-6,6,6)){
       px(dx,dy,5,3,"#d97746"); px(dx+1,dy-1,1,1,"#d97746"); px(dx+3,dy-1,1,1,"#d97746");
       px(dx+4,dy,1,1,"#d97746"); px(dx+1,dy+1,1,1,"#a04020"); px(dx+4,dy+1,1,1,"#a04020");
@@ -461,9 +482,10 @@ function drawDesk(x,y,a,cosmetics,frontOnly){
   px(x+12,y+4,5,6, gold?"#c9a227":"#1a3d28");
   px(x+13,y+11,3,1,"#4a4a5a"); // stand
   px(x+12,y+12,5,1,"#3a3a48");
-  if(cosmetics.includes("plant")){px(x+1,y+9,2,3,"#5fce7a");px(x+1,y+12,2,1,"#8d5524")}
   if(cosmetics.includes("mug")){px(x+10,y+10,2,2,"#d84f6f");px(x+12,y+10,1,1,"#d84f6f")}
+  // fern replaces the smaller plant — stacking both was a green blob on the desk
   if(cosmetics.includes("fern")){px(x+1,y+8,1,1,"#3a7a4a");px(x,y+9,3,1,"#5fce7a");px(x,y+11,3,1,"#8d5524")}
+  else if(cosmetics.includes("plant")){px(x+1,y+9,2,3,"#5fce7a");px(x+1,y+12,2,1,"#8d5524")}
 }
 
 function deskScreen(x,y,a){
@@ -504,22 +526,21 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(spr){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
-    // 16×32 source. At S=8, S/2=4 → 64×128 and the agent EATS the desk.
-    // Keep 32×64 (cs=2) so they sit BEHIND a visible desk+monitor.
-    const cs = 2;
+    // 16×32 source. Cap at 3× so S=8 → 48×96: head above the slab, not eating the desk.
+    const cs = charScale();
     ctx.fillRect(Math.round((x+1)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
-    // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
-    // sit LEFT of the monitor (desk monitor starts at seat.x+11).
-    // c.x is already seat.x+3 when seated — old +7 put the sprite ON the screen.
-    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH,
-      Math.round((x+1)*S), Math.round((y+12)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
     const sx0 = Math.round((x+1)*S), sy0 = Math.round((y+12)*S - CHAR_FH*cs);
+    // cape BEHIND the sprite — overlaying a 10×12 block was the "glitched agent" look
+    if(cosmetics.includes("cape")){
+      ctx.fillStyle="rgba(122,48,48,0.92)";
+      ctx.fillRect(sx0+0*cs, sy0+12*cs, 3*cs, 16*cs);
+      ctx.fillRect(sx0+13*cs, sy0+12*cs, 3*cs, 16*cs);
+    }
+    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH, sx0, sy0, CHAR_FW*cs, CHAR_FH*cs);
     const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
-    if(cosmetics.includes("cape")){ctx.fillStyle="rgba(122,48,48,0.85)";ctx.fillRect(sx0+3*cs,sy0+10*cs,10*cs,12*cs)}
-    // orange scarf (claude_desk unlock) over the sprite's shoulders
     if(cosmetics.includes("orange_scarf")){ctx.fillStyle="#d97a3a";ctx.fillRect(sx0+2*cs,sy0+9*cs,12*cs,2*cs);}
     ctx.globalAlpha=1;
     return;
@@ -643,20 +664,18 @@ function label(a,x,y){
   const colW=18*S;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(Math.round(x*S), Math.round((y+20)*S), colW, 14*S);
+  ctx.rect(Math.round(x*S), Math.round((y+19)*S), colW, 8*S);
   ctx.clip();
-  ctx.font=(S>=5?"9px":"10px")+" ui-monospace,monospace";ctx.textAlign="center";
+  ctx.font=(S>=8?"10px":"11px")+" ui-monospace,monospace";ctx.textAlign="center";
   const name=a.label.slice(0,14);
   ctx.fillStyle=a.kind==="subagent"?"#3a2a10":"#2a2038";
-  ctx.fillRect(Math.round((x+2)*S), Math.round((y+21)*S), (colW-4*S), 8*S);
+  ctx.fillRect(Math.round((x+2)*S), Math.round((y+19)*S), (colW-4*S), 6*S);
   ctx.fillStyle=a.kind==="subagent"?"#ffd98a":"#ffffff";
-  ctx.fillText(name,cx,(y+24)*S);
+  ctx.fillText(name,cx,(y+22)*S);
   ctx.fillStyle="#8a7fa8";
   const st=a.status==="waiting"?"needs input!"
         :a.status==="working"?(a.tool||"working"):a.status;
-  ctx.fillText(st.slice(0,14),cx,(y+26)*S);
-  if(a.detail){ctx.fillStyle="#6a5f80";
-    ctx.fillText(a.detail.slice(0,16),cx,(y+28)*S)}
+  ctx.fillText(st.slice(0,14),cx,(y+24)*S);
   ctx.restore();
   drawLogo(platOf(a),x+1,y+13);
 }
@@ -866,12 +885,14 @@ async function saveSettings(){
 }
 async function loadSettings(){
   try{const r=await fetch("settings");settings=await r.json();}catch(e){}
-  // fallback: if saved layout is locked (require not unlocked), reset to "open"
-  // prevents the office from rendering a layout the user hasn't earned
-  const L = (typeof LAYOUTS!=="undefined") ? LAYOUTS.find(x=>x.id===settings.layout) : null;
-  if(L && L.require && !haveUnlock(L.require)) {
-    settings.layout = "open";
-    saveSettings();
+  // only clamp locked layouts AFTER progress is known — haveUnlock() is always
+  // false while progress===null, which used to POST layout back to "open" on every reload
+  if(progress){
+    const L = (typeof LAYOUTS!=="undefined") ? LAYOUTS.find(x=>x.id===settings.layout) : null;
+    if(L && L.require && !haveUnlock(L.require)) {
+      settings.layout = "open";
+      saveSettings();
+    }
   }
   // also validate theme — fall back to default if the saved id is gone
   if(typeof THEMES!=="undefined" && !THEMES.find(t=>t.id===settings.theme)){
@@ -1443,10 +1464,18 @@ function drawSeasonal(w,gh,geom){
 }
 const visitors=[];   // {x,y,tx,ty,phase,dwell,kind,frameSeed}
 let nextVisitorAt=600+((Math.random()*1800)|0);   // first visit 10-40s in
+function floorBand(gh){ return Math.max(28, gh-16); }
+function visitorX(gw){
+  // keep NPCs off the centered desk
+  const left=10+((Math.random()*Math.max(6,gw*0.28))|0);
+  const right=Math.floor(gw*0.68)+((Math.random()*Math.max(6,gw*0.22))|0);
+  return Math.random()<0.5?left:Math.min(gw-10,right);
+}
 function stepVisitors(gw,gh){
   if(frame>=nextVisitorAt && visitors.length<2){
     const kind=VISITOR_KINDS[(Math.random()*VISITOR_KINDS.length)|0];
-    visitors.push({x:6,y:Math.max(20,gh-12),tx:10+((Math.random()*Math.max(8,gw-24))|0),ty:(gh-11)+((Math.random()*3)|0),
+    const fy=floorBand(gh);
+    visitors.push({x:4,y:6,tx:visitorX(gw),ty:fy,
                    phase:"in",dwell:400+((Math.random()*600)|0),kind,seed:(Math.random()*9999)|0,wp:null});
     if(soundOn)chime([392,523]);   // door-open chime
     nextVisitorAt=frame+1800+((Math.random()*5400)|0);   // next in 30-120s
@@ -1457,13 +1486,13 @@ function stepVisitors(gw,gh){
     // waypoint pathing: door → down the left wall to the floor band → across
     // (straight diagonals cut through desk clusters)
     function nextWp(v,gw,gh){
-      const floorY=Math.max(22, gh-11);
-      if(v.phase==="out") return {x:6, y:floorY};
+      const floorY=floorBand(gh);
+      if(v.phase==="out") return {x:4, y:floorY};
       if(v.y<floorY-1) return {x:v.x, y:floorY};
-      return {x:v.tx, y:Math.min(Math.max(v.ty, floorY), gh-8)};
+      return {x:v.tx, y:Math.min(Math.max(v.ty, floorY), gh-18)};
     }
     function arrived(v){
-      const floorY=Math.max(22, gh-11);
+      const floorY=floorBand(gh);
       return v.phase==="in" ? (Math.abs(v.x-v.tx)<0.5 && Math.abs(v.y-v.ty)<0.5)
                             : (v.x<8 && v.y<=floorY+1);
     }
@@ -1478,7 +1507,7 @@ function stepVisitors(gw,gh){
       }
     }else if(v.phase==="dwell"){
       if(--v.dwell<=0){
-        v.phase="out"; v.tx=6; v.ty=Math.max(22, gh-11); v.wp=null;
+        v.phase="out"; v.tx=4; v.ty=floorBand(gh); v.wp=null;
       }
       // occasional idle shuffle during dwell — else-branch so a shuffle frame
       // never also decrements past zero; bounded so the visitor always leaves
@@ -1487,53 +1516,49 @@ function stepVisitors(gw,gh){
   }
 }
 function drawVisitors(){
-  const vs=2; // match seated chars (32×64), not S-scaled blobs
+  const cs=charScale();
+  const loaded=charSheets.filter(s=>s&&s.down&&s.down[0]);
   for(const v of visitors){
-    const px0=Math.round(v.x*S), py0=Math.round(v.y*S);
-    const walkBob=(v.phase!=="dwell"&&(frame>>3)%2)?1:0;
+    const walking=v.phase!=="dwell";
+    const bob=(walking&&(frame>>3)%2)?1:0;
     const k=v.kind;
-    const u=vs; // pixel unit
-    // 8×12 figure, integer scaled
-    ctx.fillStyle="#3c2814";
-    ctx.fillRect(px0+2*u, py0+(10+walkBob)*u, 2*u, 2*u);
-    ctx.fillRect(px0+5*u, py0+(10+walkBob)*u, 2*u, 2*u);
-    ctx.fillStyle=k.shirt;
-    ctx.fillRect(px0+2*u, py0+(4+walkBob)*u, 5*u, 6*u);
-    ctx.fillStyle="#e8c49a";
-    ctx.fillRect(px0+2*u, py0+(0+walkBob)*u, 5*u, 4*u);
-    ctx.fillStyle="#1a1423";
-    ctx.fillRect(px0+3*u, py0+(1+walkBob)*u, u, u);
-    ctx.fillRect(px0+5*u, py0+(1+walkBob)*u, u, u);
-    if(k.hat){
-      ctx.fillStyle="#2b2b3b";
-      ctx.fillRect(px0+1*u, py0+(walkBob-1)*u, 7*u, u);
-      ctx.fillRect(px0+2*u, py0+(walkBob-2)*u, 5*u, u);
+    const px0=Math.round(v.x*S), py0=Math.round((v.y+bob)*S);
+    ctx.imageSmoothingEnabled=false;
+    const destW=CHAR_FW*cs, destH=CHAR_FH*cs;
+    const dx=Math.round(px0-destW/2), dy=Math.round(py0-destH);
+    ctx.fillStyle="rgba(0,0,0,0.28)";
+    ctx.fillRect(dx+4*cs, py0-cs, 8*cs, cs);
+    const sheet=loaded.length?loaded[(v.seed||0)%loaded.length]:null;
+    if(sheet){
+      const row=walking?sheet.right:sheet.down;
+      const spr=walking?row[1+((frame>>3)%6)]:row[0];
+      ctx.drawImage(spr,0,0,CHAR_FW,CHAR_FH, dx, dy, destW, destH);
+    }else{
+      ctx.fillStyle=k.shirt; ctx.fillRect(dx+4*cs, dy+10*cs, 8*cs, 14*cs);
+      ctx.fillStyle="#e8c49a"; ctx.fillRect(dx+5*cs, dy+2*cs, 6*cs, 8*cs);
     }
     if(k.box){
       const pk=decorImg.PACKAGE;
-      if(pk&&pk.complete&&pk.naturalWidth){
-        ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(pk,0,0,pk.naturalWidth,pk.naturalHeight, px0+6*u, py0+(4+walkBob)*u, 16,16);
-      } else {
-        ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 3*u, 2*u);
-      }
+      const psz=6*cs;
+      if(pk&&pk.complete&&pk.naturalWidth)
+        ctx.drawImage(pk,0,0,pk.naturalWidth,pk.naturalHeight, dx+destW-2*cs, dy+14*cs, psz, psz);
+      else { ctx.fillStyle="#c4894a"; ctx.fillRect(dx+destW-2*cs, dy+16*cs, psz, psz); }
     }
-    if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, u, 2*u); }
-    if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 2*u, 3*u); }
-    if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(2+walkBob)*u, u, 8*u); ctx.fillStyle="#c9c9d8"; ctx.fillRect(px0+6*u, py0+(10+walkBob)*u, 3*u, 2*u); }
-    ctx.font=Math.max(9,S)+"px ui-monospace,monospace"; ctx.textAlign="center";
-    ctx.fillStyle="rgba(207,196,232,0.9)";
-    const nameY=Math.max(14, py0-6);
-    ctx.fillText(k.name, px0+4*u, nameY);
+    if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(dx+destW-cs, dy+16*cs, 2*cs, 3*cs); ctx.fillStyle="#6b3e1c"; ctx.fillRect(dx+destW-cs, dy+18*cs, 2*cs, 1*cs); }
+    if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(dx+destW-cs, dy+14*cs, 3*cs, 5*cs); }
+    if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(dx+destW, dy+8*cs, cs, 18*cs); ctx.fillStyle="#c9c9d8"; ctx.fillRect(dx+destW-cs, dy+24*cs, 3*cs, 2*cs); }
+    ctx.font=Math.max(10,S)+"px ui-monospace,monospace"; ctx.textAlign="center";
+    ctx.fillStyle="rgba(207,196,232,0.95)";
+    ctx.fillText(k.name, px0, Math.max(12, dy-4));
     if(v.phase==="dwell"){
       const line=VISITOR_LINES(v);
-      ctx.font=Math.max(9,S+1)+"px ui-monospace,monospace";
+      ctx.font=Math.max(10,S+1)+"px ui-monospace,monospace";
       const tw=ctx.measureText(line).width;
-      const bx=Math.max(4, px0+4*u-tw/2-4), by=Math.max(16, py0-18);
-      ctx.fillStyle="rgba(255,255,255,0.92)";
-      ctx.fillRect(bx,by,tw+8,14);
+      const bx=Math.max(4, px0-tw/2-5), by=Math.max(14, dy-22);
+      ctx.fillStyle="rgba(255,255,255,0.94)";
+      ctx.fillRect(bx,by,tw+10,16);
       ctx.fillStyle="#241c33";
-      ctx.fillText(line, bx+tw/2+4, by+11);
+      ctx.fillText(line, bx+tw/2+5, by+12);
     }
   }
 }
@@ -1566,7 +1591,8 @@ function render(){
   // initial perRow: prefer the layout's perRow (e.g. mexico=2), but grow up if the
   // resulting rows don't fit at the static rowStep. Cap to perRow only AFTER growing.
   // estimate S from canvas BEFORE perRow so we don't use last-frame S
-  S=Math.max(2, Math.min(8, Math.floor(usableW/((geom.perRow||4)*colStep))));
+  const sCap = list.length<=2 ? 12 : 8;
+  S=Math.max(2, Math.min(sCap, Math.floor(usableW/((geom.perRow||4)*colStep))));
   let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(colStep*S))));
   // compute how many rows we'd need at this perRow, then bump perRow up if they
   // can't fit at the layout's static rowStep (room for desk + label).
@@ -1584,10 +1610,14 @@ function render(){
   if(geom.perRow >= rows || rows * rowStep + DESK_H <= availH) {
     perRow = Math.max(geom.perRow, Math.min(perRow, maxc));
   }
+  // never reserve empty columns for missing agents — 1 desk in a 3-col
+  // grid sat glued to the left wall (lounge/war/arcade screenshots).
+  perRow = Math.max(1, Math.min(perRow, Math.max(1, list.length)));
+  rows = Math.ceil(Math.max(1, list.length)/perRow);
   // shrink rowStep if even perRow=maxc can't fit at static spacing
   const dynRowStep = Math.min(rowStep, Math.max(14, Math.floor(availH / Math.max(1, rows))));
   // pick tile size so columns fit width AND rows fit height
-  S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*dynRowStep)))));
+  S=Math.max(2, Math.min(sCap, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*dynRowStep)))));
   // theme background
   const theme = (THEMES.find(t=>t.id===settings.theme) || THEMES[0]);
   cv.style.background = theme.bg;
@@ -1611,7 +1641,8 @@ function render(){
   const cosmetics=(progress&&progress.cosmetics)||[];
   window._cosmetics=cosmetics;
   const rowWidth = perRow * colStep;
-  const padLeft = Math.max(10, Math.floor((usableW/S - rowWidth)/2));
+  let padLeft = Math.max(10, Math.floor((usableW/S - rowWidth)/2));
+  if(list.length===1) padLeft = Math.max(8, Math.floor((gw - 18)/2));
   const prev=agents; agents=list; stepChars(perRow,padLeft,geom,dynRowStep); agents=prev;
   // draw areas (behind desks) so each area is a colored tile cluster
   const areas = settings.areas || {};
@@ -1854,7 +1885,10 @@ cv.addEventListener("click", (ev)=>{
     if(_geom2.perRow >= _rows || _rows * _geom2.rowStep + 18 <= _availH) {
       _perRow = Math.max(_geom2.perRow, Math.min(_perRow, _maxc));
     }
-    const _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
+    _perRow = Math.max(1, Math.min(_perRow, Math.max(1, list.length)));
+    _rows = Math.ceil(Math.max(1,list.length)/_perRow);
+    let _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
+    if(list.length===1) _padLeft = Math.max(8, Math.floor((_gw - 18)/2));
     const _dynRowStep=Math.min(_geom2.rowStep, Math.max(14, Math.floor(_availH/Math.max(1,_rows))));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
