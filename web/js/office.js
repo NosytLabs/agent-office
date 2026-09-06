@@ -75,7 +75,7 @@ function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
 const decorImg={};  // name -> HTMLImageElement
 ["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/PLANT.png","furniture/CACTUS.png",
  "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png",
- "furniture/DOOR.png","furniture/CLOCK.png","furniture/COFFEE.png"]
+ "furniture/DOOR.png","furniture/CLOCK.png","furniture/COFFEE.png","furniture/PACKAGE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
   const im=decorImg[name];
@@ -208,10 +208,10 @@ function drawOffice(w,h,cosmetics){
   }else if(decor==="lounge"){
     // sofa + wall clock + plant corner — chill room
     // place sofa in the bottom band so it doesn't fight agent chairs
-    const sofaY = Math.max(20, h-8);
-    drawDecorImg("SOFA_FRONT",w/2-6,sofaY,12,4);
-    drawDecorImg("CLOCK",w-14,2,4,4);
-    drawDecorImg("CACTUS",6,h-12,4,8);
+    const sofaY = Math.max(20, h-10);
+    drawDecorImg("SOFA_FRONT",w/2-8,sofaY,16,6);
+    drawDecorImg("CLOCK",w-16,2,6,6);
+    drawDecorImg("CACTUS",6,h-14,5,10);
     const rw=Math.min(26,w-14); px((w-rw)/2,sofaY-2,rw,2,"#2f4a42");
     px((w-rw)/2+1,sofaY-1,rw-2,1,"#3a5c50");
   }else if(decor==="arcade"){
@@ -357,15 +357,15 @@ function drawOffice(w,h,cosmetics){
   }
   // cat — bottom-right corner, ON the floor line (feet at h-4)
   // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
-  const cx=Math.max(14, w-8), cy=h-4;
+  const cx=Math.max(16, w-12), cy=h-5;
   if(cosmetics && cosmetics.includes("office_cat")){
-    const ox=kx-6, oy=h-4;
+    const ox=kx-8, oy=h-5;
     px(ox,oy,4,2,"#8a6a4a"); px(ox-1,oy+1,6,1,"#6a4a2a");          // curled body
     px(ox+3,oy-1,2,2,"#8a6a4a"); px(ox+3,oy-2,1,1,"#6a4a2a");      // head + ear
     if((frame>>6)%8) px(ox+4,oy,1,1,"#1a1423");                    // eye, mostly closed (sleeping)
     px(ox-2,oy-1,1,3,"#8a6a4a");                                    // tail curled up
   }
-  if(!drawDecorImg("claudio",cx-4,cy-6,6,6)){
+  if(!drawDecorImg("claudio",cx-5,cy-8,8,8)){
     // body
     px(cx-2,cy-1,5,3,"#c9a227"); px(cx-2,cy+1,6,1,"#a0801a");
     px(cx-1,cy,1,1,"#a0801a"); px(cx+1,cy,1,1,"#a0801a"); px(cx+3,cy,1,1,"#a0801a");
@@ -593,7 +593,9 @@ function drawBubble(a,x,y){
     }
     ctx.restore();
   }else if(a.status==="working"&&a.tool){
-    px(x+3,y-4,3,3,"#e8c170"); px(x+4,y-3,1,1,"#1a1423");
+    // 4px pip on the monitor bezel — NOT a 3×S gold brick over the head
+    ctx.fillStyle="#e8c170";
+    ctx.fillRect((x+16)*S-4, (y+3)*S, 4, 4);
   }else if(a.status==="thinking"){
     const flip=(frame>>5)%2;
     // mood ball is now a 3-pixel thinking bubble that color-shifts by mood
@@ -1507,7 +1509,15 @@ function drawVisitors(){
       ctx.fillRect(px0+1*u, py0+(walkBob-1)*u, 7*u, u);
       ctx.fillRect(px0+2*u, py0+(walkBob-2)*u, 5*u, u);
     }
-    if(k.box){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 3*u, 2*u); }
+    if(k.box){
+      const pk=decorImg.PACKAGE;
+      if(pk&&pk.complete&&pk.naturalWidth){
+        ctx.imageSmoothingEnabled=false;
+        ctx.drawImage(pk,0,0,pk.naturalWidth,pk.naturalHeight, px0+6*u, py0+(4+walkBob)*u, 16,16);
+      } else {
+        ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 3*u, 2*u);
+      }
+    }
     if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, u, 2*u); }
     if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 2*u, 3*u); }
     if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(2+walkBob)*u, u, 8*u); ctx.fillStyle="#c9c9d8"; ctx.fillRect(px0+6*u, py0+(10+walkBob)*u, 3*u, 2*u); }
