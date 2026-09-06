@@ -87,7 +87,7 @@ function drawDecorImg(name,dx,dy,dw,dh){
       const walking=(frame>>4)%2;                 // gentle 2-frame idle/walk cycle
       const col=walking?1+((frame>>4)%2):0;       // cols 1-2 walk frames, col 0 idle stand
       const sx=col*fw, sy=0;
-      const pcs = Math.max(2, Math.floor(S/2));   // same scale as characters
+      const pcs = Math.max(3, Math.floor(S/1.5));   // pets slightly bigger than chars
       const pw = fw*pcs, ph = fh*pcs;
       // anchor: bottom-center of the (dw x dh) tile box, so feet sit on the floor
       const px0 = Math.round((dx+dw/2)*S - pw/2), py0 = Math.round((dy+dh)*S - ph);
@@ -189,10 +189,10 @@ function drawOffice(w,h,cosmetics){
   // rug — varies per layout decor
   const decor = LAYOUT_GEOMETRY[settings.layout]?.decor || "rug";
   if(decor==="library"){
-    // bookshelves along the back wall + reading rug centered on the bottom band
-    drawDecorImg("BOOKSHELF",6,4,10,5);
-    drawDecorImg("BOOKSHELF",18,4,10,5);
-    drawDecorImg("BOOKSHELF",w-18,4,10,5);
+    // bookshelves along the back wall — start AFTER the door at x=2 (door spans 2..10)
+    drawDecorImg("BOOKSHELF",12,4,10,5);
+    drawDecorImg("BOOKSHELF",24,4,10,5);
+    drawDecorImg("BOOKSHELF",w-30,4,10,5);  // before kitchenette
     const rugY = Math.max(20, h-7);
     const rw=Math.min(28,w-16); px((w-rw)/2,rugY,rw,2,"#4a3020");
     px((w-rw)/2+1,rugY+1,rw-2,1,"#5c3e2a");
@@ -299,11 +299,16 @@ function drawOffice(w,h,cosmetics){
     // floor grating
     for(let x=0;x<w;x+=8)px(x,h-9,6,1,"#3a2f4b");
   }
-  // kitchenette against the right wall: counter + machine + cooler, one grouped unit
+  // kitchenette against the right wall: counter + coffee sprite + cooler, grouped
   const kx=w-24;
-  px(kx,h-16,14,1,"#6b4a2f"); px(kx,h-15,14,3,"#54381f");          // counter
-  px(kx+2,h-19,5,3,"#33283f"); px(kx+3,h-18,3,1,"#3e334f");        // coffee machine
-  px(kx+3,h-19,1,1,"#d84f6f"); px(kx+5,h-18,1,1,"#e8c170");        // buttons
+  // counter top
+  px(kx,h-10,14,1,"#6b4a2f"); px(kx,h-9,14,3,"#54381f");
+  // coffee machine — use the sprite for clarity
+  if(!drawDecorImg("COFFEE",kx,h-20,6,8)){
+    // fallback procedural coffee machine if sprite fails to load
+    px(kx+2,h-19,5,3,"#33283f"); px(kx+3,h-18,3,1,"#3e334f");
+    px(kx+3,h-19,1,1,"#d84f6f"); px(kx+5,h-18,1,1,"#e8c170");
+  }
   // steam wisps rising from the machine (animated, 3-frame drift)
   if((frame>>3)%7<5){
     const ph=(frame>>3)%3;
@@ -649,7 +654,7 @@ let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false,fog:false};
 // RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS are top-level globals from data.js
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
-const THEME_DAILY = ["Lobby","Studio","Tower","Loft","Bunker","Library","Dojo","Salon","Lab","Pier","Atrium","Cabin"];
+const THEME_DAILY = ["Lobby","Studio","Tower","Loft","Bunker","Reading Room","Dojo","Salon","Lab","Pier","Atrium","Cabin"];
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
 
 function fillLayout(){
