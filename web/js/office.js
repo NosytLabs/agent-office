@@ -461,11 +461,15 @@ function drawDesk(x,y,a,cosmetics){
   }
   // legs (skip if glass or standing) — flush under the front panel
   if(!glass && !standing) {
-    px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
+  px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
   }
   if(standing){
     px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b"); // tall legs
   }
+  // chair back (behind the sitter, left of monitor)
+  px(x+3,y+7,6,1,fin.leg); px(x+3,y+8,1,7,fin.leg); px(x+8,y+8,1,7,fin.leg);
+  // keyboard
+  px(x+4,y+10,6,1,"#2a2438"); px(x+5,y+10,4,1,"#3a3448");
   // monitor
   px(x+11,y+4,7,6,gold?"#3a2a10":"#191524");
   px(x+13,y+10,3,1,"#4a4a5a");
@@ -519,13 +523,14 @@ function drawChar(a,fx,fy,seated,cosmetics){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
     const cs = Math.max(2, Math.floor(S/2));   // 16×32 source × cs; dest px must stay integer
-    ctx.fillRect(Math.round((x+7)*S), Math.round((y+14)*S), 8*cs, 1*cs);
+    ctx.fillRect(Math.round((x+1)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
     // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
+    // sit LEFT of the monitor (desk monitor starts at seat.x+11).
+    // c.x is already seat.x+3 when seated — old +7 put the sprite ON the screen.
     ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH,
-      Math.round((x+7)*S), Math.round((y+12)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
-    // cosmetics overlay — anchored to the sprite's actual top-left in pixels
-    const sx0 = Math.round((x+7)*S), sy0 = Math.round((y+12)*S - CHAR_FH*cs);
+      Math.round((x+1)*S), Math.round((y+12)*S - CHAR_FH*cs), CHAR_FW*cs, CHAR_FH*cs);
+    const sx0 = Math.round((x+1)*S), sy0 = Math.round((y+12)*S - CHAR_FH*cs);
     const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
@@ -669,7 +674,8 @@ function label(a,x,y){
   if(a.detail){ctx.fillStyle="#6a5f80";
     ctx.fillText(a.detail.slice(0,16),cx,(y+27.5)*S)}
   ctx.restore();
-  drawLogo(platOf(a),x+1,y+8);   // platform chip sits ON the desk top, left edge
+  // platform chip on the desk surface, left of the keyboard — not on the head
+  drawLogo(platOf(a),x+1,y+11);
 }
 
 let petBounce=false, petTimer=0;
@@ -1457,7 +1463,7 @@ let nextVisitorAt=600+((Math.random()*1800)|0);   // first visit 10-40s in
 function stepVisitors(gw,gh){
   if(frame>=nextVisitorAt && visitors.length<2){
     const kind=VISITOR_KINDS[(Math.random()*VISITOR_KINDS.length)|0];
-    visitors.push({x:4,y:6,tx:8+((Math.random()*(gw-20))|0),ty:(gh-12)+((Math.random()*4)|0),
+    visitors.push({x:6,y:Math.max(20,gh-12),tx:10+((Math.random()*Math.max(8,gw-24))|0),ty:(gh-11)+((Math.random()*3)|0),
                    phase:"in",dwell:400+((Math.random()*600)|0),kind,seed:(Math.random()*9999)|0,wp:null});
     if(soundOn)chime([392,523]);   // door-open chime
     nextVisitorAt=frame+1800+((Math.random()*5400)|0);   // next in 30-120s
@@ -1468,13 +1474,15 @@ function stepVisitors(gw,gh){
     // waypoint pathing: door → down the left wall to the floor band → across
     // (straight diagonals cut through desk clusters)
     function nextWp(v,gw,gh){
-      if(v.phase==="out") return {x:4, y:6};              // leaving: head to the door (x=4) then up
-      if(v.y<gh-13) return {x:v.x, y:gh-10};              // wall zone → go down first
-      return {x:v.tx, y:Math.min(v.ty, gh-8)};            // floor band → cross to target
+      const floorY=Math.max(22, gh-11);
+      if(v.phase==="out") return {x:6, y:floorY};
+      if(v.y<floorY-1) return {x:v.x, y:floorY};
+      return {x:v.tx, y:Math.min(Math.max(v.ty, floorY), gh-8)};
     }
     function arrived(v){
+      const floorY=Math.max(22, gh-11);
       return v.phase==="in" ? (Math.abs(v.x-v.tx)<0.5 && Math.abs(v.y-v.ty)<0.5)
-                            : (v.x<5 && v.y<8);
+                            : (v.x<8 && v.y<=floorY+1);
     }
     if(v.phase==="in"||v.phase==="out"){
       if(arrived(v)){
@@ -1487,7 +1495,7 @@ function stepVisitors(gw,gh){
       }
     }else if(v.phase==="dwell"){
       if(--v.dwell<=0){
-        v.phase="out"; v.tx=4; v.ty=6; v.wp=null;   // head back to the door
+        v.phase="out"; v.tx=6; v.ty=Math.max(22, gh-11); v.wp=null;
       }
       // occasional idle shuffle during dwell — else-branch so a shuffle frame
       // never also decrements past zero; bounded so the visitor always leaves
@@ -1496,45 +1504,45 @@ function stepVisitors(gw,gh){
   }
 }
 function drawVisitors(){
+  const vs=Math.max(2, Math.floor(S/2)); // same integer scale as chars — not 6*S blobs
   for(const v of visitors){
     const px0=Math.round(v.x*S), py0=Math.round(v.y*S);
     const walkBob=(v.phase!=="dwell"&&(frame>>3)%2)?1:0;
     const k=v.kind;
-    // body (12px tall at S scale)
-    ctx.fillStyle=k.shirt;
-    ctx.fillRect(px0+2*S,py0+(4+walkBob)*S,6*S,6*S);
-    // legs
+    const u=vs; // pixel unit
+    // 8×12 figure, integer scaled
     ctx.fillStyle="#3c2814";
-    ctx.fillRect(px0+2*S,py0+10*S,2*S,2*S); ctx.fillRect(px0+6*S,py0+10*S,2*S,2*S);
-    // head
+    ctx.fillRect(px0+2*u, py0+(10+walkBob)*u, 2*u, 2*u);
+    ctx.fillRect(px0+5*u, py0+(10+walkBob)*u, 2*u, 2*u);
+    ctx.fillStyle=k.shirt;
+    ctx.fillRect(px0+2*u, py0+(4+walkBob)*u, 5*u, 6*u);
     ctx.fillStyle="#e8c49a";
-    ctx.fillRect(px0+2*S,py0*1+walkBob*S,6*S,4*S);
-    // hat
-    if(k.hat){ ctx.fillStyle="#2b2b3b"; ctx.fillRect(px0+1*S,(walkBob-1)*S+py0,8*S,S); ctx.fillRect(px0+2*S,(walkBob-2)*S+py0,6*S,S); }
-    // carried item
-    if(k.box){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,3*S,2*S); }
-    if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,S,2*S); }
-    if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(px0+7*S,(5+walkBob)*S+py0,2*S,3*S); }
-    if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*S,(2+walkBob)*S+py0,S,9*S); ctx.fillStyle="#c9c9d8"; ctx.fillRect(px0+6*S,(11+walkBob)*S+py0,3*S,2*S); }
-    // eyes
+    ctx.fillRect(px0+2*u, py0+(0+walkBob)*u, 5*u, 4*u);
     ctx.fillStyle="#1a1423";
-    ctx.fillRect(px0+3*S,(1+walkBob)*S+py0,S,S); ctx.fillRect(px0+5*S,(1+walkBob)*S+py0,S,S);
-    // name tag (tiny, above head, fades in)
-    ctx.font=Math.max(7,S+3)+"px ui-monospace,monospace"; ctx.textAlign="center";
-    ctx.fillStyle="rgba(207,196,232,0.75)";
-    ctx.fillText(k.name, px0+4*S, py0-4*S);
-    // speech bubble while dwelling — rotates through the kind's lines every ~5s
+    ctx.fillRect(px0+3*u, py0+(1+walkBob)*u, u, u);
+    ctx.fillRect(px0+5*u, py0+(1+walkBob)*u, u, u);
+    if(k.hat){
+      ctx.fillStyle="#2b2b3b";
+      ctx.fillRect(px0+1*u, py0+(walkBob-1)*u, 7*u, u);
+      ctx.fillRect(px0+2*u, py0+(walkBob-2)*u, 5*u, u);
+    }
+    if(k.box){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 3*u, 2*u); }
+    if(k.coffee){ ctx.fillStyle="#fff8e8"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, u, 2*u); }
+    if(k.clipboard){ ctx.fillStyle="#c9b28a"; ctx.fillRect(px0+7*u, py0+(5+walkBob)*u, 2*u, 3*u); }
+    if(k.mop){ ctx.fillStyle="#8d5524"; ctx.fillRect(px0+7*u, py0+(2+walkBob)*u, u, 8*u); ctx.fillStyle="#c9c9d8"; ctx.fillRect(px0+6*u, py0+(10+walkBob)*u, 3*u, 2*u); }
+    ctx.font=Math.max(9,S)+"px ui-monospace,monospace"; ctx.textAlign="center";
+    ctx.fillStyle="rgba(207,196,232,0.9)";
+    const nameY=Math.max(14, py0-6);
+    ctx.fillText(k.name, px0+4*u, nameY);
     if(v.phase==="dwell"){
       const line=VISITOR_LINES(v);
-      ctx.font=Math.max(8,S+4)+"px ui-monospace,monospace";
+      ctx.font=Math.max(9,S+1)+"px ui-monospace,monospace";
       const tw=ctx.measureText(line).width;
-      const bx=px0+4*S-tw/2-4, by=py0-9*S;
+      const bx=Math.max(4, px0+4*u-tw/2-4), by=Math.max(16, py0-18);
       ctx.fillStyle="rgba(255,255,255,0.92)";
-      ctx.fillRect(bx,by,tw+8,S*2.2);
-      // little tail pointing at the head
-      ctx.beginPath();ctx.moveTo(px0+3*S,by+S*2.2);ctx.lineTo(px0+5*S,by+S*2.2);ctx.lineTo(px0+4*S,by+S*3.1);ctx.fill();
+      ctx.fillRect(bx,by,tw+8,14);
       ctx.fillStyle="#241c33";
-      ctx.fillText(line, px0+4*S, by+S*1.6);
+      ctx.fillText(line, bx+tw/2+4, by+11);
     }
   }
 }
