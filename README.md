@@ -36,13 +36,12 @@ a new runtime.
 | **Telegram** | Hermes phone bridge | set `TELEGRAM_BOT_TOKEN` |
 | **CLI / cron** | shell + scheduled tasks | already wired |
 
-Click **platforms** in the header, or press `P`, for logos, install commands,
-and live detection.
+Click **legend** in the header (or `?`) for platform icons, status key, and shortcuts.
 
 ## features
 
 - **55 badges** with progress bars — unlock by using agents
-- **5 ranks** — intern → junior → staff → senior → principal → distinguished
+- **5 ranks** — intern → junior → staff → principal → distinguished
 - **12 unlockable layouts** — open, bullpen, war room, lounge, roof deck, garden,
   library, arcade, penthouse, beach, atelier, spaceship
 - **9 themes** — default, midnight, forest, solar, cyberpunk, sunset, ocean, candy, casino
@@ -72,7 +71,7 @@ and live detection.
 - **live event ticker** + speech bubbles + health bar + hourglass
 - **import/export layout** + settings persistence
 - **reset everything** — settings ⚙ → wipe XP/badges/history/painted tiles
-- **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/esc`
+- **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/N/F/esc`
 - **status legend** + platforms explainer + live feed + raw debug
 - **VS Code extension** + Claude Code hook + OpenCode bridge plugin
 
@@ -88,16 +87,11 @@ Open **http://127.0.0.1:8113**.
 
 Header buttons:
 
+- `layout` `roster` `usage` `badges` `live` `legend` `settings` — panels
 - `every` — runtime filter
-- `layout` — choose floor layout
-- `roster` — every agent + subagent teams
-- `usage` — real counters
-- `badges` — catalog with progress bars
-- `⚙` — settings
-- `dbg` — raw JSON state
-- `live` — last 30 events
-- `legend` — status key
-- `theme` — cycle theme
+- theme name — cycle palette (T)
+- `◐ auto` — day / night / auto (N)
+- `fog` — fog of war (F)
 - `sound` — chime on approval/unlock
 
 ## plugin setup

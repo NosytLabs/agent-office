@@ -181,7 +181,8 @@ function drawOffice(w,h,cosmetics){
     }
   }
   // neon sign — kept fully inside the wall (top-left corner of office)
-  const nx=Math.max(2,Math.min(w-26, 30));
+  // position AFTER the 2nd bookshelf (x=24..33) to avoid overlap
+  const nx=Math.max(2,Math.min(w-26, 36));
   px(nx,2,24,5,"#151022"); px(nx,6,24,1,"#3a2f4b");
   ctx.font="10px ui-monospace"; ctx.textAlign="left";
   ctx.fillStyle=dark?"#ff6ad5":"#e8c170";
@@ -322,29 +323,30 @@ function drawOffice(w,h,cosmetics){
   // plant (left wall) — sprite version when loaded, procedural fallback
   const plantX = Math.max(4, 2);
   const plantY = Math.max(20, h-26);
-  if(!drawDecorImg("LARGE_PLANT",plantX-1,plantY-6,6,12)){
+  if(!drawDecorImg("LARGE_PLANT",plantX-1,plantY-9,8,12)){
     px(plantX,plantY,4,2,"#4aa860"); px(plantX-1,plantY-2,3,3,"#5fce7a");
     px(plantX+2,plantY-1,3,2,"#4aa860"); px(plantX-1,plantY,1,2,"#5fce7a");
     px(plantX+1,plantY+2,2,4,"#8d5524"); px(plantX,plantY+6,4,1,"#54381f"); px(plantX+1,plantY+5,1,1,"#6b4a2f");
   }
   // small flower
   if((frame>>4)%2) px(plantX,plantY-2,1,1,"#e8c170");
-  // fish tank — left of the cat, on the floor
+  // fish tank — left of the cat, on the floor (bigger + more visible)
   if(cosmetics && cosmetics.includes("fish_tank")){
-    const fx = Math.max(2, w-20), fy = h-6;
-    // tank body (glass)
-    px(fx,fy-4,6,5,"#4fa4d8");
-    px(fx+1,fy-4,4,1,"#7fa8d8");        // water surface highlight
-    px(fx+5,fy-4,1,5,"#2b6fa8");        // glass edge
-    px(fx,fy-5,6,1,"#5a5040");          // tank top rim
-    px(fx,fy+1,6,1,"#3c2814");          // tank base
-    // fish silhouette
-    if((frame>>4)%3===0){
-      px(fx+2,fy-2,2,1,"#e8c170");       // gold fish
-      px(fx+1,fy-2,1,1,"#e8c170");
-    }
+    const fx = Math.max(2, w-22), fy = h-4;
+    // tank body (glass) - bigger
+    px(fx,fy-8,8,7,"#4fa4d8");
+    px(fx+1,fy-8,6,1,"#7fa8d8");        // water surface highlight
+    px(fx+7,fy-8,1,7,"#2b6fa8");        // glass edge
+    px(fx,fy-9,8,1,"#5a5040");          // tank top rim
+    px(fx,fy-1,8,1,"#3c2814");          // tank base
+    // fish silhouette (animated)
+    const fcol = (frame>>5)%3;
+    px(fx+2+fcol,fy-5,2,1,"#e8c170");    // gold fish body
+    px(fx+1+fcol,fy-5,1,1,"#e8c170");    // tail
+    px(fx+3+fcol,fy-5,1,1,"#1a1a1a");    // eye
     // bubbles rising
-    if((frame>>3)%4<2) px(fx+3,fy-3-(frame>>5)%2,1,1,"#a8c8e8");
+    px(fx+5,fy-7-(frame>>4)%3,1,1,"#a8c8e8");
+    px(fx+3,fy-3-(frame>>3)%2,1,1,"#a8c8e8");
   }
   // cat — bottom-right corner, ON the floor line (feet at h-4)
   // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
@@ -686,8 +688,8 @@ function fillLayout(){
       "<div class='h'>"+L.hint+"</div></div>"+
       (locked
         ? "<span class='h' style='align-self:center'>locked</span>"
-        : "<span class='btn "+(settings.layout===L.id?"on":"")+"'>"+
-          (settings.layout===L.id?"active":"use")+"</span>");
+        : "<button type='button' class='btn "+(settings.layout===L.id?"on":"")+"'>"+
+          (settings.layout===L.id?"active":"use")+"</button>");
     if(!locked) row.querySelector(".btn").onclick=()=>updateSetting("layout",L.id);
     else row.style.opacity="0.55";
     box.appendChild(row);
@@ -708,14 +710,14 @@ function fillAreas(){
       const esc=name.replace(/'/g,"&#39;");
       row.innerHTML="<span class='swatch' style='background:"+cur[name]+"'></span>"+
         "<input class='txt' value='"+esc+"' data-name='"+esc+"' style='flex:1'>"+
-        "<span class='btn' data-rm='"+esc+"'>remove</span>";
+        "<button type='button' class='btn' data-rm='"+esc+"'>remove</button>";
       box.appendChild(row);
     });
   }
   const add=document.createElement("div");
   add.className="row";
   add.innerHTML="<input class='txt' id='newArea' name='newArea' placeholder='new area name' aria-label='new area name'>"+
-    "<span class='btn' id='addArea'>add area</span>";
+    "<button type='button' class='btn' id='addArea'>add area</button>";
   box.appendChild(add);
   box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{
     delete settings.areas[b.getAttribute("data-rm")];
@@ -741,14 +743,14 @@ function fillAreas(){
   const fr=document.createElement("div");fr.className="row";
   fr.innerHTML="<input class='txt' id='newFolder' name='newFolder' placeholder='/path/to/project' style='flex:1' aria-label='folder path'>"+
     "<select class='txt' id='newFolderArea' name='newFolderArea' aria-label='target area'>"+(keys.map(k=>"<option>"+k+"</option>").join("")||"<option>api</option>")+"</select>"+
-    "<span class='btn' id='addFolder'>map</span>";
+    "<button type='button' class='btn' id='addFolder'>map</button>";
   box.appendChild(fr);
   if(Object.keys(settings.folder_areas||{}).length){
     Object.entries(settings.folder_areas).forEach(([f,a])=>{
       const row=document.createElement("div");row.className="row";
       const esc=f.replace(/'/g,"&#39;");
       row.innerHTML="<div style='flex:1'><div class='n'>"+f+"</div><div class='h'>→ "+a+"</div></div>"+
-        "<span class='btn' data-unmap='"+esc+"'>unmap</span>";
+        "<button type='button' class='btn' data-unmap='"+esc+"'>unmap</button>";
       box.appendChild(row);
     });
     box.querySelectorAll("[data-unmap]").forEach(b=>b.onclick=()=>{
@@ -776,12 +778,13 @@ function fillSettings(){
   items.forEach(([k,label,on])=>{
     const r=document.createElement("div");r.className="row";
     r.innerHTML="<div style='flex:1'><div class='n'>"+label+"</div></div>"+
-      "<span class='btn "+(on?"on":"")+"' data-tog='"+k+"' role='switch' aria-checked='"+(on?1:0)+"' aria-label='"+label+"'>"+(on?"on":"off")+"</span>";
+      "<button type='button' class='btn "+(on?"on":"")+"' data-tog='"+k+"' role='switch' aria-checked='"+(on?"true":"false")+"' aria-label='"+label+"'>"+(on?"on":"off")+"</button>";
     box.appendChild(r);
   });
   box.querySelectorAll("[data-tog]").forEach(b=>b.onclick=()=>{
     const k=b.getAttribute("data-tog");settings[k]=!settings[k];
     saveSettings();fillSettings();applyProgress(progress);
+    if(k==="fog")syncFogBtn();
   });
   const r=document.createElement("div");r.className="row";
   r.innerHTML="<div style='flex:1'><div class='n'>grid columns</div></div>"+
@@ -792,8 +795,8 @@ function fillSettings(){
   // import / export layout (settings + areas + painted)
   const ie=document.createElement("div");ie.className="row";
   ie.innerHTML="<div style='flex:1'><div class='n'>layout import/export</div></div>"+
-    "<span class='btn' id='exportLayout'>export</span>"+
-    "<span class='btn' id='importLayout'>import</span>";
+    "<button type='button' class='btn' id='exportLayout'>export</button>"+
+    "<button type='button' class='btn' id='importLayout'>import</button>";
   box.appendChild(ie);
   document.getElementById("exportLayout").onclick=()=>{
     const data=JSON.stringify(settings,null,2);
@@ -825,7 +828,7 @@ function fillSettings(){
   // reset — wipe progress, event history, painted tiles (fresh start)
   const rst=document.createElement("div");rst.className="row";
   rst.innerHTML="<div style='flex:1'><div class='n'>reset everything</div><div class='d'>wipe XP, badges, history, painted tiles</div></div>";
-  const rbtn=document.createElement("button");rbtn.textContent="reset";
+  const rbtn=document.createElement("button");rbtn.type="button";rbtn.className="btn";rbtn.textContent="reset";
   rbtn.onclick=()=>{
     if(!confirm("Reset ALL office progress? XP, badges, unlock history and painted tiles will be wiped. This cannot be undone."))return;
     fetch("/state",{method:"DELETE"}).then(r=>r.json()).then(()=>{
@@ -968,8 +971,9 @@ function chime(notes){
   }catch(e){}
 }
 const sBtn=document.getElementById("sound");
-function syncSoundBtn(){sBtn.textContent=soundOn?"sound on":"sound off";
-  sBtn.classList.toggle("on",soundOn)}
+function syncSoundBtn(){sBtn.textContent="sound";
+  sBtn.classList.toggle("on",soundOn);
+  sBtn.setAttribute("aria-pressed",soundOn?"true":"false");}
 sBtn.onclick=()=>{soundOn=!soundOn;
   try{localStorage.setItem("pixelOfficeSound",soundOn?"1":"0")}catch(e){}
   if(soundOn)chime([660]); syncSoundBtn()};
@@ -1000,8 +1004,9 @@ syncDnBtn();
 // fog of war — header toggle + settings sheet row share this
 const fogBtn=document.getElementById("fogbtn");
 function syncFogBtn(){if(!fogBtn)return;
-  fogBtn.textContent=settings.fog?"fog on":"fog";
-  fogBtn.classList.toggle("on",!!settings.fog)}
+  fogBtn.textContent="fog";
+  fogBtn.classList.toggle("on",!!settings.fog);
+  fogBtn.setAttribute("aria-pressed",settings.fog?"true":"false");}
 if(fogBtn){fogBtn.onclick=async()=>{settings.fog=!settings.fog;syncFogBtn();await saveSettings();fillSettings();};}
 syncFogBtn();
 
@@ -1070,7 +1075,17 @@ function drawWeather(w,h){
   }
 }
 
-function closeSheets(){document.querySelectorAll(".sheet").forEach(el=>el.style.display="none")}
+function syncSheetBtns(openId){
+  document.querySelectorAll("#hdr [data-sheet]").forEach(b=>{
+    const on=!!openId && b.getAttribute("data-sheet")===openId;
+    b.setAttribute("aria-expanded", on?"true":"false");
+    b.classList.toggle("on", on);
+  });
+}
+function closeSheets(){
+  document.querySelectorAll(".sheet").forEach(el=>el.style.display="none");
+  syncSheetBtns(null);
+}
 function toggleSheet(id){
   const el=document.getElementById(id);
   if(!el)return;
@@ -1078,6 +1093,7 @@ function toggleSheet(id){
   closeSheets();
   if(!open){
     el.style.display="block";
+    syncSheetBtns(id);
     const seen = JSON.parse(localStorage.getItem("sheetsSeen")||"[]");
     if(!seen.includes(id)){
       seen.push(id);
@@ -1096,10 +1112,11 @@ document.addEventListener("DOMContentLoaded",()=>{
     const h=el.querySelector("h2");if(!h)return;
     if(h.querySelector(".x"))return;
     h.style.cssText="display:flex;justify-content:space-between;align-items:center";
-    const x=document.createElement("span");
+    const x=document.createElement("button");
+    x.type="button";
     x.className="x";
     x.textContent="✕";
-    x.style.cssText="cursor:pointer;color:#7a6f8f;font-weight:normal;font-size:16px;padding:0 4px;line-height:1";
+    x.setAttribute("aria-label","close");
     x.onclick=closeSheets;
     h.appendChild(x);
   });
@@ -1119,6 +1136,12 @@ document.getElementById("legendbtn").onclick=()=>{fillLegend();toggleSheet("shee
 // ?debug=1 — open raw state inspector on load (dev/QA)
 if(/[?&]debug=1\b/.test(location.search)){setTimeout(()=>{const b=document.getElementById("debugbox");if(b)b.textContent=JSON.stringify({agents:agents.length,progress,settings},null,2);toggleSheet("sheet-debug");},800);}
 document.getElementById("inspectorbtn").onclick=()=>{fillInspector();toggleSheet("sheet-inspector");};
+function syncThemeBtn(){
+  const b=document.getElementById("themeNextbtn"); if(!b)return;
+  const t=THEMES.find(x=>x.id===settings.theme);
+  b.textContent=t?t.name.toLowerCase():(settings.theme||"theme");
+  b.title="theme · click to cycle (T)";
+}
 document.getElementById("themeNextbtn").onclick=()=>{
   const ids=THEMES.map(t=>t.id);
   const i=ids.indexOf(settings.theme);
@@ -1127,16 +1150,12 @@ document.getElementById("themeNextbtn").onclick=()=>{
   saveSettings();
   applyTheme(next);
   fillSettings();
-  applyProgress(progress);   // refresh chips so the new theme bg shows through
-  // show current theme name next to the button
-  const tn=document.getElementById("themename");
-  if(tn){ const t=THEMES.find(x=>x.id===next); tn.textContent=t?t.name:next; tn.title="current theme — click the button to cycle"; }
+  applyProgress(progress);
+  syncThemeBtn();
 };
-// initial theme name on load (after loadSettings resolves)
 (async()=>{
   await loadSettings();
-  const tn=document.getElementById("themename");
-  if(tn){ const t=THEMES.find(x=>x.id===settings.theme); tn.textContent=t?t.name:(settings.theme||"default"); }
+  syncThemeBtn();
 })();
 function fillLegend(){
   const box=document.getElementById("legendbox");if(!box)return;
@@ -1157,7 +1176,7 @@ function fillLegend(){
         +"<b style='font-size:11px;color:#9b6fd8'>"+p.what+"</b></div>";
     }).join("")+
     "<p class='h' style='margin-top:10px'>shortcuts</p>"+
-    ["R roster","U usage","B badges","L layout","S settings","E live","? legend","T theme","esc close"]
+    ["R roster","U usage","B badges","L layout","S settings","E live","? legend","T theme","N day/night","F fog","esc close"]
        .map(s=>"<div class='kv'><span><code>"+s.split(" ")[0]+"</code></span><b>"+s.split(" ").slice(1).join(" ")+"</b></div>").join("");
 }
 document.addEventListener("keydown",(e)=>{
@@ -1165,12 +1184,14 @@ document.addEventListener("keydown",(e)=>{
   const k=e.key.toLowerCase();
   const map={r:"sheet-roster",u:"sheet-stats",b:"sheet-unlocks",l:"sheet-layout",
              s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend",
-             t:"themeNext"};
+             t:"themeNext",n:"dayNight",f:"fogToggle"};
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
-  if(!id.startsWith("sheet-")){ // action shortcut (themeNext etc)
+  if(!id.startsWith("sheet-")){
       if(id==="themeNext"){document.getElementById("themeNextbtn").click();}
+      else if(id==="dayNight"){document.getElementById("daynight").click();}
+      else if(id==="fogToggle"){document.getElementById("fogbtn").click();}
       return;
   }
   if(id==="sheet-layout")fillLayout();
@@ -1336,7 +1357,9 @@ function applyProgress(p){
   progress=p||null;
   if(!p)return;
   const next=p.next?(" → "+p.next.rank+" @ "+p.next.need):" · max rank";
-  document.getElementById("rank").textContent=(p.rank||"intern")+" · "+(p.xp||0)+" xp"+next;
+  const rankEl=document.getElementById("rank");
+  rankEl.textContent=(p.rank||"intern")+" · "+(p.xp||0)+" xp";
+  rankEl.title=next.trim();
   // XP bar fill
   if(p.next){
     const need=p.next.need;

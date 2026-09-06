@@ -81,7 +81,7 @@ const PLATFORMS = [
 const SHORTCUTS = [
   ["R","roster"],["U","usage"],["B","badges"],["L","layout"],
   ["S","settings"],["D","dbg (raw state)"],["E","live events"],
-  ["?","legend"],["T","theme"],["P","platforms"],
+  ["?","legend"],["T","theme"],["N","day/night"],["F","fog"],
 ];
 
 window.OFFICE_DATA = {RANKS, RANKS_THRESHOLDS, THEMES, LAYOUTS, LAYOUT_GEOMETRY, PLATFORMS, SHORTCUTS};

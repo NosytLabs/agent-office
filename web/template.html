@@ -11,7 +11,7 @@
 <body>
 <div id="wrap">
   <h1 class="sr-only">Agent Office — pixel-art virtual office for AI agents</h1>
-  <div id="hdr">
+  <header id="hdr">
     <div class="row top">
       <span class="mark"><img src="assets/hermes.svg?v=2" alt="" width="18" height="18">AGENT OFFICE</span>
       <span id="rank">intern · 0 xp</span>
@@ -19,38 +19,41 @@
       <span id="chips"></span>
       <span class="dim" id="count">connecting…</span>
     </div>
-    <div class="row icons">
-      <span class="btn" id="filterbtn" title="filter by runtime">every</span>
-      <span class="btn" id="layoutbtn" title="floor layout">layout</span>
-      <span class="btn" id="rosterbtn">roster</span>
-      <span class="btn" id="statsbtn">usage</span>
-      <span class="btn" id="achbtn">badges</span>
-      <span class="btn" id="eventbtn" title="live event feed">live</span>
-      <span class="btn" id="legendbtn" title="status legend + platforms">legend</span>
-      <span class="btn" id="settingsbtn">⚙</span>
-      <span class="btn" id="debugbtn" title="raw state (also ?debug=1)" style="display:none">dbg</span>
-      <span class="btn" id="themeNextbtn" title="cycle theme">theme</span>
-      <span id="themename" class="dim" style="font-size:11px;margin-left:-2px"></span>
-      <span class="btn" id="daynight" title="toggle day / night / auto">◐ auto</span>
-      <span class="btn" id="fogbtn" title="toggle fog of war">fog</span>
-      <span class="btn" id="sound" title="chime on approval / unlock">sound</span>
-      <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
-      <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
+    <div class="row icons" role="toolbar" aria-label="office controls">
+      <div class="cluster" role="group" aria-label="panels">
+        <button type="button" class="btn" id="layoutbtn" data-sheet="sheet-layout" aria-expanded="false" title="floor layout (L)">layout</button>
+        <button type="button" class="btn" id="rosterbtn" data-sheet="sheet-roster" aria-expanded="false" title="roster (R)">roster</button>
+        <button type="button" class="btn" id="statsbtn" data-sheet="sheet-stats" aria-expanded="false" title="usage (U)">usage</button>
+        <button type="button" class="btn" id="achbtn" data-sheet="sheet-unlocks" aria-expanded="false" title="badges (B)">badges</button>
+        <button type="button" class="btn" id="eventbtn" data-sheet="sheet-events" aria-expanded="false" title="live event feed (E)">live</button>
+        <button type="button" class="btn" id="legendbtn" data-sheet="sheet-legend" aria-expanded="false" title="status legend ( ? )">legend</button>
+        <button type="button" class="btn" id="settingsbtn" data-sheet="sheet-settings" aria-expanded="false" title="settings (S)">settings</button>
+        <button type="button" class="btn" id="debugbtn" data-sheet="sheet-debug" aria-expanded="false" title="raw state (D / ?debug=1)" style="display:none">dbg</button>
+        <button type="button" class="btn" id="inspectorbtn" data-sheet="sheet-inspector" aria-expanded="false" title="inspect focused agent" style="display:none">inspect</button>
+        <button type="button" class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</button>
+      </div>
+      <div class="cluster" role="group" aria-label="view">
+        <button type="button" class="btn" id="filterbtn" title="filter by runtime">every</button>
+        <button type="button" class="btn" id="themeNextbtn" title="cycle theme (T)">theme</button>
+        <button type="button" class="btn" id="daynight" title="day / night / auto">◐ auto</button>
+        <button type="button" class="btn" id="fogbtn" aria-pressed="false" title="fog of war">fog</button>
+        <button type="button" class="btn" id="sound" aria-pressed="false" title="chime on approval / unlock">sound</button>
+      </div>
     </div>
-  </div>
+  </header>
   <canvas id="c"></canvas>
 </div>
 <div id="toast"></div>
-<div class="sheet" id="sheet-unlocks"><h2>BADGES</h2><div class="grid" id="achgrid"></div></div>
-<div class="sheet" id="sheet-roster"><h2>ROSTER</h2><div id="roster"></div></div>
-<div class="sheet" id="sheet-stats"><h2>USAGE</h2><div id="statbox"></div></div>
-<div class="sheet" id="sheet-layout"><h2>LAYOUT</h2><div id="layoutbox"></div></div>
-<div class="sheet" id="sheet-areas"><h2>AREAS</h2><div id="areabox"></div></div>
-<div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
-<div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
-<div class="sheet" id="sheet-inspector"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
-<div class="sheet" id="sheet-legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
-<div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
+<div class="sheet" id="sheet-unlocks" role="dialog" aria-label="Badges"><h2>BADGES</h2><div class="grid" id="achgrid"></div></div>
+<div class="sheet" id="sheet-roster" role="dialog" aria-label="Roster"><h2>ROSTER</h2><div id="roster"></div></div>
+<div class="sheet" id="sheet-stats" role="dialog" aria-label="Usage"><h2>USAGE</h2><div id="statbox"></div></div>
+<div class="sheet" id="sheet-layout" role="dialog" aria-label="Layout"><h2>LAYOUT</h2><div id="layoutbox"></div></div>
+<div class="sheet" id="sheet-areas" role="dialog" aria-label="Areas"><h2>AREAS</h2><div id="areabox"></div></div>
+<div class="sheet" id="sheet-settings" role="dialog" aria-label="Settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
+<div class="sheet" id="sheet-debug" role="dialog" aria-label="Debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
+<div class="sheet" id="sheet-inspector" role="dialog" aria-label="Inspect"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
+<div class="sheet" id="sheet-legend" role="dialog" aria-label="Legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
+<div class="sheet" id="sheet-events" role="dialog" aria-label="Live"><h2>LIVE</h2><div id="eventbox"></div></div>
 
 <script src="js/data.js"></script>
 <script src="js/office.js"></script>

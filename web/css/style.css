@@ -6,23 +6,31 @@
   html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;
     font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
   #wrap{display:flex;flex-direction:column;height:100%}
-  #hdr{padding:6px 12px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
-  #hdr .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  #hdr .row.icons{flex:1;justify-content:flex-end;overflow-y:auto;max-height:60px}
+  #hdr{padding:6px 12px 8px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg,#1a1423 0%,#15101c 100%)}
+  #hdr .row{display:flex;align-items:center;gap:8px;min-width:0}
+  #hdr .row.top{flex-wrap:nowrap}
+  #hdr .row.icons{justify-content:space-between;gap:10px;overflow-x:auto;overflow-y:hidden;
+    flex-wrap:nowrap;max-height:none;scrollbar-width:thin}
+  #hdr .cluster{display:flex;align-items:center;gap:4px;flex-shrink:0}
+  #hdr .cluster + .cluster{padding-left:10px;border-left:1px solid var(--line)}
   #hdr .dim{color:var(--dim)}
-  #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+  #hdr .mark{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;flex-shrink:0}
   #hdr .mark img{width:18px;height:18px;image-rendering:pixelated}
-  #hdr #rank{color:#9b6fd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #hdr #rank{color:#9b6fd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:12px}
   #hdr #xpbar{display:inline-block;width:80px;height:8px;border:1px solid var(--line);
-    background:var(--bg);vertical-align:middle;border-radius:2px;position:relative}
+    background:var(--bg);vertical-align:middle;border-radius:2px;position:relative;flex-shrink:0}
   #hdr #xpfill{display:block;height:100%;background:linear-gradient(90deg,#5fce7a,#e8c170,#9b6fd8);
     width:0%;transition:width .3s}
-  #hdr #count{color:var(--dim);white-space:nowrap}
+  #hdr #count{color:var(--dim);white-space:nowrap;margin-left:auto;flex-shrink:0}
   #hdr .btn{cursor:pointer;color:var(--ink);border:1px solid var(--line);
-    border-radius:3px;padding:2px 8px;font-size:11px;background:var(--panel2);
-    user-select:none;white-space:nowrap;line-height:1.4}
+    border-radius:4px;padding:4px 9px;font-size:11px;background:var(--panel2);
+    user-select:none;white-space:nowrap;line-height:1.3;font-family:inherit;
+    appearance:none;-webkit-appearance:none}
   #hdr .btn:hover{border-color:var(--gold);color:var(--gold)}
-  #hdr .btn.on{color:var(--ok);border-color:var(--ok)}
+  #hdr .btn:active{transform:translateY(1px)}
+  #hdr .btn.on,[aria-pressed="true"].btn{color:var(--ok);border-color:var(--ok);background:#1a2a22}
+  #hdr .btn[aria-expanded="true"]{color:var(--gold);border-color:var(--gold)}
   #hdr #chips{display:flex;gap:4px;align-items:center;min-width:0;overflow:hidden}
   #hdr #chips img{width:14px;height:14px}
   canvas{flex:1;image-rendering:pixelated;width:100%;height:100%;background:#151022;min-height:0}
@@ -65,8 +73,12 @@
   .row{display:flex;gap:6px;align-items:center;padding:6px 8px;border-bottom:1px solid #2a2138}
   .row:last-child{border-bottom:0}
 
-.sheet .x{color:#7a6f8f;font-weight:normal;font-size:16px;padding:0 6px;line-height:1;cursor:pointer}
+.sheet .x{color:#7a6f8f;font-weight:normal;font-size:16px;padding:0 6px;line-height:1;cursor:pointer;
+  background:none;border:0;font-family:inherit}
 .sheet .x:hover{color:#e8c170}
+.sheet .btn{cursor:pointer;color:var(--ink);border:1px solid var(--line);border-radius:4px;
+  padding:3px 8px;font-size:11px;background:var(--panel2);font-family:inherit}
+.sheet .btn.on{color:var(--ok);border-color:var(--ok)}
 
 /* animated noise stripe behind the office (rare, subtle) */
 @keyframes floorShimmer{0%{opacity:0.4}50%{opacity:0.7}100%{opacity:0.4}}
@@ -78,15 +90,15 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;
 
 @media (max-width: 720px){
   #hdr{padding:4px 6px}
-  #hdr .btn{padding:1px 4px;font-size:10px}
-  #hdr .row.icons{max-height:80px}
+  #hdr .btn{padding:3px 6px;font-size:10px}
+  #hdr .row.top{gap:6px}
+  #hdr .cluster + .cluster{padding-left:6px}
   .sheet{inset:64px 6px 6px 6px;padding:10px}
   canvas{image-rendering:pixelated}
 }
 
 @media (max-width: 480px){
-  #hdr .row.icons{max-height:120px}
-  #hdr .btn{font-size:9px}
+  #hdr .btn{font-size:10px}
 }
 
 @media (prefers-reduced-motion: reduce){
