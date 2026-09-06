@@ -8,3 +8,6 @@ events.jsonl
 .DS_Store
 node_modules/
 shots/
+
+# Defensive patterns (added by cleanup)
+*.log
