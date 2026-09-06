@@ -89,7 +89,7 @@ function drawDecorImg(name,dx,dy,dw,dh){
       const walking=(frame>>4)%2;
       const col=walking?1+((frame>>4)%2):0;
       const sx=col*fw, sy=0;
-      const pcs = Math.max(3, Math.floor(S/1.5));
+      const pcs = 2; // match char scale — S/1.5 made 80px cats next to 32px desks
       const pw = fw*pcs, ph = fh*pcs;
       const px0 = Math.round(boxX + boxW/2 - pw/2), py0 = Math.round(boxY + boxH - ph);
       ctx.drawImage(im,sx,sy,fw,fh,px0,py0,pw,ph);
@@ -433,7 +433,7 @@ function drawOffice(w,h,cosmetics){
   }
 }
 
-function drawDesk(x,y,a,cosmetics){
+function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
   const glass = cosmetics.includes("desk_glass");
   const standing = cosmetics.includes("desk_standing");
@@ -459,16 +459,17 @@ function drawDesk(x,y,a,cosmetics){
     px(x,y+10,18,2,fin.slab);    // slab
     px(x,y+12,18,3,fin.front);   // front panel
   }
-  // legs (skip if glass or standing) — flush under the front panel
-  if(!glass && !standing) {
-  px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
+  if(!frontOnly){
+    if(!glass && !standing) {
+      px(x+1,y+15,2,4,fin.leg); px(x+15,y+15,2,4,fin.leg);
+    }
+    if(standing){
+      px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b");
+    }
+    // chair back behind the sitter
+    px(x+3,y+7,6,1,fin.leg); px(x+3,y+8,1,7,fin.leg); px(x+8,y+8,1,7,fin.leg);
   }
-  if(standing){
-    px(x+1,y+13,2,4,"#3a2f4b"); px(x+15,y+13,2,4,"#3a2f4b"); // tall legs
-  }
-  // chair back (behind the sitter, left of monitor)
-  px(x+3,y+7,6,1,fin.leg); px(x+3,y+8,1,7,fin.leg); px(x+8,y+8,1,7,fin.leg);
-  // keyboard
+  // keyboard + monitor always (second pass covers the legs)
   px(x+4,y+10,6,1,"#2a2438"); px(x+5,y+10,4,1,"#3a3448");
   // monitor
   px(x+11,y+4,7,6,gold?"#3a2a10":"#191524");
@@ -522,7 +523,9 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(spr){
     // drop shadow (polish cue from upstream)
     ctx.fillStyle="rgba(0,0,0,0.30)";
-    const cs = Math.max(2, Math.floor(S/2));   // 16×32 source × cs; dest px must stay integer
+    // 16×32 source. At S=8, S/2=4 → 64×128 and the agent EATS the desk.
+    // Keep 32×64 (cs=2) so they sit BEHIND a visible desk+monitor.
+    const cs = 2;
     ctx.fillRect(Math.round((x+1)*S), Math.round((y+14)*S), 8*cs, 1*cs);
     ctx.imageSmoothingEnabled=false;
     // feet at y+12: head+shoulders above desk top (y+10), lower body behind slab
@@ -1504,7 +1507,7 @@ function stepVisitors(gw,gh){
   }
 }
 function drawVisitors(){
-  const vs=Math.max(2, Math.floor(S/2)); // same integer scale as chars — not 6*S blobs
+  const vs=2; // match seated chars (32×64), not S-scaled blobs
   for(const v of visitors){
     const px0=Math.round(v.x*S), py0=Math.round(v.y*S);
     const walkBob=(v.phase!=="dwell"&&(frame>>3)%2)?1:0;
@@ -1657,7 +1660,7 @@ function render(){
     if(seated){
       const seat=seatPos(i,perRow,geom,padLeft,dynRowStep);
       // redraw desk top over the seated char's lower body so they sit BEHIND the desk
-      drawDesk(seat.x,seat.y,a,cosmetics); deskScreen(seat.x,seat.y,a);
+      drawDesk(seat.x,seat.y,a,cosmetics,true); deskScreen(seat.x,seat.y,a);
       // night idle: drifting z's above the head
       if(night() && a.status==="idle" && (frame>>4)%3!==2){
         const zx=seat.x+13, zy=8+((frame>>4)%3);
