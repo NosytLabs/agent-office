@@ -84,12 +84,16 @@ function spriteFor(a){
   return sheet.down[0]; // idle
 }
 function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
+function drawClock(x,y){
+  px(x,y,5,5,"#1a1423"); px(x+1,y+1,3,3,"#e8e0d0");
+  px(x+2,y+2,1,1,"#3a2f4b"); px(x+2,y+1,1,1,"#1a1423"); px(x+3,y+2,1,1,"#1a1423");
+}
 
 // ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
 const decorImg={};  // name -> HTMLImageElement
 ["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/PLANT.png","furniture/CACTUS.png",
  "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png",
- "furniture/DOOR.png","furniture/CLOCK.png","furniture/COFFEE.png","furniture/PACKAGE.png"]
+ "furniture/DOOR.png","furniture/COFFEE.png","furniture/PACKAGE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
   const im=decorImg[name];
@@ -229,9 +233,7 @@ function drawOffice(w,h,cosmetics){
     // place sofa in the bottom band so it doesn't fight agent chairs
     const sofaY = Math.max(20, h-12);
     drawDecorImg("SOFA_FRONT",w/2-14,sofaY,28,10);
-    // analog CLOCK.png reads as noise at wall scale — simple face instead
-    px(w-14,2,5,5,"#1a1423"); px(w-13,3,3,3,"#e8e0d0");
-    px(w-12,4,1,1,"#3a2f4b"); px(w-12,3,1,1,"#1a1423"); px(w-11,4,1,1,"#1a1423");
+    drawClock(w-14, 2);
     drawDecorImg("CACTUS",Math.max(14, w-34),h-16,6,12);
     const rw=Math.min(40,w-12); px((w-rw)/2,sofaY-3,rw,3,"#2f4a42");
     px((w-rw)/2+1,sofaY-2,rw-2,2,"#3a5c50");
@@ -246,7 +248,7 @@ function drawOffice(w,h,cosmetics){
     }
   }else if(decor==="penthouse"){
     // luxury: wall clock, cactus pair, sleek dark rug, bin
-    drawDecorImg("CLOCK",w/2-2,2,4,4);
+    drawClock(Math.floor(w/2)-2, 2);
     drawDecorImg("CACTUS",8,h-16,4,8);
     drawDecorImg("CACTUS",w-12,h-16,4,8);
     const rw=Math.min(30,w-10); px((w-rw)/2,h-13,rw,6,"#1a1622");
