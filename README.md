@@ -72,7 +72,7 @@ Click **legend** in the header (or `?`) for platform icons, status key, and shor
 - **import/export layout** + settings persistence
 - **reset everything** — settings ⚙ → wipe XP/badges/history/painted tiles
 - **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/N/F/esc`
-- **status legend** + platforms explainer + live feed + raw debug
+- **status legend** + live feed + raw debug
 - **VS Code extension** + Claude Code hook + OpenCode bridge plugin
 
 ## how to use

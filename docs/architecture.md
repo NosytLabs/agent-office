@@ -47,7 +47,7 @@ vetoes, or rewrites prompts.
 ## front-end (`web/template.html` + `web/js/`)
 
 Vanilla canvas + DOM, no build step. 9 sheets open via header buttons or keyboard shortcuts
-(`R/U/B/L/S/D/E/?/T/esc`). Characters render from
+(`R/U/B/L/S/D/E/?/T/N/F/esc`). Characters render from
 pixel-art sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
 with a procedural fallback while sheets load.
 
