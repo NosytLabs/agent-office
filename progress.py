@@ -155,6 +155,10 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("orange_scarf")
     if "pet_plant" in unlocks:
         out.append("fern")
+    if "pet_dog" in unlocks:
+        out.append("gitcat")   # second cat sprite (acts as office dog)
+    if "pet_fish" in unlocks:
+        out.append("fish_tank")  # procedural fish tank decoration
     if "pet_cat" in unlocks:
         out.append("office_cat")
     if "weather_sun" in unlocks:

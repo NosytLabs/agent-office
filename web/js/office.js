@@ -329,6 +329,23 @@ function drawOffice(w,h,cosmetics){
   }
   // small flower
   if((frame>>4)%2) px(plantX,plantY-2,1,1,"#e8c170");
+  // fish tank — left of the cat, on the floor
+  if(cosmetics && cosmetics.includes("fish_tank")){
+    const fx = Math.max(2, w-20), fy = h-6;
+    // tank body (glass)
+    px(fx,fy-4,6,5,"#4fa4d8");
+    px(fx+1,fy-4,4,1,"#7fa8d8");        // water surface highlight
+    px(fx+5,fy-4,1,5,"#2b6fa8");        // glass edge
+    px(fx,fy-5,6,1,"#5a5040");          // tank top rim
+    px(fx,fy+1,6,1,"#3c2814");          // tank base
+    // fish silhouette
+    if((frame>>4)%3===0){
+      px(fx+2,fy-2,2,1,"#e8c170");       // gold fish
+      px(fx+1,fy-2,1,1,"#e8c170");
+    }
+    // bubbles rising
+    if((frame>>3)%4<2) px(fx+3,fy-3-(frame>>5)%2,1,1,"#a8c8e8");
+  }
   // cat — bottom-right corner, ON the floor line (feet at h-4)
   // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
   const cx=Math.max(14, w-8), cy=h-4;
@@ -1525,8 +1542,10 @@ function render(){
   const DESK_H = 18; // px rows needed per desk+label band at S=1
   let rows=Math.ceil(list.length/Math.max(1,perRow));
   const availH = (H/S) - labelY - 4;
-  // grow perRow until rows*rowStep fits in availH with room for label
-  while(perRow < maxc && rows * rowStep + DESK_H > availH && perRow < list.length){
+  // grow perRow only if the static layout would actually overflow vertically
+  // (rows*rowStep > availH). Mild cases stay at the layout's intended perRow
+  // so library still looks distinct from bullpen when there are few agents.
+  while(perRow < maxc && rows * rowStep > availH && perRow < list.length){
     perRow++;
     rows = Math.ceil(list.length/Math.max(1,perRow));
   }

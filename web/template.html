@@ -4,17 +4,9 @@
 <meta charset="utf-8">
 <title>Agent Office — Pixel Art Virtual Office for AI Agents</title>
 <meta name="description" content="Multi-runtime pixel-art virtual office for Hermes, OpenCode, Claude Code, Telegram, CLI, and cron agents. Watch agents work at desks, earn ranks, unlock layouts, and collect pets.">
-<meta name="keywords" content="agent office, pixel art, AI agent, Hermes, OpenCode, Claude Code, Telegram, virtual office, coding agent, runtime">
-<meta name="author" content="NosytLabs">
-<meta property="og:title" content="Agent Office — Pixel Art Virtual Office for AI Agents">
-<meta property="og:description" content="Multi-runtime pixel-art virtual office for AI coding agents. Observer only. Runtime-agnostic.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://github.com/NosytLabs/agent-office">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="assets/hermes.svg">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
 </head>
 <body>
 <div id="wrap">
@@ -33,17 +25,16 @@
       <span class="btn" id="rosterbtn">roster</span>
       <span class="btn" id="statsbtn">usage</span>
       <span class="btn" id="achbtn">badges</span>
-      <span class="btn" id="settingsbtn">⚙</span>
-      <span class="btn" id="debugbtn" title="raw state">dbg</span>
       <span class="btn" id="eventbtn" title="live event feed">live</span>
-      <span class="btn" id="legendbtn" title="status legend">legend</span>
-      <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
+      <span class="btn" id="legendbtn" title="status legend + platforms">legend</span>
+      <span class="btn" id="settingsbtn">⚙</span>
+      <span class="btn" id="debugbtn" title="raw state (also ?debug=1)" style="display:none">dbg</span>
       <span class="btn" id="themeNextbtn" title="cycle theme">theme</span>
       <span id="themename" class="dim" style="font-size:11px;margin-left:-2px"></span>
-      <span class="btn" id="platformsbtn" title="what do the runtimes mean?">platforms</span>
-      <span class="btn" id="howbtn">guide</span>
       <span class="btn" id="daynight" title="toggle day / night / auto">◐ auto</span>
+      <span class="btn" id="fogbtn" title="toggle fog of war">fog</span>
       <span class="btn" id="sound" title="chime on approval / unlock">sound</span>
+      <span class="btn" id="inspectorbtn" title="inspect focused agent" style="display:none">inspect</span>
       <span class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</span>
     </div>
   </div>
@@ -57,18 +48,9 @@
 <div class="sheet" id="sheet-areas"><h2>AREAS</h2><div id="areabox"></div></div>
 <div class="sheet" id="sheet-settings"><h2>SETTINGS</h2><div id="settingsbox"></div></div>
 <div class="sheet" id="sheet-debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
-<div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
 <div class="sheet" id="sheet-inspector"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
 <div class="sheet" id="sheet-legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
-<div class="sheet" id="sheet-platforms"><h2>PLATFORMS</h2><div id="platformsbox"></div></div>
-<div class="sheet" id="sheet-how">
-  <h2>GUIDE</h2>
-  <p>Each live agent session is a pixel character at a desk. Hermes, OpenCode, Claude Code, and Telegram all write the same <code>events.jsonl</code> — this page just folds it into a floor plan.</p>
-  <p>Hooks are <b>observers only</b>. Nothing blocks, vetoes, or edits prompts.</p>
-  <p><b>layout</b> → bullpen / war room / lounge / roof deck unlock with usage. <b>areas</b> paint zones you can map to folders. <b>settings</b> persists across reloads.</p>
-  <p>Unlike Pixel Agents (Claude-only), this is <b>runtime-agnostic</b>. Drop a custom SVG in <code>~/.hermes/pixel-office/assets/</code> and it shows up under <b>logos</b>.</p>
-  <p>Buttons: <b>roster</b> = every agent · <b>usage</b> = real counters · <b>badges</b> = unlocks catalog · <b>dbg</b> = raw <code>/state</code>.</p>
-</div>
+<div class="sheet" id="sheet-events"><h2>LIVE</h2><div id="eventbox"></div></div>
 
 <script src="js/data.js"></script>
 <script src="js/office.js"></script>

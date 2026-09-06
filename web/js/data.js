@@ -62,28 +62,20 @@ const LAYOUT_GEOMETRY = {
   atelier:   {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"atelier",
               floor:["#322832","#2c222c"], wall:"#4a3450"},
   spaceship: {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"spaceship",
-              floor:["#20283a","#1a2232"], wall:"#283048", stars:true},
-};
+              floor:["#20283a","#1a2232"], wall:"#283048", stars:true}
+  };
 
 const PLATFORMS = [
-  {id:"hermes",   name:"Hermes",      icon:"hermes",   what:"This machine's AI agent",
-   usedFor:"General coding, multi-agent orchestration, Telegram bridge",
-   install:"already running — it's the host", url:"https://hermes.nousresearch.com"},
-  {id:"opencode", name:"OpenCode",    icon:"opencode", what:"Terminal-first coding CLI from SST",
-   usedFor:"Quick scripts, multi-file edits, project scaffolding",
-   install:"brew install sst/tap/opencode (or npm i -g opencode-ai)",
-   url:"https://opencode.ai"},
-  {id:"claude",   name:"Claude Code", icon:"claude",   what:"Anthropic's CLI coding agent",
-   usedFor:"Long-running tasks, large refactors, deep codebase exploration",
-   install:"npm i -g @anthropic-ai/claude-code",
-   url:"https://docs.anthropic.com/en/docs/claude-code"},
-  {id:"telegram", name:"Telegram",    icon:"telegram", what:"Hermes bridge to your phone via Telegram",
-   usedFor:"Chat with your agents from anywhere — runs through the gateway",
-   install:"set TELEGRAM_BOT_TOKEN in your .env",
-   url:"https://telegram.org"},
-  {id:"cli",      name:"CLI / cron",  icon:"cli",      what:"Plain command-line sessions and cron jobs",
-   usedFor:"Shell agents, scheduled tasks, batch jobs",
-   install:"already wired — Hermes cron publishes events", url:""},
+  {id:"hermes",   name:"Hermes",      icon:"hermes",   what:"This machine's AI agent"
+  },
+  {id:"opencode", name:"OpenCode",    icon:"opencode", what:"Terminal-first coding CLI from SST"
+  },
+  {id:"claude",   name:"Claude Code", icon:"claude",   what:"Anthropic's CLI coding agent"
+  },
+  {id:"telegram", name:"Telegram",    icon:"telegram", what:"Hermes bridge to your phone via Telegram"
+  },
+  {id:"cli",      name:"CLI / cron",  icon:"cli",      what:"Plain command-line sessions and cron jobs"
+  },
 ];
 
 const SHORTCUTS = [

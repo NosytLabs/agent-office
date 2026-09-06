@@ -32,7 +32,7 @@ vetoes, or rewrites prompts.
 | `/settings` | GET | persisted layout/areas/toggles |
 | `/settings` | POST | save partial settings (whitelisted keys; theme changes tracked for unlocks) |
 | `/assets-manifest` | GET | list bundled + user SVGs |
-| `/assets/<name>.svg` | GET | bundled logo |
+| `/assets/hermes.svg` | GET | header logo |
 | `/assets/sprites/**.png` | GET | pixel-art character/pet sheets (24h cache) |
 | `/user/<name>.svg` | GET | user-uploaded logo from `~/.hermes/pixel-office/assets/` |
 
@@ -46,8 +46,8 @@ vetoes, or rewrites prompts.
 
 ## front-end (`web/template.html` + `web/js/`)
 
-Vanilla canvas + DOM, no build step. 13 sheets open via header buttons or
-keyboard shortcuts (`R/U/B/L/S/D/E/?/T/P/esc`). Characters render from
+Vanilla canvas + DOM, no build step. 9 sheets open via header buttons or keyboard shortcuts
+(`R/U/B/L/S/D/E/?/T/esc`). Characters render from
 pixel-art sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
 with a procedural fallback while sheets load.
 

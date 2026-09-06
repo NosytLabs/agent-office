@@ -42,7 +42,7 @@ and live detection.
 ## features
 
 - **55 badges** with progress bars — unlock by using agents
-- **6 ranks** — intern → junior → staff → senior → principal → distinguished
+- **5 ranks** — intern → junior → staff → senior → principal → distinguished
 - **12 unlockable layouts** — open, bullpen, war room, lounge, roof deck, garden,
   library, arcade, penthouse, beach, atelier, spaceship
 - **9 themes** — default, midnight, forest, solar, cyberpunk, sunset, ocean, candy, casino
@@ -72,7 +72,7 @@ and live detection.
 - **live event ticker** + speech bubbles + health bar + hourglass
 - **import/export layout** + settings persistence
 - **reset everything** — settings ⚙ → wipe XP/badges/history/painted tiles
-- **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/P/esc`
+- **keyboard shortcuts** — `R/U/B/L/S/D/E/?/T/esc`
 - **status legend** + platforms explainer + live feed + raw debug
 - **VS Code extension** + Claude Code hook + OpenCode bridge plugin
 
@@ -98,8 +98,6 @@ Header buttons:
 - `live` — last 30 events
 - `legend` — status key
 - `theme` — cycle theme
-- `platforms` — runtimes + install commands
-- `guide` — quick how-to
 - `sound` — chime on approval/unlock
 
 ## plugin setup

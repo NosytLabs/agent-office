@@ -99,6 +99,7 @@ _DEFAULTS = {
     "paint_color": "#5fce7a",
     "painted": {},
     "lock_floor": False,
+    "fog": False,
     "moods_clicked": 0,
     "sheets_opened": [],
     "did_import": False,
