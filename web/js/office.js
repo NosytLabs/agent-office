@@ -73,7 +73,8 @@ function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
 // ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
 const decorImg={};  // name -> HTMLImageElement
 ["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
- "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png"]
+ "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png",
+ "furniture/DOOR.png","furniture/CLOCK.png","furniture/COFFEE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
   const im=decorImg[name];
@@ -164,23 +165,21 @@ function drawOffice(w,h,cosmetics){
   }
   // door — interior layouts only (outdoor/sky layouts have no wall door)
   if(!geom.sky){
-    // door — left edge, theme-aware, with visible inner panel + knob
-  const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
-  const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
-  const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
-  const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : isSolar ? "#a06028" : "#a07040";
-  // outer wood frame + shadow
-  px(2,2,9,9,doorWood); px(3,3,1,7,"#1a1423"); px(10,3,1,7,"#1a1423");
-  // inner darker rect (the door surface, recessed look)
-  px(3,3,8,8,doorFrame);
-  // raised panel
-  px(4,4,6,6,doorPanel);
-  // inset darker line
-  px(5,5,4,4,doorInner);
-  // brass knob on the right
-  px(10,6,1,1,"#e8c170");
-  px(10,7,1,1,"#c9a227");
-  } // end interior-door guard
+    // use the DOOR sprite if available (better detail than procedural drawing)
+    if(drawDecorImg("DOOR", 2, 2, 9, 9)){
+      // knob already drawn in sprite; just add a small shadow underneath
+      px(2,11,9,1,"#1a1423");
+    } else {
+      // fallback procedural door
+      const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
+      const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
+      const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
+      const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : isSolar ? "#a06028" : "#a07040";
+      px(2,2,9,9,doorWood); px(3,3,1,7,"#1a1423"); px(10,3,1,7,"#1a1423");
+      px(3,3,8,8,doorFrame); px(4,4,6,6,doorPanel); px(5,5,4,4,doorInner);
+      px(10,6,1,1,"#e8c170"); px(10,7,1,1,"#c9a227");
+    }
+  }
   // neon sign — kept fully inside the wall (top-left corner of office)
   const nx=Math.max(2,Math.min(w-26, 30));
   px(nx,2,24,5,"#151022"); px(nx,6,24,1,"#3a2f4b");
@@ -748,8 +747,6 @@ function fillSettings(){
   const box=document.getElementById("settingsbox");box.innerHTML="";
   const items=[
    ["show_chips","runtime chips",settings.show_chips],
-   ["show_subagent_chips","subagent chips",settings.show_subagent_chips],
-   ["auto_focus_unlocks","focus on unlock",settings.auto_focus_unlocks],
    ["paint","paint mode (drag to color)",settings.paint],
    ["lock_floor","lock to floor (no animations)",settings.lock_floor],
    ["fog","fog of war (unexplored dark)",settings.fog],
@@ -877,6 +874,7 @@ const _DEFAULTS = Object.keys(settings);
 
 const chars = new Map();
 const WALK = 0.55;
+let nextPairAt=2400+((Math.random()*3600)|0);
 function seatPos(i,perRow,geom,padLeft,rowStep){
   const g = geom || LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
   const rs = rowStep || g.rowStep;
@@ -1094,9 +1092,10 @@ document.getElementById("debugbtn").onclick=()=>{
   d.textContent = JSON.stringify({agents:agents.length, progress:progress, settings:settings},null,2);
   toggleSheet("sheet-debug");
 };
-document.getElementById("howbtn").onclick=()=>toggleSheet("sheet-how");
 document.getElementById("eventbtn").onclick=()=>{fillEvents();toggleSheet("sheet-events");};
 document.getElementById("legendbtn").onclick=()=>{fillLegend();toggleSheet("sheet-legend");};
+// ?debug=1 — open raw state inspector on load (dev/QA)
+if(/[?&]debug=1\b/.test(location.search)){setTimeout(()=>{const b=document.getElementById("debugbox");if(b)b.textContent=JSON.stringify({agents:agents.length,progress,settings},null,2);toggleSheet("sheet-debug");},800);}
 document.getElementById("inspectorbtn").onclick=()=>{fillInspector();toggleSheet("sheet-inspector");};
 document.getElementById("themeNextbtn").onclick=()=>{
   const ids=THEMES.map(t=>t.id);
@@ -1117,28 +1116,6 @@ document.getElementById("themeNextbtn").onclick=()=>{
   const tn=document.getElementById("themename");
   if(tn){ const t=THEMES.find(x=>x.id===settings.theme); tn.textContent=t?t.name:(settings.theme||"default"); }
 })();
-document.getElementById("platformsbtn").onclick=()=>{fillPlatforms();toggleSheet("sheet-platforms");};
-function fillPlatforms(){
-  const box=document.getElementById("platformsbox");if(!box)return;
-  box.innerHTML="";
-  PLATFORMS.forEach(p=>{
-    const d=document.createElement("div");
-    d.className="row";
-    d.style.cssText="padding:10px 8px;align-items:flex-start";
-    const installed = String((progress&&progress.stats&&progress.stats.platforms)||[]).includes(p.id) ||
-                     (p.id==="hermes") || (p.id==="cli");
-    d.innerHTML="<img src='assets/"+p.icon+".svg' width='28' height='28' style='flex-shrink:0;margin-top:2px'>"+
-      "<div style='flex:1;margin-left:10px'>"+
-      "<div class='n'>"+p.name+(installed?" <span class='h' style='color:#5fce7a'>· detected</span>":"")+"</div>"+
-      "<div class='h' style='margin-top:3px'>"+p.what+"</div>"+
-      "<div class='h' style='margin-top:6px'><b style='color:#e8c170'>use for:</b> "+p.usedFor+"</div>"+
-      "<div class='h' style='margin-top:3px'><b style='color:#e8c170'>install:</b> "+p.install+"</div>"+
-      (p.url?("<div class='h' style='margin-top:3px'><a href='"+p.url+"' target='_blank' style='color:#4fa4d8'>"+p.url+"</a></div>"):"")+
-      "</div>";
-    box.appendChild(d);
-  });
-  box.innerHTML += "<p class='h' style='margin-top:12px'>Observer only. Nothing here blocks, edits, or vetoes prompts — it just draws a pixel character.</p>";
-}
 function fillLegend(){
   const box=document.getElementById("legendbox");if(!box)return;
   box.innerHTML=
@@ -1150,8 +1127,15 @@ function fillLegend(){
     ["typing: write/edit","reading: read/search","browsing: web_extract",
      "running: terminal","delegating: subagent","working: other"]
        .map(s=>"<div class='kv'><span>"+s.split(":")[0]+"</span><b>"+s.split(":")[1]+"</b></div>").join("")+
+    "<p class='h' style='margin-top:10px'>platforms</p>"+
+    PLATFORMS.map(p=>{
+      const ok=(progress&&progress.stats&&(progress.stats.platforms||[]).includes(p.id))||p.id==="hermes"||p.id==="cli";
+      return "<div class='kv'><img src='assets/"+p.icon+".svg' width='14' height='14' style='vertical-align:middle;margin-right:4px'>"
+        +"<span>"+p.name+(ok?" <span class='h' style='color:#5fce7a'>· live</span>":"")+"</span>"
+        +"<b style='font-size:11px;color:#9b6fd8'>"+p.what+"</b></div>";
+    }).join("")+
     "<p class='h' style='margin-top:10px'>shortcuts</p>"+
-    ["R roster","U usage","B badges","L layout","S settings","D dbg","E live","? legend","T theme","P platforms","esc close"]
+    ["R roster","U usage","B badges","L layout","S settings","E live","? legend","T theme","esc close"]
        .map(s=>"<div class='kv'><span><code>"+s.split(" ")[0]+"</code></span><b>"+s.split(" ").slice(1).join(" ")+"</b></div>").join("");
 }
 document.addEventListener("keydown",(e)=>{
@@ -1159,7 +1143,7 @@ document.addEventListener("keydown",(e)=>{
   const k=e.key.toLowerCase();
   const map={r:"sheet-roster",u:"sheet-stats",b:"sheet-unlocks",l:"sheet-layout",
              s:"sheet-settings",d:"sheet-debug",e:"sheet-events","?":"sheet-legend",
-             t:"themeNext",p:"sheet-platforms"};
+             t:"themeNext"};
   if(k==="escape"){closeSheets();return;}
   const id=map[k];if(!id)return;
   e.preventDefault();
@@ -1171,7 +1155,6 @@ document.addEventListener("keydown",(e)=>{
   if(id==="sheet-settings"){fillSettings();fillAreas();}
   if(id==="sheet-legend")fillLegend();
   if(id==="sheet-events")fillEvents();
-  if(id==="sheet-platforms")fillPlatforms();
   if(id==="sheet-debug"){
     document.getElementById("debugbox").textContent=
       JSON.stringify({agents:agents.length,progress:progress,settings:settings},null,2);
@@ -1419,7 +1402,6 @@ function drawSeasonal(w,gh,geom){
 }
 const visitors=[];   // {x,y,tx,ty,phase,dwell,kind,frameSeed}
 let nextVisitorAt=600+((Math.random()*1800)|0);   // first visit 10-40s in
-let nextPairAt=2400+((Math.random()*3600)|0);     // first pair session 40-100s in
 function stepVisitors(gw,gh){
   if(frame>=nextVisitorAt && visitors.length<2){
     const kind=VISITOR_KINDS[(Math.random()*VISITOR_KINDS.length)|0];
@@ -1528,15 +1510,27 @@ function render(){
   // Reserve room for the label below each desk (~4 rows of tile height).
   const labelPx = Math.max(40, Math.round(60 * 1)); // safe upper bound
   const usableW=W-16, usableH=H-32-labelPx;
+  // initial perRow: prefer the layout's perRow, but allow scaling up when rows
+  // would otherwise overflow the canvas (mexico with 10 agents etc).
+  // initial perRow: prefer the layout's perRow (e.g. mexico=2), but grow up if the
+  // resulting rows don't fit at the static rowStep. Cap to perRow only AFTER growing.
   let perRow=Math.min(maxc, Math.max(1, Math.floor(usableW/(colStep*S))));
-  // but the layout might want fewer columns
-  perRow = Math.min(perRow, geom.perRow);
+  // compute how many rows we'd need at this perRow, then bump perRow up if they
+  // can't fit at the layout's static rowStep (room for desk + label).
+  const DESK_H = 18; // px rows needed per desk+label band at S=1
   let rows=Math.ceil(list.length/Math.max(1,perRow));
-  // fit rows into usable height — shrink rowStep when there are more rows than
-  // the static rowStep would fit. Without this the bottom of the canvas is
-  // dead empty floor on tall viewports.
   const availH = (H/S) - labelY - 4;
-  const dynRowStep = Math.min(rowStep, Math.max(12, Math.floor(availH / Math.max(1, rows))));
+  // grow perRow until rows*rowStep fits in availH with room for label
+  while(perRow < maxc && rows * rowStep + DESK_H > availH && perRow < list.length){
+    perRow++;
+    rows = Math.ceil(list.length/Math.max(1,perRow));
+  }
+  // prefer the layout's perRow if it fits; otherwise use grown perRow
+  if(geom.perRow >= rows || rows * rowStep + DESK_H <= availH) {
+    perRow = Math.max(geom.perRow, Math.min(perRow, maxc));
+  }
+  // shrink rowStep if even perRow=maxc can't fit at static spacing
+  const dynRowStep = Math.min(rowStep, Math.max(14, Math.floor(availH / Math.max(1, rows))));
   // pick tile size so columns fit width AND rows fit height
   S=Math.max(2, Math.min(8, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*dynRowStep)))));
   // theme background
@@ -1796,11 +1790,17 @@ cv.addEventListener("click", (ev)=>{
     const list=shown();
     const _geom2=LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open;
     const _maxc=Math.max(2,settings.max_chars||4);
-    const _perRow=Math.min(_maxc, Math.max(1, Math.floor((_gw-2)/_geom2.colStep)));
-    const _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
-    const _rows=Math.ceil(list.length/Math.max(1,_perRow));
+    let _perRow=Math.min(_maxc, Math.max(1, Math.floor((_gw-2)/_geom2.colStep)));
+    let _rows=Math.ceil(list.length/Math.max(1,_perRow));
     const _availH=_gh-_geom2.labelY-4;
-    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(12, Math.floor(_availH/Math.max(1,_rows))));
+    while(_perRow < _maxc && _rows * _geom2.rowStep + 18 > _availH && _perRow < list.length){
+      _perRow++; _rows=Math.ceil(list.length/Math.max(1,_perRow));
+    }
+    if(_geom2.perRow >= _rows || _rows * _geom2.rowStep + 18 <= _availH) {
+      _perRow = Math.max(_geom2.perRow, Math.min(_perRow, _maxc));
+    }
+    const _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
+    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(14, Math.floor(_availH/Math.max(1,_rows))));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
       const s=seatPos(i,_perRow,_geom2,_padLeft,_dynRowStep);
