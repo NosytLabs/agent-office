@@ -143,7 +143,6 @@ function drawOffice(w,h,cosmetics){
   const wall  = themeObj.wall||geom.wall;
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
-  const isSolar = themeObj.id==="solar";
   for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4)
     px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
   // back wall + trim + wainscoting
@@ -174,10 +173,10 @@ function drawOffice(w,h,cosmetics){
       px(2,11,9,1,"#1a1423");
     } else {
       // fallback procedural door
-      const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : isSolar ? "#5a2810" : "#5a3a1f";
-      const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : isSolar ? "#7a3818" : "#7a5028";
-      const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : isSolar ? "#6a2a10" : "#3c2814";
-      const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : isSolar ? "#a06028" : "#a07040";
+      const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : "#5a3a1f";
+      const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : "#7a5028";
+      const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : "#3c2814";
+      const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : "#a07040";
       px(2,2,9,9,doorWood); px(3,3,1,7,"#1a1423"); px(10,3,1,7,"#1a1423");
       px(3,3,8,8,doorFrame); px(4,4,6,6,doorPanel); px(5,5,4,4,doorInner);
       px(10,6,1,1,"#e8c170"); px(10,7,1,1,"#c9a227");
@@ -304,13 +303,7 @@ function drawOffice(w,h,cosmetics){
       if(((frame>>3)%2)) px(dx+5,dy-1,2,1,"#a04020");
     }
   }
-  // fish tank (bottom-center, between cooler and cat)
-  if(haveUnlock && haveUnlock("pet_fish")){
-    const fx=Math.floor(w/2)-4, fy=h-10;   // on the floor, center
-    px(fx,fy-6,8,6,"#3c5a7a"); px(fx+1,fy-5,6,4,"#4fa4d8");
-    px(fx+1,fy-2,6,1,"#6b4a2f"); px(fx+2,fy-4,1,1,"#e8c170"); px(fx+3,fy-5,1,1,"#5fce7a");
-    if((frame>>2)%3===0)px(fx+5,fy-3,1,1,"#d84f6f");
-  }
+  // (fish tank renders once above via the fish_tank cosmetic — no duplicate here)
   // bob animation when petted
   const bob = petBounce ? ((petTimer>>1)%2) : 0;
   if(bob && !decorImg.claudio?.complete){px(cx+2,cy-5,4,1,"#fff8c8");}
@@ -1129,6 +1122,17 @@ function fillRoster(){
   const box=document.getElementById("roster");
   box.innerHTML="";
   if(!agents.length){box.innerHTML="<p class='h'>empty floor — start Hermes, OpenCode, or Claude Code</p>";return}
+  // attention summary — who needs you first (mirrors the usage panel queue)
+  const _waiting = agents.filter(a=>a.status==="waiting");
+  if(_waiting.length){
+    const _hdr=document.createElement("div");
+    _hdr.className="row";
+    _hdr.innerHTML="<div style='flex:1'><div class='n' style='color:#d84f6f'>● "+
+      _waiting.length+" waiting"+(_waiting.length===1?"":"s")+" — unblock first</div>"+
+      "<div class='h'>"+_waiting.map(a=>a.label||a.id).slice(0,4).join(" · ")+
+      (_waiting.length>4?" · +"+(_waiting.length-4)+" more":"")+"</div></div>";
+    box.appendChild(_hdr);
+  }
   // tracking order: waiting (needs input) first, then working, then the rest
   const rank=a=>a.status==="waiting"?0:a.status==="working"?1:a.status==="thinking"?2:a.status==="done"?4:3;
   const sorted=[...agents].sort((a,b)=>rank(a)-rank(b)||(a.first_seen||0)-(b.first_seen||0));
