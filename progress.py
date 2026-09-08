@@ -47,8 +47,6 @@ CATALOG = [
     {"id": "fashion", "name": "Office drip", "hint": "hit staff rank", "xp": 0},
     {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
     {"id": "layout_bullpen", "name": "Bullpen layout", "hint": "10 sessions ever", "xp": 25},
-    {"id": "layout_lounge", "name": "Lounge layout", "hint": "3+ runtimes ever", "xp": 30},
-    {"id": "layout_library", "name": "Library", "hint": "25 reads", "xp": 35},
     {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
     {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
@@ -149,16 +147,8 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("fish_tank")  # procedural fish tank decoration
     if "pet_cat" in unlocks:
         out.append("office_cat")
-    if "weather_sun" in unlocks:
-        out.append("sun")
     if "weather_storm" in unlocks:
         out.append("storm_lamp")
-    if "marathon" in unlocks:
-        out.append("desk_glass")
-    if "centurion" in unlocks:
-        out.append("desk_standing")
-    if "fashion" in unlocks:
-        out.append("desk_wood")
     return out
 
 
@@ -318,15 +308,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
     if int(stats.get("sessions") or 0) >= 50:
         _unlock(data, "pet_cat")
         _unlock(data, "deep_work")
-    if int(stats.get("reads") or 0) >= 25:
-        _unlock(data, "layout_library")
     if int(stats.get("tools") or 0) >= 10000:
         _unlock(data, "marathon")
-    live_now = 0
-    if rk in ("staff", "principal", "distinguished"):
-        # unlock lounge if user has hit 3 platforms in their lifetime
-        if len(plats) >= 3:
-            _unlock(data, "layout_lounge")
     _unlock(data, "pet_plant")
     if int(stats.get("sessions") or 0) >= 100:
         _unlock(data, "weather_sun")
@@ -426,8 +409,6 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,50),
         "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,300),
         "layout_bullpen": pct(sessions,10),
-        "layout_lounge": pct(len(plats),3),
-        "layout_library": pct(reads,25),
         "areas_q1": 100 if stats.get("_have_areas") else 0,
         "areas_q2": pct(int(stats.get("_area_count") or 0),3),
         "pet_cat": pct(sessions,50),

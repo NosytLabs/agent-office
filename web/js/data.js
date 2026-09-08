@@ -28,12 +28,7 @@ const LAYOUT_GEOMETRY = {
               floor:["#2c2438","#262033"], wall:"#3a2f4b"},
   bullpen:   {perRow:5, colStep:30, rowStep:30, labelY:14, decor:"bullpen",
               floor:["#2a2a34","#24242e"], wall:"#34384a"},
-  // legacy geometry fallbacks so old saved settings never crash render
-  lounge:    {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug",
-              floor:["#2c2438","#262033"], wall:"#3a2f4b"},
-  library:   {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug",
-              floor:["#2c2438","#262033"], wall:"#3a2f4b"},
-  // unknown ids fall back to open-floor geometry (see office.js seatPos/render)
+  // retired ids (lounge/library) have no entry: render falls back to open.
   };
 
 const PLATFORMS = [

@@ -53,18 +53,32 @@ def test_claude_platform_unlocks(tmp_path):
 
 def test_catalog_grew():
     ids = {c["id"] for c in CATALOG}
-    assert {"layout_bullpen", "layout_lounge", "layout_library",
+    assert {"layout_bullpen",
             "pet_dog", "pet_fish",
             "areas_q1", "areas_q2",
             "pet_cat", "pet_plant", "weather_storm", "weather_sun",
             "workhorse", "deep_work", "theme_designer",
             "architect", "marathon"} <= ids
-    # retired bloat stays retired
-    assert not {"layout_war_room", "layout_mexico", "layout_garden",
+    # retired bloat stays retired (lounge/library layouts, dead desk cosmetics)
+    assert not {"layout_lounge", "layout_library",
+                "layout_war_room", "layout_mexico", "layout_garden",
                 "layout_arcade", "layout_penthouse", "layout_beach",
                 "layout_atelier", "layout_spaceship",
                 "canvas_artisan", "decorator", "auto_arrange",
                 "tour_guide", "screenshotter", "mood_master"} & ids
+
+
+def test_no_dead_cosmetics():
+    """desk_glass/standing/wood + sun never rendered — must stay retired."""
+    from progress import cosmetics_for
+    data = load(Path("/tmp") / "p.json")
+    data["xp"] = 99999
+    for badge in ("marathon", "centurion", "fashion", "weather_sun",
+                  "layout_lounge", "layout_library"):
+        data["unlocks"][badge] = {"at": 1.0, "name": badge}
+    from progress import snapshot
+    cos = set(snapshot(data)["cosmetics"])
+    assert not {"desk_glass", "desk_standing", "desk_wood", "sun"} & cos
 
 
 def test_ranks_still_intact():

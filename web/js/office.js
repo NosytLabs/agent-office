@@ -101,16 +101,13 @@ function spriteFor(a){
   return {cv:sheet.down[0],flip:false}; // idle
 }
 function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
-function drawClock(x,y){
-  px(x,y,5,5,"#1a1423"); px(x+1,y+1,3,3,"#e8e0d0");
-  px(x+2,y+2,1,1,"#3a2f4b"); px(x+2,y+1,1,1,"#1a1423"); px(x+3,y+2,1,1,"#1a1423");
-}
 
 // ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
-// only sheets actually drawn: pets, door, bookshelf, sofa, plants, coffee, bins, parcel
+// only sheets actually drawn: pets, door, plants, coffee, bins, parcel.
+// BOOKSHELF/SOFA retired with the lounge/library layouts — not loaded.
 const decorImg={};  // name -> HTMLImageElement
 ["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
- "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/BIN.png",
+ "furniture/BIN.png",
  "furniture/DOOR.png","furniture/COFFEE.png","furniture/PACKAGE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
@@ -156,7 +153,6 @@ function drawOffice(w,h,cosmetics){
   const tileB = themeObj.tileB||geom.floor[1];
   const wall  = themeObj.wall||geom.wall;
   const isMidnight = themeObj.id==="midnight";
-  const isForest = themeObj.id==="forest";
   for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4)
     px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
   // back wall + trim + wainscoting
@@ -187,10 +183,10 @@ function drawOffice(w,h,cosmetics){
       px(2,11,9,1,"#1a1423");
     } else {
       // fallback procedural door
-      const doorWood = isMidnight ? "#1a1423" : isForest ? "#3a2810" : "#5a3a1f";
-      const doorFrame = isMidnight ? "#2a1f3a" : isForest ? "#4a3a20" : "#7a5028";
-      const doorInner = isMidnight ? "#1a1428" : isForest ? "#3a2a14" : "#3c2814";
-      const doorPanel = isMidnight ? "#3a2a5a" : isForest ? "#5a4a2a" : "#a07040";
+      const doorWood = isMidnight ? "#1a1423" : "#5a3a1f";
+      const doorFrame = isMidnight ? "#2a1f3a" : "#7a5028";
+      const doorInner = isMidnight ? "#1a1428" : "#3c2814";
+      const doorPanel = isMidnight ? "#3a2a5a" : "#a07040";
       px(2,2,9,9,doorWood); px(3,3,1,7,"#1a1423"); px(10,3,1,7,"#1a1423");
       px(3,3,8,8,doorFrame); px(4,4,6,6,doorPanel); px(5,5,4,4,doorInner);
       px(10,6,1,1,"#e8c170"); px(10,7,1,1,"#c9a227");
@@ -328,9 +324,8 @@ function drawOffice(w,h,cosmetics){
 
 function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
-  // single desk style — unlock variants (wood/standing/glass) retired:
-  // one readable workstation, gold trim only for principal+.
-  // legacy cosmetics desk_* are accepted but render identically.
+  // single desk style, three hash-stable finishes per agent (walnut/oak/ebony).
+  // one readable workstation shape; finish varies so desks don't look stamped.
   const lift=0;
   let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
   const finishes=[
@@ -338,7 +333,7 @@ function drawDesk(x,y,a,cosmetics,frontOnly){
     {top:"#d4a05a",slab:"#b08040",front:"#8d6530",leg:"#4a3420",edge:"#f0d090"},
     {top:"#6a5a7a",slab:"#4a3a5a",front:"#2c2138",leg:"#1e1628",edge:"#9b8ab0"},
   ];
-  const fin = finishes[0];
+  const fin = finishes[h % finishes.length];
   const top = fin.top;
   const slab = fin.slab;
   if(!frontOnly){
@@ -1106,11 +1101,30 @@ function fillInspector(){
   const rows=[
     ["agent",a.label],["platform",platOf(a)],["kind",a.kind],["status",a.status],
     ["tool",a.tool||"—"],["detail",a.detail||"—"],["id",a.id],["activity",a.activity||"—"],
+    ["session time", fmtDur(a.duration_s, a.first_seen)],
+    ["idle / blocked", fmtDur(a.idle_s, a.updated_at)],
   ];
+  // per-session tool history from the shared event log (like Ctrl/Cubicles
+  // session inspector: what did this agent actually run?)
+  const hist=(window._stateEvents||[]).filter(e=>{
+    const sid=e.session_id||e.child_session_id||"";
+    return sid===focusedId && e.event==="tool_start";
+  });
+  const counts={};
+  hist.forEach(e=>{ const t=e.tool_name||"?"; counts[t]=(counts[t]||0)+1; });
+  const topTools=Object.entries(counts).sort((x,y)=>y[1]-x[1]).slice(0,5)
+    .map(([k,v])=>k+" ×"+v).join(", ")||"—";
   box.innerHTML="<div class='n' style='margin-bottom:8px'>inspector</div>"+
     rows.map(([k,v])=>"<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("")+
+    "<div class='kv'><span>tools used ("+hist.length+")</span><b>"+topTools+"</b></div>"+
     "<p class='h' style='margin-top:10px'>recent events</p>"+
     (evs.length ? evs.map(e=>"<div class='kv'><span>"+e.event+"</span><b>"+(e.tool_name||e.command||e.child_goal||"")+"</b></div>").join("") : "<p class='h'>no recent events</p>");
+}
+function fmtDur(srv, fallbackTs){
+  let s = (typeof srv==="number") ? Math.max(0,Math.floor(srv)) : null;
+  if(s===null && fallbackTs){ s=Math.max(0,Math.floor(Date.now()/1000-fallbackTs)); }
+  if(s===null) return "—";
+  return s<60 ? s+"s" : Math.floor(s/60)+"m "+(s%60)+"s";
 }
 document.getElementById("filterbtn").onclick=()=>{
   platFilter=FILTERS[(FILTERS.indexOf(platFilter)+1)%FILTERS.length];
@@ -1169,9 +1183,12 @@ function fillRoster(){
     const plats=String(a.platform||"").toLowerCase();
     const _platIcons={hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"};
     const platIcon="assets/"+(_platIcons[plats]||"hermes")+".svg";
-    // elapsed since first seen — the actual tracking signal
+    // elapsed since first seen — the actual tracking signal.
+    // prefers the server-computed duration_s (one clock) over client math.
     let elapsed="";
-    if(a.first_seen){ const s=Math.max(0,Math.floor(Date.now()/1000-a.first_seen));
+    const _dur = (typeof a.duration_s==="number") ? a.duration_s
+      : (a.first_seen ? Math.max(0,Math.floor(Date.now()/1000-a.first_seen)) : null);
+    if(_dur!==null){ const s=Math.max(0,Math.floor(_dur));
       elapsed = s<60 ? s+"s" : Math.floor(s/60)+"m "+(s%60)+"s"; }
     const attn = a.status==="waiting" ? " <span style='color:#d84f6f'>● NEEDS INPUT</span>" : "";
     info.innerHTML="<div class='n'>"+(a.label||a.id)+
@@ -1288,12 +1305,14 @@ function fillStats(){
     const sortedA=[...tracked].sort((a,b)=>rankA(a)-rankA(b));
     html+="<p class='h' style='margin-top:10px'>agents ("+tracked.length+"/"+agents.length+(trackQuery?" · filter '"+trackQuery+"'":"")+")</p>"+
       (sortedA.length? sortedA.map(a=>{
-        const el=a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0;
+        const el=(typeof a.duration_s==="number")?Math.max(0,Math.floor(a.duration_s))
+          : (a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0);
         const els=el<60?el+"s":Math.floor(el/60)+"m";
-        // blocked time = time since last update while waiting (the triage signal)
+        // blocked time = idle_s while waiting (server clock), fallback to client math
         let blocked="";
-        if(a.status==="waiting"&&a.updated_at){
-          const bs=Math.max(0,Math.floor(Date.now()/1000-a.updated_at));
+        if(a.status==="waiting"){
+          const bs=(typeof a.idle_s==="number")?Math.max(0,Math.floor(a.idle_s))
+            : (a.updated_at?Math.max(0,Math.floor(Date.now()/1000-a.updated_at)):0);
           blocked=" · blocked "+(bs<60?bs+"s":Math.floor(bs/60)+"m");
         }
         const dot=a.status==="waiting"?"#d84f6f":a.status==="working"?"#5fce7a":"#7a6f8f";
@@ -1303,6 +1322,30 @@ function fillStats(){
       }).join("") : "<p class='h'>no match</p>");
   }
   document.getElementById("statbox").innerHTML=html;
+  // export tracking snapshot as CSV (agent, status, tool, elapsed, blocked)
+  // — the "actually useful" bit: paste into a standup doc or spreadsheet.
+  if(!document.getElementById("exportTrack")){
+    const btn=document.createElement("button");
+    btn.type="button"; btn.className="btn"; btn.id="exportTrack";
+    btn.textContent="export csv"; btn.style.marginTop="10px";
+    btn.onclick=()=>{
+      const rows=[["agent","platform","status","tool","detail","elapsed_s","blocked_s"]];
+      agents.forEach(a=>{
+        const el=(typeof a.duration_s==="number")?Math.max(0,Math.floor(a.duration_s))
+          : (a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0);
+        const bl=(a.status==="waiting")
+          ? ((typeof a.idle_s==="number")?Math.max(0,Math.floor(a.idle_s))
+            : (a.updated_at?Math.max(0,Math.floor(Date.now()/1000-a.updated_at)):0)) : 0;
+        rows.push([a.label||a.id, platOf(a), a.status, a.tool||"", (a.detail||"").slice(0,60), el, bl]);
+      });
+      const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n");
+      const u=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+      const link=document.createElement("a");
+      link.href=u; link.download="agent-office-tracking.csv"; link.click();
+      setTimeout(()=>URL.revokeObjectURL(u), 2000);
+    };
+    document.getElementById("statbox").appendChild(btn);
+  }
 }
 
 function toastUnlock(u){
@@ -1367,9 +1410,9 @@ function applyProgress(p){
 }
 
 // ═══ NPC visitors — 3 kinds (mail, cleaner, intern). delivery/inspector
-// retired: fewer sprites paths, same door-chime + dwell feel. ═══
+// retired: fewer sprite paths, same door-chime + dwell feel. ═══
 const VISITOR_KINDS=[
-  {name:"mail carrier", shirt:"#4fa4d8", hat:true,
+  {name:"mail carrier", shirt:"#4fa4d8", hat:true, box:true,
    lines:["mail's here","big envelope today","sign here please"]},
   {name:"cleaner",      shirt:"#8fbf6f", hat:false, mop:true,
    lines:["mopping around ya","mind the wet floor","nice plant"]},
@@ -1488,6 +1531,27 @@ function drawVisitors(){
       ctx.fillText(line, bx+tw/2+5, by+12);
     }
   }
+}
+
+// shared desk-grid math — render() and click-to-focus must agree,
+// otherwise clicks land on the wrong agent after a resize.
+function computeGrid(list, gw, gh, maxc){
+  const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
+  let perRow = Math.min(maxc, Math.max(1, Math.floor((gw-2)/geom.colStep)));
+  let rows = Math.ceil(Math.max(1,list.length)/Math.max(1,perRow));
+  const availH = gh - geom.labelY - 4;
+  while(perRow < maxc && rows * geom.rowStep + 18 > availH && perRow < list.length){
+    perRow++; rows = Math.ceil(list.length/Math.max(1,perRow));
+  }
+  if(geom.perRow >= rows || rows * geom.rowStep + 18 <= availH){
+    perRow = Math.max(geom.perRow, Math.min(perRow, maxc));
+  }
+  perRow = Math.max(1, Math.min(perRow, Math.max(1, list.length)));
+  rows = Math.ceil(Math.max(1,list.length)/perRow);
+  const dynRowStep = Math.min(geom.rowStep, Math.max(22, Math.floor(availH/Math.max(1,rows))));
+  let padLeft = Math.max(10, Math.floor((gw - perRow*geom.colStep)/2));
+  if(list.length===1) padLeft = Math.max(8, Math.floor((gw - 18)/2));
+  return {geom, perRow, rows, dynRowStep, padLeft};
 }
 
 function render(){
@@ -1805,27 +1869,12 @@ cv.addEventListener("click", (ev)=>{
   } else if(tx>_gw-12 && ty>_gh-8){
     petBounce=true; petTimer=120; chime([520,780]);
   } else {
-    // try to focus the clicked character
+    // try to focus the clicked character (same grid math as render)
     const list=shown();
-    const _geom2=LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open;
-    const _maxc=Math.max(2,settings.max_chars||4);
-    let _perRow=Math.min(_maxc, Math.max(1, Math.floor((_gw-2)/_geom2.colStep)));
-    let _rows=Math.ceil(list.length/Math.max(1,_perRow));
-    const _availH=_gh-_geom2.labelY-4;
-    while(_perRow < _maxc && _rows * _geom2.rowStep + 18 > _availH && _perRow < list.length){
-      _perRow++; _rows=Math.ceil(list.length/Math.max(1,_perRow));
-    }
-    if(_geom2.perRow >= _rows || _rows * _geom2.rowStep + 18 <= _availH) {
-      _perRow = Math.max(_geom2.perRow, Math.min(_perRow, _maxc));
-    }
-    _perRow = Math.max(1, Math.min(_perRow, Math.max(1, list.length)));
-    _rows = Math.ceil(Math.max(1,list.length)/_perRow);
-    let _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
-    if(list.length===1) _padLeft = Math.max(8, Math.floor((_gw - 18)/2));
-    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(22, Math.floor(_availH/Math.max(1,_rows))));
+    const _g=computeGrid(list,_gw,_gh,Math.max(2,settings.max_chars||4));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
-      const s=seatPos(i,_perRow,_geom2,_padLeft,_dynRowStep);
+      const s=seatPos(i,_g.perRow,_g.geom,_g.padLeft,_g.dynRowStep);
       const d=Math.hypot(tx-s.x-4, ty-s.y-6);
       if(d<bestD){bestD=d;best=a;}
     });

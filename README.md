@@ -40,7 +40,7 @@ Click **legend** in the header (or `?`) for platform icons, status key, and shor
 
 ## features
 
-- **43 badges** with progress bars — unlock by using agents
+- **41 badges** with progress bars — unlock by using agents
 - **5 ranks** — intern → junior → staff → principal → distinguished
 - **2 layouts** — open, bullpen (lounge/library retired; old saves auto-migrate to open)
 - **2 themes** — default, midnight (forest/ocean retired; old saves auto-migrate to default)
@@ -48,23 +48,23 @@ Click **legend** in the header (or `?`) for platform icons, status key, and shor
 - **real pixel-art sprite sheets** — 6 characters × 3 directions × 7 frames with
   directional walking (up / right / mirrored-left), typing/idle variants, animated
   pets (adapted from pixel-agents, MIT — see ATTRIBUTION.md)
-- **single desk style** — one readable workstation (wood/standing/glass variants retired); gold monitor trim for principal+
+- **single desk style, 3 hash-stable finishes** — one readable workstation (walnut/oak/ebony picked per agent); gold monitor trim for principal+
 - **usage tracking** — attention queue (who needs input + blocked time), live status mix,
   tools/session throughput, error rate, per-agent elapsed time, top tools,
-  per-runtime breakdowns in the usage + roster panels
+  per-runtime breakdowns in the usage + roster panels; **export CSV** from usage;
+  per-agent session time + tool history in the inspector (click a character)
 - **tracking-first panels** — roster + usage + live share one filter query; roster is blocked-first with elapsed + blocked time, per-agent detail, team grouping; live feed is searchable (like agentroom session search)
 - **day/night cycle** — ambient dim + additive light pools (neon flicker, kitchenette
   warmth, plant uplights, monitor glows) after 19:00; manual
   ◐ auto / ☾ night / ☀ day toggle in the header (persists)
 - **seasonal touch** — October jack-o-lantern by the door
-- **NPC visitors** — mail carriers, cleaners, interns, inspectors wander in through
+- **NPC visitors** — mail carriers (with parcel), cleaners, interns wander in through
   the door with waypoint pathing, idle shuffles, rotating speech bubbles, door chime;
   max 2 concurrent, 30–120s between visits
 - **pair-programming** — seated agents occasionally walk to a colleague's desk with a
   green pairing indicator for 15–35s, then return
 - **per-agent desk finishes** — walnut/oak/ebony, hash-stable per agent
-- **per-layout furniture** — bookshelves (library), sofa+clock+cacti (lounge),
-  bins (bullpen)
+- **bullpen extras** — bins + cactus (bookshelf/sofa retired with lounge/library)
 - **cosmetics** — pets on desks, orange scarf, sleeping office cat by the kitchenette,
   storm lamp; granted cosmetics all render
 - **paint mode** with drag-paint, click character to focus + inspect
