@@ -19,6 +19,13 @@ function opaqueBox(im){
   return im._box={sx:minx,sy:miny,sw:maxx-minx+1,sh:maxy-miny+1};
 }
 const FILTERS = ["every","hermes","opencode","claude","telegram","cli"];
+// unified tracking search — shared by roster + usage + live panels
+let trackQuery = "";
+function trackMatch(a){
+  if(!trackQuery) return true;
+  const q = trackQuery.toLowerCase();
+  return ((a.label||"")+" "+(a.status||"")+" "+(a.tool||"")+" "+(a.detail||"")+" "+(a.platform||"")+" "+(a.id||"")).toLowerCase().includes(q);
+}
 function shown(){
   if(platFilter==="every") return agents;
   if(platFilter==="hermes") return agents.filter(a=>platOf(a)==="hermes"||platOf(a)==="cli");
@@ -52,6 +59,13 @@ const charSheets=[];   // charSheets[i] = {down:[7 canvases], up:[...], right:[.
   for(let i=0;i<6;i++){
     const img=new Image();
     img.onload=()=>{
+      // sprite audit: expect 112×96 (3 rows × 7 cols of 16×32).
+      // wrong-size sheets fall back to procedural chars instead of stretching.
+      if(img.naturalWidth!==112||img.naturalHeight!==96){
+        console.warn("agent-office: bad char sheet char_"+i+".png "+
+          img.naturalWidth+"x"+img.naturalHeight+" (want 112x96) — using fallback");
+        return;
+      }
       const rows=[];
       for(let r=0;r<CHAR_ROWS;r++){
         const frames=[];
@@ -189,31 +203,14 @@ function drawOffice(w,h,cosmetics){
   ctx.font="10px ui-monospace"; ctx.textAlign="left";
   ctx.fillStyle=dark?"#ff6ad5":"#e8c170";
   ctx.fillText("AGENT",(nx+1)*S,(6)*S);
-  // rug — varies per layout decor
+  // rug — varies per layout decor (open=rug, bullpen=utilitarian)
   const decor = LAYOUT_GEOMETRY[settings.layout]?.decor || "rug";
-  if(decor==="library"){
-    // bookshelves along the back wall — start AFTER the door at x=2 (door spans 2..10)
-    drawDecorImg("BOOKSHELF",12,4,10,5);
-    drawDecorImg("BOOKSHELF",24,4,10,5);
-    drawDecorImg("BOOKSHELF",w-30,4,10,5);  // before kitchenette
-    const rugY = Math.max(20, h-7);
-    const rw=Math.min(28,w-16); px((w-rw)/2,rugY,rw,2,"#4a3020");
-    px((w-rw)/2+1,rugY+1,rw-2,1,"#5c3e2a");
-    drawDecorImg("BIN",w-12,h-8,3,3);
-  }else if(decor==="lounge"){
-    // sofa + wall clock + plant corner — chill room
-    // place sofa in the bottom band so it doesn't fight agent chairs
-    const sofaY = Math.max(20, h-12);
-    drawDecorImg("SOFA_FRONT",w/2-14,sofaY,28,10);
-    drawClock(w-14, 2);
-    drawDecorImg("CACTUS",Math.max(14, w-34),h-16,6,12);
-    const rw=Math.min(40,w-12); px((w-rw)/2,sofaY-3,rw,3,"#2f4a42");
-    px((w-rw)/2+1,sofaY-2,rw-2,2,"#3a5c50");
-  }else if(decor==="bullpen"){
+  if(decor==="bullpen"){
     // utilitarian: bins between desk clusters + one cactus
     drawDecorImg("BIN",w/2-1,h-9,3,3);
     drawDecorImg("CACTUS",w-14,h-16,4,8);
-  }else if(decor==="rug"){
+  }else{
+    // default rug for open + all legacy layouts (lounge/library retired)
     const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
   }
@@ -331,31 +328,28 @@ function drawOffice(w,h,cosmetics){
 
 function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
-  // 3 unlockable desk types (were granted but never rendered):
-  // wood = warm wide desk, standing = taller legs + higher slab, glass = blue top.
-  const standing=cosmetics.includes("desk_standing");
-  const glass=cosmetics.includes("desk_glass");
-  const wood=!standing&&!glass&&cosmetics.includes("desk_wood");
-  const lift=standing?2:0;
+  // single desk style — unlock variants (wood/standing/glass) retired:
+  // one readable workstation, gold trim only for principal+.
+  // legacy cosmetics desk_* are accepted but render identically.
+  const lift=0;
   let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
   const finishes=[
     {top:"#c4894a",slab:"#8d5524",front:"#6b3e1c",leg:"#3c2814",edge:"#e8c170"},
     {top:"#d4a05a",slab:"#b08040",front:"#8d6530",leg:"#4a3420",edge:"#f0d090"},
     {top:"#6a5a7a",slab:"#4a3a5a",front:"#2c2138",leg:"#1e1628",edge:"#9b8ab0"},
   ];
-  const fin = finishes[h%3];
-  const top = glass?"#7fb8d8":wood?"#e0aa5e":fin.top;
-  const slab = glass?"#4a88b0":fin.slab;
+  const fin = finishes[0];
+  const top = fin.top;
+  const slab = fin.slab;
   if(!frontOnly){
     // chair: seat + back, behind the sitter
     px(x+2,y+8,7,1,fin.leg);
     px(x+2,y+9,1,6,fin.leg); px(x+8,y+9,1,6,fin.leg);
     px(x+3,y+14,5,2,fin.front); // seat
-    if(standing){ px(x+1,y+15,2,5,fin.leg); px(x+15,y+15,2,5,fin.leg); }
-    else { px(x+1,y+17,2,3,fin.leg); px(x+15,y+17,2,3,fin.leg); }
+    px(x+1,y+17,2,3,fin.leg); px(x+15,y+17,2,3,fin.leg);
   }
   // desk body — thick enough to read as furniture, not a brown stamp
-  px(x,y+11-lift,18,1,glass?"#cfe8f5":fin.edge);
+  px(x,y+11-lift,18,1,fin.edge);
   px(x,y+12-lift,18,2,top);
   px(x,y+14-lift,18,3,slab);
   px(x,y+17,18,1,fin.front);
@@ -402,7 +396,9 @@ function drawChar(a,fx,fy,seated,cosmetics){
   cosmetics=cosmetics||[];
   const h=hash(a.id), skin=SKIN[h%SKIN.length], shirt=SHIRT[(h>>3)%SHIRT.length],
         hair=HAIR[(h>>6)%HAIR.length], t=frame>>4;
-  const walking=!seated, bob=((a.status==="working"||walking)&&(t%2))?1:0;
+  // bob ONLY while walking — seated typing uses monitor glow + arm pixels,
+  // never a vertical bounce (that was the foot-slide / jitter look).
+  const walking=!seated, bob=(walking&&(t%2))?1:0;
   const x=fx, y=fy+bob;
   if(a.status==="gone")ctx.globalAlpha=0.35;
   // ── sprite-sheet path: real 16×32 pixel-art frames when loaded ──
@@ -580,7 +576,6 @@ let settings = {layout:"open",theme:"default",sound:soundOn,show_chips:true,
   folder_areas:{},paint:false,paint_color:"#5fce7a",painted:{},lock_floor:false,fog:false};
 // RANKS / RANKS_THRESHOLDS / THEMES / LAYOUTS / LAYOUT_GEOMETRY / PLATFORMS / SHORTCUTS are top-level globals from data.js
 const AREA_PALETTE = ["#5fce7a","#4fa4d8","#d97746","#9b6fd8","#d84f6f","#c9a227","#7a8ad8","#e8c170"];
-const THEME_DAILY = ["Lobby","Studio","Tower","Loft","Bunker","Reading Room","Dojo","Salon","Lab","Pier","Atrium","Cabin"];
 function haveUnlock(id){return progress && (progress.catalog||[]).find(c=>c.id===id&&c.have)}
 
 function fillLayout(){
@@ -777,6 +772,11 @@ async function saveSettings(){
 }
 async function loadSettings(){
   try{const r=await fetch("settings");settings=await r.json();}catch(e){}
+  // migrate retired ids (lounge/library layouts, forest/ocean themes) → open/default
+  const RETIRED_LAYOUTS={lounge:"open",library:"open"};
+  if(RETIRED_LAYOUTS[settings.layout]){ settings.layout="open"; saveSettings(); }
+  const RETIRED_THEMES={forest:"default",ocean:"default"};
+  if(RETIRED_THEMES[settings.theme]){ settings.theme="default"; saveSettings(); }
   // only clamp locked layouts AFTER progress is known — haveUnlock() is always
   // false while progress===null, which used to POST layout back to "open" on every reload
   if(progress){
@@ -1121,9 +1121,19 @@ document.getElementById("filterbtn").onclick=()=>{
 function fillRoster(){
   const box=document.getElementById("roster");
   box.innerHTML="";
-  if(!agents.length){box.innerHTML="<p class='h'>empty floor — start Hermes, OpenCode, or Claude Code</p>";return}
+  // search — filters the tracking list (like agentroom session search)
+  const sWrap=document.createElement("div");
+  sWrap.className="row";
+  sWrap.innerHTML="<input class='txt' id='trackSearch' name='trackSearch' placeholder='filter agents… (status/tool/name)' value='"+trackQuery.replace(/'/g,"&#39;")+"' style='flex:1' aria-label='filter agents'>";
+  box.appendChild(sWrap);
+  const sInput=sWrap.querySelector("#trackSearch");
+  sInput.oninput=(e)=>{trackQuery=e.target.value||""; fillStats(); };
+  sInput.onchange=(e)=>{trackQuery=e.target.value||""; fillRoster();};
+  const list = agents.filter(trackMatch);
+  if(!agents.length){box.innerHTML+="<p class='h'>empty floor — start Hermes, OpenCode, or Claude Code</p>";return}
+  if(!list.length){box.innerHTML+="<p class='h'>no agents match '"+trackQuery+"'</p>";return}
   // attention summary — who needs you first (mirrors the usage panel queue)
-  const _waiting = agents.filter(a=>a.status==="waiting");
+  const _waiting = list.filter(a=>a.status==="waiting");
   if(_waiting.length){
     const _hdr=document.createElement("div");
     _hdr.className="row";
@@ -1135,11 +1145,11 @@ function fillRoster(){
   }
   // tracking order: waiting (needs input) first, then working, then the rest
   const rank=a=>a.status==="waiting"?0:a.status==="working"?1:a.status==="thinking"?2:a.status==="done"?4:3;
-  const sorted=[...agents].sort((a,b)=>rank(a)-rank(b)||(a.first_seen||0)-(b.first_seen||0));
+  const sorted=[...list].sort((a,b)=>rank(a)-rank(b)||(a.first_seen||0)-(b.first_seen||0));
   // group by team (subagents cluster under their parent)
   const teams = {};
   const main = [];
-  agents.forEach(a=>{
+  list.forEach(a=>{
     if(a.kind==="subagent" && a.parent && agents.find(x=>x.id===a.parent)){
       (teams[a.parent]=teams[a.parent]||[]).push(a);
     } else if(!a.parent){
@@ -1190,10 +1200,16 @@ function fillRoster(){
       });
     }
   });
-  // start rendering portraits
-  if(!window._portraitRAF)renderPortraits();
+  // start rendering portraits — only while the roster sheet is open
+  // (was an always-on RAF loop even with the panel closed)
+  if(document.getElementById("sheet-roster")?.style.display==="block"){
+    if(!window._portraitRAF)renderPortraits();
+  }
 }
 function renderPortraits(){
+  if(document.getElementById("sheet-roster")?.style.display!=="block"){
+    window._portraitRAF=null; return; // stop loop when panel closed
+  }
   const list=document.querySelectorAll("#roster canvas");
   list.forEach(cv=>{
     const a=cv._a;if(!a)return;
@@ -1264,19 +1280,27 @@ function fillStats(){
   ];
   let html=rows.map(([k,v])=>
     "<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("");
-  // per-agent live table — the actual tracking view (sorted waiting-first)
+  // per-agent live table — the actual tracking view (sorted waiting-first,
+  // honors the shared roster filter so both panels triage the same queue)
+  const tracked = agents.filter(trackMatch);
   if(agents.length){
     const rankA=a=>a.status==="waiting"?0:a.status==="working"?1:2;
-    const sortedA=[...agents].sort((a,b)=>rankA(a)-rankA(b));
-    html+="<p class='h' style='margin-top:10px'>agents ("+agents.length+")</p>"+
-      sortedA.map(a=>{
+    const sortedA=[...tracked].sort((a,b)=>rankA(a)-rankA(b));
+    html+="<p class='h' style='margin-top:10px'>agents ("+tracked.length+"/"+agents.length+(trackQuery?" · filter '"+trackQuery+"'":"")+")</p>"+
+      (sortedA.length? sortedA.map(a=>{
         const el=a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0;
         const els=el<60?el+"s":Math.floor(el/60)+"m";
+        // blocked time = time since last update while waiting (the triage signal)
+        let blocked="";
+        if(a.status==="waiting"&&a.updated_at){
+          const bs=Math.max(0,Math.floor(Date.now()/1000-a.updated_at));
+          blocked=" · blocked "+(bs<60?bs+"s":Math.floor(bs/60)+"m");
+        }
         const dot=a.status==="waiting"?"#d84f6f":a.status==="working"?"#5fce7a":"#7a6f8f";
         return "<div class='kv'><span><span style='color:"+dot+"'>●</span> "+
           (a.label||a.id).slice(0,18)+" <span class='h'>"+a.status+
-          (a.tool?" · "+a.tool:"")+"</span></span><b>"+els+"</b></div>";
-      }).join("");
+          (a.tool?" · "+a.tool:"")+(a.detail?" · "+(a.detail||"").slice(0,24):"")+blocked+"</span></span><b>"+els+"</b></div>";
+      }).join("") : "<p class='h'>no match</p>");
   }
   document.getElementById("statbox").innerHTML=html;
 }
@@ -1342,19 +1366,15 @@ function applyProgress(p){
   fillStats();
 }
 
-// ═══ NPC visitors — wander in through the door, linger, leave ═══
-// names + colors: little pixel folk that make the office feel alive
+// ═══ NPC visitors — 3 kinds (mail, cleaner, intern). delivery/inspector
+// retired: fewer sprites paths, same door-chime + dwell feel. ═══
 const VISITOR_KINDS=[
   {name:"mail carrier", shirt:"#4fa4d8", hat:true,
-   lines:["mail's here","big envelope today","anyone order parts?","sign here please"]},
-  {name:"delivery",     shirt:"#d8a24f", hat:true, box:true,
-   lines:["package drop","heavy one today","where do I leave this?","next-day, no signature"]},
+   lines:["mail's here","big envelope today","sign here please"]},
   {name:"cleaner",      shirt:"#8fbf6f", hat:false, mop:true,
-   lines:["mopping around ya","mind the wet floor","this place needs dusting","nice plant"]},
+   lines:["mopping around ya","mind the wet floor","nice plant"]},
   {name:"intern",       shirt:"#c98fd8", hat:false, coffee:true,
-   lines:["coffee run!","first day nerves","which desk is mine?","so... this is the office"]},
-  {name:"inspector",    shirt:"#d86f6f", hat:true, clipboard:true,
-   lines:["everything up to code","hmm, noting that","fire exit clear","nice setup in here"]},
+   lines:["coffee run!","first day nerves","which desk is mine?"]},
 ];
 const VISITOR_LINES=vis=>vis.kind.lines[(vis.seed+((frame/300)|0))%vis.kind.lines.length];
 // ── seasonal: jack-o-lantern by the door in October ──
@@ -1669,19 +1689,7 @@ function applyState(state){
   const cnt=document.getElementById("count");
   if(cnt&&!cnt.dataset.wired){cnt.dataset.wired="1";cnt.style.cursor="pointer";cnt.title="open roster";
     cnt.onclick=()=>{fillRoster();toggleSheet("sheet-roster");};}
-  // daily office name — derives from date so the floor feels alive
-  const dn = new Date();
-  const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dn.getDay()];
-  const dailyName = THEME_DAILY[dn.getDate()%THEME_DAILY.length];
-  const mark = document.querySelector("#hdr .mark");
-  if(mark && !mark.dataset.daily){
-    mark.dataset.daily = "1";
-    const sub = document.createElement("span");
-    sub.className = "dim";
-    sub.style.cssText = "font-size:11px;margin-left:6px";
-    sub.textContent = " · " + dailyName;
-    mark.appendChild(sub);
-  }
+  // header mark stays static ("AGENT OFFICE") — daily names retired as clutter
   // detect new events for the ticker
   const ev=(state&&state.events)||[];
   ev.slice(-30).forEach(e=>{
@@ -1703,12 +1711,25 @@ function fillEvents(){
   const box=document.getElementById("eventbox");
   if(!box)return;
   box.innerHTML="";
-  if(!_events.length){box.innerHTML="<p class='h'>no recent activity</p>";return}
-  _events.slice().reverse().forEach(e=>{
-    const d=document.createElement("div");d.className="row";
-    d.innerHTML="<span class='n'>"+e.kind.replace("_"," ")+"</span><span class='h'>"+e.text+"</span>";
-    box.appendChild(d);
-  });
+  const sWrap=document.createElement("div");
+  sWrap.className="row";
+  sWrap.innerHTML="<input class='txt' id='eventSearch' name='eventSearch' placeholder='search events… (tool/session/text)' style='flex:1' aria-label='search events'>";
+  box.appendChild(sWrap);
+  const list=document.createElement("div");
+  box.appendChild(list);
+  const draw=(q)=>{
+    list.innerHTML="";
+    const ql=(q||"").toLowerCase();
+    const evs=_events.slice().reverse().filter(e=>!ql||(e.kind+" "+e.text).toLowerCase().includes(ql));
+    if(!evs.length){list.innerHTML="<p class='h'>no matching activity</p>";return}
+    evs.slice(0,40).forEach(e=>{
+      const d=document.createElement("div");d.className="row";
+      d.innerHTML="<span class='n'>"+e.kind.replace("_"," ")+"</span><span class='h'>"+e.text+"</span>";
+      list.appendChild(d);
+    });
+  };
+  sWrap.querySelector("#eventSearch").oninput=(e)=>draw(e.target.value);
+  draw("");
 }
 if(IN_VSCODE){
   window.addEventListener("message",(ev)=>{

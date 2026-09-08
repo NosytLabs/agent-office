@@ -42,17 +42,17 @@ Click **legend** in the header (or `?`) for platform icons, status key, and shor
 
 - **43 badges** with progress bars — unlock by using agents
 - **5 ranks** — intern → junior → staff → principal → distinguished
-- **4 layouts** — open, bullpen, lounge, library (each with distinct geometry + decor)
-- **4 themes** — default, midnight, forest, ocean
-- **4 pets** — cat, dog, fern, fish tank
+- **2 layouts** — open, bullpen (lounge/library retired; old saves auto-migrate to open)
+- **2 themes** — default, midnight (forest/ocean retired; old saves auto-migrate to default)
+- **3 pets** — cat, dog, fish tank + fern (delivery/inspector NPCs retired; mail/cleaner/intern remain)
 - **real pixel-art sprite sheets** — 6 characters × 3 directions × 7 frames with
   directional walking (up / right / mirrored-left), typing/idle variants, animated
   pets (adapted from pixel-agents, MIT — see ATTRIBUTION.md)
-- **3 desk types** — wood, standing, glass (unlock via ranks/tool milestones, all render)
-- **usage tracking** — attention queue (who needs input), live status mix,
+- **single desk style** — one readable workstation (wood/standing/glass variants retired); gold monitor trim for principal+
+- **usage tracking** — attention queue (who needs input + blocked time), live status mix,
   tools/session throughput, error rate, per-agent elapsed time, top tools,
   per-runtime breakdowns in the usage + roster panels
-- **named areas** painted behind desks + folder→area mapping
+- **tracking-first panels** — roster + usage + live share one filter query; roster is blocked-first with elapsed + blocked time, per-agent detail, team grouping; live feed is searchable (like agentroom session search)
 - **day/night cycle** — ambient dim + additive light pools (neon flicker, kitchenette
   warmth, plant uplights, monitor glows) after 19:00; manual
   ◐ auto / ☾ night / ☀ day toggle in the header (persists)
