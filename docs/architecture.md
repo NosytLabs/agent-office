@@ -66,4 +66,4 @@ with a procedural fallback while sheets load.
 python3 -m pytest tests/ -q
 ```
 
-18 tests across progress, settings, claude hook, layout unlocks, events endpoint.
+19 tests across progress, settings, claude hook, layout unlocks, events endpoint.

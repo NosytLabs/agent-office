@@ -34,23 +34,7 @@ const LAYOUT_GEOMETRY = {
               floor:["#243030","#1e2828"], wall:"#2f4a42", warm:true},
   library:   {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"library",
               floor:["#302a20","#2a241a"], wall:"#4a3a22", warm:true},
-  // retired layouts fall back to open-floor geometry so old settings still render
-  war_room:  {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"rug",
-              floor:["#30262a","#2a2024"], wall:"#4a2f2f"},
-  mexico:    {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"rug",
-              floor:["#383226","#302a20"], wall:"#5a4a28"},
-  garden:    {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"rug",
-              floor:["#1e3020","#18281a"], wall:"#2a4a2e"},
-  arcade:    {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug",
-              floor:["#201830","#1a1228"], wall:"#3a2060"},
-  penthouse: {perRow:3, colStep:48, rowStep:38, labelY:14, decor:"rug",
-              floor:["#2e2a36","#282430"], wall:"#46405a", warm:true},
-  beach:     {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"rug",
-              floor:["#3a3424","#342e1e"], wall:"#4a6a8a"},
-  atelier:   {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"rug",
-              floor:["#322832","#2c222c"], wall:"#4a3450"},
-  spaceship: {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"rug",
-              floor:["#20283a","#1a2232"], wall:"#283048"}
+  // unknown ids fall back to open-floor geometry (see office.js seatPos/render)
   };
 
 const PLATFORMS = [

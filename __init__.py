@@ -334,6 +334,13 @@ def build_state() -> Dict[str, Any]:
         visible.append(a)
 
     visible.sort(key=lambda a: (a["kind"] != "main", a.get("first_seen", 0)))
+    for a in visible:
+        try:
+            a["duration_s"] = max(0, int(now - float(a.get("first_seen") or now)))
+            a["idle_s"] = max(0, int(now - float(a.get("updated_at") or now)))
+        except Exception:
+            a["duration_s"] = 0
+            a["idle_s"] = 0
     settings = _load_settings()
     progress = {}
     try:

@@ -79,12 +79,11 @@ function spriteFor(a){
     const f=1+((frame>>3)%6);
     const face=(typeof chars!=="undefined"&&chars.get(a.id)&&chars.get(a.id).face)||"down";
     if(face==="up")return {cv:sheet.up[f],flip:false};
+    if(face==="down")return {cv:sheet.down[f],flip:false};
     return {cv:sheet.right[f],flip:face==="left"};
   }
-  if(a.activity==="reading"||a.activity==="typing"||a.activity==="running"){
-    // no dedicated typing frames — use subtle 2-frame walk-in-place from cols 1-2
-    return {cv:sheet.down[1+((frame>>4)%2)],flip:false};
-  }
+  // seated: idle stand, no foot-slide. typing/reading energy comes from the
+  // monitor glow + 1px bob in drawChar, not walk frames.
   return {cv:sheet.down[0],flip:false}; // idle
 }
 function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
@@ -106,12 +105,12 @@ function drawDecorImg(name,dx,dy,dw,dh){
     ctx.imageSmoothingEnabled=false;
     const boxW=Math.max(1,dw*S), boxH=Math.max(1,dh*S);
     const boxX=dx*S, boxY=dy*S;
-    // pet sheets are 6x3 grids of 16x32 frames — draw ONE frame, integer-scaled.
-    // idle = col 0; walking cycles cols 1-6 so the full 6-frame walk plays.
+    // pet sheets are 96x96 = 6 cols x 3 rows of 16x32 — cols 0-5 only.
+    // idle = col 0; walking cycles cols 1-5.
     if(im.naturalWidth===96&&im.naturalHeight===96){
       const fw=16,fh=32;
       const stepping=(frame>>4)%2;
-      const col=stepping?1+((frame>>3)%6):0;
+      const col=stepping?1+((frame>>3)%5):0;
       const sx=col*fw, sy=0;
       const pcs = charScale();
       const pw = fw*pcs, ph = fh*pcs;
@@ -138,19 +137,10 @@ function drawOffice(w,h,cosmetics){
   const dark=night();
   const themeObj = window._theme || {};
   const geom = LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
-  // layout floor/wall blended with theme tint so both matter
-  const lf=geom.floor||["#2c2438","#262033"];
-  // warm-wood layouts (library, lounge, penthouse) keep most of their floor warmth;
-  // cool-wood layouts (bullpen, atelier) lean into the theme tint
-  const warm = geom.warm===true;
-  // default theme is a generic purple — if we blend it in at 0.65 every layout
-  // collapses to the same floor (PIL diffs <1). Named themes still tint.
-  const named = themeObj.id && themeObj.id!=="default";
-  const themeBlend = named ? (warm ? 0.35 : 0.65) : (warm ? 0.12 : 0.18);
-  const wallBlend  = named ? (warm ? 0.35 : 0.5) : (warm ? 0.10 : 0.16);
-  const tileA = mix(lf[0], themeObj.tileA||lf[0], themeBlend);
-  const tileB = mix(lf[1], themeObj.tileB||lf[1], themeBlend);
-  const wall  = mix(geom.wall||"#3a2f4b", themeObj.wall||geom.wall, wallBlend);
+  // theme sets the palette directly — no blending math, what you pick is what you get
+  const tileA = themeObj.tileA||geom.floor[0];
+  const tileB = themeObj.tileB||geom.floor[1];
+  const wall  = themeObj.wall||geom.wall;
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
@@ -1139,6 +1129,9 @@ function fillRoster(){
   const box=document.getElementById("roster");
   box.innerHTML="";
   if(!agents.length){box.innerHTML="<p class='h'>empty floor — start Hermes, OpenCode, or Claude Code</p>";return}
+  // tracking order: waiting (needs input) first, then working, then the rest
+  const rank=a=>a.status==="waiting"?0:a.status==="working"?1:a.status==="thinking"?2:a.status==="done"?4:3;
+  const sorted=[...agents].sort((a,b)=>rank(a)-rank(b)||(a.first_seen||0)-(b.first_seen||0));
   // group by team (subagents cluster under their parent)
   const teams = {};
   const main = [];
@@ -1149,6 +1142,7 @@ function fillRoster(){
       main.push(a);
     }
   });
+  main.sort((a,b)=>rank(a)-rank(b));
   main.forEach(a=>{
     const d=document.createElement("div");
     d.className="row";
@@ -1239,8 +1233,17 @@ function fillStats(){
   const mixStr = Object.entries(mix).map(([k,v])=>k+": "+v).join(" · ")||"—";
   const waiting = agents.filter(a=>a.status==="waiting")
     .map(a=>a.label||a.id).join(", ")||"none";
+  // oldest waiting agent — the one to unblock first
+  let oldestWait="—";
+  const waits=agents.filter(a=>a.status==="waiting"&&a.updated_at);
+  if(waits.length){
+    const o=waits.slice().sort((a,b)=>a.updated_at-b.updated_at)[0];
+    const s=Math.max(0,Math.floor(Date.now()/1000-o.updated_at));
+    oldestWait=(o.label||o.id)+" · waiting "+(s<60?s+"s":Math.floor(s/60)+"m");
+  }
   const rows=[
     ["attention needed", waiting],
+    ["longest blocked", oldestWait],
     ["live now", agents.length+" ("+mixStr+")"],
     ["rank", (progress&&progress.rank)||"intern"],
     ["xp", (progress&&progress.xp)||0],
@@ -1255,8 +1258,23 @@ function fillStats(){
     ["by runtime", plats],
     ["top tools", top],
   ];
-  document.getElementById("statbox").innerHTML=rows.map(([k,v])=>
+  let html=rows.map(([k,v])=>
     "<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("");
+  // per-agent live table — the actual tracking view (sorted waiting-first)
+  if(agents.length){
+    const rankA=a=>a.status==="waiting"?0:a.status==="working"?1:2;
+    const sortedA=[...agents].sort((a,b)=>rankA(a)-rankA(b));
+    html+="<p class='h' style='margin-top:10px'>agents ("+agents.length+")</p>"+
+      sortedA.map(a=>{
+        const el=a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0;
+        const els=el<60?el+"s":Math.floor(el/60)+"m";
+        const dot=a.status==="waiting"?"#d84f6f":a.status==="working"?"#5fce7a":"#7a6f8f";
+        return "<div class='kv'><span><span style='color:"+dot+"'>●</span> "+
+          (a.label||a.id).slice(0,18)+" <span class='h'>"+a.status+
+          (a.tool?" · "+a.tool:"")+"</span></span><b>"+els+"</b></div>";
+      }).join("");
+  }
+  document.getElementById("statbox").innerHTML=html;
 }
 
 function toastUnlock(u){
@@ -1499,8 +1517,9 @@ function render(){
   // grid sat glued to the left wall (lounge/war/arcade screenshots).
   perRow = Math.max(1, Math.min(perRow, Math.max(1, list.length)));
   rows = Math.ceil(Math.max(1, list.length)/perRow);
-  // shrink rowStep if even perRow=maxc can't fit at static spacing
-  const dynRowStep = Math.min(rowStep, Math.max(14, Math.floor(availH / Math.max(1, rows))));
+  // shrink rowStep if even perRow=maxc can't fit at static spacing.
+  // min 22 keeps the desk label (y+19..y+25) clear of the next row's chair.
+  const dynRowStep = Math.min(rowStep, Math.max(22, Math.floor(availH / Math.max(1, rows))));
   // pick tile size so columns fit width AND rows fit height
   S=Math.max(2, Math.min(sCap, Math.floor(Math.min(usableW/(perRow*colStep), usableH/(rows*dynRowStep)))));
   // theme background
@@ -1642,6 +1661,10 @@ function applyState(state){
   const n=agents.length, w=agents.filter(a=>a.status==="waiting").length;
   document.getElementById("count").textContent=
     n+" agent"+(n===1?"":"s")+(w?" · "+w+" waiting!":"");
+  // click the count → jump to the roster (waiting-first) to unblock agents
+  const cnt=document.getElementById("count");
+  if(cnt&&!cnt.dataset.wired){cnt.dataset.wired="1";cnt.style.cursor="pointer";cnt.title="open roster";
+    cnt.onclick=()=>{fillRoster();toggleSheet("sheet-roster");};}
   // daily office name — derives from date so the floor feels alive
   const dn = new Date();
   const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dn.getDay()];
@@ -1774,7 +1797,7 @@ cv.addEventListener("click", (ev)=>{
     _rows = Math.ceil(Math.max(1,list.length)/_perRow);
     let _padLeft = Math.max(10, Math.floor((_gw - _perRow*_geom2.colStep)/2));
     if(list.length===1) _padLeft = Math.max(8, Math.floor((_gw - 18)/2));
-    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(14, Math.floor(_availH/Math.max(1,_rows))));
+    const _dynRowStep=Math.min(_geom2.rowStep, Math.max(22, Math.floor(_availH/Math.max(1,_rows))));
     let best=null,bestD=99999;
     list.forEach((a,i)=>{
       const s=seatPos(i,_perRow,_geom2,_padLeft,_dynRowStep);

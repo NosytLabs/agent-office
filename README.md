@@ -114,7 +114,7 @@ Claude hook ────┘                     │
 ## tests
 
 ```bash
-python3 -m pytest tests/ -q    # 20 tests
+python3 -m pytest tests/ -q    # 19 tests
 ```
 
 ## repo layout
@@ -137,7 +137,7 @@ agent-office/
 │   ├── js/office.js           (canvas + UI)
 │   ├── assets/*.svg           (5 runtime logos)
 │   └── assets/sprites/        (pixel-art character/pet sheets — see ATTRIBUTION.md)
-├── tests/                     (20 unit tests)
+├── tests/                     (19 unit tests)
 └── docs/architecture.md
 ```
 
