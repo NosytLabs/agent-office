@@ -51,6 +51,10 @@ def test_claude_platform_unlocks(tmp_path):
     assert "orange_scarf" in snapshot(data)["cosmetics"]
 
 
+def test_catalog_size():
+    assert len(CATALOG) == 41
+
+
 def test_catalog_grew():
     ids = {c["id"] for c in CATALOG}
     assert {"layout_bullpen",

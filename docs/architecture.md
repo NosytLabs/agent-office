@@ -28,30 +28,34 @@ vetoes, or rewrites prompts.
 |---|---|---|
 | `/` | GET | pixel office HTML |
 | `/state` | GET | folded agents + progress + settings + last 30 events |
-| `/state` | DELETE | reset everything — wipe progress + event history + painted tiles |
-| `/settings` | GET | persisted layout/areas/toggles |
-| `/settings` | POST | save partial settings (whitelisted keys; theme changes tracked for unlocks) |
-| `/assets-manifest` | GET | list bundled + user SVGs |
-| `/assets/hermes.svg` | GET | header logo |
-| `/assets/sprites/**.png` | GET | pixel-art character/pet sheets (24h cache) |
-| `/user/<name>.svg` | GET | user-uploaded logo from `~/.hermes/pixel-office/assets/` |
+| `/state` | DELETE | reset progress + event history |
+| `/settings` | GET | persisted layout / theme / toggles |
+| `/settings` | POST | save whitelisted settings (theme switches tracked) |
+| `/assets-manifest` | GET | bundled + user SVGs |
+| `/assets/sprites/**.png` | GET | pixel-art sheets |
+| `/user/<name>.svg` | GET | user-uploaded logo |
+
+Static files under `web/` are served with a path-safe handler.
 
 ## persistence
 
 | file | format | purpose |
 |---|---|---|
 | `events.jsonl` | newline-delimited JSON | raw hook events, trimmed to 512 KB |
-| `progress.json` | JSON | ranks, unlocks, stats — 43 badge catalog |
-| `settings.json` | JSON | layout, theme, areas, painted tiles, folders |
+| `progress.json` | JSON | ranks, unlocks, stats — 41 badge catalog |
+| `settings.json` | JSON | layout, theme, max_chars |
 
-## front-end (`web/template.html` + `web/js/`)
+## front-end
 
-Vanilla canvas + DOM, no build step. 9 sheets open via header buttons or keyboard shortcuts
-(`R/U/B/L/S/D/E/?/T/N/F/esc`). Characters render from
-pixel-art sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
-with a procedural fallback while sheets load.
+Vanilla canvas + DOM, no build step. `data.js` then `office.js`.
 
-## plugins (4 runtimes + 1 obs)
+Header panels: **floor** (roster + usage), **badges**, **settings** (layout + theme).
+Shortcuts: `R/U` floor, `B` badges, `S/L` settings, `E` live, `?` legend, `T` theme, `N` day/night, `esc` close.
+
+Characters render from sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
+with a procedural fallback while sheets load. NPCs use dedicated idle sprites.
+
+## plugins
 
 | file | hook | events written |
 |---|---|---|
@@ -65,5 +69,3 @@ with a procedural fallback while sheets load.
 ```
 python3 -m pytest tests/ -q
 ```
-
-19 tests across progress, settings, claude hook, layout unlocks, events endpoint.

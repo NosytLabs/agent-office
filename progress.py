@@ -384,9 +384,12 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "open_floor": 100 if "opencode" in plats else 0,
         "telegram_desk": 100 if "telegram" in plats else 0,
         "claude_desk": 100 if any("claude" in p for p in plats) else 0,
-        "two_houses": 100 if "opencode" in plats and (plats & {"cli","telegram","gateway","hermes"}) else pct(2,2),
+        "two_houses": 100 if "opencode" in plats and (plats & {"cli","telegram","gateway","hermes"}) else pct(
+            int("opencode" in plats) + int(bool(plats & {"cli","telegram","gateway","hermes"})), 2),
         "three_houses": 100 if ("opencode" in plats and any("claude" in p for p in plats)
-                               and (plats & {"cli","telegram","gateway","hermes"})) else pct(2,3),
+                               and (plats & {"cli","telegram","gateway","hermes"})) else pct(
+            int("opencode" in plats) + int(any("claude" in p for p in plats))
+            + int(bool(plats & {"cli","telegram","gateway","hermes"})), 3),
         "polyglot": pct(len(plats),3),
         "pair_programming": pct(int(stats.get("max_concurrent") or 0),2),
         "full_floor": pct(int(stats.get("max_concurrent") or 0),5),
@@ -405,7 +408,7 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "oops": pct(errors,10),
         "red_alert": pct(int(stats.get("approvals") or 0),1),
         "night_owl": 100 if has_nightowl else 0,
-        "early_bird": 100 if has_nightowl else 0,
+        "early_bird": 100 if "early_bird" in (stats.get("_unlocks") or {}) else 0,
         "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,50),
         "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,300),
         "layout_bullpen": pct(sessions,10),

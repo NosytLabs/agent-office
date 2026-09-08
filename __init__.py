@@ -89,9 +89,6 @@ _DEFAULTS = {
     "layout": "open",
     "theme": "default",
     "sound": False,
-    "show_chips": True,
-    "show_subagent_chips": False,
-    "auto_focus_unlocks": True,
     "max_chars": 4,
     "areas": {},
     "folder_areas": {},
@@ -100,9 +97,6 @@ _DEFAULTS = {
     "painted": {},
     "lock_floor": False,
     "fog": False,
-    "moods_clicked": 0,
-    "sheets_opened": [],
-    "did_import": False,
 }
 
 
@@ -126,7 +120,7 @@ def _save_settings(payload: Dict[str, Any]) -> None:
     for k, v in (payload or {}).items():
         if k in _DEFAULTS:
             cur[k] = v
-    # track theme switches for theme_designer badge + beach layout
+    # track theme switches for theme_designer badge
     if cur.get("theme") and cur.get("theme") != prev_theme:
         try:
             from .progress import record_theme_switch
@@ -359,9 +353,6 @@ def build_state() -> Dict[str, Any]:
         pdata["stats"]["_area_count"] = len(areas)
         pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
         pdata["stats"]["_folder_areas"] = settings.get("folder_areas") or {}
-        pdata["stats"]["_moods_clicked"] = int(settings.get("moods_clicked") or 0)
-        pdata["stats"]["_sheets_opened"] = len(set((settings.get("sheets_opened") or [])))
-        pdata["stats"]["_did_import"] = bool(settings.get("did_import"))
         apply_client_unlocks(pdata)
         save(ppath, pdata)
         progress = snapshot(pdata)
@@ -408,6 +399,28 @@ def _server_bound() -> bool:
         return False
 
 
+_STATIC_TYPES = {
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".html": "text/html; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".json": "application/json",
+}
+
+
+def _safe_web_file(web_dir: Path, url_path: str) -> Optional[Path]:
+    rel = url_path.split("?")[0].lstrip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    path = (web_dir / rel).resolve()
+    try:
+        path.relative_to(web_dir.resolve())
+    except ValueError:
+        return None
+    return path if path.is_file() else None
+
+
 def _serve() -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -422,64 +435,28 @@ def _serve() -> None:
 
         def do_GET(self) -> None:
             try:
-                if self.path.split("?")[0] == "/":
+                route = self.path.split("?")[0]
+                if route == "/":
                     body = html_path.read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
-                elif self.path.split("?")[0] == "/state":
+                    self.send_header("Cache-Control", "no-store")
+                elif route == "/state":
                     body = json.dumps(build_state()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
-                elif self.path.split("?")[0] == "/settings":
+                elif route == "/settings":
                     body = json.dumps(_load_settings()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
-                elif self.path.split("?")[0] == "/assets-manifest":
+                elif route == "/assets-manifest":
                     body = json.dumps(_asset_manifest()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
-                elif self.path.split("?")[0].startswith("/assets/sprites/"):
-                    # sprite sheets (PNG) — subdirectory-safe, name-checked
-                    rel = self.path.split("?")[0].lstrip("/")
-                    static_path = (web_dir / rel).resolve()
-                    if static_path.is_file() and static_path.suffix == ".png" and str(web_dir.resolve()) in str(static_path):
-                        body = static_path.read_bytes()
-                        self.send_response(200)
-                        self.send_header("Content-Type", "image/png")
-                        self.send_header("Cache-Control", "max-age=86400")
-                    else:
-                        self.send_response(404)
-                        body = b"not found"
-                        self.send_header("Content-Type", "text/plain")
-                elif self.path.split("?")[0].startswith("/assets/"):
-                    name = Path(self.path.split("?")[0]).name
-                    asset = web_dir / "assets" / name
-                    if asset.is_file() and asset.suffix == ".svg":
-                        body = asset.read_bytes()
-                        self.send_response(200)
-                        self.send_header("Content-Type", "image/svg+xml")
-                    else:
-                        self.send_response(404)
-                        body = b"not found"
-                        self.send_header("Content-Type", "text/plain")
-                elif self.path.split("?")[0] in ("/css/style.css", "/js/office.js", "/js/data.js", "/template.html"):
-                    static_path = web_dir / self.path.split("?")[0].lstrip("/")
-                    if static_path.is_file():
-                        ext = static_path.suffix
-                        ctype = "text/css" if ext==".css" else (
-                              "application/javascript" if ext==".js" else
-                              "text/html; charset=utf-8")
-                        body = static_path.read_bytes()
-                        self.send_response(200)
-                        self.send_header("Content-Type", ctype)
-                    else:
-                        self.send_response(404)
-                        body = b"not found"
-                        self.send_header("Content-Type", "text/plain")
-                elif self.path.split("?")[0].startswith("/user/"):
-                    name = Path(self.path.split("?")[0]).name
+                elif route.startswith("/user/"):
+                    name = Path(route).name
                     asset = _office_dir() / "assets" / name
                     if asset.is_file() and asset.suffix == ".svg":
                         body = asset.read_bytes()
@@ -490,9 +467,20 @@ def _serve() -> None:
                         body = b"not found"
                         self.send_header("Content-Type", "text/plain")
                 else:
-                    self.send_response(404)
-                    body = b"not found"
-                    self.send_header("Content-Type", "text/plain")
+                    static_path = _safe_web_file(web_dir, route)
+                    ctype = _STATIC_TYPES.get((static_path.suffix if static_path else ""), "")
+                    if static_path and ctype:
+                        body = static_path.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", ctype)
+                        if static_path.suffix in (".js", ".css", ".html"):
+                            self.send_header("Cache-Control", "no-store")
+                        elif static_path.suffix == ".png":
+                            self.send_header("Cache-Control", "max-age=86400")
+                    else:
+                        self.send_response(404)
+                        body = b"not found"
+                        self.send_header("Content-Type", "text/plain")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
