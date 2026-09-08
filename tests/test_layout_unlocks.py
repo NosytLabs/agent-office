@@ -22,7 +22,17 @@ def test_layout_unlocks_for_sessions(tmp_path):
     data["stats"]["sessions"] = 10
     data = ingest(data, [])
     assert "layout_bullpen" in data["unlocks"]
+    data["stats"]["sessions"] = 50
+    data = ingest(data, [])
     assert "pet_cat" in data["unlocks"]
+    assert "deep_work" in data["unlocks"]
+
+
+def test_tracking_badges(tmp_path):
+    data = load(tmp_path / "progress.json")
+    data["stats"]["tools"] = 500
+    data = ingest(data, [])
+    assert "workhorse" in data["unlocks"]
 
 
 def test_weather_unlocks(tmp_path):
@@ -43,14 +53,18 @@ def test_claude_platform_unlocks(tmp_path):
 
 def test_catalog_grew():
     ids = {c["id"] for c in CATALOG}
-    assert {"layout_bullpen", "layout_war_room", "layout_lounge",
-            "layout_mexico", "layout_garden", "layout_library",
-            "layout_arcade", "layout_penthouse",
+    assert {"layout_bullpen", "layout_lounge", "layout_library",
             "pet_dog", "pet_fish",
             "areas_q1", "areas_q2",
             "pet_cat", "pet_plant", "weather_storm", "weather_sun",
-            "canvas_artisan", "auto_arrange", "theme_designer",
-            "tour_guide", "screenshotter", "decorator", "architect", "marathon"} <= ids
+            "workhorse", "deep_work", "theme_designer",
+            "architect", "marathon"} <= ids
+    # retired bloat stays retired
+    assert not {"layout_war_room", "layout_mexico", "layout_garden",
+                "layout_arcade", "layout_penthouse", "layout_beach",
+                "layout_atelier", "layout_spaceship",
+                "canvas_artisan", "decorator", "auto_arrange",
+                "tour_guide", "screenshotter", "mood_master"} & ids
 
 
 def test_ranks_still_intact():

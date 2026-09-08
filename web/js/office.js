@@ -101,11 +101,12 @@ function drawDecorImg(name,dx,dy,dw,dh){
     ctx.imageSmoothingEnabled=false;
     const boxW=Math.max(1,dw*S), boxH=Math.max(1,dh*S);
     const boxX=dx*S, boxY=dy*S;
-    // pet sheets are 6x3 grids of 16x32 frames — draw ONE frame, integer-scaled
+    // pet sheets are 6x3 grids of 16x32 frames — draw ONE frame, integer-scaled.
+    // idle = col 0; walking cycles cols 1-6 so the full 6-frame walk plays.
     if(im.naturalWidth===96&&im.naturalHeight===96){
       const fw=16,fh=32;
-      const walking=(frame>>4)%2;
-      const col=walking?1+((frame>>4)%2):0;
+      const stepping=(frame>>4)%2;
+      const col=stepping?1+((frame>>3)%6):0;
       const sx=col*fw, sy=0;
       const pcs = charScale();
       const pw = fw*pcs, ph = fh*pcs;
@@ -378,6 +379,12 @@ function drawOffice(w,h,cosmetics){
     px(fx+5,fy-7-(frame>>4)%3,1,1,"#a8c8e8");
     px(fx+3,fy-3-(frame>>3)%2,1,1,"#a8c8e8");
   }
+  // storm lamp (weather_storm unlock): small red warning lamp by the door
+  if(cosmetics && cosmetics.includes("storm_lamp")){
+    const lx=12, ly=9;
+    px(lx,ly,2,2,(frame>>4)%2?"#d84f6f":"#7a2020");
+    px(lx,ly+2,2,1,"#3a2f4b");
+  }
   // cat — bottom-right corner, ON the floor line (feet at h-4)
   // office_cat cosmetic (pet_cat unlock): a second cat lounges by the kitchenette
   const cx=Math.max(16, w-6), cy=h-5;
@@ -458,6 +465,12 @@ function drawOffice(w,h,cosmetics){
 
 function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
+  // 3 unlockable desk types (were granted but never rendered):
+  // wood = warm wide desk, standing = taller legs + higher slab, glass = blue top.
+  const standing=cosmetics.includes("desk_standing");
+  const glass=cosmetics.includes("desk_glass");
+  const wood=!standing&&!glass&&cosmetics.includes("desk_wood");
+  const lift=standing?2:0;
   let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
   const finishes=[
     {top:"#c4894a",slab:"#8d5524",front:"#6b3e1c",leg:"#3c2814",edge:"#e8c170"},
@@ -465,20 +478,23 @@ function drawDesk(x,y,a,cosmetics,frontOnly){
     {top:"#6a5a7a",slab:"#4a3a5a",front:"#2c2138",leg:"#1e1628",edge:"#9b8ab0"},
   ];
   const fin = finishes[h%3];
+  const top = glass?"#7fb8d8":wood?"#e0aa5e":fin.top;
+  const slab = glass?"#4a88b0":fin.slab;
   if(!frontOnly){
     // chair: seat + back, behind the sitter
     px(x+2,y+8,7,1,fin.leg);
     px(x+2,y+9,1,6,fin.leg); px(x+8,y+9,1,6,fin.leg);
     px(x+3,y+14,5,2,fin.front); // seat
-    px(x+1,y+17,2,3,fin.leg); px(x+15,y+17,2,3,fin.leg);
+    if(standing){ px(x+1,y+15,2,5,fin.leg); px(x+15,y+15,2,5,fin.leg); }
+    else { px(x+1,y+17,2,3,fin.leg); px(x+15,y+17,2,3,fin.leg); }
   }
   // desk body — thick enough to read as furniture, not a brown stamp
-  px(x,y+11,18,1,fin.edge);
-  px(x,y+12,18,2,fin.top);
-  px(x,y+14,18,3,fin.slab);
+  px(x,y+11-lift,18,1,glass?"#cfe8f5":fin.edge);
+  px(x,y+12-lift,18,2,top);
+  px(x,y+14-lift,18,3,slab);
   px(x,y+17,18,1,fin.front);
   // keyboard
-  px(x+3,y+12,7,2,"#2a2438"); px(x+4,y+12,5,1,"#4a4460");
+  px(x+3,y+12-lift,7,2,"#2a2438"); px(x+4,y+12-lift,5,1,"#4a4460");
   // monitor: bezel + lit screen (must contrast with the dark room)
   px(x+11,y+3,7,8, gold?"#5a4010":"#0c0a12");
   px(x+12,y+4,5,6, gold?"#c9a227":"#1a3d28");
@@ -1277,12 +1293,18 @@ function fillRoster(){
     const plats=String(a.platform||"").toLowerCase();
     const _platIcons={hermes:"hermes",cli:"cli",telegram:"telegram",opencode:"opencode",claude:"claude","claude-code":"claude",gateway:"hermes"};
     const platIcon="assets/"+(_platIcons[plats]||"hermes")+".svg";
+    // elapsed since first seen — the actual tracking signal
+    let elapsed="";
+    if(a.first_seen){ const s=Math.max(0,Math.floor(Date.now()/1000-a.first_seen));
+      elapsed = s<60 ? s+"s" : Math.floor(s/60)+"m "+(s%60)+"s"; }
+    const attn = a.status==="waiting" ? " <span style='color:#d84f6f'>● NEEDS INPUT</span>" : "";
     info.innerHTML="<div class='n'>"+(a.label||a.id)+
       (a.kind==="subagent"?" <span class='h'>(sub)</span>":"")+
       " <img src='"+platIcon+"' width='10' height='10' style='vertical-align:middle'>"+
       "</div><div class='h'>"+a.status+
       (a.tool?" · "+a.tool:"")+
-      (a.detail?" · "+a.detail:"")+
+      (elapsed?" · "+elapsed:"")+
+      (a.detail?" · "+a.detail:"")+attn+
       "</div>";
     d.appendChild(info);
     box.appendChild(d);
@@ -1341,17 +1363,26 @@ function fillStats(){
     .map(([k,v])=>k+": "+v).join(" · ")||"—";
   const byp=s.by_platform||{};
   const plats=Object.entries(byp).map(([k,v])=>k+": "+v).join(" · ")||"—";
+  // tracking signals: error rate, throughput, live status mix, attention queue
+  const tools=s.tools||0, sessions=s.sessions||0, errors=s.errors||0;
+  const errRate = tools? (100*errors/tools).toFixed(1)+"%" : "—";
+  const tps = sessions? (tools/sessions).toFixed(1)+" tools/session" : "—";
+  const mix={}; agents.forEach(a=>{mix[a.status]=(mix[a.status]||0)+1;});
+  const mixStr = Object.entries(mix).map(([k,v])=>k+": "+v).join(" · ")||"—";
+  const waiting = agents.filter(a=>a.status==="waiting")
+    .map(a=>a.label||a.id).join(", ")||"none";
   const rows=[
+    ["attention needed", waiting],
+    ["live now", agents.length+" ("+mixStr+")"],
     ["rank", (progress&&progress.rank)||"intern"],
     ["xp", (progress&&progress.xp)||0],
-    ["live now", agents.length],
-    ["sessions", s.sessions||0],
-    ["tools", s.tools||0],
+    ["sessions", sessions],
+    ["tools", tools+" ("+tps+")"],
     ["reads / writes", (s.reads||0)+" / "+(s.writes||0)],
     ["browse / shell", (s.browses||0)+" / "+(s.shells||0)],
     ["subagents", s.subagents||0],
     ["approvals", s.approvals||0],
-    ["errors", s.errors||0],
+    ["errors", errors+" ("+errRate+")"],
     ["peak concurrent", s.max_concurrent||0],
     ["by runtime", plats],
     ["top tools", top],

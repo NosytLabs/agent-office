@@ -47,16 +47,8 @@ CATALOG = [
     {"id": "fashion", "name": "Office drip", "hint": "hit staff rank", "xp": 0},
     {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
     {"id": "layout_bullpen", "name": "Bullpen layout", "hint": "10 sessions ever", "xp": 25},
-    {"id": "layout_war_room", "name": "War room", "hint": "principal rank", "xp": 40},
-    {"id": "layout_lounge", "name": "Lounge layout", "hint": "3+ runtimes at once", "xp": 30},
-    {"id": "layout_mexico", "name": "Roof deck", "hint": "night owl + 5 sessions", "xp": 35},
-    {"id": "layout_garden", "name": "Garden", "hint": "25 writes + 100 sessions", "xp": 50},
+    {"id": "layout_lounge", "name": "Lounge layout", "hint": "3+ runtimes ever", "xp": 30},
     {"id": "layout_library", "name": "Library", "hint": "25 reads", "xp": 35},
-    {"id": "layout_arcade", "name": "Arcade", "hint": "5000 tools", "xp": 60},
-    {"id": "layout_penthouse", "name": "Penthouse", "hint": "10000 tools", "xp": 100},
-    {"id": "layout_beach", "name": "Beach day", "hint": "100 sessions + switch theme 10 times", "xp": 60},
-    {"id": "layout_atelier", "name": "Atelier", "hint": "100 writes + 100 sessions", "xp": 70},
-    {"id": "layout_spaceship", "name": "Mission control", "hint": "10k tools + 3 platforms", "xp": 120},
     {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
     {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
@@ -65,13 +57,9 @@ CATALOG = [
     {"id": "pet_fish", "name": "Office fish", "hint": "25 browse tools", "xp": 20},
     {"id": "weather_storm", "name": "Stormy", "hint": "5 errors in one day", "xp": 15},
     {"id": "weather_sun", "name": "Sunny", "hint": "100 sessions", "xp": 25},
-    {"id": "canvas_artisan", "name": "Canvas artisan", "hint": "paint 30 tiles", "xp": 30},
-    {"id": "auto_arrange", "name": "Auto-arrange", "hint": "50 sessions", "xp": 25},
+    {"id": "workhorse", "name": "Workhorse", "hint": "500 tools", "xp": 50},
+    {"id": "deep_work", "name": "Deep work", "hint": "50 sessions", "xp": 40},
     {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
-    {"id": "tour_guide", "name": "Tour guide", "hint": "open 5 different sheets", "xp": 15},
-    {"id": "mood_master", "name": "Mood master", "hint": "click 10 moods", "xp": 15},
-    {"id": "screenshotter", "name": "Screenshotter", "hint": "import a layout", "xp": 10},
-    {"id": "decorator", "name": "Decorator", "hint": "paint 100 tiles", "xp": 50},
     {"id": "architect", "name": "Architect", "hint": "3 areas + folder maps", "xp": 40},
     {"id": "marathon", "name": "Marathon", "hint": "10k tools", "xp": 80},
 ]
@@ -196,19 +184,9 @@ def apply_client_unlocks(data: Dict[str, Any]) -> None:
         _unlock(data, "areas_q1")
     if int(stats.get("_area_count") or 0) >= 3:
         _unlock(data, "areas_q2")
-    if int(stats.get("_painted_count") or 0) >= 30:
-        _unlock(data, "canvas_artisan")
-    if int(stats.get("_painted_count") or 0) >= 100:
-        _unlock(data, "decorator")
     if stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3 \
             and len(stats.get("_folder_areas") or {}) >= 1:
         _unlock(data, "architect")
-    if int(stats.get("_sheets_opened") or 0) >= 5:
-        _unlock(data, "tour_guide")
-    if stats.get("_did_import"):
-        _unlock(data, "screenshotter")
-    if int(stats.get("_moods_clicked") or 0) >= 10:
-        _unlock(data, "mood_master")
 
 
 def record_theme_switch(path=None) -> None:
@@ -219,8 +197,6 @@ def record_theme_switch(path=None) -> None:
     n = stats["theme_switches"]
     if n >= 5:
         _unlock(data, "theme_designer")
-    if n >= 10 and int(stats.get("sessions") or 0) >= 100:
-        _unlock(data, "layout_beach")
     save(ppath, data)
 
 
@@ -307,6 +283,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "coffee_break")
     if int(stats.get("tools") or 0) >= 100:
         _unlock(data, "centurion")
+    if int(stats.get("tools") or 0) >= 500:
+        _unlock(data, "workhorse")
     if int(stats.get("tools") or 0) >= 1000:
         _unlock(data, "thousand_cuts")
     if int(stats.get("tools") or 0) >= 5000:
@@ -337,35 +315,21 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "corner_office")
     if int(stats.get("sessions") or 0) >= 10:
         _unlock(data, "layout_bullpen")
+    if int(stats.get("sessions") or 0) >= 50:
         _unlock(data, "pet_cat")
-    if rk in ("principal", "distinguished"):
-        _unlock(data, "layout_war_room")
-    if (int(stats.get("writes") or 0) >= 25) and (int(stats.get("sessions") or 0) >= 100):
-        _unlock(data, "layout_garden")
+        _unlock(data, "deep_work")
     if int(stats.get("reads") or 0) >= 25:
         _unlock(data, "layout_library")
-    if int(stats.get("tools") or 0) >= 5000:
-        _unlock(data, "layout_arcade")
     if int(stats.get("tools") or 0) >= 10000:
-        _unlock(data, "layout_penthouse")
         _unlock(data, "marathon")
     live_now = 0
     if rk in ("staff", "principal", "distinguished"):
         # unlock lounge if user has hit 3 platforms in their lifetime
         if len(plats) >= 3:
             _unlock(data, "layout_lounge")
-    if "night_owl" in (data.get("unlocks") or {}) and int(stats.get("sessions") or 0) >= 5:
-        _unlock(data, "layout_mexico")
-    if (int(stats.get("sessions") or 0) >= 100) and len(plats) >= 10:
-        _unlock(data, "layout_beach")
-    if (int(stats.get("writes") or 0) >= 100) and (int(stats.get("sessions") or 0) >= 100):
-        _unlock(data, "layout_atelier")
-    if (int(stats.get("tools") or 0) >= 10000) and len(plats) >= 3:
-        _unlock(data, "layout_spaceship")
     _unlock(data, "pet_plant")
     if int(stats.get("sessions") or 0) >= 100:
         _unlock(data, "weather_sun")
-        _unlock(data, "auto_arrange")
     if int(stats.get("errors") or 0) >= 5:
         _unlock(data, "weather_storm")
 
@@ -462,13 +426,8 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,50),
         "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,300),
         "layout_bullpen": pct(sessions,10),
-        "layout_war_room": 100 if rk in ("principal","distinguished") else pct(xp,1200),
         "layout_lounge": pct(len(plats),3),
-        "layout_mexico": pct(sessions,5),
-        "layout_garden": min(pct(writes,25), pct(sessions,100)),
         "layout_library": pct(reads,25),
-        "layout_arcade": pct(tools,5000),
-        "layout_penthouse": pct(tools,10000),
         "areas_q1": 100 if stats.get("_have_areas") else 0,
         "areas_q2": pct(int(stats.get("_area_count") or 0),3),
         "pet_cat": pct(sessions,50),
@@ -477,15 +436,10 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "pet_fish": pct(browses,25),
         "weather_storm": pct(errors,5),
         "weather_sun": pct(sessions,100),
-        "canvas_artisan": pct(int(stats.get("_painted_count") or 0), 30),
-        "decorator": pct(int(stats.get("_painted_count") or 0), 100),
+        "workhorse": pct(tools,500),
+        "deep_work": pct(sessions,50),
+        "theme_designer": pct(int(stats.get("theme_switches") or 0), 5),
         "architect": 100 if (stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3
                             and len(stats.get("_folder_areas") or {}) >= 1) else 0,
-        "tour_guide": pct(int(stats.get("_sheets_opened") or 0), 5),
-        "screenshotter": 100 if stats.get("_did_import") else 0,
-        "layout_beach": min(pct(sessions,100), pct(len(plats),10)),
-        "layout_atelier": min(pct(writes,100), pct(sessions,100)),
-        "layout_spaceship": min(pct(tools,10000), pct(len(plats),3)),
-        "mood_master": pct(int(stats.get("_moods_clicked") or 0), 10),
         "marathon": pct(tools,10000),
     }.get(badge_id, 0)

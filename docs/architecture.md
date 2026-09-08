@@ -41,7 +41,7 @@ vetoes, or rewrites prompts.
 | file | format | purpose |
 |---|---|---|
 | `events.jsonl` | newline-delimited JSON | raw hook events, trimmed to 512 KB |
-| `progress.json` | JSON | ranks, unlocks, stats — 55 badge catalog |
+| `progress.json` | JSON | ranks, unlocks, stats — 43 badge catalog |
 | `settings.json` | JSON | layout, theme, areas, painted tiles, folders |
 
 ## front-end (`web/template.html` + `web/js/`)

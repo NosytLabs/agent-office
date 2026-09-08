@@ -40,15 +40,17 @@ Click **legend** in the header (or `?`) for platform icons, status key, and shor
 
 ## features
 
-- **55 badges** with progress bars — unlock by using agents
+- **43 badges** with progress bars — unlock by using agents
 - **5 ranks** — intern → junior → staff → principal → distinguished
-- **12 unlockable layouts** — open, bullpen, war room, lounge, roof deck, garden,
-  library, arcade, penthouse, beach, atelier, spaceship
-- **9 themes** — default, midnight, forest, solar, cyberpunk, sunset, ocean, candy, casino
+- **4 layouts** — open, bullpen, lounge, library (each with distinct geometry + decor)
+- **4 themes** — default, midnight, forest, ocean
 - **4 pets** — cat, dog, fern, fish tank
 - **real pixel-art sprite sheets** — 6 characters × 3 directions × 7 frames (walk,
   typing, idle), animated pets (adapted from pixel-agents, MIT — see ATTRIBUTION.md)
-- **3 desk types** — wood, standing, glass
+- **3 desk types** — wood, standing, glass (unlock via ranks/tool milestones, all render)
+- **usage tracking** — attention queue (who needs input), live status mix,
+  tools/session throughput, error rate, per-agent elapsed time, top tools,
+  per-runtime breakdowns in the usage + roster panels
 - **named areas** painted behind desks + folder→area mapping
 - **day/night cycle** — ambient dim + additive light pools (neon flicker, kitchenette
   warmth, plant uplights, monitor glows) after 19:00, moonlit sky layouts; manual
@@ -114,7 +116,7 @@ Claude hook ────┘                     │
 ## tests
 
 ```bash
-python3 -m pytest tests/ -q    # 18 tests
+python3 -m pytest tests/ -q    # 20 tests
 ```
 
 ## repo layout
@@ -126,7 +128,7 @@ agent-office/
 ├── install.py                 (guided installer)
 ├── plugin.yaml                (Hermes plugin metadata)
 ├── __init__.py                (hooks + HTTP server)
-├── progress.py                (55 badges, ranks, stats)
+├── progress.py                (43 badges, ranks, stats)
 ├── claude/hook.py             (Claude Code hook)
 ├── opencode/index.js          (OpenCode bridge plugin)
 ├── vscode/extension.js        (VS Code extension)
@@ -137,7 +139,7 @@ agent-office/
 │   ├── js/office.js           (canvas + UI)
 │   ├── assets/*.svg           (5 runtime logos)
 │   └── assets/sprites/        (pixel-art character/pet sheets — see ATTRIBUTION.md)
-├── tests/                     (18 unit tests)
+├── tests/                     (20 unit tests)
 └── docs/architecture.md
 ```
 
