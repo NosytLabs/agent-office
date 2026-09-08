@@ -39,7 +39,7 @@ const LAYOUT_GEOMETRY = {
               floor:["#30262a","#2a2024"], wall:"#4a2f2f"},
   mexico:    {perRow:2, colStep:60, rowStep:42, labelY:14, decor:"rug",
               floor:["#383226","#302a20"], wall:"#5a4a28"},
-  garden:    {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"garden",
+  garden:    {perRow:3, colStep:42, rowStep:38, labelY:14, decor:"rug",
               floor:["#1e3020","#18281a"], wall:"#2a4a2e"},
   arcade:    {perRow:4, colStep:36, rowStep:34, labelY:14, decor:"rug",
               floor:["#201830","#1a1228"], wall:"#3a2060"},

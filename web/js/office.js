@@ -73,15 +73,19 @@ function spriteFor(a){
   const sheet=loaded[hash(a.id)%loaded.length];
   if(!sheet)return null;
   // sheet layout (verified): col 0 = idle stand, cols 1-6 = 6-frame walk. no typing frames.
+  // walking uses the row matching the agent's facing (tracked in stepChars);
+  // left = mirrored right row since the sheet has no left row.
   if(!seatedNow(a)){
-    const all=sheet.down.concat(sheet.right);
-    return all[1+((frame>>3)%6)];
+    const f=1+((frame>>3)%6);
+    const face=(typeof chars!=="undefined"&&chars.get(a.id)&&chars.get(a.id).face)||"down";
+    if(face==="up")return {cv:sheet.up[f],flip:false};
+    return {cv:sheet.right[f],flip:face==="left"};
   }
   if(a.activity==="reading"||a.activity==="typing"||a.activity==="running"){
     // no dedicated typing frames — use subtle 2-frame walk-in-place from cols 1-2
-    return sheet.down[1+((frame>>4)%2)];
+    return {cv:sheet.down[1+((frame>>4)%2)],flip:false};
   }
-  return sheet.down[0]; // idle
+  return {cv:sheet.down[0],flip:false}; // idle
 }
 function seatedNow(a){return a.status!=="gone"&&a.status!=="walking"}
 function drawClock(x,y){
@@ -90,9 +94,10 @@ function drawClock(x,y){
 }
 
 // ═══ decor sprite images (pets + furniture, from pixel-agents MIT) ═══
+// only sheets actually drawn: pets, door, bookshelf, sofa, plants, coffee, bins, parcel
 const decorImg={};  // name -> HTMLImageElement
-["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/PLANT.png","furniture/CACTUS.png",
- "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/WHITEBOARD.png","furniture/BIN.png",
+["pets/claudio.png","pets/gitcat.png","furniture/LARGE_PLANT.png","furniture/CACTUS.png",
+ "furniture/BOOKSHELF.png","furniture/SOFA_FRONT.png","furniture/BIN.png",
  "furniture/DOOR.png","furniture/COFFEE.png","furniture/PACKAGE.png"]
  .forEach(p=>{const im=new Image();im.src="assets/sprites/"+p;decorImg[p.split("/")[1].replace(".png","")]=im;});
 function drawDecorImg(name,dx,dy,dw,dh){
@@ -149,35 +154,12 @@ function drawOffice(w,h,cosmetics){
   const isMidnight = themeObj.id==="midnight";
   const isForest = themeObj.id==="forest";
   const isSolar = themeObj.id==="solar";
-  // outdoor layouts: sky gradient band above the wall instead of interior wall
-  if(geom.sky){
-    const skyTop = dark?"#0a0a20":"#7fa8d8", skyBot = dark?"#1a1a40":"#a8c8e8";
-    for(let y=0;y<18;y++){
-      // smooth gradient: blend top→bot over the full sky band
-      const t=Math.min(1,y/17);
-      const c=mix(skyTop,skyBot,t);
-      px(0,y,w,1,c);
-    }
-    if(dark){ for(let x=2;x<w;x+=7)if((frame>>3+x)%9===0)px(x,1+((x*3)%4),1,1,"#fff8c8"); }
-    else if(cosmetics.includes("sun")){
-      // weather_sun unlock: bigger radiant sun with animated rays
-      px(3,1,5,5,"#fff8c8"); px(4,2,3,3,"#f0d060");
-      for(let r=0;r<8;r++){const a=r*Math.PI/4+((frame>>4)%16)/16*Math.PI/8;
-        px(5.5+Math.cos(a)*4.5, 3.5+Math.sin(a)*3, 1,1,"#f0d060");}
-    }
-    else { px(4,1,3,3,"#fff8c8"); px(5,2,1,1,"#f0d060"); } // sun
-    px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
-    // outdoor layouts still get their themed floor below the sky band
-    for(let y=18;y<h;y+=4)for(let x=0;x<w;x+=4)
-      px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
-  } else {
-    for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4)
-      px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
-    // back wall + trim + wainscoting
-    px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
-  }
-  // windows — interior layouts only (outdoor sky band gets no window frames)
-  if(!geom.sky) for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
+  for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4)
+    px(x,y,4,4,((x+y)/4)%2?tileA:tileB);
+  // back wall + trim + wainscoting
+  px(0,0,w,8,wall); px(0,8,w,1,"#1a1423"); px(0,18,w,1,"#221c2e");
+  // windows
+  for(let x=22;x<Math.min(w-14, _gw-10);x+=22){
     px(x,2,12,5,"#151022");
     if(dark){
       px(x+1,3,10,3,"#151a33");
@@ -194,8 +176,8 @@ function drawOffice(w,h,cosmetics){
       ctx.globalAlpha=1;
     }
   }
-  // door — interior layouts only (outdoor/sky layouts have no wall door)
-  if(!geom.sky){
+  // door
+  {
     // use the DOOR sprite if available (better detail than procedural drawing)
     if(drawDecorImg("DOOR", 2, 2, 9, 9)){
       // knob already drawn in sprite; just add a small shadow underneath
@@ -238,24 +220,6 @@ function drawOffice(w,h,cosmetics){
     drawDecorImg("CACTUS",Math.max(14, w-34),h-16,6,12);
     const rw=Math.min(40,w-12); px((w-rw)/2,sofaY-3,rw,3,"#2f4a42");
     px((w-rw)/2+1,sofaY-2,rw-2,2,"#3a5c50");
-  }else if(decor==="arcade"){
-    // arcade cabinets along the back wall (procedural, neon-lit)
-    for(let i=0;i<3;i++){
-      const ax=w/2-20+i*14;
-      px(ax,2,10,12,"#191524");
-      px(ax+1,3,8,4,(frame>>3)%2?["#ff6ad5","#5fce7a","#4fa4d8"][i]:["#d84f6f","#4fa4d8","#e8c170"][i]);
-      px(ax+1,8,8,2,"#3a2f4b");
-      px(ax+2,10,2,1,"#d84f6f"); px(ax+6,10,2,1,"#5fce7a");
-    }
-  }else if(decor==="penthouse"){
-    // luxury: wall clock, cactus pair, sleek dark rug, bin
-    drawClock(Math.floor(w/2)-2, 2);
-    drawDecorImg("CACTUS",8,h-16,4,8);
-    drawDecorImg("CACTUS",w-12,h-16,4,8);
-    const rw=Math.min(30,w-10); px((w-rw)/2,h-13,rw,6,"#1a1622");
-    px((w-rw)/2+1,h-12,rw-2,4,"#2a2438");
-    px((w-rw)/2,h-13,rw,1,"#e8c170");             // gold trim
-    drawDecorImg("BIN",w-16,h-8,3,3);
   }else if(decor==="bullpen"){
     // utilitarian: bins between desk clusters + one cactus
     drawDecorImg("BIN",w/2-1,h-9,3,3);
@@ -263,73 +227,6 @@ function drawOffice(w,h,cosmetics){
   }else if(decor==="rug"){
     const rw=Math.min(28,w-12); px((w-rw)/2,h-13,rw,6,dark?"#3a2048":"#3a2f4b");
     px((w-rw)/2+1,h-12,rw-2,4,dark?"#4a2860":"#443358");
-  }else if(decor==="war_table"){
-    // strategy whiteboard on the wall above the table
-    drawDecorImg("WHITEBOARD",w/2-7,1,14,6);
-    // wide meeting table at the back of the room — above the front-row desks
-    // so it doesn't fight for floor space with the agent chairs in row 0
-    const ty = 9;
-    px(w/2-18,ty,36,3,dark?"#5a3a14":"#8d5524");
-    px(w/2-17,ty+3,34,2,dark?"#4a2a10":"#6b4a2f");
-    px(w/2-16,ty+5,2,3,dark?"#3a2410":"#54381f");
-    px(w/2+14,ty+5,2,3,dark?"#3a2410":"#54381f");
-    // monitors around the table (status lights)
-    for(let i=-3;i<=3;i++){
-      const mx=w/2+i*4-1;
-      px(mx,ty-2,2,2,"#191524");
-      px(mx,ty-3,2,1,(frame>>4+i)%2?"#5fce7a":"#0f2c1e");
-    }
-  }else if(decor==="roof"){
-    // wooden deck planks — span the full floor area below the sky band
-    const plankY = Math.max(20, h-12);  // bottom band, not too close to bottom edge
-    for(let x=4;x<w-4;x+=8)px(x,plankY,7,2,dark?"#4a3818":"#6b4a2f");
-    // safety railing along the front edge
-    px(2,plankY+2,w-4,1,dark?"#5a4a28":"#7a6a38");
-    for(let x=4;x<w-4;x+=10)px(x,plankY+3,1,2,dark?"#4a3818":"#6b4a2f");
-    // string lights across the sky band (animated twinkle)
-    for(let x=6;x<w-6;x+=8){
-      const ly=6+((x/8)%2?1:0);
-      px(x,ly-1,1,1,dark?"#3a2f4b":"#5a4a28");       // wire droop
-      px(x,ly,1,1,(frame>>4+x)%3?"#e8c170":"#fff8c8"); // bulb
-    }
-    // grill + potted plants
-    px(w/2+14,h-8,5,3,dark?"#3a3a44":"#4a4a54"); px(w/2+15,h-9,3,1,"#d84f6f");
-    drawDecorImg("PLANT",6,h-12,4,10);
-    drawDecorImg("PLANT",w-10,h-12,4,10);
-  }else if(decor==="garden"){
-    // grass field: two-tone tufts + flowers + hedges along the wall base
-    for(let x=0;x<w;x+=4)px(x,h-10,3,1,(x/4)%2?"#4aa860":"#5fce7a");
-    for(let x=2;x<w-2;x+=9)if((frame>>3+x)%4===0)px(x+((frame>>4)%2),h-11,1,1,"#e8c170");
-    for(let x=6;x<w-6;x+=13)if((frame>>2+x)%5===0)px(x,h-12,1,1,"#d84f6f");
-    // hedges flanking the floor
-    px(4,h-13,5,3,"#3a7a4a"); px(w-9,h-13,5,3,"#3a7a4a");
-    px(5,h-14,3,1,"#5fce7a"); px(w-8,h-14,3,1,"#5fce7a");
-  }else if(decor==="beach"){
-    // ocean band with animated waves + foam + sand
-    px(0,h-8,w,2,"#c2b580");                                   // sand
-    for(let x=0;x<w;x+=3)px(x,h-6,3,1,((x/3)+(frame>>3))%2?"#4fa4d8":"#5fbbec");  // waves
-    for(let x=1;x<w;x+=7)if(((x>>2)+(frame>>4))%3===0)px(x,h-9,2,1,"#fff8e8");    // foam
-    // beach umbrella + sandcastle
-    px(w-16,h-16,1,8,"#8d5524"); px(w-19,h-18,7,2,"#d84f6f"); px(w-18,h-17,5,1,"#e8c170");
-    px(8,h-15,6,5,"#d8c4a0"); px(10,h-16,2,1,"#a06028");
-  }else if(decor==="atelier"){
-    // art supplies & easels + PLANT sprite + coffee station corner
-    drawDecorImg("PLANT",4,h-24,4,10);
-    drawDecorImg("COFFEE",w-12,h-12,4,4);
-    px(w/2-10,h-15,8,8,"#191524"); px(w/2-9,h-16,1,1,"#e8c170"); px(w/2-3,h-16,1,1,"#d84f6f");
-    px(w/2+2,h-15,8,8,"#191524"); px(w/2+3,h-16,1,1,"#5fce7a"); px(w/2+7,h-16,1,1,"#4fa4d8");
-    // paint splatter on floor
-    for(let x=2;x<w-2;x+=7)if((frame>>2+x)%5===0)px(x,h-9,1,1,"#d84f6f");
-    // canvas on the wall (framed art)
-    px(w/2-4,2,8,5,"#e8e0d0"); px(w/2-4,2,8,1,"#8d5524"); px(w/2-4,6,8,1,"#8d5524");
-    px(w/2-2,3,2,2,"#4fa4d8"); px(w/2+2,4,2,1,"#d84f6f");
-  }else if(decor==="spaceship"){
-    // control panels + windows on the wall
-    px(20,2,10,5,"#151022"); px(21,3,2,1,"#5fce7a"); px(24,3,2,1,"#d84f6f"); px(27,3,2,1,"#e8c170");
-    // stars through the windows
-    for(let x=0;x<w;x+=6)if((frame>>3+x)%7===0)px(x,3,1,1,"#fff8c8");
-    // floor grating
-    for(let x=0;x<w;x+=8)px(x,h-9,6,1,"#3a2f4b");
   }
   // kitchenette against the right wall: counter + coffee sprite + cooler, grouped
   const kx=w-24;
@@ -430,7 +327,7 @@ function drawOffice(w,h,cosmetics){
   if(petBounce){petTimer--; if(petTimer<=0)petBounce=false;}
   // ── night lighting pass ──
   // dim the whole scene, then punch warm light pools back in around light sources
-  if(dark && !geom.sky){
+  if(dark){
     ctx.fillStyle="rgba(8,6,20,0.42)";                 // ambient night dim
     ctx.fillRect(0,0,w*S,h*S);
     ctx.globalCompositeOperation="lighter";             // additive glow
@@ -445,20 +342,6 @@ function drawOffice(w,h,cosmetics){
     pool(plantX+2,plantY,12,"rgba(120,220,150,0.10)");      // plant uplight
     // monitor glow from each seated agent desk
     for(const d of (window._deskAnchors||[])){ pool(d[0]+4,d[1]-2,14,"rgba(110,180,255,0.14)"); }
-    ctx.globalCompositeOperation="source-over";
-  }
-  // sky layouts: moonlit night — cool dim + moon glow, no indoor pools
-  if(dark && geom.sky){
-    ctx.fillStyle="rgba(6,8,24,0.38)";
-    ctx.fillRect(0,0,w*S,h*S);
-    ctx.globalCompositeOperation="lighter";
-    const pool=(x,y,r,c)=>{
-      const g=ctx.createRadialGradient(x*S,y*S,1,x*S,y*S,r*S);
-      g.addColorStop(0,c); g.addColorStop(1,"rgba(0,0,0,0)");
-      ctx.fillStyle=g; ctx.fillRect(x*S-r*S,y*S-r*S,2*r*S,2*r*S);
-    };
-    pool(w*0.2,4,22,"rgba(230,235,255,0.20)");            // moon glow
-    for(const d of (window._deskAnchors||[])){ pool(d[0]+4,d[1]-2,12,"rgba(110,180,255,0.12)"); }
     ctx.globalCompositeOperation="source-over";
   }
 }
@@ -555,7 +438,15 @@ function drawChar(a,fx,fy,seated,cosmetics){
       ctx.fillRect(sx0+0*cs, sy0+12*cs, 3*cs, 16*cs);
       ctx.fillRect(sx0+13*cs, sy0+12*cs, 3*cs, 16*cs);
     }
-    ctx.drawImage(spr, 0,0,CHAR_FW,CHAR_FH, sx0, sy0, CHAR_FW*cs, CHAR_FH*cs);
+    const pw=CHAR_FW*cs, ph=CHAR_FH*cs;
+    if(spr.flip){
+      // sheet has no left row — mirror the right row
+      ctx.save(); ctx.translate(Math.round(sx0+pw/2),0); ctx.scale(-1,1);
+      ctx.drawImage(spr.cv, 0,0,CHAR_FW,CHAR_FH, -pw/2, sy0, pw, ph);
+      ctx.restore();
+    } else {
+      ctx.drawImage(spr.cv, 0,0,CHAR_FW,CHAR_FH, sx0, sy0, pw, ph);
+    }
     const hx = (sx0 + 4*cs)/S, hy = (sy0 + 0)/S;   // head-top in tile coords
     if(cosmetics.includes("crown")){px(hx,hy,5*cs/S,2*cs/S,"#e8c170");px(hx+1,hy-cs/S,cs/S,cs/S,"#e8c170");px(hx+3,hy-cs/S,cs/S,cs/S,"#e8c170")}
     else if(cosmetics.includes("beanie")){px(hx-1,hy,7*cs/S,2*cs/S,"#d84f6f");px(hx+1,hy-cs/S,3*cs/S,cs/S,"#d84f6f")}
@@ -973,8 +864,12 @@ function stepChars(perRow,padLeft,geom,rowStep){
     }
     else {tx=c.phase==="out"?2:c.seat.x+3; ty=c.phase==="out"?2:c.seat.y;}
     const dx=tx-c.x, dy=ty-c.y, d=Math.hypot(dx,dy);
-    if(d<WALK){ c.x=tx;c.y=ty; if(c.phase==="in")c.phase="seated"; }
-    else { c.x+=dx/d*WALK; c.y+=dy/d*WALK; }
+    if(d>=WALK){
+      // facing drives the walking sprite row (up / right / mirrored-left)
+      if(Math.abs(dx)>Math.abs(dy))c.face=dx<0?"left":"right";
+      else if(Math.abs(dy)>0.05)c.face=dy<0?"up":"down";
+      c.x+=dx/d*WALK; c.y+=dy/d*WALK;
+    } else { c.x=tx;c.y=ty; if(c.phase==="in")c.phase="seated"; }
     if(c.lastStatus!==a.status){
       if(a.status==="waiting")chime([880,660,880]);
       else if(a.status==="done"&&a.kind==="subagent")chime([520,780]);
@@ -1081,33 +976,6 @@ function drawFog(){
   }
   try{for(const v of visitors){hole(v.x,v.y,10,0.9);}}catch(e){}
   ctx.drawImage(fc,0,0,W,H);
-}
-
-// weather: deterministic per-day roll per outdoor layout (clear/rain/snow/stars)
-function weather(){
-  if(!LAYOUT_GEOMETRY[settings.layout]?.sky)return null;
-  const day=Math.floor(Date.now()/86400000);
-  const r=(day*7+settings.layout.length*13)%10;
-  if(r<6)return null;          // 60% clear
-  return r<8?"rain":"snow";    // 20% rain, 20% snow
-}
-function drawWeather(w,h){
-  const wx=weather(); if(!wx)return;
-  if(wx==="rain"){
-    ctx.strokeStyle="rgba(140,180,255,0.45)"; ctx.lineWidth=Math.max(1,S/8);
-    for(let i=0;i<40;i++){
-      const rx=((i*53+((frame>>1)*7)%(w*8))%(w*8))/8;
-      const ry=((i*29+(frame>>1)*11)%(h*8))/8;
-      ctx.beginPath();ctx.moveTo(rx*S,ry*S);ctx.lineTo(rx*S-S/3,ry*S+S);ctx.stroke();
-    }
-  }else{
-    ctx.fillStyle="rgba(255,255,255,0.8)";
-    for(let i=0;i<30;i++){
-      const sx=((i*61+Math.sin((frame+i*9)/40)*3+w*8)% (w*8))/8;
-      const sy=((i*37+(frame>>2)*(1+(i%3)))%(h*8))/8;
-      ctx.fillRect(sx*S,sy*S,S/2,S/2);
-    }
-  }
 }
 
 function syncSheetBtns(openId){
@@ -1467,16 +1335,9 @@ const VISITOR_KINDS=[
    lines:["everything up to code","hmm, noting that","fire exit clear","nice setup in here"]},
 ];
 const VISITOR_LINES=vis=>vis.kind.lines[(vis.seed+((frame/300)|0))%vis.kind.lines.length];
-// ── season: deterministic from the date. 0=spring,1=summer,2=fall,3=winter ──
-function season(){
-  const m=new Date().getMonth();   // 0-11
-  if(m>=9) return 2;               // Oct-Dec: fall (jack-o-lantern in Oct, leaves Nov)
-  if(m>=6) return 1;               // Jul-Sep: summer
-  if(m>=3) return 0;               // Apr-Jun: spring
-  return 3;                        // Jan-Mar: winter
-}
-function drawSeasonal(w,gh,geom){
-  const s=season(), m=new Date().getMonth();
+// ── seasonal: jack-o-lantern by the door in October ──
+function drawSeasonal(w,gh){
+  const m=new Date().getMonth();
   // jack-o-lantern by the door in October
   if(m===9){
     const jx=7, jy=Math.max(20,gh-10);
@@ -1484,15 +1345,6 @@ function drawSeasonal(w,gh,geom){
     px(jx+1,jy+3,2,1,"#54381f");                   // stem
     px(jx+1,jy+1,1,1,"#f0d060");px(jx+3,jy+1,1,1,"#f0d060");   // eyes
     px(jx+1+(frame>>4)%2,jy+2,2,1,"#f0d060");      // flickering mouth
-  }
-  // sky layouts: fall leaves drifting / winter snow falling + snow caps on the wall line
-  if(geom&&geom.sky){
-    if(s===2){ for(let x=0;x<w;x+=11){const t=(frame>>3)+x; px(x%(w),8+(t*7+x*13)%9,1,1,(t%3)?"#d97a3a":"#c9a227");} }
-    else if(s===3){
-      for(let x=1;x<w;x+=7){const t=(frame>>2); px((x+t)%w, 6+((t*5+x*11)%11), 1,1,"#fff8ff");}
-      px(0,17,w,1,"#e8ecf4");                      // snow cap along the wall top
-    }
-    else if(s===0){ for(let x=3;x<w;x+=13)if(((frame>>4)+x)%5===0)px(x,16,1,1,"#e8c170"); }  // spring petals
   }
 }
 const visitors=[];   // {x,y,tx,ty,phase,dwell,kind,frameSeed}
@@ -1659,7 +1511,7 @@ function render(){
   const wall = (night() && theme.id==="default")?"#2a2038":theme.wall;
   window._theme = {id:theme.id, tileA, tileB, wall, isDark:night()};
   const gw=Math.floor(W/S),gh=Math.floor(H/S); _gw=gw; _gh=gh;
-  drawOffice(gw,gh); drawWeather(gw,gh); drawSeasonal(gw,gh,LAYOUT_GEOMETRY[settings.layout]||LAYOUT_GEOMETRY.open);   // drawOffice reads window._cosmetics
+  drawOffice(gw,gh); drawSeasonal(gw,gh);   // drawOffice reads window._cosmetics
   // painted tile overlay (user-clicked area colors)
   if(settings.painted){
     Object.entries(settings.painted).forEach(([key,name])=>{
