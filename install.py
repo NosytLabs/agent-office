@@ -17,6 +17,29 @@ def have(cmd: str) -> bool:
     return shutil.which(cmd) is not None or Path(cmd).exists()
 
 
+def load_json_config(path: Path) -> dict:
+    """Read an optional JSON object without making installation fatal."""
+    try:
+        if not path.exists():
+            return {}
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError(f"{path} must contain a JSON object")
+        return data
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_json_config(path: Path, data: dict) -> None:
+    """Persist a JSON object atomically so a terminated install cannot corrupt it."""
+    if not isinstance(data, dict):
+        raise ValueError("configuration must be a JSON object")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
 def detect() -> dict:
     return {
         "hermes": have("hermes") or (HOME / ".hermes").is_dir(),
@@ -53,12 +76,19 @@ def enable_opencode() -> str:
         return "skip opencode (no bridge in this tree)"
     if not cfg.exists():
         return "skip opencode (no ~/.config/opencode/opencode.json)"
-    data = json.loads(cfg.read_text())
+    try:
+        data = load_json_config(cfg)
+        if cfg.read_text(encoding="utf-8").strip() and not data:
+            return "skip opencode (invalid JSON in opencode.json; fix it and rerun)"
+    except OSError:
+        return "skip opencode (cannot read opencode.json)"
     arr = data.get("plugin") or []
+    if not isinstance(arr, list):
+        return "skip opencode (plugin setting is not a JSON array)"
     if plug not in arr:
         arr.append(plug)
         data["plugin"] = arr
-        cfg.write_text(json.dumps(data, indent=2) + "\n")
+        save_json_config(cfg, data)
         return f"opencode plugin appended ({plug})"
     return "opencode already wired"
 
@@ -70,8 +100,15 @@ def enable_claude() -> str:
     cmd = f"{sys.executable} {hook}"
     if not settings.exists():
         return "skip claude (no settings.json)"
-    data = json.loads(settings.read_text())
+    try:
+        data = load_json_config(settings)
+        if settings.read_text(encoding="utf-8").strip() and not data:
+            return "skip claude (invalid JSON in settings.json; fix it and rerun)"
+    except OSError:
+        return "skip claude (cannot read settings.json)"
     hooks = data.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        return "skip claude (hooks setting is not a JSON object)"
     added = 0
     for ev in ("SessionStart", "SessionEnd", "PreToolUse", "PostToolUse",
                "PostToolUseFailure", "PermissionRequest", "SubagentStart", "SubagentStop"):
@@ -85,7 +122,7 @@ def enable_claude() -> str:
             continue
         bucket.append({"hooks": [{"type": "command", "command": cmd}]})
         added += 1
-    settings.write_text(json.dumps(data, indent=2) + "\n")
+    save_json_config(settings, data)
     return f"claude hooks appended ({added} events)" if added else "claude already wired"
 
 

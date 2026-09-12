@@ -20,6 +20,11 @@ cd agent-office
 python3 install.py    # detects Hermes / OpenCode / Claude / VS Code
 ```
 
+The installer is idempotent: it only adds this project’s integration, keeps
+other settings, and writes JSON configuration atomically. If an existing
+runtime config is malformed, it reports the file and leaves it untouched so
+you can repair it before rerunning the installer.
+
 Then open **http://127.0.0.1:8113** — no agents handy? `python3 demo_feed.py`
 
 The installer wires only what you already have. Run it again any time to add
@@ -88,8 +93,15 @@ Claude hook ────┘                     │
 ## tests
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-dev.txt
 python3 -m pytest tests/ -q
 ```
+
+The suite covers event folding, settings persistence, installer behavior, and
+the Claude hook. The app is observer-only: it does not approve, deny, or
+rewrite agent actions.
 
 ## repo layout
 
