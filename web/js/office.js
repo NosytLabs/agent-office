@@ -312,13 +312,9 @@ function drawOffice(w,h,cosmetics){
 
 function drawDesk(x,y,a,cosmetics,frontOnly){
   const gold=cosmetics.includes("gold_monitor");
-  let h=0; for(const c of a.id) h=(h*31+c.charCodeAt(0))>>>0;
-  const finishes=[
-    {top:"#c4894a",slab:"#8d5524",front:"#6b3e1c",leg:"#3c2814",edge:"#e8c170"},
-    {top:"#d4a05a",slab:"#b08040",front:"#8d6530",leg:"#4a3420",edge:"#f0d090"},
-    {top:"#6a5a7a",slab:"#4a3a5a",front:"#2c2138",leg:"#1e1628",edge:"#9b8ab0"},
-  ];
-  const fin = finishes[h % finishes.length];
+  // Single desk style: every station shares one finish. The previous hash-picked
+  // 3-palette variation made the floor read as inconsistent furniture.
+  const fin={top:"#c4894a",slab:"#8d5524",front:"#6b3e1c",leg:"#3c2814",edge:"#e8c170"};
   if(!frontOnly){
     px(x+2,y+8,7,1,fin.leg);
     px(x+2,y+9,1,6,fin.leg); px(x+8,y+9,1,6,fin.leg);
@@ -363,11 +359,13 @@ function drawHealthBar(a,x,y){
   ctx.fillStyle=col;
   ctx.fillRect(x*S, (y-2)*S, Math.max(1,18*fill)*S, 2*S);
 }
-function drawChar(a,fx,fy,seated,cosmetics){
+function drawChar(a,fx,fy,seated,cosmetics,stepPhase){
   cosmetics=cosmetics||[];
   const h=hash(a.id), skin=SKIN[h%SKIN.length], shirt=SHIRT[(h>>3)%SHIRT.length],
         hair=HAIR[(h>>6)%HAIR.length], t=frame>>4;
-  const walking=!seated, bob=(walking&&(t%2))?1:0;
+  const walking=!seated;
+  const step=(stepPhase===undefined)?(t%2):(((stepPhase%2)+2)%2);
+  const bob=(walking&&step)?1:0;
   const x=fx, y=fy+bob;
   if(a.status==="gone")ctx.globalAlpha=0.35;
   const spr=spriteFor(a);
@@ -411,7 +409,7 @@ function drawChar(a,fx,fy,seated,cosmetics){
   if(cosmetics.includes("orange_scarf")){px(x+1,y+5,7,1,"#d97a3a")}
   px(x+0,y+6,1,3,skin); px(x+8,y+6,1,3,skin);
   if(walking){
-    if(t%2){px(x+2,y+10,2,3,"#2d2d3d");px(x+5,y+11,2,2,"#2d2d3d")}
+    if(step){px(x+2,y+10,2,3,"#2d2d3d");px(x+5,y+11,2,2,"#2d2d3d")}
     else{px(x+2,y+11,2,2,"#2d2d3d");px(x+5,y+10,2,3,"#2d2d3d")}
   }else{
     px(x+2,y+10,2,3,"#2d2d3d"); px(x+5,y+10,2,3,"#2d2d3d");
@@ -481,6 +479,15 @@ function label(a,x,y){
 
 const chars = new Map();
 const WALK = 0.55;
+// Walk cycle is driven by DISTANCE TRAVELLED, not the global frame counter.
+// Agents move WALK=0.55/frame while visitors move 0.06/frame — 9x apart — so a
+// frame-locked cadence made one set slide its feet and the other run in place.
+const STRIDE = 0.9;
+function advanceStep(o, moved){
+  o.stepAcc = (o.stepAcc||0) + (moved||0);
+  o.stepPhase = Math.floor(o.stepAcc / STRIDE);
+  return o.stepPhase;
+}
 let nextPairAt=2400+((Math.random()*3600)|0);
 function seatPos(i,perRow,geom,padLeft,rowStep,padTop){
   const g = geom || LAYOUT_GEOMETRY[settings.layout] || LAYOUT_GEOMETRY.open;
@@ -555,11 +562,13 @@ function stepChars(grid){
     }
     else {tx=c.phase==="out"?2:c.seat.x+3; ty=c.phase==="out"?2:c.seat.y;}
     const dx=tx-c.x, dy=ty-c.y, d=Math.hypot(dx,dy);
+    const _px=c.x, _py=c.y;
     if(d>=WALK){
       if(Math.abs(dx)>Math.abs(dy))c.face=dx<0?"left":"right";
       else if(Math.abs(dy)>0.05)c.face=dy<0?"up":"down";
       c.x+=dx/d*WALK; c.y+=dy/d*WALK;
     } else { c.x=tx;c.y=ty; if(c.phase==="in")c.phase="seated"; }
+    advanceStep(c, Math.hypot(c.x-_px, c.y-_py));
     if(c.lastStatus!==a.status){
       if(a.status==="waiting")chime([880,660,880]);
       else if(a.status==="done"&&a.kind==="subagent")chime([520,780]);
@@ -629,10 +638,12 @@ function stepVisitors(gw,gh){
       }else{
         if(!v.wp||Math.hypot(v.wp.x-v.x,v.wp.y-v.y)<0.5) v.wp=nextWp(v,gw,gh);
         const dx=v.wp.x-v.x, dy=v.wp.y-v.y, d=Math.hypot(dx,dy);
+        const _vx=v.x, _vy=v.y;
         if(d>=0.5){
           if(Math.abs(dx)>0.2) v.face=dx<0?"left":"right";
           v.x+=dx/d*speed; v.y+=dy/d*speed;
         }
+        advanceStep(v, Math.hypot(v.x-_vx, v.y-_vy));
       }
     }else if(v.phase==="dwell"){
       if(--v.dwell<=0){
@@ -645,7 +656,8 @@ function stepVisitors(gw,gh){
 function drawVisitors(){
   for(const v of visitors){
     const walking=v.phase!=="dwell";
-    const bob=(walking&&(frame>>3)%2)?1:0;
+    const _vstep=(v.stepPhase===undefined)?((frame>>3)%2):(((v.stepPhase%2)+2)%2);
+    const bob=(walking&&_vstep)?1:0;
     const k=v.kind;
     const px0=Math.round(v.x*S), py0=Math.round((v.y+bob)*S);
     const pos=drawNpcSprite(v, px0, py0);
@@ -725,7 +737,7 @@ function render(){
   list.forEach((a,i)=>{
     const c=chars.get(a.id); if(!c)return;
     const seated=c.phase==="seated";
-    drawChar(a,c.x,c.y,seated,cosmetics);
+    drawChar(a,c.x,c.y,seated,cosmetics,c.stepPhase);
     if(c.pair){
       ctx.fillStyle="#5fce7a";
       ctx.fillRect((c.x+3)*S, (c.y-1)*S, 2*S, 2*S);
@@ -1171,13 +1183,19 @@ function fillRoster(){
     let elapsed="";
     if(_dur!==null){ const s=Math.max(0,Math.floor(_dur));
       elapsed = s<60 ? s+"s" : Math.floor(s/60)+"m "+(s%60)+"s"; }
+    let blockedTxt="";
+    if(a.status==="waiting"){
+      const bs=(typeof a.idle_s==="number")?Math.max(0,Math.floor(a.idle_s))
+        : (a.updated_at?Math.max(0,Math.floor(Date.now()/1000-a.updated_at)):0);
+      blockedTxt=" · <span style='color:#d84f6f'>blocked "+(bs<60?bs+"s":Math.floor(bs/60)+"m "+Math.floor(bs%60)+"s")+"</span>";
+    }
     const attn = a.status==="waiting" ? " <span style='color:#d84f6f'>● NEEDS INPUT</span>" : "";
     info.innerHTML="<div class='n'>"+(a.label||a.id)+
       (a.kind==="subagent"?" <span class='h'>(sub)</span>":"")+
       " <img src='"+platIcon+"' width='10' height='10' style='vertical-align:middle' alt=''>"+
       "</div><div class='h'>"+a.status+
       (a.tool?" · "+a.tool:"")+
-      (elapsed?" · "+elapsed:"")+
+      (elapsed?" · "+elapsed:"")+blockedTxt+
       (a.detail?" · "+a.detail:"")+attn+
       "</div>";
     d.appendChild(info);
@@ -1270,27 +1288,10 @@ function fillStats(){
   ];
   let html=rows.map(([k,v])=>
     "<div class='kv'><span>"+k+"</span><b>"+v+"</b></div>").join("");
-  const tracked = agents.filter(trackMatch);
-  if(agents.length){
-    const rankA=a=>a.status==="waiting"?0:a.status==="working"?1:2;
-    const sortedA=[...tracked].sort((a,b)=>rankA(a)-rankA(b));
-    html+="<p class='h' style='margin-top:10px'>agents ("+tracked.length+"/"+agents.length+(trackQuery?" · filter '"+trackQuery+"'":"")+")</p>"+
-      (sortedA.length? sortedA.map(a=>{
-        const el=(typeof a.duration_s==="number")?Math.max(0,Math.floor(a.duration_s))
-          : (a.first_seen?Math.max(0,Math.floor(Date.now()/1000-a.first_seen)):0);
-        const els=el<60?el+"s":Math.floor(el/60)+"m";
-        let blocked="";
-        if(a.status==="waiting"){
-          const bs=(typeof a.idle_s==="number")?Math.max(0,Math.floor(a.idle_s))
-            : (a.updated_at?Math.max(0,Math.floor(Date.now()/1000-a.updated_at)):0);
-          blocked=" · blocked "+(bs<60?bs+"s":Math.floor(bs/60)+"m");
-        }
-        const dot=a.status==="waiting"?"#d84f6f":a.status==="working"?"#5fce7a":"#7a6f8f";
-        return "<div class='kv'><span><span style='color:"+dot+"'>●</span> "+
-          (a.label||a.id).slice(0,18)+" <span class='h'>"+a.status+
-          (a.tool?" · "+a.tool:"")+(a.detail?" · "+(a.detail||"").slice(0,24):"")+blocked+"</span></span><b>"+els+"</b></div>";
-      }).join("") : "<p class='h'>no match</p>");
-  }
+  // Tracking-first: the live agent list (with search, blocked-first ordering and
+  // per-agent elapsed/blocked times) is rendered by fillRoster() into #roster.
+  // This panel is the USAGE half only — the duplicate compact agent list that
+  // used to live here was removed so agents are listed exactly once.
   box.innerHTML=html;
   const btn=document.createElement("button");
   btn.type="button"; btn.className="btn"; btn.id="exportTrack";
