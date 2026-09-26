@@ -3,8 +3,6 @@
 Watch your [Hermes](https://github.com/NousResearch/hermes-agent) agents work
 as animated pixel characters in a tiny office, inside VS Code.
 
-![live screenshot](screenshot-live.png)
-
 Sessions walk in through the door and sit at desks. Subagents get gold
 collars and their goal as a name tag. Characters type, read, browse, and run
 terminals based on what the agent is actually doing. When an agent needs a
