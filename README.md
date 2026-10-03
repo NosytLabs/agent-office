@@ -97,10 +97,14 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python3 -m pytest tests/ -q
+npm --prefix opencode test
 ```
 
-The suite covers event folding, settings persistence, installer behavior, and
-the Claude hook. The app is observer-only: it does not approve, deny, or
+The suites cover event folding, settings persistence, installer behavior,
+the Claude hook, and real OpenCode bridge event writes. The OpenCode checks
+require Node.js 22 or newer and no npm dependencies. Both the Claude and
+OpenCode observers honor `HERMES_HOME` when it is set.
+The app is observer-only: it does not approve, deny, or
 rewrite agent actions.
 
 ## repo layout

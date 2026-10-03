@@ -7,7 +7,8 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const EVENTS = join(homedir(), ".hermes", "pixel-office", "events.jsonl");
+const OFFICE_DIR = join(process.env.HERMES_HOME || join(homedir(), ".hermes"), "pixel-office");
+const EVENTS = join(OFFICE_DIR, "events.jsonl");
 const ACTIVITY = {
   bash: "running",
   terminal: "running",
@@ -27,7 +28,7 @@ const ACTIVITY = {
 
 function publish(event) {
   try {
-    mkdirSync(join(homedir(), ".hermes", "pixel-office"), { recursive: true });
+    mkdirSync(OFFICE_DIR, { recursive: true });
     const line = JSON.stringify({
       ts: Date.now() / 1000,
       pid: process.pid,
@@ -52,8 +53,8 @@ export const PixelOfficeBridge = async () => ({
   event: async ({ event }) => {
     try {
       const type = event?.type || "";
-      const data = event?.data || event || {};
-      const sid = data.sessionID || data.sessionId || data.id || "";
+      const data = event?.properties || event?.data || event || {};
+      const sid = data.sessionID || data.sessionId || data.info?.id || data.id || "";
       if (type === "session.created" || type === "session.updated") {
         if (sid) publish({ event: "session_start", session_id: sid, platform: "opencode" });
       } else if (type === "session.deleted" || type === "session.idle") {

@@ -18,16 +18,13 @@ def have(cmd: str) -> bool:
 
 
 def load_json_config(path: Path) -> dict:
-    """Read an optional JSON object without making installation fatal."""
-    try:
-        if not path.exists():
-            return {}
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError(f"{path} must contain a JSON object")
-        return data
-    except (OSError, json.JSONDecodeError):
+    """Read an optional object; callers report invalid files without replacing them."""
+    if not path.exists():
         return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return data
 
 
 def save_json_config(path: Path, data: dict) -> None:
@@ -78,10 +75,10 @@ def enable_opencode() -> str:
         return "skip opencode (no ~/.config/opencode/opencode.json)"
     try:
         data = load_json_config(cfg)
-        if cfg.read_text(encoding="utf-8").strip() and not data:
-            return "skip opencode (invalid JSON in opencode.json; fix it and rerun)"
     except OSError:
         return "skip opencode (cannot read opencode.json)"
+    except ValueError:
+        return "skip opencode (invalid JSON object in opencode.json; fix it and rerun)"
     arr = data.get("plugin") or []
     if not isinstance(arr, list):
         return "skip opencode (plugin setting is not a JSON array)"
@@ -102,10 +99,10 @@ def enable_claude() -> str:
         return "skip claude (no settings.json)"
     try:
         data = load_json_config(settings)
-        if settings.read_text(encoding="utf-8").strip() and not data:
-            return "skip claude (invalid JSON in settings.json; fix it and rerun)"
     except OSError:
         return "skip claude (cannot read settings.json)"
+    except ValueError:
+        return "skip claude (invalid JSON object in settings.json; fix it and rerun)"
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         return "skip claude (hooks setting is not a JSON object)"
