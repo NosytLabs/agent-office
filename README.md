@@ -36,6 +36,8 @@ python3 install.py
 
 The installer detects existing runtime installations, adds this observer, and preserves other configuration. Restart the runtime after installation. Invalid configuration is reported without replacement.
 
+On an empty first visit, choose **Connect your first agent**. You can reopen the runtime-specific connection guide from **Customize → Connection guide**. It explains Hermes, Telegram via Hermes, OpenCode, Claude Code and VS Code, and distinguishes synthetic demo activity from recorded sessions. A reachable observer alone does not verify a runtime installation. Click **need input** above the floor to inspect a waiting session; respond in the original runtime.
+
 | Integration | What it observes | Setup |
 |---|---|---|
 | Hermes | Sessions, tools, subagents, approval requests | Enables `pixel-office` through the Hermes plugin CLI |

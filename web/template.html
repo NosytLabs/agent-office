@@ -137,7 +137,8 @@
             <h2 id="room-name">The studio</h2>
           </div>
           <div id="summary">
-            <span id="count">Connecting…</span><span id="waiting-count"></span>
+            <span id="count">Connecting…</span
+            ><button class="btn" id="waiting-count" hidden></button>
           </div>
         </div>
         <div id="stage">
@@ -151,6 +152,9 @@
           <div id="empty-state" hidden>
             <h3>The office is ready.</h3>
             <p>Start a connected agent to bring the room to life.</p>
+            <button class="btn" data-sheet="sheet-setup">
+              Connect your first agent
+            </button>
             <code>python3 demo_feed.py</code>
             <p class="h">Try a separate demo with synthetic activity.</p>
           </div>
@@ -289,6 +293,7 @@
       <button class="btn" id="edit-furniture">Arrange custom furniture</button>
       <button class="btn" id="clear-furniture">Clear custom furniture</button>
       <h3>Your setup</h3>
+      <button class="btn" data-sheet="sheet-setup">Connection guide</button>
       <div class="cluster">
         <button class="btn" id="export-settings">Export layout ↓</button
         ><label class="btn"
@@ -351,6 +356,71 @@
           >Setup and troubleshooting ↗</a
         >
       </p>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-setup"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Connection guide"
+      hidden
+    >
+      <h2>Bring your agents to work</h2>
+      <p>
+        Three steps, then the room follows real activity. Run these commands in
+        your Agent Office checkout.
+      </p>
+      <ol>
+        <li>
+          <b>Start the observer.</b>
+          <p><code>python3 run.py</code></p>
+          <p class="h">
+            Keep this terminal running. Connected means the observer is
+            reachable, not that a runtime is installed.
+          </p>
+        </li>
+        <li>
+          <b>Install the bridge.</b>
+          <p><code>python3 install.py</code></p>
+          <p class="h">
+            Detects installed runtimes and preserves their existing
+            configuration. Review its output, then restart your runtime.
+          </p>
+        </li>
+        <li>
+          <b>Start a session and use a tool.</b>
+          <p>
+            Your agent appears after its first recorded event. Click its desk to
+            inspect the current tool and recent activity.
+          </p>
+        </li>
+      </ol>
+      <label for="setup-runtime">Your runtime</label>
+      <select id="setup-runtime">
+        <option value="hermes">Hermes</option>
+        <option value="telegram">Telegram via Hermes</option>
+        <option value="opencode">OpenCode</option>
+        <option value="claude">Claude Code</option>
+        <option value="vscode">VS Code</option>
+      </select>
+      <p id="setup-detail"></p>
+      <p id="setup-observed" role="status"></p>
+      <h3>No activity yet?</h3>
+      <p>
+        Check the installer output and restart the runtime. The server and
+        runtime must share the same <code>HERMES_HOME</code>. Without it, both
+        use <code>~/.hermes</code>. Quiet sessions eventually leave the room;
+        they are not persistent employees.
+      </p>
+      <p>
+        Need input? Open the agent inspector, then respond in the original
+        runtime. This office never approves a command.
+      </p>
+      <p>
+        Try <code>python3 demo_feed.py</code> for a separate, clearly labeled
+        demo at port 8114.
+      </p>
+      <button class="btn" id="setup-done">Got it · back to the office</button>
     </section>
     <script src="js/data.js"></script>
     <script src="js/icons.js"></script>

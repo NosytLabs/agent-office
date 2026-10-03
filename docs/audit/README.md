@@ -108,3 +108,18 @@ require a separate supported GitHub operation.
 
 ![Move a selected prop with preview and undo/redo controls](furniture-editor.png)
 ![Searchable room rewards](room-rewards.png)
+# Guided setup follow-up · 2026-10-03
+
+Added runtime-specific setup guidance, empty-room entry point, live/demo verification text, and a needs-input inspector shortcut. The Claude installer now reports malformed hook buckets without replacing existing configuration.
+
+Local validation: 50 Python tests and 12 Node tests passed. Syntax and formatting are checked separately. The new browser case is present but **not validated**: this execution session denies Chromium's process-singleton socket (`Operation not permitted`); escalation is disabled. No new screenshot or browser-pass claim is made for this follow-up. Prior screenshot evidence below belongs to the previously merged passes.
+
+Reference README comparison:
+
+| Reference | Useful direction | Reuse decision |
+| --- | --- | --- |
+| [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) | Runtime hooks, approval cues, editable rooms | Existing attributed character assets retained; no new art imported |
+| [Sahni Agents Office](https://github.com/ajsahni/agents-office) | First-five-minutes instructions and explicit connection states | No code or assets copied; noncommercial plus additional rebundling restrictions |
+| [AgentSystemLabs](https://github.com/AgentSystemLabs/agent-office) | Guided initial setup and visible waiting-agent navigation | Independent observer-compatible implementation; terminal execution remains outside this app |
+| [Agent Virtual Office](https://github.com/KbWen/agent-virtual-office) | Truthful current status and empty-state wording | Independent guidance; no fabricated activity or copied art |
+| [Star Office UI](https://github.com/ringhyacinth/Star-Office-UI) | Setup verification and stale-session clarity | No art imported: README distinguishes MIT code from noncommercial art |

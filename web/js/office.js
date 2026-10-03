@@ -134,8 +134,8 @@ function openSheet(id) {
   $(id).hidden = false;
   $("backdrop").hidden = false;
   document
-    .querySelector(`[data-sheet="${id}"]`)
-    ?.setAttribute("aria-expanded", "true");
+    .querySelectorAll(`[data-sheet="${id}"]`)
+    .forEach((b) => b.setAttribute("aria-expanded", "true"));
   refreshPanel();
   $(id).querySelector("input:not([type=file]),button")?.focus();
 }
@@ -152,6 +152,7 @@ $("backdrop").onclick = closeSheets;
 for (const b of document.querySelectorAll("[data-sheet]"))
   b.onclick = () => openSheet(b.dataset.sheet);
 function refreshPanel() {
+  if (opened === "sheet-setup") fillSetup();
   if (opened === "sheet-floor") {
     fillRoster();
     fillStats();
@@ -162,6 +163,44 @@ function refreshPanel() {
   if (opened === "sheet-unlocks") fillBadges();
   if (opened === "sheet-settings") fillSettings();
 }
+function fillSetup() {
+  const runtime = $("setup-runtime").value;
+  const details = {
+    hermes:
+      "The installer enables the pixel-office Hermes plugin. Restart Hermes and start a CLI session. If enable failed, run: hermes plugins enable pixel-office.",
+    telegram:
+      "Install the Hermes observer first, then use your existing Hermes Telegram gateway. Bot credentials and gateway setup belong in Hermes. Telegram sessions appear only when Hermes emits those events; this office does not connect a bot or send messages.",
+    opencode:
+      "The installer appends the local opencode bridge to ~/.config/opencode/opencode.json. If that file is missing, create it as a JSON object using your OpenCode configuration, then rerun the installer and restart OpenCode. Keep run.py running.",
+    claude:
+      "The installer adds observer hooks to ~/.claude/settings.json. If the file is missing, create it as a JSON object, rerun the installer, and restart Claude Code. Other hooks are preserved. Keep run.py running.",
+    vscode:
+      "The installer copies the local extension. Reload VS Code and run Agent Office: Open Floor. Keep the observer running; if using a different port, update hermesPixelOffice.stateUrl to its /state URL.",
+  };
+  $("setup-detail").textContent = details[runtime];
+  const matching = agents.filter(
+    (a) =>
+      a.platform === runtime ||
+      runtime === "vscode" ||
+      (runtime === "hermes" &&
+        ["cli", "telegram", "gateway", ""].includes(a.platform || "")),
+  );
+  $("setup-observed").textContent = offline
+    ? "Observer disconnected. Start the server to check recorded sessions."
+    : window._state?.mode === "demo"
+      ? "Demo activity is synthetic. Switch to your real observer to verify this connection."
+      : matching.length
+        ? matching.length + " recorded session(s) visible for this view."
+        : "No recorded sessions for this runtime yet. Installation cannot be verified from an empty room.";
+}
+$("setup-runtime").onchange = fillSetup;
+$("setup-done").onclick = closeSheets;
+$("waiting-count").onclick = () => {
+  const next =
+    agents.find((a) => a.status === "waiting" && a.id !== focusedId) ||
+    agents.find((a) => a.status === "waiting");
+  if (next) selectAgent(next.id);
+};
 function agentCard(a) {
   const button = document.createElement("button");
   button.className = "agent-card";
@@ -436,6 +475,8 @@ function applyState(state, pollRevision = settingsRevision) {
   $("count").textContent =
     n + " agent" + (n === 1 ? "" : "s") + " on the floor";
   $("waiting-count").textContent = w ? w + " need input" : "";
+  $("waiting-count").hidden = !w;
+  if (opened === "sheet-setup") fillSetup();
   $("empty-state").hidden = !!scene.edit || scene.list().length > 0;
   if (!agents.length || !scene.list().length) {
     $("empty-state").querySelector("h3").textContent = agents.length
@@ -508,6 +549,7 @@ async function poll() {
     applyState(await r.json(), revision);
   } catch {
     offline = true;
+    if (opened === "sheet-setup") fillSetup();
     document.body.classList.add("offline");
     $("connection").textContent = "Reconnecting";
     $("count").textContent = "Connection lost";

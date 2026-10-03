@@ -107,6 +107,17 @@ def enable_claude() -> str:
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         return "skip claude (hooks setting is not a JSON object)"
+    # Validate all observed event buckets before changing anything on disk.
+    for ev in ("SessionStart", "SessionEnd", "PreToolUse", "PostToolUse",
+               "PostToolUseFailure", "PermissionRequest", "SubagentStart", "SubagentStop"):
+        bucket = hooks.get(ev, [])
+        if not isinstance(bucket, list) or any(
+            not isinstance(item, dict)
+            or not isinstance(item.get("hooks", []), list)
+            or any(not isinstance(h, dict) for h in item.get("hooks", []))
+            for item in bucket
+        ):
+            return f"skip claude (invalid {ev} hooks; fix settings.json and rerun)"
     added = 0
     for ev in ("SessionStart", "SessionEnd", "PreToolUse", "PostToolUse",
                "PostToolUseFailure", "PermissionRequest", "SubagentStart", "SubagentStop"):
