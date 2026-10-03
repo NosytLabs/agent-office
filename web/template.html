@@ -152,13 +152,19 @@
           <div id="empty-state" hidden>
             <h3>The office is ready.</h3>
             <p>Start a connected agent to bring the room to life.</p>
-            <button class="btn" data-sheet="sheet-setup">
+            <button class="btn" id="empty-connect" data-sheet="sheet-setup">
               Connect your first agent
             </button>
-            <code>python3 demo_feed.py</code>
-            <p class="h">Try a separate demo with synthetic activity.</p>
+            <button class="btn" id="empty-show-all" hidden>
+              Show all runtimes
+            </button>
+            <p class="h" id="empty-demo">
+              Just exploring? Try <code>python3 demo_feed.py</code> in a
+              separate terminal.
+            </p>
           </div>
         </div>
+        <p id="furniture-status" class="h" role="status" hidden></p>
         <div id="edit-hint" hidden>
           <span id="edit-message">Choose free floor space.</span>
           <button class="btn" id="arrange-furniture">Move</button>
@@ -365,61 +371,94 @@
       aria-label="Connection guide"
       hidden
     >
+      <span class="eyebrow">GET CONNECTED</span>
       <h2>Bring your agents to work</h2>
-      <p>
-        Three steps, then the room follows real activity. Run these commands in
-        your Agent Office checkout.
+      <p class="h">
+        One local observer. Your existing tools. Choose a runtime to see its
+        connection steps.
       </p>
-      <ol>
-        <li>
-          <b>Start the observer.</b>
-          <p><code>python3 run.py</code></p>
-          <p class="h">
-            Keep this terminal running. Connected means the observer is
-            reachable, not that a runtime is installed.
-          </p>
-        </li>
-        <li>
-          <b>Install the bridge.</b>
-          <p><code>python3 install.py</code></p>
-          <p class="h">
-            Detects installed runtimes and preserves their existing
-            configuration. Review its output, then restart your runtime.
-          </p>
-        </li>
-        <li>
-          <b>Start a session and use a tool.</b>
-          <p>
-            Your agent appears after its first recorded event. Click its desk to
-            inspect the current tool and recent activity.
-          </p>
-        </li>
-      </ol>
-      <label for="setup-runtime">Your runtime</label>
-      <select id="setup-runtime">
+      <label class="setup-label" for="setup-runtime">Your runtime</label>
+      <select id="setup-runtime" class="txt">
         <option value="hermes">Hermes</option>
         <option value="telegram">Telegram via Hermes</option>
         <option value="opencode">OpenCode</option>
         <option value="claude">Claude Code</option>
         <option value="vscode">VS Code</option>
       </select>
-      <p id="setup-detail"></p>
-      <p id="setup-observed" role="status"></p>
-      <h3>No activity yet?</h3>
-      <p>
-        Check the installer output and restart the runtime. The server and
-        runtime must share the same <code>HERMES_HOME</code>. Without it, both
-        use <code>~/.hermes</code>. Quiet sessions eventually leave the room;
-        they are not persistent employees.
-      </p>
-      <p>
-        Need input? Open the agent inspector, then respond in the original
-        runtime. This office never approves a command.
-      </p>
-      <p>
-        Try <code>python3 demo_feed.py</code> for a separate, clearly labeled
-        demo at port 8114.
-      </p>
+      <div class="setup-status">
+        <span class="eyebrow">CONNECTION CHECK</span>
+        <p id="setup-observed" role="status"></p>
+      </div>
+      <ol class="setup-steps">
+        <li>
+          <h3>Start the observer</h3>
+          <p class="h">
+            In your Agent Office checkout, run this and keep the terminal open.
+          </p>
+          <div class="setup-command">
+            <code id="command-observer">python3 run.py</code
+            ><button
+              class="btn"
+              data-copy-command="command-observer"
+              aria-label="Copy observer command"
+            >
+              Copy
+            </button>
+          </div>
+        </li>
+        <li>
+          <h3>Connect your runtime</h3>
+          <p class="h">
+            In a second terminal, run the installer. Review its output, then
+            restart your runtime.
+          </p>
+          <div class="setup-command">
+            <code id="command-install">python3 install.py</code
+            ><button
+              class="btn"
+              data-copy-command="command-install"
+              aria-label="Copy installer command"
+            >
+              Copy
+            </button>
+          </div>
+          <p id="setup-detail"></p>
+        </li>
+        <li>
+          <h3>Start a session and use a tool</h3>
+          <p class="h">
+            Your agent appears after its first recorded event. Select its desk
+            or open Agents to inspect the current tool and recent activity.
+          </p>
+        </li>
+      </ol>
+      <p id="setup-copy-status" class="h" role="status"></p>
+      <details class="setup-help">
+        <summary>No activity yet?</summary>
+        <p>
+          Check the installer output and restart the runtime. The server and
+          runtime must share the same <code>HERMES_HOME</code>. Without it, both
+          use <code>~/.hermes</code>.
+        </p>
+        <p>
+          Connected means the observer is reachable. It does not confirm that a
+          runtime is installed. Quiet sessions eventually leave the room; they
+          are not persistent employees.
+        </p>
+      </details>
+      <details class="setup-help">
+        <summary>Approvals, questions and demo mode</summary>
+        <p>
+          When an agent needs input, select the button above the floor to
+          inspect it. Respond in the original runtime. This office never
+          approves a command.
+        </p>
+        <p>
+          Try <code>python3 demo_feed.py</code> for a separate, clearly labeled
+          demo at port 8114. Its activity and XP stay separate from your real
+          sessions.
+        </p>
+      </details>
       <button class="btn" id="setup-done">Got it · back to the office</button>
     </section>
     <script src="js/data.js"></script>

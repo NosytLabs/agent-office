@@ -223,3 +223,108 @@ def test_rejected_question_clears_its_blocked_tool(folded):
         {"event": "input_response", "request_id": "q1", "choice": "reject"},
     )["a"]
     assert (agent["status"], agent["tool"], agent["activity"]) == ("thinking", "", "")
+
+
+@pytest.mark.parametrize("ending,status", [("session_idle", "idle"), ("session_end", "gone"), ("subagent_stop", "done")])
+def test_delayed_tool_completion_cannot_resurrect_an_inactive_agent(folded, ending, status):
+    agent = folded(
+        {"event": "subagent_start", "child_session_id": "a", "child_goal": "Review"},
+        {"event": "tool_start", "call_id": "old", "tool_name": "Read", "activity": "reading"},
+        {"event": ending, "child_session_id": "a"},
+        {"event": "tool_end", "call_id": "old", "tool_name": "Read"},
+    )["a"]
+    assert (agent["status"], agent["tool"], agent["activity"]) == (status, "", "")
+
+
+@pytest.mark.parametrize("response", ["approval_response", "input_response"])
+def test_delayed_human_response_does_not_resurrect_closed_session(folded, response):
+    agent = folded(
+        {"event": "approval_request", "request_id": "old", "command": "Publish?"},
+        {"event": "session_end"},
+        {"event": response, "request_id": "old", "choice": "once"},
+    )["a"]
+    assert agent["status"] == "gone"
+
+
+def test_new_prompt_reactivates_a_finished_session(folded):
+    agent = folded(
+        {"event": "session_busy"}, {"event": "session_idle"},
+        {"event": "session_busy"},
+        {"event": "tool_start", "call_id": "new", "tool_name": "Read", "activity": "reading"},
+        {"event": "tool_end", "call_id": "new", "tool_name": "Read"},
+    )["a"]
+    assert agent["status"] == "thinking"
+
+
+def test_hermes_old_parallel_completion_keeps_the_current_approval_context(monkeypatch):
+    import contextvars
+
+    events = []
+    monkeypatch.setattr(plugin, "_publish", events.append)
+    context = contextvars.Context()
+    context.run(plugin._pre_tool_call, session_id="a", tool_call_id="older", tool_name="Read")
+    context.run(plugin._pre_tool_call, session_id="a", tool_call_id="current", tool_name="Bash")
+    context.run(plugin._post_tool_call, session_id="a", tool_call_id="older", tool_name="Read")
+    context.run(plugin._pre_approval_request, command="Current command")
+    assert (events[-1]["session_id"], events[-1]["call_id"]) == ("a", "current")
+
+
+def test_hermes_explicit_session_never_inherits_another_sessions_call_id(monkeypatch):
+    import contextvars
+
+    events = []
+    monkeypatch.setattr(plugin, "_publish", events.append)
+    context = contextvars.Context()
+    context.run(plugin._pre_tool_call, session_id="a", tool_call_id="call-a", tool_name="Bash")
+    context.run(plugin._pre_approval_request, session_id="b", command="Other session")
+    assert (events[-1]["session_id"], events[-1]["call_id"]) == ("b", "")
+
+
+def test_claude_question_completion_dismisses_the_input_prompt(folded):
+    from claude.hook import map_hook
+
+    common = {"session_id": "a", "tool_use_id": "q1", "tool_name": "AskUserQuestion"}
+    agent = folded(
+        map_hook({**common, "hook_event_name": "PreToolUse", "tool_input": {"questions": [{"question": "Which branch?"}]}}),
+    )["a"]
+    assert (agent["status"], agent["detail"]) == ("waiting", "Which branch?")
+    agent = folded(
+        map_hook({**common, "hook_event_name": "PreToolUse", "tool_input": {"questions": [{"question": "Which branch?"}]}}),
+        map_hook({**common, "hook_event_name": "PostToolUse"}),
+    )["a"]
+    assert (agent["status"], agent["detail"]) == ("thinking", "")
+
+
+def test_denied_question_tool_dismisses_its_unanswered_question(folded):
+    from claude.hook import map_hook
+
+    common = {"session_id": "a", "tool_name": "AskUserQuestion"}
+    agent = folded(
+        map_hook({**common, "hook_event_name": "PreToolUse", "tool_use_id": "q1", "tool_input": {"questions": [{"question": "Which branch?"}]}}),
+        map_hook({**common, "hook_event_name": "PermissionRequest"}),
+        map_hook({**common, "hook_event_name": "PermissionDenied", "tool_use_id": "q1"}),
+    )["a"]
+    assert (agent["status"], agent["tool"], agent["activity"]) == ("thinking", "", "")
+
+
+def test_claude_question_denial_without_permission_call_ids_dismisses_prompt(folded):
+    from claude.hook import map_hook
+
+    common = {"session_id": "a", "tool_name": "AskUserQuestion"}
+    agent = folded(
+        map_hook({**common, "hook_event_name": "PreToolUse", "tool_use_id": "q1", "tool_input": {"questions": [{"question": "Which branch?"}]}}),
+        map_hook({**common, "hook_event_name": "PermissionRequest"}),
+        map_hook({**common, "hook_event_name": "PermissionDenied"}),
+    )["a"]
+    assert (agent["status"], agent["tool"], agent["activity"]) == ("thinking", "", "")
+    assert agent["detail"] == "approval: deny"
+
+
+def test_legacy_question_denial_keeps_an_independent_input_request(folded):
+    agent = folded(
+        {"event": "input_request", "call_id": "q1", "tool_name": "AskUserQuestion", "question": "Which branch?"},
+        {"event": "input_request", "request_id": "other", "tool_name": "question", "question": "Which project?"},
+        {"event": "approval_request", "tool_name": "AskUserQuestion", "command": "AskUserQuestion"},
+        {"event": "approval_response", "tool_name": "AskUserQuestion", "choice": "deny"},
+    )["a"]
+    assert (agent["status"], agent["detail"]) == ("waiting", "Which project?")

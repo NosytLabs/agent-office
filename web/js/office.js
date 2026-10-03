@@ -115,11 +115,18 @@ function selectAgent(id) {
 function closeSheets() {
   for (const s of document.querySelectorAll(".sheet")) s.hidden = true;
   $("backdrop").hidden = true;
+  $("wrap").inert = false;
   document
     .querySelectorAll("[data-sheet]")
     .forEach((b) => b.setAttribute("aria-expanded", "false"));
   opened = null;
-  if (returnFocus?.isConnected) returnFocus.focus();
+  if (
+    returnFocus?.isConnected &&
+    returnFocus.getClientRects().length &&
+    !returnFocus.disabled
+  )
+    returnFocus.focus();
+  else if (returnFocus) $("c").focus();
   returnFocus = null;
 }
 function openSheet(id) {
@@ -133,6 +140,7 @@ function openSheet(id) {
   opened = id;
   $(id).hidden = false;
   $("backdrop").hidden = false;
+  $("wrap").inert = true;
   document
     .querySelectorAll(`[data-sheet="${id}"]`)
     .forEach((b) => b.setAttribute("aria-expanded", "true"));
@@ -195,18 +203,57 @@ function fillSetup() {
 }
 $("setup-runtime").onchange = fillSetup;
 $("setup-done").onclick = closeSheets;
+for (const button of document.querySelectorAll("[data-copy-command]")) {
+  button.onclick = async () => {
+    const command = $(button.dataset.copyCommand);
+    try {
+      await navigator.clipboard.writeText(command.textContent);
+      $("setup-copy-status").textContent = "Copied: " + command.textContent;
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(command);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      $("setup-copy-status").textContent =
+        "Command selected. Use your device’s Copy action.";
+    }
+  };
+}
 $("waiting-count").onclick = () => {
+  const waiting = agents.filter((a) => a.status === "waiting");
   const next =
-    agents.find((a) => a.status === "waiting" && a.id !== focusedId) ||
-    agents.find((a) => a.status === "waiting");
+    waiting[
+      (waiting.findIndex((a) => a.id === focusedId) + 1) % waiting.length
+    ];
   if (next) selectAgent(next.id);
 };
-function agentCard(a) {
-  const button = document.createElement("button");
+function syncEmptyState() {
+  const filtered = agents.length > 0;
+  $("empty-state").hidden = !!scene.edit || scene.list().length > 0;
+  $("empty-state").querySelector("h3").textContent = filtered
+    ? "No agents in this view."
+    : "The office is ready.";
+  $("empty-state").querySelector("p").textContent = filtered
+    ? "Your other agents are still on the floor."
+    : "Connect a runtime, then start a session to bring the room to life.";
+  $("empty-connect").hidden = filtered;
+  $("empty-show-all").hidden = !filtered;
+  $("empty-demo").hidden = filtered;
+}
+$("empty-show-all").onclick = () => {
+  $("filterbtn").value = platFilter = "every";
+  updateScene();
+  syncEmptyState();
+  $("filterbtn").focus();
+};
+function agentCard(a, existing) {
+  const button = existing || document.createElement("button");
   button.className = "agent-card";
   button.type = "button";
   button.dataset.agent = a.id;
-  const portrait = document.createElement("canvas");
+  const portrait =
+    button.querySelector(".portrait") || document.createElement("canvas");
   portrait.width = 16;
   portrait.height = 24;
   portrait.className = "portrait";
@@ -214,11 +261,12 @@ function agentCard(a) {
   const image = scene.sprites["char" + (hash(a.id) % 6)];
   if (image)
     portrait.getContext("2d").drawImage(image, 0, 8, 16, 24, 0, 0, 16, 24);
-  button.append(portrait);
-  const body = document.createElement("div");
+  const body =
+    button.querySelector(".agent-copy") || document.createElement("div");
   body.className = "agent-copy";
   body.innerHTML = `<strong>${escapeHTML(a.label || a.id)}</strong><small>${escapeHTML(platOf(a))} · ${escapeHTML(a.tool || a.detail || "Between tasks")}</small><small>${escapeHTML(duration(a.duration_s))}${a.parent ? " · subagent" : ""}</small>`;
-  const status = document.createElement("span");
+  const status =
+    button.querySelector(".status") || document.createElement("span");
   status.className =
     "status " +
     (["working", "thinking", "waiting", "idle", "done", "gone"].includes(
@@ -227,17 +275,51 @@ function agentCard(a) {
       ? a.status
       : "idle");
   status.textContent = STATUS_NAMES[a.status] || a.status;
-  button.append(body, status);
+  if (!existing) button.append(portrait, body, status);
   button.onclick = () => selectAgent(a.id);
   return button;
 }
+function reconcileAgentCards(box, nodes, fallback) {
+  const focused = box.contains(document.activeElement)
+    ? document.activeElement
+    : null;
+  const focusedId = focused?.dataset.agent;
+  let cursor = box.firstChild;
+  for (const node of nodes) {
+    if (node === cursor) cursor = cursor.nextSibling;
+    else box.insertBefore(node, cursor);
+  }
+  while (cursor) {
+    const next = cursor.nextSibling;
+    cursor.remove();
+    cursor = next;
+  }
+  if (focusedId) {
+    const target =
+      nodes.find((node) => node.dataset.agent === focusedId) ||
+      nodes.find((node) => node.dataset.agent) ||
+      fallback;
+    if (target && document.activeElement !== target)
+      target.focus({ preventScroll: true });
+  }
+}
 function fillRoster() {
   const box = $("roster");
-  if (box.contains(document.activeElement)) return;
-  box.replaceChildren();
-  const q = trackQuery.toLowerCase();
+  const existing = new Map(
+    [...box.querySelectorAll(".agent-card")].map((b) => [b.dataset.agent, b]),
+  );
+  const q = trackQuery.trim().toLowerCase();
   const list = agents.filter((a) =>
-    [a.label, a.id, a.status, a.tool, a.detail, a.platform]
+    [
+      a.label,
+      a.id,
+      a.status,
+      STATUS_NAMES[a.status],
+      a.tool,
+      a.detail,
+      a.platform,
+      platOf(a),
+    ]
       .join(" ")
       .toLowerCase()
       .includes(q),
@@ -252,15 +334,19 @@ function fillRoster() {
   };
   list.sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9));
   if (!list.length) {
-    box.innerHTML =
-      '<p class="empty">' +
-      (agents.length
-        ? "No agents match this search."
-        : "The floor is quiet. Start a connected runtime.") +
-      "</p>";
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = agents.length
+      ? "No agents match this search."
+      : "The floor is quiet. Start a connected runtime.";
+    reconcileAgentCards(box, [empty], $("trackSearch"));
     return;
   }
-  for (const a of list) box.append(agentCard(a));
+  reconcileAgentCards(
+    box,
+    list.map((a) => agentCard(a, existing.get(a.id))),
+    $("trackSearch"),
+  );
 }
 $("trackSearch").oninput = (e) => {
   trackQuery = e.target.value;
@@ -268,8 +354,10 @@ $("trackSearch").oninput = (e) => {
 };
 function fillTasks() {
   const box = $("taskboard");
-  if (box.contains(document.activeElement)) return;
-  box.replaceChildren();
+  const existing = new Map(
+    [...box.querySelectorAll(".agent-card")].map((b) => [b.dataset.agent, b]),
+  );
+  const nodes = [];
   for (const [title, statuses] of [
     ["Needs input", ["waiting"]],
     ["In progress", ["working", "thinking"]],
@@ -277,18 +365,29 @@ function fillTasks() {
     ["Completed", ["done", "gone"]],
   ]) {
     const list = agents.filter((a) => statuses.includes(a.status));
-    const h = document.createElement("div");
+    const h =
+      box.querySelector(`[data-task-group="${statuses[0]}"]`) ||
+      document.createElement("div");
     h.className = "task-heading";
+    h.dataset.taskGroup = statuses[0];
     h.textContent = title + " · " + list.length;
-    box.append(h);
-    for (const a of list) box.append(agentCard(a));
+    nodes.push(h);
+    for (const a of list) nodes.push(agentCard(a, existing.get(a.id)));
     if (!list.length) {
-      const e = document.createElement("p");
+      const e =
+        box.querySelector(`[data-empty-group="${statuses[0]}"]`) ||
+        document.createElement("p");
       e.className = "h";
+      e.dataset.emptyGroup = statuses[0];
       e.textContent = "No sessions here.";
-      box.append(e);
+      nodes.push(e);
     }
   }
+  reconcileAgentCards(
+    box,
+    nodes,
+    box.closest(".sheet").querySelector(".close"),
+  );
 }
 function fillStats() {
   const s = progress?.stats || {},
@@ -378,9 +477,14 @@ function eventRow(e) {
 function fillEvents() {
   const box = $("eventbox");
   box.replaceChildren();
-  const q = eventQuery.toLowerCase();
+  const q = eventQuery.trim().toLowerCase();
   const events = (window._state?.events || [])
-    .filter((e) => JSON.stringify(e).toLowerCase().includes(q))
+    .filter((e) =>
+      [JSON.stringify(e), EVENT_NAMES[e.event], eventText(e)]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    )
     .slice()
     .reverse();
   for (const e of events) box.append(eventRow(e));
@@ -478,18 +582,12 @@ function applyState(state, pollRevision = settingsRevision) {
     w = agents.filter((a) => a.status === "waiting").length;
   $("count").textContent =
     n + " agent" + (n === 1 ? "" : "s") + " on the floor";
-  $("waiting-count").textContent = w ? w + " need input" : "";
+  $("waiting-count").textContent = w
+    ? w + (w === 1 ? " needs input" : " need input")
+    : "";
   $("waiting-count").hidden = !w;
   if (opened === "sheet-setup") fillSetup();
-  $("empty-state").hidden = !!scene.edit || scene.list().length > 0;
-  if (!agents.length || !scene.list().length) {
-    $("empty-state").querySelector("h3").textContent = agents.length
-      ? "No agents in this view."
-      : "The office is ready.";
-    $("empty-state").querySelector("p").textContent = agents.length
-      ? "Choose All runtimes to see the whole team."
-      : "Start a connected agent to bring the room to life.";
-  }
+  syncEmptyState();
   const xp = progress?.xp || 0,
     rank = progress?.rank || "intern";
   $("rank").textContent = rank + " · " + xp + " XP";
@@ -616,6 +714,8 @@ function segmented(label, key, options) {
   title.textContent = label;
   const seg = document.createElement("div");
   seg.className = "seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", label);
   for (const [id, name] of options) {
     const b = document.createElement("button");
     b.type = "button";
@@ -654,6 +754,7 @@ function fillSettings() {
         ? "Selected"
         : "Use layout";
     b.setAttribute("aria-pressed", String(settings.layout === l.id));
+    b.setAttribute("aria-label", l.name + ": " + b.textContent);
   }
   const box = $("settingsbox");
   if (!box.children.length) {
@@ -743,7 +844,7 @@ $("resetbtn").onclick = async () => {
 $("filterbtn").onchange = (e) => {
   platFilter = e.target.value;
   updateScene();
-  $("empty-state").hidden = scene.list().length > 0;
+  syncEmptyState();
 };
 $("themeNextbtn").onclick = () =>
   updateSetting(
@@ -776,7 +877,7 @@ $("capturebtn").onclick = () => scene.snapshot();
 $("legendbox").innerHTML = kv([
   ["Working", "A tool is running"],
   ["Thinking", "Between tool calls"],
-  ["Needs input", "Approval requested in the runtime"],
+  ["Needs input", "A question or approval is waiting in the runtime"],
   ["Idle", "No recent tool activity"],
   ["Completed", "Subagent finished or session ended"],
   ["R / U", "Agents and usage"],
@@ -794,7 +895,7 @@ document.addEventListener("keydown", (e) => {
   if (opened && e.key === "Tab") {
     const els = [
       ...$(opened).querySelectorAll(
-        'button:not(:disabled),a,input,select,[tabindex="0"]',
+        'button:not(:disabled),a,input,select,summary,[tabindex="0"]',
       ),
     ].filter((x) => !x.hidden && x.offsetParent !== null);
     const first = els[0],

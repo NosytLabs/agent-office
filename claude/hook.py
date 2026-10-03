@@ -71,6 +71,13 @@ def map_hook(raw: dict) -> dict | None:
     if name == "StopFailure":
         return {"event": "session_error", **context, "error_message": str(raw.get("error") or "session error")[:80]}
     if name == "PreToolUse":
+        if tool == "AskUserQuestion":
+            questions = inp.get("questions", []) if isinstance(inp, dict) else []
+            first = questions[0] if isinstance(questions, list) and questions and isinstance(questions[0], dict) else {}
+            return {
+                "event": "input_request", **context, "tool_name": tool,
+                "question": str(first.get("question") or first.get("header") or "needs an answer")[:80],
+            }
         return {
             "event": "tool_start",
             **context,
@@ -108,6 +115,10 @@ def main() -> int:
         raw = json.loads(sys.stdin.read() or "{}")
         ev = map_hook(raw if isinstance(raw, dict) else {})
         if ev:
+            if ev.get("event") == "input_request" and ev.get("tool_name") == "AskUserQuestion":
+                # Keep one observed tool invocation in lifetime stats while
+                # distinguishing its human question from a permission approval.
+                publish({**ev, "event": "tool_start", "activity": "working", "preview": ev["question"]})
             publish(ev)
     except Exception:
         pass

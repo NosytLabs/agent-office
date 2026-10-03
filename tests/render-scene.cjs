@@ -116,7 +116,14 @@ vm.runInContext(
       id: "crowded-" + i,
       status: "idle",
     })),
-    { ...model.defaults },
+    {
+      ...model.defaults,
+      furniture: Array.from({ length: 24 }, () => ({
+        kind: "server",
+        x: 0.2,
+        y: 0.5,
+      })),
+    },
     null,
     null,
     "every",
@@ -125,6 +132,18 @@ vm.runInContext(
   crowded.draw(1 / 30);
   assert.equal(crowded.hitBoxes.length, 128, "all sessions remain tracked");
   assert.equal(
+    crowded.furnitureResolution.unplaced,
+    0,
+    "crowded props find free floor",
+  );
+  const resolved = crowded.resolvedFurniture;
+  crowded.draw(1 / 30);
+  assert.equal(
+    crowded.resolvedFurniture,
+    resolved,
+    "unchanged frames reuse resolved furniture",
+  );
+  assert.equal(
     model.routePlans,
     0,
     "crowded bootstrap never plans expensive routes",
@@ -132,6 +151,44 @@ vm.runInContext(
   crowded.canvas.clientWidth = 390;
   crowded.draw(1 / 30);
   assert.equal(model.routePlans, 0, "relayout never plans discarded routes");
+  const reflow = new model.Scene(
+      canvas(1200, 640),
+      () => {},
+      () => {},
+    ),
+    savedProps = [{ kind: "sofa", x: 250 / 344, y: 175 / 262 }],
+    savedCoordinates = JSON.stringify(savedProps);
+  reflow.update(
+    Array.from({ length: 6 }, (_, i) => ({
+      id: "reflow-" + i,
+      status: "idle",
+    })),
+    { ...model.defaults, furniture: savedProps },
+    null,
+    null,
+    "every",
+  );
+  reflow.draw(0);
+  assert.equal(reflow.furnitureResolution.relocated, 0);
+  reflow.canvas.clientWidth = 390;
+  reflow.draw(0);
+  assert.equal(reflow.furnitureResolution.relocated, 1);
+  assert.equal(
+    JSON.stringify(savedProps),
+    savedCoordinates,
+    "reflow does not save positions",
+  );
+  const bounds = reflow.furnitureBounds(0);
+  assert.ok(bounds);
+  assert.ok(
+    reflow.navigationProps.includes(bounds),
+    "navigation shares displayed bounds",
+  );
+  assert.equal(
+    reflow.propAt({ x: bounds.x + 1, y: bounds.y + 1 }),
+    0,
+    "move/remove picks displayed prop",
+  );
   const sheet = canvas(640, 300),
     g = sheet.getContext("2d");
   g.fillStyle = "#171e28";

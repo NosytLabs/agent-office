@@ -64,6 +64,30 @@ function preview(args) {
 
 export const PixelOfficeBridge = async () => {
   const childSessions = new Set();
+  const finishedCalls = new Map();
+  const callKey = (sid, callID) => JSON.stringify([sid, callID]);
+  const finishTool = (sid, callID, tool, status, error = "", duration) => {
+    const key = callID ? callKey(sid, callID) : "";
+    const previous = key && finishedCalls.get(key);
+    if (previous === status || previous === "error") return;
+    if (key) {
+      finishedCalls.set(key, status);
+      // Live terminal snapshots may repeat; keep the observer cache bounded.
+      if (finishedCalls.size > 1024)
+        finishedCalls.delete(finishedCalls.keys().next().value);
+    }
+    publish({
+      event: "tool_end",
+      session_id: sid,
+      call_id: callID || "",
+      tool_name: tool || "",
+      status,
+      error_message: String(error || "").slice(0, 80),
+      ...(Number.isFinite(duration)
+        ? { duration_ms: Math.max(0, duration) }
+        : {}),
+    });
+  };
   const publishIdle = (sid) =>
     publish(
       childSessions.has(sid)
@@ -78,6 +102,7 @@ export const PixelOfficeBridge = async () => {
         const sid =
           data.sessionID ||
           data.sessionId ||
+          data.part?.sessionID ||
           data.info?.id ||
           (type.startsWith("session.") ? data.id : "") ||
           "";
@@ -126,6 +151,25 @@ export const PixelOfficeBridge = async () => {
                 "session error",
             ).slice(0, 80),
           });
+        } else if (type === "message.part.updated") {
+          const part = data.part;
+          if (
+            part?.type === "tool" &&
+            part.callID &&
+            (part.state?.status === "error" ||
+              part.state?.status === "completed")
+          ) {
+            // OpenCode skips execute.after when a tool throws. The terminal
+            // part records that failure; successful hooks/parts are deduplicated.
+            finishTool(
+              sid,
+              part.callID,
+              part.tool,
+              part.state.status === "error" ? "error" : "ok",
+              part.state.error,
+              part.state.time?.end - part.state.time?.start,
+            );
+          }
         } else if (
           type === "permission.asked" ||
           type === "permission.requested" ||
@@ -185,6 +229,8 @@ export const PixelOfficeBridge = async () => {
         const tool = input?.tool || "";
         const args = output?.args || input?.args || {};
         if (!input?.sessionID) return;
+        if (input.callID)
+          finishedCalls.delete(callKey(input.sessionID, input.callID));
         publish({
           event: "tool_start",
           session_id: input?.sessionID || "",
@@ -200,16 +246,23 @@ export const PixelOfficeBridge = async () => {
 
     "tool.execute.after": async (input, output) => {
       try {
-        const err = output?.error || output?.metadata?.error;
-        if (!input?.sessionID) return;
-        publish({
-          event: "tool_end",
-          session_id: input?.sessionID || "",
-          call_id: input?.callID || "",
-          tool_name: input?.tool || "",
-          status: err ? "error" : "ok",
-          error_message: err ? String(err).slice(0, 80) : "",
-        });
+        // Failed task execution can invoke this hook with no result; its
+        // subsequent terminal part supplies the error rather than a false OK.
+        if (!input?.sessionID || output == null) return;
+        const err =
+          output.error ||
+          output.metadata?.error ||
+          (output.isError
+            ? output.content?.find((c) => c.type === "text")?.text ||
+              "MCP tool failed"
+            : "");
+        finishTool(
+          input.sessionID,
+          input.callID,
+          input.tool,
+          err ? "error" : "ok",
+          err,
+        );
       } catch {
         /* ignore */
       }

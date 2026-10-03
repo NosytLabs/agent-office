@@ -62,3 +62,33 @@ def test_claude_permission_denial_dismisses_the_pending_approval():
     ev = map_hook({"hook_event_name": "PermissionDenied", "session_id": "a", "tool_name": "Bash"})
     assert ev["event"] == "approval_response"
     assert ev["choice"] == "deny"
+
+
+def test_claude_question_reports_the_real_question_as_needs_input():
+    ev = map_hook({
+        "hook_event_name": "PreToolUse", "session_id": "a", "tool_use_id": "q1",
+        "tool_name": "AskUserQuestion", "tool_input": {"questions": [{"question": "Which branch?", "header": "Branch"}]},
+    })
+    assert ev["event"] == "input_request"
+    assert ev["question"] == "Which branch?"
+    assert ev["call_id"] == "q1"
+
+
+def test_question_hook_records_one_tool_and_one_question_without_decisions(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    payload = {"hook_event_name": "PreToolUse", "session_id": "a", "tool_use_id": "q1", "tool_name": "AskUserQuestion", "tool_input": {"questions": [{"question": "Which branch?"}]}}
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parents[1] / "claude/hook.py")],
+        input=json.dumps(payload), text=True, capture_output=True,
+        env={**os.environ, "HERMES_HOME": str(tmp_path)},
+    )
+    assert result.returncode == 0
+    assert result.stdout == ""
+    events = [json.loads(line) for line in (tmp_path / "pixel-office/events.jsonl").read_text().splitlines()]
+    assert [ev["event"] for ev in events] == ["tool_start", "input_request"]
+    assert all(ev["call_id"] == "q1" for ev in events)

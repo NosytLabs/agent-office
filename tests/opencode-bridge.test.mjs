@@ -16,7 +16,7 @@ function recordEvents(events, customHome = false) {
     import bridgeFactory from ${JSON.stringify(bridgeUrl)};
     const bridge = await bridgeFactory();
     for (const item of JSON.parse(process.argv[1])) {
-      if (item.hook) await bridge[item.hook](item.input, item.output || {});
+      if (item.hook) await bridge[item.hook](item.input, Object.hasOwn(item, "output") ? item.output : {});
       else await bridge.event({event: item});
     }
   `;
@@ -303,4 +303,157 @@ test("OpenCode session failures retain the real error without inventing an anony
   assert.equal(events.length, 1);
   assert.equal(events[0].event, "session_error");
   assert.equal(events[0].error_message, "Provider unavailable");
+});
+
+test("OpenCode throwing tools finish through the authoritative error part", () => {
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { sessionID: "s", callID: "read-1", tool: "read" },
+      output: { args: { filePath: "missing.ts" } },
+    },
+    {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          sessionID: "s",
+          callID: "read-1",
+          type: "tool",
+          tool: "read",
+          state: {
+            status: "error",
+            error: "File not found",
+            time: { start: 100, end: 240 },
+          },
+        },
+      },
+    },
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["tool_start", "tool_end"],
+  );
+  assert.equal(events[1].status, "error");
+  assert.equal(events[1].error_message, "File not found");
+  assert.equal(events[1].call_id, "read-1");
+  assert.equal(events[1].duration_ms, 140);
+});
+
+test("OpenCode terminal snapshots do not duplicate hook completions", () => {
+  const completed = {
+    type: "message.part.updated",
+    properties: {
+      sessionID: "s",
+      part: {
+        sessionID: "s",
+        callID: "read-1",
+        type: "tool",
+        tool: "read",
+        state: { status: "completed" },
+      },
+    },
+  };
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { sessionID: "s", callID: "read-1", tool: "read" },
+    },
+    {
+      hook: "tool.execute.after",
+      input: { sessionID: "s", callID: "read-1", tool: "read" },
+      output: { output: "contents" },
+    },
+    completed,
+    completed,
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["tool_start", "tool_end"],
+  );
+});
+
+test("OpenCode repeated error snapshots count one failure and cannot become success", () => {
+  const failed = {
+    type: "message.part.updated",
+    properties: {
+      sessionID: "s",
+      part: {
+        sessionID: "s",
+        callID: "read-1",
+        type: "tool",
+        tool: "read",
+        state: { status: "error", error: "File not found" },
+      },
+    },
+  };
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { sessionID: "s", callID: "read-1", tool: "read" },
+    },
+    failed,
+    failed,
+    {
+      hook: "tool.execute.after",
+      input: { sessionID: "s", callID: "read-1", tool: "read" },
+      output: { output: "late hook" },
+    },
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["tool_start", "tool_end"],
+  );
+  assert.equal(events[1].status, "error");
+});
+
+test("OpenCode MCP error results retain their actual failure text", () => {
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { sessionID: "s", callID: "mcp-1", tool: "custom_mcp" },
+    },
+    {
+      hook: "tool.execute.after",
+      input: { sessionID: "s", callID: "mcp-1", tool: "custom_mcp" },
+      output: {
+        isError: true,
+        content: [{ type: "text", text: "MCP server unavailable" }],
+      },
+    },
+  ]);
+  assert.equal(events[1].status, "error");
+  assert.equal(events[1].error_message, "MCP server unavailable");
+});
+
+test("OpenCode null task results wait for the real terminal failure", () => {
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { sessionID: "s", callID: "task-1", tool: "task" },
+    },
+    {
+      hook: "tool.execute.after",
+      input: { sessionID: "s", callID: "task-1", tool: "task" },
+      output: null,
+    },
+    {
+      type: "message.part.updated",
+      properties: {
+        sessionID: "s",
+        part: {
+          sessionID: "s",
+          callID: "task-1",
+          type: "tool",
+          tool: "task",
+          state: { status: "error", error: "Task execution failed" },
+        },
+      },
+    },
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["tool_start", "tool_end"],
+  );
+  assert.equal(events[1].status, "error");
+  assert.equal(events[1].error_message, "Task execution failed");
 });

@@ -386,6 +386,89 @@ footer {
 .sheet p {
   line-height: 1.65;
 }
+.setup-label {
+  display: block;
+  margin: 20px 0 8px;
+  font-weight: 600;
+}
+.setup-status {
+  border-left: 3px solid var(--gold);
+  background: var(--panel2);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 18px 0;
+}
+.setup-status p {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.setup-steps {
+  list-style: none;
+  counter-reset: setup;
+  padding: 0;
+  margin: 0;
+}
+.setup-steps li {
+  counter-increment: setup;
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+.setup-steps h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+}
+.setup-steps h3::before {
+  content: counter(setup);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.setup-steps p:last-child {
+  margin-bottom: 0;
+}
+.setup-command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+}
+.setup-command code {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+.setup-help {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+  font-size: 14px;
+}
+.setup-help summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-weight: 600;
+}
+#setup-detail {
+  font-size: 14px;
+}
+#setup-copy-status:empty {
+  display: none;
+}
+#setup-done {
+  width: 100%;
+  margin-top: 10px;
+}
 .sheet .close {
   position: absolute;
   right: 18px;
