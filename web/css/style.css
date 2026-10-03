@@ -583,9 +583,6 @@ footer {
 }
 #edit-hint {
   position: relative;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
   text-align: center;
   background: var(--panel);
   border: 1px solid var(--gold);
@@ -839,9 +836,6 @@ button:disabled {
   text-align: left;
 }
 #edit-hint {
-  bottom: auto;
-  left: auto;
-  right: auto;
   margin-top: 10px;
   box-shadow: 0 6px 20px #0006;
 }
@@ -879,4 +873,34 @@ button:disabled {
   #wrap {
     min-height: 920px;
   }
+}
+
+#badgeSearch {
+  width: 100%;
+  margin: 8px 0 16px;
+}
+#badge-tabs {
+  flex-wrap: wrap;
+}
+.achievement-reward {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--text);
+  font-size: 14px;
+}
+.achievement-reward .icon {
+  flex-shrink: 0;
+  color: var(--gold);
+}
+.achievement-xp {
+  display: block;
+  margin-top: 10px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+}
+#edit-hint .btn {
+  flex-shrink: 0;
 }

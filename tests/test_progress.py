@@ -95,3 +95,12 @@ def test_snapshot_catalog_flags():
     assert gold["have"] is True
     assert isinstance(snap["catalog"], list)
     assert len(snap["catalog"]) >= 10
+
+
+def test_catalog_exposes_xp_and_only_real_room_rewards():
+    catalog = snapshot(load(Path("/nope")))["catalog"]
+    assert sum(bool(c["reward"]) for c in catalog) == 8
+    fish = next(c for c in catalog if c["id"] == "pet_fish")
+    assert fish["reward"] == "Lounge aquarium"
+    assert fish["xp"] == 20
+    assert all(isinstance(c["xp"], int) and c["xp"] >= 0 for c in catalog)

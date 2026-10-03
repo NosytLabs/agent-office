@@ -118,8 +118,8 @@ function placementAt(kind, point, grid, occupied, items) {
   );
   return { valid: inside && !blocked && items.length < 24, bounds, item };
 }
-function defaultDecor(grid) {
-  return [
+function defaultDecor(grid, cosmetics = []) {
+  const props = [
     { kind: "sofa", x: 23, y: grid.h - 51, w: 40, h: 28 },
     { kind: "coffee", x: 79, y: grid.h - 52, w: 20, h: 26 },
     { kind: "lamp", x: 64, y: grid.h - 58, w: 12, h: 30 },
@@ -128,6 +128,15 @@ function defaultDecor(grid) {
     { kind: "cooler", x: 11, y: 32, w: 12, h: 26 },
     { kind: "server", x: grid.w - 28, y: grid.h - 86, w: 17, h: 27 },
   ];
+  if (cosmetics.includes("fish_tank"))
+    props.push({
+      kind: "FISH_TANK",
+      x: grid.w - 85,
+      y: grid.h - 33,
+      w: 24,
+      h: 18,
+    });
+  return props;
 }
 function hash(text) {
   let h = 0;

@@ -157,7 +157,11 @@
         </div>
         <div id="edit-hint" hidden>
           <span id="edit-message">Choose free floor space.</span>
+          <button class="btn" id="arrange-furniture">Move</button>
+          <button class="btn" id="delete-furniture" disabled>Remove</button>
           <button class="btn" id="undo-furniture" disabled>Undo</button>
+          <button class="btn" id="redo-furniture" disabled>Redo</button>
+          <button class="btn" id="catalog-furniture">Props</button>
           <button class="btn" id="finish-furniture">Done</button>
         </div>
         <div class="scene-controls">
@@ -250,10 +254,18 @@
     >
       <h2>Small wins, better office</h2>
       <p class="h" id="badge-summary"></p>
+      <input
+        class="txt"
+        id="badgeSearch"
+        type="search"
+        placeholder="Find an achievement or room reward…"
+        aria-label="Search achievements"
+      />
       <div class="seg" id="badge-tabs">
         <button data-filter="all" aria-pressed="true">All</button
         ><button data-filter="earned" aria-pressed="false">Earned</button
         ><button data-filter="next" aria-pressed="false">Up next</button>
+        <button data-filter="rewards" aria-pressed="false">Room rewards</button>
       </div>
       <div class="grid" id="achgrid"></div>
     </section>
@@ -274,6 +286,7 @@
         props.
       </p>
       <div id="furniture-tools" aria-label="Furniture catalog"></div>
+      <button class="btn" id="edit-furniture">Arrange custom furniture</button>
       <button class="btn" id="clear-furniture">Clear custom furniture</button>
       <h3>Your setup</h3>
       <div class="cluster">
@@ -343,5 +356,6 @@
     <script src="js/icons.js"></script>
     <script src="js/scene.js"></script>
     <script src="js/office.js"></script>
+    <script src="js/editor.js"></script>
   </body>
 </html>

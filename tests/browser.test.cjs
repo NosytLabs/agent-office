@@ -242,6 +242,39 @@ test("all sprite images load and canvas frames stay within room bounds on deskto
       () => officeScene.loadedAssets === 13 && officeScene.sprites.monstera,
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
+    assert.equal(
+      await p.evaluate(() => {
+        const c = document.createElement("canvas");
+        c.width = 16;
+        c.height = 32;
+        const g = c.getContext("2d", { willReadFrequently: true });
+        for (let n = 0; n < 6; n++)
+          for (let row = 0; row < 3; row++)
+            for (let col = 0; col < 7; col++) {
+              g.clearRect(0, 0, 16, 32);
+              g.drawImage(
+                officeScene.sprites["char" + n],
+                col * 16,
+                row * 32,
+                16,
+                32,
+                0,
+                0,
+                16,
+                32,
+              );
+              if (
+                !g
+                  .getImageData(0, 0, 16, 32)
+                  .data.some((v, i) => i % 4 === 3 && v > 0)
+              )
+                return false;
+            }
+        return true;
+      }),
+      true,
+      "all 126 character frames contain visible pixels",
+    );
     for (const width of [1440, 768, 390, 320]) {
       await p.setViewportSize({ width, height: 900 });
       await p.waitForTimeout(200);
@@ -678,6 +711,169 @@ test("lost connection is visible and polling recovers", () =>
       () => document.querySelector("#connection").textContent === "Connected",
     );
   }));
+test("move props by mouse and keyboard, undo/redo, cancel, remove and reload", () =>
+  withPage(async (p) => {
+    await p.evaluate(() =>
+      saveSettings({
+        furniture: [{ kind: "cooler", x: 0.5, y: 0.95 }],
+        decorations: false,
+      }),
+    );
+    await p.locator("#settingsbtn").click();
+    await p.locator("#edit-furniture").click();
+    await p.locator("#c").press("Space");
+    assert.equal(await p.evaluate(() => officeScene.movingIndex), 0);
+    const original = await p.evaluate(() =>
+      structuredClone(settings.furniture),
+    );
+    await p.locator("#c").press("ArrowRight");
+    await p.locator("#c").press("Enter");
+    await p.waitForFunction(() => pendingSaves === 0);
+    const keyboard = await p.evaluate(() =>
+      structuredClone(settings.furniture),
+    );
+    assert.equal(keyboard.length, 1);
+    assert.ok(keyboard[0].x > original[0].x);
+    await p.locator("#undo-furniture").click();
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.deepEqual(await p.evaluate(() => settings.furniture), original);
+    await p.locator("#redo-furniture").click();
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.deepEqual(await p.evaluate(() => settings.furniture), keyboard);
+    const point = await p.evaluate(() => {
+      const b = propBounds(settings.furniture[0], officeScene.grid),
+        { ox, oy, scale } = officeScene.transform,
+        rect = officeScene.canvas.getBoundingClientRect();
+      return {
+        x: rect.left + ox + (b.x + b.w / 2) * scale,
+        y: rect.top + oy + (b.y + b.h / 2) * scale,
+      };
+    });
+    await p.mouse.move(point.x, point.y);
+    await p.mouse.down();
+    await p.mouse.move(point.x + 28, point.y, { steps: 4 });
+    const expected = await p.evaluate(() => ({ ...officeScene.pointer }));
+    await p.locator("#c").dispatchEvent("pointermove", {
+      pointerId: 99,
+      isPrimary: false,
+      clientX: point.x + 100,
+      clientY: point.y - 50,
+    });
+    await p
+      .locator("#c")
+      .dispatchEvent("pointercancel", { pointerId: 99, isPrimary: false });
+    assert.deepEqual(await p.evaluate(() => officeScene.pointer), expected);
+    assert.ok(await p.evaluate(() => !!officeScene.drag));
+    await p.mouse.up();
+    await p.waitForFunction(() => pendingSaves === 0);
+    const dragged = await p.evaluate(() => structuredClone(settings.furniture));
+    assert.ok(dragged[0].x > keyboard[0].x);
+    await p.mouse.move(point.x + 28, point.y);
+    await p.mouse.down();
+    await p.mouse.move(point.x + 42, point.y - 10, { steps: 3 });
+    await p.locator("#c").dispatchEvent("pointercancel", {
+      pointerId: await p.evaluate(() => officeScene.drag.id),
+      isPrimary: true,
+    });
+    await p.mouse.up();
+    assert.deepEqual(await p.evaluate(() => settings.furniture), dragged);
+    await p.keyboard.press("Escape");
+    await p.reload();
+    await p.waitForFunction(() => initialized);
+    assert.deepEqual(await p.evaluate(() => settings.furniture), dragged);
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.locator("#settingsbtn").click();
+    await p.locator("#edit-furniture").click();
+    await p.locator("#c").press("Space");
+    await p.locator("#c").press("Delete");
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(await p.evaluate(() => settings.furniture.length), 0);
+    await p.locator("#undo-furniture").click();
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.deepEqual(await p.evaluate(() => settings.furniture), dragged);
+    await p.evaluate(() => saveSettings({ furniture: [], decorations: true }));
+  }));
+test("external furniture changes invalidate stale selection and undo", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ furniture: [], decorations: false }));
+    await p.locator("#settingsbtn").click();
+    await p.locator('[data-kind="cooler"]').click();
+    await p.locator("#c").press("ArrowRight");
+    await p.locator("#c").press("Enter");
+    await p.waitForFunction(() => pendingSaves === 0);
+    await p.locator("#arrange-furniture").click();
+    await p.locator("#c").press("Space");
+    await p.request.post(baseURL + "/settings", { data: { furniture: [] } });
+    await p.waitForFunction(() => settings.furniture.length === 0);
+    assert.equal(await p.evaluate(() => officeScene.movingIndex), null);
+    assert.equal(await p.locator("#undo-furniture").isDisabled(), true);
+    await p.keyboard.press("Escape");
+    await p.evaluate(() => saveSettings({ decorations: true }));
+  }));
+test("a settings save response invalidates an externally replaced selected prop", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    await p.evaluate(() =>
+      saveSettings({ furniture: [{ kind: "cooler", x: 0.5, y: 0.95 }] }),
+    );
+    await p.locator("#settingsbtn").click();
+    await p.locator("#edit-furniture").click();
+    await p.locator("#c").press("Space");
+    await p.request.post(baseURL + "/settings", {
+      data: { furniture: [{ kind: "sofa", x: 0.5, y: 0.95 }] },
+    });
+    await p.evaluate(() => saveSettings({ theme: "amber" }));
+    assert.equal(await p.evaluate(() => settings.furniture[0].kind), "sofa");
+    assert.equal(await p.evaluate(() => officeScene.movingIndex), null);
+    assert.equal(await p.locator("#delete-furniture").isDisabled(), true);
+    await p.evaluate(() => saveSettings({ furniture: [], theme: "default" }));
+  }));
+test("both cats have independent click targets and hidden pets leave no targets", () =>
+  withPage(async (p) => {
+    await p.waitForFunction(() => officeScene.sprites.blackcat);
+    for (const key of ["cat", "blackcat"]) {
+      const point = await p.evaluate((key) => {
+        officeScene.cosmetics = ["gitcat"];
+        officeScene.settings.decorations = true;
+        officeScene.draw(0);
+        const h = officeScene.petHits.find((h) => h.key === key),
+          { ox, oy, scale } = officeScene.transform,
+          rect = officeScene.canvas.getBoundingClientRect();
+        return {
+          x: rect.left + ox + (h.x + h.w / 2) * scale,
+          y: rect.top + oy + (h.y + h.h / 2) * scale,
+        };
+      }, key);
+      await p.mouse.click(point.x, point.y);
+      assert.equal(await p.evaluate(() => officeScene.petActive), key);
+    }
+    assert.equal(
+      await p.evaluate(() => {
+        officeScene.settings.decorations = false;
+        officeScene.draw(0);
+        const count = officeScene.petHits.length;
+        officeScene.settings.decorations = true;
+        return count;
+      }),
+      0,
+    );
+  }));
+test("achievement rewards and XP are searchable without losing focus during polling", () =>
+  withPage(async (p) => {
+    await p.locator("#achbtn").click();
+    await p.locator('[data-filter="rewards"]').click();
+    assert.equal(await p.locator(".ach").count(), 8);
+    await p.locator("#badgeSearch").fill("aquarium");
+    await p.waitForTimeout(1700);
+    assert.equal(await p.locator("#badgeSearch").inputValue(), "aquarium");
+    assert.equal(
+      await p.evaluate(() => document.activeElement.id),
+      "badgeSearch",
+    );
+    assert.equal(await p.locator(".ach").count(), 1);
+    assert.match(await p.locator(".ach").innerText(), /Lounge aquarium/);
+    assert.match(await p.locator(".achievement-xp").innerText(), /20 XP/);
+  }));
 test("capture reviewed desktop, mobile, settings, badges, and night scenes", () =>
   withPage(async (p) => {
     const dir = process.env.OFFICE_SCREENSHOTS;
@@ -698,10 +894,26 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.screenshot({ path: path.join(dir, "desktop-studio.png") });
     await p.locator("#achbtn").click();
     await p.screenshot({ path: path.join(dir, "achievements.png") });
+    await p.locator('[data-filter="rewards"]').click();
+    await p.screenshot({ path: path.join(dir, "room-rewards.png") });
+    await p.locator('[data-filter="all"]').click();
     await p.keyboard.press("Escape");
     await p.locator("#settingsbtn").click();
     await p.screenshot({ path: path.join(dir, "desktop-settings.png") });
     await p.keyboard.press("Escape");
+    await p.evaluate(() =>
+      saveSettings({ furniture: [{ kind: "coffee", x: 0.55, y: 0.95 }] }),
+    );
+    await p.locator("#settingsbtn").click();
+    await p.locator("#edit-furniture").click();
+    await p.locator("#c").press("Space");
+    await p.locator("#c").press("ArrowRight");
+    await p.screenshot({
+      path: path.join(dir, "furniture-editor.png"),
+      fullPage: true,
+    });
+    await p.keyboard.press("Escape");
+    await p.evaluate(() => saveSettings({ furniture: [] }));
     await p.evaluate(() =>
       saveSettings({ theme: "midnight", ambience: "night" }),
     );

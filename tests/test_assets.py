@@ -57,3 +57,12 @@ def test_header_merged():
     assert 'id="statsbtn"' not in html
     assert 'id="fogbtn"' not in html
     assert 'id="legendbtn"' not in html
+
+
+def test_sprite_checksums_match_complete_runtime_inventory():
+    import hashlib
+    import json
+    checksums = json.loads((SPRITES / "asset-checksums.json").read_text())
+    actual = {str(p.relative_to(SPRITES)): hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in SPRITES.rglob("*.png")}
+    assert checksums == actual

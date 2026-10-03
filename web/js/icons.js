@@ -1,6 +1,11 @@
 /* Selected Lucide 1.51.0 icons. ISC / MIT notices: assets/icons/LICENSE.txt. */
 "use strict";
 const ICON_PATHS = Object.freeze({
+  move: '<path d="M12 2v20" />\n  <path d="m15 19-3 3-3-3" />\n  <path d="m19 9 3 3-3 3" />\n  <path d="M2 12h20" />\n  <path d="m5 9-3 3 3 3" />\n  <path d="m9 5 3-3 3 3" />',
+  "redo-2":
+    '<path d="m15 14 5-5-5-5" />\n  <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />',
+  gift: '<path d="M12 7v14" />\n  <path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8" />\n  <path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5" />\n  <rect x="3" y="7" width="18" height="4" rx="1" />',
+
   users:
     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />\n  <path d="M16 3.128a4 4 0 0 1 0 7.744" />\n  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />\n  <circle cx="9" cy="7" r="4" />',
   "list-checks":
