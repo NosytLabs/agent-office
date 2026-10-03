@@ -32,6 +32,17 @@ def test_save_json_config_rejects_non_object_payload(tmp_path):
         raise AssertionError("expected ValueError")
 
 
+@pytest.mark.parametrize("bucket", [{}, [None], [{"hooks": "invalid"}], [{"hooks": [None]}]])
+def test_claude_invalid_hook_bucket_is_reported_without_writing(tmp_path, monkeypatch, bucket):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    path = tmp_path / ".claude/settings.json"
+    path.parent.mkdir(parents=True)
+    original = json.dumps({"hooks": {"PostToolUse": bucket}, "unrelated": True})
+    path.write_text(original)
+    assert "skip claude" in install.enable_claude()
+    assert path.read_text() == original
+
+
 @pytest.mark.parametrize("runtime,relative_path,enable", [
     ("opencode", ".config/opencode/opencode.json", install.enable_opencode),
     ("claude", ".claude/settings.json", install.enable_claude),

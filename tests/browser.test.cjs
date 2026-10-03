@@ -122,6 +122,52 @@ async function withPage(fn) {
     await browser.close();
   }
 }
+test("connection guide explains each runtime and distinguishes demo from live tracking", () =>
+  withPage(async (p) => {
+    await p.click('[data-sheet="sheet-settings"]');
+    await p.click('#sheet-settings [data-sheet="sheet-setup"]');
+    for (const [runtime, text] of [
+      ["hermes", "hermes plugins enable pixel-office"],
+      ["telegram", "does not connect a bot"],
+      ["opencode", "opencode.json"],
+      ["claude", "settings.json"],
+      ["vscode", "hermesPixelOffice.stateUrl"],
+    ]) {
+      await p.selectOption("#setup-runtime", runtime);
+      assert.ok((await p.textContent("#setup-detail")).includes(text));
+    }
+    assert.match(await p.textContent("#setup-observed"), /synthetic/);
+    assert.equal(
+      await p.getAttribute(
+        '#sheet-settings [data-sheet="sheet-setup"]',
+        "aria-expanded",
+      ),
+      "true",
+    );
+    await p.evaluate(() => {
+      window._state.mode = "live";
+      agents = [{ id: "cli-live", platform: "cli", status: "working" }];
+    });
+    await p.selectOption("#setup-runtime", "hermes");
+    assert.match(await p.textContent("#setup-observed"), /1 recorded/);
+    await p.route("**/state", (route) => route.abort());
+    await p.waitForTimeout(1700);
+    assert.match(await p.textContent("#setup-observed"), /disconnected/);
+    assert.equal(await p.inputValue("#setup-runtime"), "hermes");
+    await p.setViewportSize({ width: 390, height: 844 });
+    assert.equal(
+      await p.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+    if (process.env.OFFICE_SCREENSHOTS) {
+      fs.mkdirSync(process.env.OFFICE_SCREENSHOTS, { recursive: true });
+      await p.screenshot({
+        path: path.join(process.env.OFFICE_SCREENSHOTS, "connection-guide.png"),
+      });
+    }
+    await p.click("#setup-done");
+    assert.equal(await p.isVisible("#sheet-setup"), false);
+  }));
 test("saved theme and desk settings survive a reload", () =>
   withPage(async (p) => {
     await p.request.post(baseURL + "/settings", {
