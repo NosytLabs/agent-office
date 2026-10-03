@@ -36,6 +36,8 @@ python3 install.py
 
 The installer detects existing runtime installations, adds this observer, and preserves other configuration. Restart the runtime after installation. Invalid configuration is reported without replacement.
 
+Missing Claude/OpenCode JSON settings are created. If you use `opencode.jsonc`, the installer preserves comments and prints the local bridge URL to add manually to its `plugin` array. Rerun the installer after upgrading to register the latest lifecycle hooks. Configuration writes preserve existing file permissions and symlinks.
+
 On an empty first visit, choose **Connect your first agent**. You can reopen the runtime-specific connection guide from **Customize → Connection guide**. It explains Hermes, Telegram via Hermes, OpenCode, Claude Code and VS Code, and distinguishes synthetic demo activity from recorded sessions. A reachable observer alone does not verify a runtime installation. Click **need input** above the floor to inspect a waiting session; respond in the original runtime.
 
 | Integration | What it observes | Setup |
@@ -50,14 +52,14 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 
 ## A room that reflects the work
 
-- **Real activity:** working, thinking, waiting, idle, completed, and ended sessions. An approval bubble means you need to respond in the original runtime.
+- **Real activity:** working, thinking, waiting, idle, completed, and ended sessions. Tool completion clears stale animations; concurrent calls stay attributed to their sessions. Permission requests and OpenCode questions show needs-input cues and a notification. Respond in the original runtime.
 - **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Search keeps your cursor while the state refreshes.
 - **Task overview:** sessions grouped by current status. This is an observed-work board, not a task dispatch engine.
 - **Activity stream:** searchable recent events, with timestamps. Usage and CSV export report the events this observer has recorded.
-- **A furnished scene:** corrected walk/read/type animations, matching object scale, low-contrast floors, and two matching generated furniture atlases.
+- **A furnished scene:** corrected walk/read/type animations, paths around desks and props, matching object scale, low-contrast floors, and three matching generated furniture atlases. Existing sessions, crowded rooms above 16 sessions, and enclosed desks use seated arrivals to keep the view responsive.
 - **Readable controls:** locally hosted Geist text, consistent Lucide icons, clear agent nameplates, and touch-friendly menus.
 - **Customization:** Plum, Midnight, and Amber palettes; automatic/day/night lighting; labels and decoration toggles; desk density.
-- **Furniture placement:** preview and place seven props: sofas, server racks, bookshelves, plants, coffee carts, coolers, and lamps. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
+- **Furniture placement:** preview eleven props: sofas, server racks, bookcases, monsteras, coffee carts, coolers, lamps, cafe tables, stools, succulents and planter boxes. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
 - **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. Reduced-motion preferences start the scene paused.
 - **38 achievements:** searchable earned/up-next views, XP values, room-reward descriptions, and real progress bars. Old retired achievements remain in saved history without losing XP.
 
@@ -76,6 +78,10 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 | 5 tool errors lifetime | Warm accent on the lounge lamp |
 
 The room starts with a decorative cat. Pets and furnishing are ambience; they do not represent additional agents. XP is a playful event counter, not a measurement of work quality or task completion.
+
+![Updated studio scene with generated cafe furniture](docs/audit/scene-desktop.png)
+
+This image renders the actual scene code with synthetic sessions in a CPU canvas. It verifies the scene separately from browser menus and runtime integrations.
 
 ### Controls
 
@@ -119,6 +125,8 @@ npm run test:browser
 ```
 
 The browser suite starts its own Python server and temporary data directory, writes representative event fixtures, and exercises the real HTTP routes, DOM controls, canvas, and asset loader. It does not call an LLM or modify runtime configurations. To use an existing Chrome installation, set `CHROMIUM_PATH` to its executable. Set `OFFICE_SCREENSHOTS=reports/screenshots` to save browser evidence.
+
+Optional scene-only checks use a separately installed `skia-canvas` development module: run `node tests/render-scene.cjs`, or set `SCENE_CANVAS_MODULE` to its module path. This runs the actual asset loader and draw loop at desktop/mobile sizes and writes PNGs under `reports/scene-render`. It does not replace browser interaction tests or add a production dependency.
 
 CI is configured for pull requests and main-branch code changes, plus manual dispatch. It runs Python, Node, formatting, and browser checks in one bounded job; artifacts expire after three days. Documentation-only changes skip CI. The Ubuntu runner's maintained Chrome avoids redundant browser downloads. If GitHub shows the workflow as disabled, enable it under **Actions → CI** before expecting runs. The repository's last audit found it manually disabled; see [validation details](docs/audit/README.md).
 

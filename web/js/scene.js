@@ -55,6 +55,7 @@ class OfficeScene {
     for (const [atlas, cells] of [
       ["studio", ["sofa", "server", "shelf", "monstera"]],
       ["utilities", ["coffee", "cooler", "lamp", "clock"]],
+      ["decor", ["roundtable", "stool", "succulent", "planter"]],
     ])
       load(atlas, "furniture/" + atlas + "-atlas.png", (im) => {
         // Extract each atlas quadrant once, trim transparent padding, then normalize
@@ -105,6 +106,13 @@ class OfficeScene {
       });
   }
   update(agents, settings, progress, focus, filter) {
+    // Bootstrap observed sessions at their stations. Subsequent arrivals may
+    // walk; bounded planning keeps large rooms responsive without hiding agents.
+    if (!this.initialIds) this.initialIds = new Set(agents.map((a) => a.id));
+    const ids = new Set(agents.map((a) => a.id));
+    for (const id of this.chars.keys()) if (!ids.has(id)) this.chars.delete(id);
+    for (const id of this.initialIds)
+      if (!ids.has(id)) this.initialIds.delete(id);
     this.agents = agents;
     this.settings = settings;
     this.cosmetics = progress?.cosmetics || [];
@@ -261,17 +269,48 @@ class OfficeScene {
     const target = { x: x + 8, y: y - 17 };
     let c = this.chars.get(a.id);
     if (!c) {
+      const seated = this.initialIds?.delete(a.id);
       c = {
-        x: 12,
-        y: 12,
+        x: seated ? target.x : 24,
+        y: seated ? target.y : 0,
         distance: 0,
-        path: [
-          { x: 12, y: target.y - 16 },
-          { x: target.x, y: target.y - 16 },
-          target,
-        ],
+        path: [],
       };
       this.chars.set(a.id, c);
+    }
+    const routeKey = this.navigationKey + ":" + target.x + ":" + target.y;
+    if (c.routeKey !== routeKey) {
+      c.routeKey = routeKey;
+      if (
+        this.paused ||
+        this.relayout ||
+        this.grid.seats.length > 16 ||
+        !this.routeBudget ||
+        (c.x === target.x && c.y === target.y)
+      ) {
+        c.path = [];
+        c.x = target.x;
+        c.y = target.y;
+      } else {
+        this.routeBudget--;
+        const occupied = [
+          ...this.grid.seats
+            .filter((s) => s.a.id !== a.id)
+            .map((s) => ({ x: s.x - 3, y: s.y - 6, w: 46, h: 27 })),
+          ...this.navigationProps,
+        ];
+        const route = officePath(
+          { x: c.x + 8, y: c.y + 30 },
+          { x: target.x + 8, y: target.y + 30 },
+          this.grid,
+          occupied,
+        );
+        c.path = route?.map((p) => ({ x: p.x - 8, y: p.y - 30 })) || [];
+        if (!route) {
+          c.x = target.x;
+          c.y = target.y;
+        }
+      }
     }
     if (this.paused || this.relayout) {
       c.x = target.x;
@@ -412,10 +451,21 @@ class OfficeScene {
     this.relayout = !!this.geometry && this.geometry !== geometry;
     this.geometry = geometry;
     this.grid = room;
+    this.navigationProps = [
+      ...(this.settings.decorations ? defaultDecor(room, this.cosmetics) : []),
+      ...(this.settings.furniture || []).map((p) => propBounds(p, room)),
+    ];
+    this.navigationKey =
+      geometry +
+      JSON.stringify([
+        room.seats.map((s) => [s.a.id, s.x, s.y]),
+        this.navigationProps,
+      ]);
     this.dt = dt;
     this.hitBoxes = [];
     this.petHits = [];
     this.walking = [];
+    this.routeBudget = 2;
     const scale =
       Math.min((W - 24) / (room.w + 5), (H - 24) / (room.h + 8)) * this.zoom;
     const ox = (W - room.w * scale) / 2 + this.pan.x,
@@ -495,7 +545,7 @@ class OfficeScene {
             ? "Needs input"
             : s.a.tool
               ? String(s.a.tool).replaceAll("_", " ")
-              : s.a.status;
+              : STATUS_NAMES[s.a.status] || s.a.status;
         while (g.measureText(detail).width > max && detail.length > 2)
           detail = detail.slice(0, -2) + "…";
         if (details) g.fillText(detail, x, y + 26);
@@ -507,9 +557,6 @@ class OfficeScene {
           h: height,
         });
       }
-    const active = new Set(this.agents.map((a) => a.id));
-    for (const id of this.chars.keys())
-      if (!active.has(id)) this.chars.delete(id);
   }
   point(event) {
     const b = this.canvas.getBoundingClientRect(),

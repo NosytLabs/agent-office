@@ -1,0 +1,15 @@
+{
+  "created": "2026-10-03",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/decor-atlas.png",
+  "layout": "2x2 row-major; transparent padding trimmed once in scene loader",
+  "cells": [
+    "roundtable",
+    "stool",
+    "succulent",
+    "planter"
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: production 2D pixel-art office furniture atlas. Create exactly four standalone objects on a transparent square canvas, arranged one in each quadrant of a strict 2x2 grid with broad transparent margins. Top-left: small round walnut cafe table with two short legs, no accessories; top-right: simple sage-green upholstered stool with walnut legs; bottom-left: small cream ceramic pot with a compact succulent; bottom-right: long low terracotta planter box with leafy sage green foliage. Front view with slightly visible top surfaces, matching warm muted pixel-office assets, crisp pixel clusters, dark navy outlines, no antialiasing, no cast shadows outside objects. Independent objects fully inside their quadrant, centered, no overlaps. No text, logos, scenery, extra objects, checkerboard background, labels or grid lines. Same palette walnut/cream/olive/sage/navy across all four.",
+  "normalization": "Source retained unmodified. Runtime nearest-neighbor resampling to PROP_SIZES.",
+  "validation": "RGBA 1254x1254; alpha range 0..255; all quadrants visually inspected."
+}

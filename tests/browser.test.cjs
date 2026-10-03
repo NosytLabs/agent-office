@@ -285,7 +285,7 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
 test("all sprite images load and canvas frames stay within room bounds on desktop and mobile", () =>
   withPage(async (p) => {
     await p.waitForFunction(
-      () => officeScene.loadedAssets === 13 && officeScene.sprites.monstera,
+      () => officeScene.loadedAssets === 14 && officeScene.sprites.monstera,
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
     assert.equal(
@@ -651,7 +651,7 @@ test("readable local fonts, decorative icons, labels, and catalog previews load"
         }
     }
     await p.locator("#settingsbtn").click();
-    assert.equal(await p.locator("#furniture-tools button").count(), 7);
+    assert.equal(await p.locator("#furniture-tools button").count(), 11);
     const populated = await p
       .locator("#furniture-tools canvas")
       .evaluateAll((cs) =>
@@ -931,7 +931,7 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 13 &&
+        officeScene.loadedAssets === 14 &&
         officeScene.sprites.sofa &&
         initialized,
     );

@@ -18,6 +18,7 @@ def test_runtime_sprite_dimensions_and_png_headers():
         "pets/claudio.png": (96, 96), "pets/gitcat.png": (96, 96),
         "pets/sleep_cat.png": (24, 16), "furniture/studio-atlas.png": (1254, 1254),
         "furniture/utilities-atlas.png": (1254, 1254),
+        "furniture/decor-atlas.png": (1254, 1254),
     }
     for rel, size in expected.items():
         raw = (SPRITES / rel).read_bytes()

@@ -23,6 +23,7 @@ ACTIVITY = {
     "WebFetch": "browsing",
     "WebSearch": "browsing",
     "Task": "delegating",
+    "Agent": "delegating",
 }
 
 
@@ -45,6 +46,12 @@ def publish(event: dict) -> None:
 def map_hook(raw: dict) -> dict | None:
     name = raw.get("hook_event_name") or raw.get("hookEventName") or ""
     sid = raw.get("session_id") or raw.get("sessionId") or ""
+    child = raw.get("agent_id") or ""
+    context = {"session_id": child or sid, "platform": "claude"}
+    if child:
+        context["parent_session_id"] = sid
+    if raw.get("tool_use_id"):
+        context["call_id"] = raw["tool_use_id"]
     tool = raw.get("tool_name") or raw.get("toolName") or ""
     inp = raw.get("tool_input") or raw.get("toolInput") or {}
     preview = ""
@@ -57,10 +64,16 @@ def map_hook(raw: dict) -> dict | None:
         return {"event": "session_start", "session_id": sid, "platform": "claude"}
     if name == "SessionEnd":
         return {"event": "session_end", "session_id": sid}
+    if name == "UserPromptSubmit":
+        return {"event": "session_busy", **context}
+    if name == "Stop":
+        return {"event": "session_idle", **context}
+    if name == "StopFailure":
+        return {"event": "session_error", **context, "error_message": str(raw.get("error") or "session error")[:80]}
     if name == "PreToolUse":
         return {
             "event": "tool_start",
-            "session_id": sid,
+            **context,
             "tool_name": tool,
             "activity": ACTIVITY.get(tool, "working"),
             "preview": preview,
@@ -68,18 +81,22 @@ def map_hook(raw: dict) -> dict | None:
     if name in ("PostToolUse", "PostToolUseFailure"):
         return {
             "event": "tool_end",
-            "session_id": sid,
+            **context,
             "tool_name": tool,
             "status": "error" if "Failure" in name else "ok",
+            "error_message": str(raw.get("error") or "")[:80],
+            "duration_ms": raw.get("duration_ms"),
         }
     if name == "PermissionRequest":
-        return {"event": "approval_request", "session_id": sid, "command": preview or tool}
+        return {"event": "approval_request", **context, "tool_name": tool, "command": preview or tool}
+    if name == "PermissionDenied":
+        return {"event": "approval_response", **context, "tool_name": tool, "choice": "deny"}
     if name == "SubagentStart":
         return {
             "event": "subagent_start",
             "parent_session_id": sid,
             "child_session_id": raw.get("agent_id") or sid + ":sub",
-            "child_goal": preview or "subagent",
+            "child_goal": preview or raw.get("agent_type") or "subagent",
         }
     if name == "SubagentStop":
         return {"event": "subagent_stop", "child_session_id": raw.get("agent_id") or sid + ":sub"}
