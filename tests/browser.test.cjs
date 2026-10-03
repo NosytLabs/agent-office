@@ -168,6 +168,133 @@ test("connection guide explains each runtime and distinguishes demo from live tr
     await p.click("#setup-done");
     assert.equal(await p.isVisible("#sheet-setup"), false);
   }));
+test("setup commands copy with a selectable fallback and disclosures are keyboard accessible", () =>
+  withPage(async (p) => {
+    await p.click("#settingsbtn");
+    await p.click('#sheet-settings [data-sheet="sheet-setup"]');
+    await p.evaluate(() =>
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            window.copiedCommand = text;
+          },
+        },
+      }),
+    );
+    await p
+      .getByRole("button", { name: "Copy observer command", exact: true })
+      .click();
+    assert.equal(
+      await p.evaluate(() => window.copiedCommand),
+      "python3 run.py",
+    );
+    await p.evaluate(() => {
+      navigator.clipboard.writeText = async () => {
+        throw new Error("blocked");
+      };
+    });
+    await p
+      .getByRole("button", { name: "Copy installer command", exact: true })
+      .click();
+    assert.equal(
+      await p.evaluate(() => window.getSelection().toString()),
+      "python3 install.py",
+    );
+    assert.match(await p.textContent("#setup-copy-status"), /selected/);
+    await p.locator("#sheet-setup summary").first().focus();
+    await p.keyboard.press("Enter");
+    assert.equal(
+      await p.locator("#sheet-setup details").first().getAttribute("open"),
+      "",
+    );
+    await p.setViewportSize({ width: 320, height: 720 });
+    assert.equal(
+      await p.evaluate(
+        () =>
+          document.querySelector("#sheet-setup").scrollWidth >
+          document.querySelector("#sheet-setup").clientWidth,
+      ),
+      false,
+    );
+  }));
+test("focused agent cards keep live status, group ordering and useful removal focus", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    for (const [trigger, box] of [
+      ["floorbtn", "roster"],
+      ["tasksbtn", "taskboard"],
+    ]) {
+      await p.evaluate(() =>
+        applyState({
+          ...window._state,
+          agents: [{ id: "alpha", label: "Alpha", status: "working" }],
+        }),
+      );
+      await p.click("#" + trigger);
+      await p.locator("#" + box + ' [data-agent="alpha"]').focus();
+      await p.evaluate((box) => {
+        window.focusedCard = document.activeElement;
+        applyState({
+          ...window._state,
+          agents: [
+            { id: "beta", label: "Beta", status: "waiting" },
+            {
+              id: "alpha",
+              label: "Alpha",
+              status: box === "roster" ? "waiting" : "done",
+            },
+          ],
+        });
+      }, box);
+      assert.equal(
+        await p.evaluate(() => document.activeElement === window.focusedCard),
+        true,
+      );
+      assert.equal(await p.locator("#" + box + " .agent-card").count(), 2);
+      assert.match(
+        await p.locator("#" + box + ' [data-agent="alpha"]').innerText(),
+        box === "roster" ? /Needs input/ : /Completed/,
+      );
+      await p.evaluate(() => applyState({ ...window._state, agents: [] }));
+      assert.equal(await p.locator("#" + box + " .agent-card").count(), 0);
+      assert.equal(
+        await p.evaluate(
+          () => document.activeElement.closest(".sheet") !== null,
+        ),
+        true,
+      );
+      await p.keyboard.press("Escape");
+    }
+  }));
+test("search matches the status and event names shown to users", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    await p.evaluate(() =>
+      applyState({
+        ...window._state,
+        agents: ["waiting", "done", "gone"].map((status, i) => ({
+          id: "search-" + i,
+          status,
+        })),
+        events: [
+          { ts: 1, event: "input_request", question: "Which option?" },
+          { ts: 2, event: "tool_end", tool_name: "read_file" },
+        ],
+      }),
+    );
+    await p.click("#floorbtn");
+    for (const term of ["Needs input", "Completed", "Ended"]) {
+      await p.fill("#trackSearch", term);
+      assert.equal(await p.locator("#roster .agent-card").count(), 1);
+    }
+    await p.keyboard.press("Escape");
+    await p.click("#eventsbtn");
+    for (const term of ["Question asked", "Tool finished"]) {
+      await p.fill("#eventSearch", term);
+      assert.equal(await p.locator("#eventbox .event").count(), 1);
+    }
+  }));
 test("saved theme and desk settings survive a reload", () =>
   withPage(async (p) => {
     await p.request.post(baseURL + "/settings", {
@@ -178,6 +305,82 @@ test("saved theme and desk settings survive a reload", () =>
     assert.equal(await p.locator("html").getAttribute("data-theme"), "amber");
     await p.locator("#settingsbtn").click();
     assert.equal(await p.locator("#mc").inputValue(), "2");
+  }));
+test("needs-input navigation reaches every waiting session and modal background stays inert", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    await p.evaluate(() =>
+      applyState({
+        ...window._state,
+        agents: ["one", "two", "three"].map((id) => ({
+          id,
+          label: id,
+          status: "waiting",
+        })),
+      }),
+    );
+    for (const id of ["one", "two", "three", "one"]) {
+      await p.click("#waiting-count");
+      assert.equal(await p.evaluate(() => focusedId), id);
+      await p.evaluate(() => document.querySelector("#floorbtn").focus());
+      assert.equal(
+        await p.evaluate(() =>
+          document
+            .querySelector("#sheet-inspector")
+            .contains(document.activeElement),
+        ),
+        true,
+      );
+      await p.keyboard.press("Escape");
+      assert.equal(
+        await p.evaluate(() => document.activeElement.id),
+        "waiting-count",
+      );
+    }
+  }));
+test("closing a panel restores visible focus when its original trigger disappears", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    await p.evaluate(() => applyState({ ...window._state, agents: [] }));
+    await p.click("#empty-connect");
+    await p.evaluate(() =>
+      applyState({
+        ...window._state,
+        agents: [{ id: "arrived", status: "waiting" }],
+      }),
+    );
+    await p.keyboard.press("Escape");
+    assert.equal(await p.evaluate(() => document.activeElement.id), "c");
+    await p.click("#waiting-count");
+    await p.evaluate(() =>
+      applyState({
+        ...window._state,
+        agents: [{ id: "arrived", status: "idle" }],
+      }),
+    );
+    await p.keyboard.press("Escape");
+    assert.equal(await p.evaluate(() => document.activeElement.id), "c");
+  }));
+test("empty runtime filter gives immediate recovery instead of install instructions", () =>
+  withPage(async (p) => {
+    await p.route("**/state", (r) => r.abort());
+    await p.evaluate(() =>
+      applyState({
+        ...window._state,
+        agents: [{ id: "only-claude", platform: "claude", status: "idle" }],
+      }),
+    );
+    await p.selectOption("#filterbtn", "opencode");
+    assert.match(await p.textContent("#empty-state"), /No agents in this view/);
+    assert.equal(
+      await p.isVisible('#empty-state [data-sheet="sheet-setup"]'),
+      false,
+    );
+    await p
+      .getByRole("button", { name: "Show all runtimes", exact: true })
+      .click();
+    assert.equal(await p.inputValue("#filterbtn"), "every");
+    assert.equal(await p.isVisible("#empty-state"), false);
   }));
 test("roster search keeps focus and query through typing and polling", () =>
   withPage(async (p) => {
@@ -421,7 +624,7 @@ test("pause, zoom, runtime filters, snapshot download, achievements and furnitur
         g = officeScene.grid,
         b = officeScene.canvas.getBoundingClientRect();
       return {
-        x: b.left + ox + g.w * 0.5 * scale,
+        x: b.left + ox + (g.w - 100) * scale,
         y: b.top + oy + (g.h - 18) * scale,
       };
     });
@@ -475,6 +678,10 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       "coffee",
       "cooler",
       "lamp",
+      "roundtable",
+      "stool",
+      "succulent",
+      "planter",
     ];
     for (const [i, kind] of kinds.entries()) {
       await p.locator("#settingsbtn").click();
@@ -482,18 +689,19 @@ test("all new furniture can be placed, retained, and removed through the canvas"
         .locator("#furniture-tools")
         .locator(`[data-kind="${kind}"]`)
         .click();
-      const point = await p.evaluate((i) => {
+      const point = await p.evaluate(() => {
         const s = officeScene,
           b = s.canvas.getBoundingClientRect(),
           t = s.transform;
-        return {
-          x:
-            b.left +
-            t.ox +
-            (i < 4 ? 60 + i * 65 : 205 + (i - 4) * 45) * t.scale,
-          y: b.top + t.oy + (i < 4 ? s.grid.h - 12 : 170) * t.scale,
-        };
-      }, i);
+        for (let y = s.grid.h - 12; y > 40; y -= 4)
+          for (let x = 28; x < s.grid.w - 20; x += 4)
+            if (s.placement({ x, y }).valid)
+              return {
+                x: b.left + t.ox + x * t.scale,
+                y: b.top + t.oy + y * t.scale,
+              };
+        throw new Error("No free floor for " + s.edit);
+      });
       await p.mouse.click(point.x, point.y);
       await p.waitForFunction(
         (n) => settings.furniture.length === n && pendingSaves === 0,
@@ -506,7 +714,7 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       () =>
         initialized &&
         officeScene.sprites.monstera &&
-        settings.furniture.length === 7,
+        settings.furniture.length === 11,
     );
     assert.deepEqual(
       await p.evaluate(() => settings.furniture.map((x) => x.kind)),
@@ -534,7 +742,7 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       .click();
     const point = await p.evaluate(() => {
       const s = officeScene,
-        b = propBounds(settings.furniture[0], s.grid),
+        b = s.furnitureBounds(0),
         r = s.canvas.getBoundingClientRect(),
         t = s.transform;
       return {
@@ -787,7 +995,7 @@ test("move props by mouse and keyboard, undo/redo, cancel, remove and reload", (
     await p.waitForFunction(() => pendingSaves === 0);
     assert.deepEqual(await p.evaluate(() => settings.furniture), keyboard);
     const point = await p.evaluate(() => {
-      const b = propBounds(settings.furniture[0], officeScene.grid),
+      const b = officeScene.furnitureBounds(0),
         { ox, oy, scale } = officeScene.transform,
         rect = officeScene.canvas.getBoundingClientRect();
       return {
@@ -838,6 +1046,92 @@ test("move props by mouse and keyboard, undo/redo, cancel, remove and reload", (
     await p.waitForFunction(() => pendingSaves === 0);
     assert.deepEqual(await p.evaluate(() => settings.furniture), dragged);
     await p.evaluate(() => saveSettings({ furniture: [], decorations: true }));
+  }));
+test("custom furniture resolves around desks after mobile reflow without changing saved positions", () =>
+  withPage(async (p) => {
+    await p.evaluate(() =>
+      saveSettings({
+        max_chars: 4,
+        decorations: true,
+        furniture: [{ kind: "sofa", x: 185 / 344, y: 122 / 262 }],
+      }),
+    );
+    const saved = await p.evaluate(() => structuredClone(settings.furniture));
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.waitForFunction(
+      () => officeScene.furnitureResolution.relocated === 1,
+    );
+    assert.equal(await p.isVisible("#furniture-status"), true);
+    const clear = await p.evaluate(() => {
+      const b = officeScene.furnitureBounds(0);
+      return officeScene.hitBoxes.every(
+        (d) =>
+          !(
+            b.x < d.x + d.w &&
+            b.x + b.w > d.x &&
+            b.y < d.y + d.h &&
+            b.y + b.h > d.y
+          ),
+      );
+    });
+    assert.equal(clear, true);
+    assert.equal(
+      await p.evaluate(() => {
+        const b = officeScene.furnitureBounds(0),
+          { scale, ox, oy } = officeScene.transform;
+        const screen = {
+          x: ox + b.x * scale,
+          y: oy + b.y * scale,
+          w: b.w * scale,
+          h: b.h * scale,
+        };
+        return officeScene.labelBoxes.every(
+          (l) =>
+            !(
+              screen.x < l.x + l.w &&
+              screen.x + screen.w > l.x &&
+              screen.y < l.y + l.h &&
+              screen.y + screen.h > l.y
+            ),
+        );
+      }),
+      true,
+    );
+    assert.deepEqual(await p.evaluate(() => settings.furniture), saved);
+    if (process.env.OFFICE_SCREENSHOTS)
+      await p.screenshot({
+        path: path.join(process.env.OFFICE_SCREENSHOTS, "mobile-furniture.png"),
+        fullPage: true,
+      });
+    await p.click("#settingsbtn");
+    await p.click("#edit-furniture");
+    await p.locator("#c").press("Space");
+    assert.equal(
+      await p.evaluate(() => {
+        const b = officeScene.furnitureBounds(0),
+          point = officeScene.pointer;
+        return point.x === b.x + b.w / 2 && point.y === b.y + b.h;
+      }),
+      true,
+    );
+    await p.locator("#c").press("Delete");
+    await p.waitForFunction(
+      () => pendingSaves === 0 && settings.furniture.length === 0,
+    );
+    await p.keyboard.press("Escape");
+    assert.equal(await p.isVisible("#furniture-status"), false);
+  }));
+test("the full agent nameplate is clickable", () =>
+  withPage(async (p) => {
+    await p.waitForFunction(() => officeScene.labelBoxes.length === 6);
+    const target = await p.evaluate(() => {
+      const l = officeScene.labelBoxes[0],
+        c = officeScene.canvas.getBoundingClientRect();
+      return { x: c.left + l.x + 2, y: c.top + l.y + l.h - 2, id: l.id };
+    });
+    await p.mouse.click(target.x, target.y);
+    assert.equal(await p.isVisible("#sheet-inspector"), true);
+    assert.equal(await p.evaluate(() => focusedId), target.id);
   }));
 test("external furniture changes invalidate stale selection and undo", () =>
   withPage(async (p) => {

@@ -194,17 +194,18 @@ class OfficeScene {
     r(3, 27, w - 6, 2, "#15182430");
     this.image("DOOR", 12, 5, 14, 23);
     this.image("clock", 34, 8, 10, 10);
-    for (const x of [w * 0.29, w * 0.69]) {
-      r(x, 6, 40, 17, t.trim);
-      r(x + 2, 7, 36, 14, dark ? "#243854" : "#b5d4db");
+    const windowWidth = w < 260 ? 32 : 40;
+    for (const x of w < 260 ? [48, w - 59] : [w * 0.29, w * 0.69]) {
+      r(x, 6, windowWidth, 17, t.trim);
+      r(x + 2, 7, windowWidth - 4, 14, dark ? "#243854" : "#b5d4db");
       r(x + 4, 8, 2, 10, dark ? "#67768c" : "#d8e9e6");
-      r(x + 19, 7, 2, 14, t.trim);
-      r(x, 22, 40, 2, t.trim);
+      r(x + windowWidth / 2 - 1, 7, 2, 14, t.trim);
+      r(x, 22, windowWidth, 2, t.trim);
       if (dark) {
         r(x + 9, 10, 1, 1, "#e8cf93");
-        r(x + 29, 9, 1, 1, "#e8cf93");
+        r(x + windowWidth - 11, 9, 1, 1, "#e8cf93");
       } else {
-        r(x + 23, 10, 8, 1, "#e6f0e8");
+        r(x + windowWidth - 17, 10, 8, 1, "#e6f0e8");
       }
     }
     r(w / 2 - 20, 7, 40, 14, "#26313a");
@@ -227,10 +228,11 @@ class OfficeScene {
         this.rect(68, h - 54, 4, 2, "#efb481");
       if (this.cosmetics.includes("gitcat")) this.pet(w - 68, h - 21, true);
     }
-    for (const [i, item] of (this.settings.furniture || []).entries()) {
-      const b = propBounds(item, g);
+    for (const item of this.resolvedFurniture || []) {
+      const b = item.bounds;
+      if (!b) continue;
       this.image(item.kind, b.x, b.y, b.w, b.h);
-      if (i === this.movingIndex) {
+      if (item.index === this.movingIndex) {
         this.ctx.strokeStyle = "#e9ca8e";
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4);
@@ -451,9 +453,36 @@ class OfficeScene {
     this.relayout = !!this.geometry && this.geometry !== geometry;
     this.geometry = geometry;
     this.grid = room;
+    const decorations = this.settings.decorations
+        ? defaultDecor(room, this.cosmetics)
+        : [],
+      furniture = this.settings.furniture || [],
+      desks = room.seats.map((s) => ({
+        // Reserve the full native-resolution label footprint as well as the desk.
+        x: s.x - 12,
+        y: s.y - 25,
+        w: 64,
+        h: 72,
+      })),
+      resolutionKey =
+        geometry + JSON.stringify([desks, decorations, furniture]);
+    this.furnitureObstacles = desks;
+    if (this.furnitureResolutionKey !== resolutionKey) {
+      this.furnitureResolutionKey = resolutionKey;
+      const result = resolveFurniture(furniture, room, [
+        ...desks,
+        ...decorations,
+      ]);
+      this.resolvedFurniture = result.props;
+      this.furnitureResolution = {
+        relocated: result.relocated,
+        unplaced: result.unplaced,
+      };
+      this.onFurnitureResolution?.(this.furnitureResolution);
+    }
     this.navigationProps = [
-      ...(this.settings.decorations ? defaultDecor(room, this.cosmetics) : []),
-      ...(this.settings.furniture || []).map((p) => propBounds(p, room)),
+      ...decorations,
+      ...this.resolvedFurniture.map((p) => p.bounds).filter(Boolean),
     ];
     this.navigationKey =
       geometry +
@@ -572,18 +601,18 @@ class OfficeScene {
     const kind = this.editKind();
     if (!kind) return null;
     const occupied = [
-      ...this.hitBoxes,
+      ...(this.furnitureObstacles || this.hitBoxes),
       ...(this.settings.decorations
         ? defaultDecor(this.grid, this.cosmetics)
         : []),
+      ...(this.resolvedFurniture || [])
+        .filter((p) => p.index !== this.movingIndex && p.bounds)
+        .map((p) => p.bounds),
     ];
-    return placementAt(
-      kind,
-      point,
-      this.grid,
-      occupied,
-      (this.settings.furniture || []).filter((_, i) => i !== this.movingIndex),
-    );
+    const placement = placementAt(kind, point, this.grid, occupied, []);
+    placement.valid &&=
+      this.movingIndex !== null || this.settings.furniture.length < 24;
+    return placement;
   }
   editKind() {
     return this.movingIndex !== null
@@ -594,10 +623,17 @@ class OfficeScene {
   }
   propAt(p) {
     if (!p) return -1;
-    return (this.settings.furniture || []).findLastIndex((item) => {
-      const b = propBounds(item, this.grid);
-      return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
-    });
+    return (
+      (this.resolvedFurniture || []).findLast((item) => {
+        const b = item.bounds;
+        return (
+          b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
+        );
+      })?.index ?? -1
+    );
+  }
+  furnitureBounds(index) {
+    return this.resolvedFurniture?.[index]?.bounds || null;
   }
   bindInput() {
     const cv = this.canvas;
@@ -653,9 +689,24 @@ class OfficeScene {
         this.onPlace(p, this.grid);
         return;
       }
-      const hit = this.hitBoxes.find(
-        (h) => p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
-      );
+      const canvasBounds = cv.getBoundingClientRect(),
+        screen = {
+          x: e.clientX - canvasBounds.left,
+          y: e.clientY - canvasBounds.top,
+        },
+        label = (this.labelBoxes || []).find(
+          (h) =>
+            screen.x >= h.x &&
+            screen.x <= h.x + h.w &&
+            screen.y >= h.y &&
+            screen.y <= h.y + h.h,
+        );
+      const hit =
+        label ||
+        this.hitBoxes.find(
+          (h) =>
+            p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
+        );
       if (hit) {
         this.onSelect(hit.id);
         return;

@@ -3,6 +3,24 @@
 const furnitureHistory = [],
   furnitureFuture = [];
 let furnitureSignature = JSON.stringify(settings.furniture);
+scene.onFurnitureResolution = ({ relocated, unplaced }) => {
+  const status = $("furniture-status");
+  status.hidden = !relocated && !unplaced;
+  status.textContent = [
+    relocated
+      ? `${relocated} custom prop${relocated === 1 ? " was" : "s were"} moved to free floor for this view.`
+      : "",
+    unplaced
+      ? `Could not find free floor for ${unplaced} prop${unplaced === 1 ? "" : "s"} in this view. Use Arrange custom furniture, then Space to select and Delete to remove.`
+      : "",
+    relocated || unplaced ? "Your saved positions are unchanged." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
+scene.onFurnitureResolution(
+  scene.furnitureResolution || { relocated: 0, unplaced: 0 },
+);
 for (const kind of Object.keys(PROP_SIZES)) {
   const b = document.createElement("button");
   b.className = "furniture-card";
@@ -73,7 +91,9 @@ function startFurniture(kind) {
 function pickFurniture(index) {
   if (!settings.furniture[index]) return;
   scene.movingIndex = index;
-  const b = propBounds(settings.furniture[index], scene.grid);
+  const b =
+    scene.furnitureBounds(index) ||
+    propBounds(settings.furniture[index], scene.grid);
   scene.pointer = { x: b.x + b.w / 2, y: b.y + b.h };
   $("edit-message").textContent =
     "Move " +
@@ -120,7 +140,7 @@ function finishFurniture() {
   scene.edit = null;
   resetSelection();
   $("edit-hint").hidden = true;
-  $("empty-state").hidden = scene.list().length > 0;
+  syncEmptyState();
   $("scene-hint").textContent = "Select a desk to inspect its activity.";
   scene.draw(0);
 }

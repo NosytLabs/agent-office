@@ -280,6 +280,7 @@ def _build_state_locked() -> Dict[str, Any]:
     agents: Dict[str, Dict[str, Any]] = {}
     active_tools: Dict[str, Dict[str, Dict[str, Any]]] = {}
     pending_input: Dict[str, Dict[tuple, Dict[str, Any]]] = {}
+    inactive_sessions = set()
     now = time.time()
 
     def ensure(key: str, ev: Dict[str, Any]) -> Dict[str, Any]:
@@ -349,6 +350,7 @@ def _build_state_locked() -> Dict[str, Any]:
             continue
 
         if kind == "session_start":
+            inactive_sessions.discard(key)
             a = ensure(key, ev)
             clear_pending(key)
             clear_tool(a)
@@ -362,11 +364,13 @@ def _build_state_locked() -> Dict[str, Any]:
             a = ensure(key, ev)
             session_metadata(a, ev)
         elif kind == "session_busy":
+            inactive_sessions.discard(key)
             a = ensure(key, ev)
             if a["status"] not in ("working", "waiting"):
                 clear_tool(a)
                 a["status"] = "thinking"
         elif kind in ("session_idle", "session_error"):
+            inactive_sessions.add(key)
             a = ensure(key, ev)
             previous_error = a["detail"] if a["status"] == "idle" and a["detail"].startswith("⚠ ") else ""
             clear_pending(key)
@@ -377,6 +381,7 @@ def _build_state_locked() -> Dict[str, Any]:
             else:
                 a["detail"] = previous_error
         elif kind == "session_end":
+            inactive_sessions.add(key)
             if key in agents:
                 clear_pending(key)
                 clear_tool(agents[key])
@@ -386,6 +391,7 @@ def _build_state_locked() -> Dict[str, Any]:
             child = ev.get("child_session_id")
             if child:
                 ck = str(child)
+                inactive_sessions.discard(ck)
                 ev2 = dict(ev)
                 ev2["session_id"] = ck
                 a = ensure(ck, ev2)
@@ -398,17 +404,22 @@ def _build_state_locked() -> Dict[str, Any]:
                 a["parent"] = str(ev.get("parent_session_id") or "")
         elif kind == "subagent_stop":
             child = ev.get("child_session_id")
+            if child:
+                inactive_sessions.add(str(child))
             if child and str(child) in agents:
                 clear_pending(str(child))
                 clear_tool(agents[str(child)])
                 agents[str(child)]["status"] = "done"
                 agents[str(child)]["updated_at"] = ev.get("ts", now)
         elif kind == "tool_start":
+            inactive_sessions.discard(key)
             a = ensure(key, ev)
             call = str(ev.get("call_id") or f"legacy:{ev.get('tool_name') or ''}")
             active_tools.setdefault(key, {})[call] = ev
             settle(a, key)
         elif kind == "tool_end":
+            if key in inactive_sessions:
+                continue
             a = ensure(key, ev)
             tools = active_tools.setdefault(key, {})
             call = ev.get("call_id")
@@ -433,11 +444,14 @@ def _build_state_locked() -> Dict[str, Any]:
                 detail = f"⚠ {_short(ev.get('error_message'), 40) or 'tool failed'}"
             settle(a, key, detail)
         elif kind in ("approval_request", "input_request"):
+            inactive_sessions.discard(key)
             a = ensure(key, ev)
             request = (kind, str(ev.get("request_id") or ev.get("call_id") or "legacy"))
             pending_input.setdefault(key, {})[request] = ev
             settle(a, key)
         elif kind in ("approval_response", "input_response"):
+            if key in inactive_sessions:
+                continue
             a = ensure(key, ev)
             request_kind = kind.replace("response", "request")
             waiting = pending_input.setdefault(key, {})
@@ -459,8 +473,20 @@ def _build_state_locked() -> Dict[str, Any]:
                 call = ev.get("call_id") or (resolved or {}).get("call_id")
                 if call:
                     active_tools.setdefault(key, {}).pop(str(call), None)
+                    # Rejecting a permission/question cancels that call, so
+                    # another prompt attached to the same call cannot stay open.
+                    for request, data in list(waiting.items()):
+                        if data.get("call_id") == call:
+                            waiting.pop(request)
                 elif resolved or not request_id:
                     active_tools.pop(key, None)
+                    # Older Claude permission hooks omit tool_use_id. Resolve
+                    # an attached question by tool name only when unambiguous.
+                    blocked_tool = ev.get("tool_name") or (resolved or {}).get("tool_name")
+                    questions = [request for request, data in waiting.items()
+                                 if request[0] == "input_request" and blocked_tool and data.get("tool_name") == blocked_tool]
+                    if len(questions) == 1:
+                        waiting.pop(questions[0])
                 detail = f"{'question' if rejected_input else 'approval'}: {choice or 'response received'}"
             settle(a, key, detail)
             if kind == "approval_response" and accepted and a["status"] == "thinking":
@@ -808,7 +834,9 @@ def _post_tool_call(**kw: Any) -> None:
         "error_message": kw.get("error_message"),
         "duration_ms": kw.get("duration_ms"),
     })
-    if str(kw.get("session_id") or "") == _current_session_id.get():
+    completed_call = str(kw.get("tool_call_id") or kw.get("call_id") or "")
+    if (str(kw.get("session_id") or "") == _current_session_id.get()
+        and (not completed_call or completed_call == _current_call_id.get())):
         _current_session_id.set("")
         _current_call_id.set("")
 
@@ -830,11 +858,20 @@ def _subagent_stop(**kw: Any) -> None:
     })
 
 
+def _approval_identity(kw: Dict[str, Any]) -> tuple:
+    sid = kw.get("session_id") or _current_session_id.get()
+    call = kw.get("tool_call_id") or kw.get("call_id") or ""
+    if not call and str(sid) == _current_session_id.get():
+        call = _current_call_id.get()
+    return sid, call
+
+
 def _pre_approval_request(**kw: Any) -> None:
+    sid, call = _approval_identity(kw)
     _publish({
         "event": "approval_request",
-        "session_id": kw.get("session_id") or _current_session_id.get(),
-        "call_id": kw.get("tool_call_id") or kw.get("call_id") or _current_call_id.get(),
+        "session_id": sid,
+        "call_id": call,
         "request_id": kw.get("request_id") or "",
         "command": kw.get("command") or kw.get("description"),
         "surface": kw.get("surface"),
@@ -842,10 +879,11 @@ def _pre_approval_request(**kw: Any) -> None:
 
 
 def _post_approval_response(**kw: Any) -> None:
+    sid, call = _approval_identity(kw)
     _publish({
         "event": "approval_response",
-        "session_id": kw.get("session_id") or _current_session_id.get(),
-        "call_id": kw.get("tool_call_id") or kw.get("call_id") or _current_call_id.get(),
+        "session_id": sid,
+        "call_id": call,
         "request_id": kw.get("request_id") or "",
         "choice": kw.get("choice"),
     })

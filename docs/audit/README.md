@@ -2,46 +2,37 @@
 
 This document separates current checks from historical browser evidence. All pictured sessions are synthetic; no image represents a live LLM run.
 
-## Current scene and tracking pass
+## Current browser, scene and tracking pass
 
-- Tool completion, idle, errors and departure clear stale tool text and animation. Call IDs preserve parallel tools and independent pending permission/question requests.
-- Claude child tool events retain child attribution. OpenCode follows actual child session IDs, titles, busy/idle/error states and question events instead of creating duplicate task avatars. Hermes approval fallback uses per-session context.
-- Installer creates missing JSON settings, preserves unrelated hooks, private modes and symlinks, repairs legacy OpenCode bridge paths and dangling Hermes links, and reports write failures without abandoning other integrations. JSONC is preserved with explicit manual instructions.
-- Eleven placeable props share rendering and collision sizes. A new generated cafe/plant atlas adds a table, stool, succulent and planter; desktop lounge tables use the same bounds for drawing and navigation.
-- Arrival paths avoid other desks and props using feet-level collision. Existing sessions start seated. Planning is limited to two arrivals per frame; rooms above 16 sessions and relayout use seated arrivals. This keeps tracking uncapped without blocking on hundreds of routes.
-- Human status/event labels and needs-input notifications describe recorded work. Approval and question responses belong in the original runtime.
+- First-run detection no longer mistakes this checkout’s Claude/OpenCode source folders or observer-only Hermes data for installed runtimes. The guide has a runtime selector, connection check, copyable commands and keyboard-accessible troubleshooting.
+- Focused agent cards keep updating, moving between task groups and disappearing when sessions leave. Search matches the readable status/event names. Every waiting agent is reachable, and modals keep the background inert with visible focus recovery.
+- Failed OpenCode tools finish through terminal tool parts even when the runtime skips its after hook. Duplicate terminal snapshots are bounded and deduplicated. Claude questions appear as needs-input events and clear on answer or denial, including legacy missing-call-ID denials. Late completions do not revive inactive avatars; Hermes parallel-call approval attribution stays local to its session.
+- Custom props move to nearby free floor for each viewport without altering saved/exported positions. Drawing, walking, placement and selection share resolved bounds. Desk/nameplate clearance prevents hidden props, and unresolved props remain keyboard-removable with a visible notice. The narrow-room windows now clear the wall sign.
+- Eleven generated/attributed props have actual canvas placement, reload and removal coverage. Whole nameplates select agents; independent cat interactions, achievements, settings and menus are exercised.
 
 | Check | Evidence |
 | --- | --- |
-| Python | 98 tests pass: lifecycle folding, concurrent tools/requests, hooks, installer, API/settings, XP and assets |
-| Standalone HTTP | Actual run.py boot and Claude hook stdin → disk → HTTP status transitions; new props saved/reloaded and atlas bytes served from an isolated workspace |
-| Node | 23 tests pass: OpenCode payloads, geometry/paths, NPC cleanup and VS Code URL behavior |
+| Python | 116 tests pass: lifecycle folding, concurrent tools/requests, hooks, installer, actual isolated HTTP server, API/settings, XP and assets |
+| Node | 33 tests pass: OpenCode payloads, geometry/paths/reflow, NPC cleanup, nameplate input and VS Code URL behavior |
+| Browser | 35 Chromium userflows against the real Python server: all eleven prop placements, mobile reflow, navigation, clipboard fallback, setup, focus, search, polling, settings, reset, pets, achievements and downloads |
 | Static | JavaScript syntax, Python compilation, Prettier and diff checks |
-| Scene renderer | Actual asset loader and draw loop in a CPU canvas: 14 assets, desktop/mobile/night, arrivals reach desks, two-route budget, 128-session bootstrap/relayout without path work |
-| Assets | Unmodified RGBA source, alpha and four normalized cells inspected; complete PNG checksums retained |
-| Browser DOM/userflows | **Not rerun for this pass.** Chromium's required socket is denied by this execution session; escalation is disabled. No new browser success is claimed. |
-| Live runtimes | Documented payload fixtures and actual local hook/bridge file writes; real installed CLI sessions and a VS Code extension host remain unverified |
+| Scene renderer | Actual asset loader and draw loop in a CPU canvas: 14 assets, desktop/mobile/night, arrivals, two-route budget, 128-session bootstrap/relayout, cached prop resolution |
+| Assets | Complete PNG checksums, alpha/frame bounds and runtime-normalized props; generated source images are unchanged |
+| Live runtimes | Documented payload fixtures and actual local hook/bridge file writes; installed provider CLI sessions and a VS Code extension host remain unverified |
 
-The optional renderer is reproducible with a separately installed `skia-canvas` module: `SCENE_CANVAS_MODULE=/path/to/skia-canvas node tests/render-scene.cjs`. It writes `reports/scene-render`; the module is not a production dependency. It verifies scene code, not DOM interaction or remote integrations.
+The browser pass replaces the previous session’s blocked-browser limitation. Screenshots use synthetic events in an isolated local observer; no screenshot represents a live LLM run.
 
-![Current CPU-rendered studio](scene-desktop.png)
-![Current CPU-rendered mobile scene](scene-mobile.png)
-![Runtime-normalized new decor](decor-preview.png)
+![Current browser studio](desktop-studio.png)
+![Runtime connection guide](connection-guide.png)
+![Mobile furniture avoids desks and labels](mobile-furniture.png)
 
-## Earlier merged browser evidence
-
-[PR #4](https://github.com/NosytLabs/agent-office/pull/4), [#5](https://github.com/NosytLabs/agent-office/pull/5) and [#6](https://github.com/NosytLabs/agent-office/pull/6) were tested against the real Python server in Chromium. The last such pass had 46 Python tests and 26 browser cases. These images belong to those versions; they do not validate the current changes.
-
-Those passes fixed settings reload/stale polling, search focus, unsafe event markup, malformed event records, XP replay at shared timestamps, achievement thresholds, demo isolation, mobile scale and sprite frame selection. They added queued saves, task/activity panels, readable local Geist text/Lucide icons, furniture move/remove/undo/redo/import/export, responsive nameplates, independent cat hit targets and aquarium collision bounds.
-
-[PR #7](https://github.com/NosytLabs/agent-office/pull/7) added runtime-specific setup guidance and malformed-hook protection. It passed 50 Python and 12 Node tests, with final static review; browser checks were unavailable. The owner requested merge with that limitation documented.
-
-| Evidence | Link |
+| More evidence | Link |
 | --- | --- |
-| Before | [Desktop](before-desktop.png), [mobile](before-mobile.png), [asset inventory](assets-before.png) |
-| Studio | [Desktop](desktop-studio.png), [mobile](mobile-studio.png), [midnight](midnight-studio.png) |
-| Menus | [Settings](desktop-settings.png), [mobile settings](mobile-settings.png), [achievements](achievements.png) |
-| Editor/rewards | [Furniture placement](furniture-placement.png), [move editor](furniture-editor.png), [room rewards](room-rewards.png) |
+| Baseline | [Original desktop](before-desktop.png), [original mobile](before-mobile.png), [asset inventory](assets-before.png) |
+| Current interface | [Mobile](mobile-studio.png), [settings](desktop-settings.png), [mobile settings](mobile-settings.png), [achievements](achievements.png), [midnight](midnight-studio.png) |
+| Editor/rewards | [All eleven props](furniture-placement.png), [move editor](furniture-editor.png), [room rewards](room-rewards.png) |
+
+The optional CPU renderer is reproducible with a separately installed `skia-canvas` module: `SCENE_CANVAS_MODULE=/path/to/skia-canvas node tests/render-scene.cjs`. It writes `reports/scene-render`; the module is not a production dependency. Retained `scene-*.png` images document the preceding CPU-only pass, not current browser evidence.
 
 ## Reference and license decisions
 
@@ -59,6 +50,6 @@ Primary Claude hook and OpenCode v2 SDK documentation were checked through Conte
 
 ## Remaining boundaries
 
-The app observes; it does not hire agents, execute tasks, approve commands, connect a Telegram bot or dispatch messages. Runtime settings use standard paths, while `HERMES_HOME` sets the shared event directory and Hermes plugin location. Normalized custom prop positions may need adjustment after major reflow; saved layouts are not automatically rearranged. Pets are decorative.
+The app observes; it does not hire agents, execute tasks, approve commands, connect a Telegram bot or dispatch messages. Runtime settings use standard paths, while `HERMES_HOME` sets the shared event directory and Hermes plugin location. Custom prop positions are resolved per view with a bounded search; if a crowded view has no suitable slot, the interface reports it while preserving the saved prop. Pets are decorative.
 
-The last GitHub audit found CI manually disabled. The connected tools cannot enable it or delete remote branches; no hosted CI success is claimed. Runtime logs and test reports are ignored, and license/provenance documents are retained. Earlier images remain because they are validation evidence, not unused runtime assets.
+The prior GitHub audit found CI manually disabled. The current connector rejects the workflow collection endpoint and cannot enable workflows; no hosted CI success is claimed. The existing workflow runs these local checks and uploads browser evidence when enabled. Runtime logs and test reports are ignored, and license/provenance documents are retained. Earlier images remain because they are validation evidence, not unused runtime assets.

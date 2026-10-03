@@ -136,6 +136,95 @@ function overlapsRect(a, b, gap = 2) {
     a.y + a.h + gap > b.y
   );
 }
+// Saved positions are viewport-independent preferences. Resolve a display-only
+// rectangle against this room's desks/decor without changing exported settings.
+function resolveFurniture(items, grid, occupied) {
+  const blocked = [...occupied],
+    props = [];
+  let relocated = 0,
+    unplaced = 0,
+    attempts = 0;
+  for (const [index, item] of items.entries()) {
+    const preferred = propBounds(item, grid),
+      { w, h } = preferred;
+    let bounds = null;
+    const clear = (b) => !blocked.some((p) => overlapsRect(b, p));
+    if (clear(preferred)) bounds = preferred;
+    else {
+      const axis = (key, size, low, high) =>
+        [
+          ...new Set(
+            [
+              preferred[key],
+              low,
+              high,
+              ...blocked.flatMap((b) => [
+                b[key] - size - 2,
+                b[key] + b[key === "x" ? "w" : "h"] + 2,
+              ]),
+            ].filter((n) => n >= low && n <= high),
+          ),
+        ].sort(
+          (a, b) =>
+            Math.abs(a - preferred[key]) - Math.abs(b - preferred[key]) ||
+            a - b,
+        );
+      const xs = axis("x", w, 7, grid.w - w - 7),
+        ys = axis("y", h, 28, grid.h - h - 10),
+        heap = [];
+      const distance = (ix, iy) =>
+        (xs[ix] - preferred.x) ** 2 + (ys[iy] - preferred.y) ** 2;
+      const push = (node) => {
+        heap.push(node);
+        let i = heap.length - 1;
+        while (i > 0) {
+          const p = Math.floor((i - 1) / 2);
+          if (heap[p].d <= node.d) break;
+          heap[i] = heap[p];
+          i = p;
+        }
+        heap[i] = node;
+      };
+      const pop = () => {
+        const first = heap[0],
+          last = heap.pop();
+        if (heap.length) {
+          let i = 0;
+          while (i * 2 + 1 < heap.length) {
+            let c = i * 2 + 1;
+            if (c + 1 < heap.length && heap[c + 1].d < heap[c].d) c++;
+            if (heap[c].d >= last.d) break;
+            heap[i] = heap[c];
+            i = c;
+          }
+          heap[i] = last;
+        }
+        return first;
+      };
+      if (ys.length)
+        for (let ix = 0; ix < xs.length; ix++)
+          push({ ix, iy: 0, d: distance(ix, 0) });
+      for (let tried = 0; heap.length && tried < 2048; tried++) {
+        const { ix, iy } = pop(),
+          b = { x: xs[ix], y: ys[iy], w, h };
+        attempts++;
+        if (clear(b)) {
+          bounds = b;
+          break;
+        }
+        if (iy + 1 < ys.length)
+          push({ ix, iy: iy + 1, d: distance(ix, iy + 1) });
+      }
+    }
+    const moved =
+      !!bounds && (bounds.x !== preferred.x || bounds.y !== preferred.y);
+    if (moved) relocated++;
+    if (bounds) blocked.push(bounds);
+    else unplaced++;
+    props.push({ index, kind: item.kind, bounds, relocated: moved });
+  }
+  return { props, relocated, unplaced, attempts };
+}
 function placementAt(kind, point, grid, occupied, items) {
   const [w, h] = PROP_SIZES[kind];
   const bounds = { x: point.x - w / 2, y: point.y - h, w, h };

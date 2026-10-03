@@ -173,3 +173,171 @@ test("fractional route origins remain bounded and all default desk rows are reac
     }
   }
 });
+test("a desktop prop relocates clear of mobile desks without changing saved coordinates", () => {
+  const items = [{ kind: "sofa", x: 185 / 344, y: 122 / 262 }];
+  const saved = JSON.stringify(items);
+  const grid = { w: 210, h: 338 };
+  const occupied = [
+    { x: 47, y: 35, w: 48, h: 56 },
+    { x: 115, y: 35, w: 48, h: 56 },
+    { x: 47, y: 111, w: 48, h: 56 },
+    { x: 115, y: 111, w: 48, h: 56 },
+    { x: 47, y: 187, w: 48, h: 56 },
+    { x: 115, y: 187, w: 48, h: 56 },
+    ...model.defaultDecor(grid, []),
+  ];
+  const result = model.resolveFurniture(items, grid, occupied);
+  assert.equal(result.relocated, 1);
+  assert.equal(result.unplaced, 0);
+  const bounds = result.props[0].bounds;
+  assert.ok(bounds && occupied.every((b) => !model.overlapsRect(bounds, b)));
+  assert.equal(JSON.stringify(items), saved);
+  assert.deepEqual(model.resolveFurniture(items, grid, occupied), result);
+});
+test("a full floor reports unplaced furniture while preserving editable settings", () => {
+  const result = model.resolveFurniture(
+    [{ kind: "sofa", x: 0.5, y: 0.5 }],
+    { w: 210, h: 238 },
+    [{ x: 0, y: 0, w: 210, h: 238 }],
+  );
+  assert.equal(result.unplaced, 1);
+  assert.equal(result.props.length, 1);
+  assert.equal(result.props[0].index, 0);
+  assert.equal(result.props[0].bounds, null);
+});
+test("crowded furniture resolution stays bounded and avoids other custom props", () => {
+  const grid = { w: 344, h: 2542 };
+  const desks = Array.from({ length: 128 }, (_, i) => ({
+    x: 46 + (i % 4) * 68,
+    y: 35 + Math.floor(i / 4) * 76,
+    w: 48,
+    h: 56,
+  }));
+  const items = Array.from({ length: 24 }, () => ({
+    kind: "server",
+    x: 0.2,
+    y: 0.5,
+  }));
+  const result = model.resolveFurniture(items, grid, desks);
+  assert.equal(result.unplaced, 0);
+  const occupied = [...desks];
+  for (const prop of result.props) {
+    assert.ok(occupied.every((b) => !model.overlapsRect(prop.bounds, b)));
+    occupied.push(prop.bounds);
+  }
+  assert.ok(result.attempts <= 24 * 2048, "resolution search is bounded");
+});
+test("editing hit tests and placement use displayed furniture after relocation", () => {
+  const scene = Object.create(model.Scene.prototype);
+  scene.settings = {
+    decorations: false,
+    furniture: [{ kind: "sofa", x: 0.5, y: 0.5 }],
+  };
+  scene.grid = { w: 210, h: 238 };
+  scene.resolvedFurniture = [
+    { index: 0, kind: "sofa", bounds: { x: 150, y: 190, w: 40, h: 28 } },
+  ];
+  scene.hitBoxes = [];
+  scene.movingIndex = null;
+  scene.edit = "server";
+  assert.equal(scene.propAt({ x: 160, y: 200 }), 0);
+  assert.equal(scene.propAt({ x: 100, y: 110 }), -1);
+  assert.equal(scene.placement({ x: 168, y: 217 }).valid, false);
+  assert.equal(scene.placement({ x: 105, y: 119 }).valid, true);
+});
+test("nameplate status lines and edges select their session", () => {
+  model.devicePixelRatio = 1;
+  const noop = () => {},
+    handlers = new Map(),
+    selected = [];
+  const ctx = Object.fromEntries(
+    [
+      "setTransform",
+      "clearRect",
+      "fillRect",
+      "save",
+      "translate",
+      "scale",
+      "restore",
+      "beginPath",
+      "roundRect",
+      "fill",
+      "fillText",
+    ].map((name) => [name, noop]),
+  );
+  ctx.measureText = (text) => ({ width: text.length * 7 });
+  const scene = Object.create(model.Scene.prototype);
+  Object.assign(scene, {
+    canvas: {
+      clientWidth: 1100,
+      clientHeight: 650,
+      width: 1100,
+      height: 650,
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+      addEventListener: (name, handler) => handlers.set(name, handler),
+      setPointerCapture: noop,
+    },
+    ctx,
+    agents: [],
+    settings: {
+      max_chars: 4,
+      theme: "default",
+      show_labels: true,
+      decorations: false,
+      furniture: [],
+    },
+    cosmetics: [],
+    sprites: {},
+    chars: new Map(),
+    filter: "every",
+    zoom: 1,
+    pan: { x: 0, y: 0 },
+    paused: true,
+    time: 0,
+    edit: null,
+    movingIndex: null,
+    onSelect: (id) => selected.push(id),
+    onPlace: noop,
+    room: noop,
+    rect: noop,
+    shadow: noop,
+    text: noop,
+  });
+  scene.update(
+    Array.from({ length: 6 }, (_, i) => ({
+      id: "session-" + i,
+      label: "Session " + i,
+      status: "working",
+      tool: "terminal",
+    })),
+    scene.settings,
+    null,
+    null,
+    "every",
+  );
+  scene.draw(0);
+  scene.bindInput();
+  // Independent coordinates cover the lower status line and left label edge.
+  for (const [x, y] of [
+    [313.5, 241.4],
+    [241, 218],
+  ]) {
+    const label = scene.labelBoxes[0];
+    assert.ok(
+      x > label.x &&
+        x < label.x + label.w &&
+        y > label.y &&
+        y < label.y + label.h,
+    );
+    const event = {
+      clientX: x,
+      clientY: y,
+      button: 0,
+      isPrimary: true,
+      pointerId: 1,
+    };
+    handlers.get("pointerdown")(event);
+    handlers.get("pointerup")(event);
+  }
+  assert.deepEqual(selected, ["session-0", "session-0"]);
+});

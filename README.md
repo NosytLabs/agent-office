@@ -36,9 +36,9 @@ python3 install.py
 
 The installer detects existing runtime installations, adds this observer, and preserves other configuration. Restart the runtime after installation. Invalid configuration is reported without replacement.
 
-Missing Claude/OpenCode JSON settings are created. If you use `opencode.jsonc`, the installer preserves comments and prints the local bridge URL to add manually to its `plugin` array. Rerun the installer after upgrading to register the latest lifecycle hooks. Configuration writes preserve existing file permissions and symlinks.
+Missing Claude/OpenCode JSON settings are created only when their runtime is detected. Source folders and the observer’s data directory do not count as installed runtimes. If you use `opencode.jsonc`, the installer preserves comments and prints the local bridge URL to add manually to its `plugin` array. Rerun the installer after upgrading to register the latest lifecycle hooks. Configuration writes preserve existing file permissions and symlinks.
 
-On an empty first visit, choose **Connect your first agent**. You can reopen the runtime-specific connection guide from **Customize → Connection guide**. It explains Hermes, Telegram via Hermes, OpenCode, Claude Code and VS Code, and distinguishes synthetic demo activity from recorded sessions. A reachable observer alone does not verify a runtime installation. Click **need input** above the floor to inspect a waiting session; respond in the original runtime.
+On an empty first visit, choose **Connect your first agent**. You can reopen the runtime-specific connection guide from **Customize → Connection guide**. Choose Hermes, Telegram via Hermes, OpenCode, Claude Code or VS Code for specific instructions. Copy the observer and installer commands, follow the three steps, and check recorded sessions without confusing demo activity for a live connection. A reachable observer alone does not verify a runtime installation. The **needs input** button above the floor cycles through every waiting session; respond in the original runtime.
 
 | Integration | What it observes | Setup |
 |---|---|---|
@@ -52,8 +52,8 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 
 ## A room that reflects the work
 
-- **Real activity:** working, thinking, waiting, idle, completed, and ended sessions. Tool completion clears stale animations; concurrent calls stay attributed to their sessions. Permission requests and OpenCode questions show needs-input cues and a notification. Respond in the original runtime.
-- **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Search keeps your cursor while the state refreshes.
+- **Real activity:** working, thinking, waiting, idle, completed, and ended sessions. Tool completion clears stale animations; concurrent calls stay attributed to their sessions. Permission requests, Claude questions and OpenCode questions show needs-input cues and a notification. Failed OpenCode tools clear their active state even when the runtime skips its after hook. Respond in the original runtime.
+- **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Focused cards keep updating as sessions work or leave; search matches the readable status names.
 - **Task overview:** sessions grouped by current status. This is an observed-work board, not a task dispatch engine.
 - **Activity stream:** searchable recent events, with timestamps. Usage and CSV export report the events this observer has recorded.
 - **A furnished scene:** corrected walk/read/type animations, paths around desks and props, matching object scale, low-contrast floors, and three matching generated furniture atlases. Existing sessions, crowded rooms above 16 sessions, and enclosed desks use seated arrivals to keep the view responsive.
@@ -79,15 +79,15 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 
 The room starts with a decorative cat. Pets and furnishing are ambience; they do not represent additional agents. XP is a playful event counter, not a measurement of work quality or task completion.
 
-![Updated studio scene with generated cafe furniture](docs/audit/scene-desktop.png)
+![Runtime connection guide on mobile](docs/audit/connection-guide.png)
 
-This image renders the actual scene code with synthetic sessions in a CPU canvas. It verifies the scene separately from browser menus and runtime integrations.
+Browser screenshots use synthetic events in an isolated local observer. They demonstrate the interface, not a live model run.
 
 ### Controls
 
 Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click free floor space. A green preview marks a valid position; orange means occupied. Arrow keys move the preview (Shift moves faster), and Enter places it. Click a custom prop while placing to remove it. **Undo/Redo** step through your edits; **Done** or Escape finishes placement.
 
-To rearrange existing props, choose **Customize → Arrange custom furniture** or **Move** on the editor toolbar. Drag a prop, or select it and click a new position. With the canvas focused, Space cycles custom props, arrow keys move the preview, Enter commits, and Delete removes the selected prop. Escape cancels an uncommitted move. The original prop stays saved until the new position is valid. Custom props use relative room positions; after changing desk density or viewport size, check their placement.
+To rearrange existing props, choose **Customize → Arrange custom furniture** or **Move** on the editor toolbar. Drag a prop, or select it and click a new position. With the canvas focused, Space cycles custom props, arrow keys move the preview, Enter commits, and Delete removes the selected prop. Escape cancels an uncommitted move. The original prop stays saved until the new position is valid. Custom props keep their saved relative positions. When a viewport or desk layout would overlap them, the scene finds nearby free floor for that view. A notice reports shifted props or props with no available space; saved/exported positions stay unchanged. Unplaced props remain selectable with Space and removable with Delete in Arrange mode.
 
 | Shortcut | Action |
 |---|---|

@@ -241,3 +241,42 @@ def test_install_reports_io_failure_and_continues_other_integrations(tmp_path, m
     assert result == 1
     assert "hermes" in output and "cannot write plugin directory" in output
     assert json.loads((tmp_path / ".config/opencode/opencode.json").read_text())["plugin"]
+
+
+def test_checkout_source_directories_are_not_detected_as_installed_runtimes(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setattr(install.shutil, "which", lambda cmd: None)
+    monkeypatch.chdir(install.HERE)
+    found = install.detect()
+    assert found["claude"] is False
+    assert found["opencode"] is False
+    assert found["hermes"] is False
+
+
+def test_observer_data_directory_is_not_a_hermes_installation(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setattr(install.shutil, "which", lambda cmd: None)
+    (tmp_path / ".hermes/pixel-office").mkdir(parents=True)
+    assert install.detect()["hermes"] is False
+
+
+def test_existing_hermes_configuration_is_detected_without_cli_on_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setattr(install.shutil, "which", lambda cmd: None)
+    config = tmp_path / ".hermes/config.yaml"
+    config.parent.mkdir()
+    config.write_text("plugins: {}\n")
+    assert install.detect()["hermes"] is True
+
+
+def test_first_install_without_runtimes_does_not_create_agent_configuration(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.setattr(install.shutil, "which", lambda cmd: None)
+    monkeypatch.chdir(install.HERE)
+    assert install.main() == 0
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / ".config/opencode").exists()

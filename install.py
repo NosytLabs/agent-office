@@ -24,7 +24,8 @@ def hermes_home() -> Path:
 
 
 def have(cmd: str) -> bool:
-    return shutil.which(cmd) is not None or Path(cmd).exists()
+    # Source directories such as ./claude are not runtime executables.
+    return shutil.which(cmd) is not None
 
 
 def load_json_config(path: Path) -> dict:
@@ -60,7 +61,7 @@ def save_json_config(path: Path, data: dict) -> None:
 
 def detect() -> dict:
     return {
-        "hermes": have("hermes") or hermes_home().is_dir(),
+        "hermes": have("hermes") or (hermes_home() / "config.yaml").is_file(),
         "opencode": have("opencode") or any(
             (HOME / ".config/opencode" / name).exists()
             for name in ("opencode.json", "opencode.jsonc")
