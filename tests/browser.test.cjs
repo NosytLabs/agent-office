@@ -364,6 +364,128 @@ test("HTTP settings endpoint rejects malformed and oversized bodies with JSON er
     });
     assert.equal(r.status(), 415);
   }));
+test("all new furniture can be placed, retained, and removed through the canvas", () =>
+  withPage(async (p) => {
+    await p.evaluate(() =>
+      saveSettings({
+        theme: "default",
+        decorations: false,
+        furniture: [],
+        max_chars: 4,
+      }),
+    );
+    const kinds = ["sofa", "server", "shelf", "monstera"];
+    for (const [i, kind] of kinds.entries()) {
+      await p.locator("#settingsbtn").click();
+      await p
+        .locator("#furniture-tools")
+        .getByRole("button", { name: kind, exact: true })
+        .click();
+      const point = await p.evaluate((i) => {
+        const s = officeScene,
+          b = s.canvas.getBoundingClientRect(),
+          t = s.transform;
+        return {
+          x: b.left + t.ox + (60 + i * 65) * t.scale,
+          y: b.top + t.oy + (s.grid.h - 12) * t.scale,
+        };
+      }, i);
+      await p.mouse.click(point.x, point.y);
+      await p.waitForFunction(
+        (n) => settings.furniture.length === n && pendingSaves === 0,
+        i + 1,
+      );
+      await p.keyboard.press("Escape");
+    }
+    await p.reload();
+    await p.waitForFunction(
+      () =>
+        initialized &&
+        officeScene.sprites.monstera &&
+        settings.furniture.length === 4,
+    );
+    assert.deepEqual(
+      await p.evaluate(() => settings.furniture.map((x) => x.kind)),
+      kinds,
+    );
+    if (process.env.OFFICE_SCREENSHOTS) {
+      fs.mkdirSync(process.env.OFFICE_SCREENSHOTS, { recursive: true });
+      await p.screenshot({
+        path: path.join(
+          process.env.OFFICE_SCREENSHOTS,
+          "furniture-placement.png",
+        ),
+      });
+    }
+    // Valid imported edge coordinates must be visible and removable after reflow.
+    await p.evaluate(() =>
+      saveSettings({ furniture: [{ kind: "sofa", x: 0, y: 0 }] }),
+    );
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.waitForTimeout(200);
+    await p.locator("#settingsbtn").click();
+    await p
+      .locator("#furniture-tools")
+      .getByRole("button", { name: "sofa", exact: true })
+      .click();
+    const point = await p.evaluate(() => {
+      const s = officeScene,
+        b = propBounds(settings.furniture[0], s.grid),
+        r = s.canvas.getBoundingClientRect(),
+        t = s.transform;
+      return {
+        x: r.left + t.ox + (b.x + b.w / 2) * t.scale,
+        y: r.top + t.oy + (b.y + b.h / 2) * t.scale,
+      };
+    });
+    await p.mouse.click(point.x, point.y);
+    await p.waitForFunction(
+      () => settings.furniture.length === 0 && pendingSaves === 0,
+    );
+    await p.keyboard.press("Escape");
+    await p.evaluate(() => saveSettings({ decorations: true }));
+  }));
+test("every navigation panel opens, traps focus, and closes on desktop and mobile", () =>
+  withPage(async (p) => {
+    for (const width of [1440, 390]) {
+      await p.setViewportSize({ width, height: 900 });
+      for (const id of [
+        "floorbtn",
+        "tasksbtn",
+        "eventsbtn",
+        "achbtn",
+        "settingsbtn",
+        "helpbtn",
+      ]) {
+        const trigger = p.locator("#" + id);
+        const panelId = await trigger.getAttribute("data-sheet");
+        await trigger.click();
+        const panel = p.locator("#" + panelId);
+        assert.equal(await panel.isVisible(), true);
+        assert.equal(await trigger.getAttribute("aria-expanded"), "true");
+        await panel.getByRole("button", { name: "Close panel" }).focus();
+        await p.keyboard.press("Shift+Tab");
+        assert.equal(
+          await panel.evaluate((s) => s.contains(document.activeElement)),
+          true,
+        );
+        await p.keyboard.press("Tab");
+        assert.equal(
+          await panel
+            .getByRole("button", { name: "Close panel" })
+            .evaluate((b) => b === document.activeElement),
+          true,
+        );
+        await p.keyboard.press("Escape");
+        assert.equal(await panel.isVisible(), false);
+        assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+        assert.equal(
+          await trigger.evaluate((b) => b === document.activeElement),
+          true,
+        );
+      }
+    }
+  }));
 test("malformed layout import leaves settings intact", () =>
   withPage(async (p) => {
     await p.locator("#settingsbtn").click();
@@ -378,7 +500,9 @@ test("malformed layout import leaves settings intact", () =>
         }),
       ),
     });
-    assert.ok((await p.locator("#toast").innerText()).includes("invalid"));
+    await p.waitForFunction(() =>
+      document.querySelector("#toast").textContent.includes("invalid"),
+    );
     assert.equal(await p.evaluate(() => settings.theme), theme);
   }));
 test("lost connection is visible and polling recovers", () =>

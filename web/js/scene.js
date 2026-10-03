@@ -237,8 +237,8 @@ class OfficeScene {
       if (this.cosmetics.includes("gitcat")) this.pet(w - 68, h - 21, true);
     }
     for (const item of this.settings.furniture || []) {
-      const [pw, ph] = PROP_SIZES[item.kind] || [24, 24];
-      this.image(item.kind, item.x * w - pw / 2, item.y * h - ph, pw, ph);
+      const b = propBounds(item, g);
+      this.image(item.kind, b.x, b.y, b.w, b.h);
     }
     if (dark) {
       r(3, 3, w - 6, h - 6, "#111d3a35");

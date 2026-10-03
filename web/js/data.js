@@ -75,6 +75,15 @@ const PROP_SIZES = {
   shelf: [34, 28],
   monstera: [26, 32],
 };
+function propBounds(item, grid) {
+  const [w, h] = PROP_SIZES[item.kind];
+  return {
+    x: Math.max(7, Math.min(grid.w - w - 7, item.x * grid.w - w / 2)),
+    y: Math.max(28, Math.min(grid.h - h - 10, item.y * grid.h - h)),
+    w,
+    h,
+  };
+}
 function hash(text) {
   let h = 0;
   for (const c of String(text)) h = (Math.imul(31, h) + c.charCodeAt(0)) | 0;

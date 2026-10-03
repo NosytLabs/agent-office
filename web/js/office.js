@@ -616,12 +616,8 @@ for (const kind of Object.keys(PROP_SIZES)) {
 function placeFurniture(p, grid) {
   const items = settings.furniture || [];
   const at = items.findIndex((item) => {
-    const [w, h] = PROP_SIZES[item.kind];
-    return (
-      Math.abs(p.x - item.x * grid.w) < w / 2 &&
-      p.y < item.y * grid.h &&
-      p.y > item.y * grid.h - h
-    );
+    const b = propBounds(item, grid);
+    return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
   });
   if (at >= 0) {
     updateSetting(

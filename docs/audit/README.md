@@ -15,6 +15,7 @@ workspace. They do not show a live LLM session.
 | Event text executes as HTML | Agent details were concatenated into raw markup. All event-derived text is escaped. A browser regression demonstrated the old injection. |
 | Glitching walk cycles | Six columns were assumed to be walk frames. Upstream mapping confirms three walk, two typing, and two reading columns. |
 | Giant agents, tiny props, clipped mobile desks | Sprite scale, grid scale, and viewport fitting disagreed. World geometry, sprite sizing, and text scale are now separate. |
+| Imported props clip outside the room | Rendering and removal now share bounds clamped to the current floor, including after mobile reflow. |
 | Settings/API corruption | Non-object JSON and invalid types were accepted. Values are validated; HTTP failures return JSON status codes. |
 | Corrupt log interrupts the office | Scalar JSON, invalid event names, and nonnumeric timestamps entered the fold. Invalid records are skipped, and activity rendering has a defensive fallback. |
 | Same-timestamp events lose XP | Progress only tracked a timestamp. A boundary multiset now counts newly appended events at that timestamp without replay. |
@@ -24,7 +25,7 @@ workspace. They do not show a live LLM session.
 | VS Code page has missing assets | Installer copied the web template without CSS/JS. It now installs the iframe wrapper and helper module; the configured port is used. |
 | Paths with spaces break Claude hook | Installer built an unquoted shell command. It now quotes executable and script paths. |
 | Demo contaminates real progress | Demo now always runs in a temporary workspace and advertises its synthetic mode on port 8114. |
-| CI only runs manually | One bounded CI job now runs for PRs/main code changes with read-only permissions, pinned actions, and three-day screenshot retention. |
+| CI only configured for manual runs | One bounded CI job is configured for PRs/main code changes with read-only permissions, pinned actions, and three-day screenshot retention. The workflow remains manually disabled in GitHub; see the limitation below. |
 
 ## Added and reorganized
 
@@ -47,7 +48,7 @@ up-next filters. The frontend remains vanilla JavaScript with no build step.
 
 - Python suite: **44 passing tests**.
 - Node suites: OpenCode bridge event writes, VS Code URL/iframe behavior, and sprite-frame selection.
-- Browser suite: **16 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, furniture placement, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
+- Browser suite: **18 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, all four furniture objects and removal after reflow, every menu on desktop/mobile, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
 - JavaScript syntax, formatter check, and `git diff --check` passed.
 - Visual review: desktop, 390px mobile, settings, achievements, and midnight palette. Additional bounds checks cover 320px, 768px, and 1440px widths.
 
@@ -59,6 +60,12 @@ were not launched. Custom props use normalized positions and may need
 repositioning after major layout changes. This is a local observer, not an
 autonomous agent execution platform.
 
+GitHub reports the CI workflow as `disabled_manually`, last updated on
+2026-09-20. This audit has local passing evidence; no GitHub Actions success
+is claimed. The connected GitHub app does not expose workflow enable/dispatch
+or branch deletion, so re-enabling CI and removing the merged review branch
+require a separate supported GitHub operation.
+
 ## Screenshots
 
 | Before | After |
@@ -69,3 +76,4 @@ autonomous agent execution platform.
 ![Midnight studio](midnight-studio.png)
 ![Achievements](achievements.png)
 ![Mobile settings](mobile-settings.png)
+![All four custom furniture objects placed on the floor](furniture-placement.png)

@@ -115,7 +115,7 @@ npm run test:browser
 
 The browser suite starts its own Python server and temporary data directory, writes representative event fixtures, and exercises the real HTTP routes, DOM controls, canvas, and asset loader. It does not call an LLM or modify runtime configurations. To use an existing Chrome installation, set `CHROMIUM_PATH` to its executable. Set `OFFICE_SCREENSHOTS=reports/screenshots` to save browser evidence.
 
-CI runs once for pull requests and main-branch code changes, plus manual dispatch. It runs Python, Node, formatting, and browser checks in one bounded job; artifacts expire after three days. Documentation-only changes skip CI. The Ubuntu runner's maintained Chrome avoids redundant browser downloads.
+CI is configured for pull requests and main-branch code changes, plus manual dispatch. It runs Python, Node, formatting, and browser checks in one bounded job; artifacts expire after three days. Documentation-only changes skip CI. The Ubuntu runner's maintained Chrome avoids redundant browser downloads. If GitHub shows the workflow as disabled, enable it under **Actions → CI** before expecting runs. The repository's last audit found it manually disabled; see [validation details](docs/audit/README.md).
 
 See [the audit and screenshots](docs/audit/README.md), [architecture](docs/architecture.md), and [asset provenance](web/assets/sprites/ATTRIBUTION.md).
 

@@ -39,3 +39,16 @@ test("working tool activity selects the actual sheet animation", () => {
     0,
   );
 });
+test("imported edge furniture stays inside the floor after viewport changes", () => {
+  for (const grid of [
+    { w: 344, h: 234 },
+    { w: 208, h: 294 },
+  ])
+    for (const kind of ["sofa", "server", "shelf", "monstera"])
+      for (const position of [0, 1]) {
+        const b = model.propBounds({ kind, x: position, y: position }, grid);
+        assert.ok(b.x >= 7 && b.y >= 28);
+        assert.ok(b.x + b.w <= grid.w - 7);
+        assert.ok(b.y + b.h <= grid.h - 10);
+      }
+});
