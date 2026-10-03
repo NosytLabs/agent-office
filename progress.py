@@ -60,6 +60,18 @@ CATALOG = [
     {"id": "marathon", "name": "Marathon", "hint": "10k tools", "xp": 80},
 ]
 
+# Visible room rewards, kept alongside the event-driven achievement catalog.
+REWARDS = {
+    "fashion": "Coffee mugs on desks",
+    "corner_office": "Gold monitor trim",
+    "layout_bullpen": "Bullpen layout",
+    "pet_cat": "Sleeping cat on the sofa",
+    "pet_plant": "Desk ferns",
+    "pet_dog": "A second interactive cat",
+    "pet_fish": "Lounge aquarium",
+    "weather_storm": "Warm lounge lamp accent",
+}
+
 
 def _empty() -> Dict[str, Any]:
     return {
@@ -344,6 +356,7 @@ def snapshot(data: Dict[str, Any]) -> Dict[str, Any]:
         "recent": data.get("recent") or [],
         "catalog": [
             {"id": c["id"], "name": c["name"], "hint": c["hint"],
+             "xp": c["xp"], "reward": REWARDS.get(c["id"]),
              "have": c["id"] in (data.get("unlocks") or {}),
              "progress": 100 if c["id"] in (data.get("unlocks") or {}) else _progress_for(c["id"], stats, xp, plats, by_tool, by_platform)}
             for c in CATALOG

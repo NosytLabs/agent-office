@@ -27,7 +27,8 @@ flowchart TD
 | `web/js/icons.js` | Bundled accessible Lucide icon markup |
 | `web/js/data.js` | Presentation constants, sprite-frame mapping, settings normalization, shared placement geometry |
 | `web/js/scene.js` | Asset loading, camera, movement, scene drawing, hit testing |
-| `web/js/office.js` | State polling, safe text rendering, panels, searches, import/export |
+| `web/js/office.js` | State polling, safe text rendering, panels, searches, shared settings transport |
+| `web/js/editor.js` | Furniture catalog, move/select/remove, undo/redo, layout import/export |
 | `vscode/extension.js`, `panel.js` | Single iframe frontend with a configurable, forwarded server URL |
 
 ## HTTP
@@ -53,7 +54,7 @@ The canvas uses a device-pixel-ratio-aware transform and nearest-neighbor sampli
 
 Both generated atlases are decoded once. Their quadrant bounds are found from alpha, trimmed, and sampled onto small logical sprite canvases. Desk geometry does not depend on image dimensions. The roster uses the same character sheets as the scene. Nameplates are drawn separately at native screen resolution using the local Geist font, with width-aware truncation and full names available in the roster. Dense rooms use single-line names to reserve space for approval alerts.
 
-Placement previews and saves share the same floor, desk, default-decoration, and custom-prop bounds. The editor supports keyboard placement and 20 steps of in-session undo. Canvas geometry redraws immediately when the edit toolbar or viewport changes size. Normalized saved positions are clamped after reflow; existing layouts are not automatically rearranged.
+Placement previews and saves share the same floor, desk, default-decoration, and custom-prop bounds. The editor supports keyboard placement and 20 steps of in-session undo/redo. Moves commit only after collision validation; cancelled pointer gestures preserve the original prop. External layout changes clear stale selection and history. The aquarium uses the same bounds for rendering and collision. Each visible interactive cat has its own hit target, rebuilt each frame. Canvas geometry redraws immediately when the edit toolbar or viewport changes size. Normalized saved positions are clamped after reflow; existing layouts are not automatically rearranged.
 
 Modal panels keep keyboard focus inside and return it when closed. Search inputs are persistent DOM nodes. Polling refreshes data containers without replacing typed text. All event-derived markup is escaped. Settings updates are queued, and pending edits are protected from stale polling responses.
 

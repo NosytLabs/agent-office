@@ -17,6 +17,7 @@ let agents = [],
   offline = false;
 let trackQuery = "",
   eventQuery = "",
+  badgeQuery = "",
   badgeFilter = "all",
   opened = null,
   returnFocus = null,
@@ -27,8 +28,9 @@ let pendingSaves = 0,
   audioContext = null,
   settingsSignature = "";
 const seenUnlocks = new Set();
-const furnitureHistory = [];
-const scene = new OfficeScene($("c"), selectAgent, placeFurniture);
+const scene = new OfficeScene($("c"), selectAgent, (p, grid) =>
+  placeFurniture(p, grid),
+);
 window.officeScene = scene;
 function duration(seconds) {
   const s = Math.max(0, Math.floor(seconds || 0));
@@ -357,7 +359,18 @@ function fillBadges() {
   const list = catalog
     .filter(
       (c) =>
-        badgeFilter === "all" || (badgeFilter === "earned" ? c.have : !c.have),
+        badgeFilter === "all" ||
+        (badgeFilter === "rewards"
+          ? !!c.reward
+          : badgeFilter === "earned"
+            ? c.have
+            : !c.have),
+    )
+    .filter((c) =>
+      [c.name, c.hint, c.reward]
+        .join(" ")
+        .toLowerCase()
+        .includes(badgeQuery.toLowerCase()),
     )
     .sort(
       (a, b) =>
@@ -369,15 +382,30 @@ function fillBadges() {
   for (const c of list) {
     const tile = document.createElement("article");
     tile.className = "ach" + (c.have ? " have" : "");
+    tile.dataset.badge = c.id;
     const pct = c.have
       ? 100
       : Math.max(0, Math.min(100, Number(c.progress) || 0));
     tile.innerHTML = `<small>${c.have ? "✓ EARNED" : pct + "% COMPLETE"}</small><p><strong>${escapeHTML(c.name)}</strong></p><div class="h">${escapeHTML(c.hint)}</div><div class="progress-track" role="progressbar" aria-label="${escapeHTML(c.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>`;
+    const reward = document.createElement("div");
+    reward.className = "achievement-reward";
+    reward.append(
+      icon(c.reward ? "gift" : "trophy"),
+      document.createTextNode(c.reward || "Activity milestone"),
+    );
+    const xp = document.createElement("span");
+    xp.className = "achievement-xp";
+    xp.textContent = c.xp ? "+" + c.xp + " XP" : "Milestone";
+    tile.append(reward, xp);
     box.append(tile);
   }
   if (!list.length)
     box.innerHTML = '<p class="h">Nothing in this view yet.</p>';
 }
+$("badgeSearch").oninput = (e) => {
+  badgeQuery = e.target.value;
+  fillBadges();
+};
 for (const b of $("badge-tabs").querySelectorAll("button"))
   b.onclick = () => {
     badgeFilter = b.dataset.filter;
@@ -398,6 +426,7 @@ function applyState(state, pollRevision = settingsRevision) {
   }
   applyTheme();
   updateScene();
+  if (typeof reconcileFurniture === "function") reconcileFurniture();
   document.body.classList.remove("offline");
   $("connection").textContent = "Connected";
   $("mode").hidden = state.mode !== "demo";
@@ -407,7 +436,7 @@ function applyState(state, pollRevision = settingsRevision) {
   $("count").textContent =
     n + " agent" + (n === 1 ? "" : "s") + " on the floor";
   $("waiting-count").textContent = w ? w + " need input" : "";
-  $("empty-state").hidden = scene.list().length > 0;
+  $("empty-state").hidden = !!scene.edit || scene.list().length > 0;
   if (!agents.length || !scene.list().length) {
     $("empty-state").querySelector("h3").textContent = agents.length
       ? "No agents in this view."
@@ -508,7 +537,10 @@ function saveSettings(patch) {
     });
     if (!r.ok) throw new Error("Save failed");
     const saved = await r.json();
-    if (pendingSaves === 1) Object.assign(settings, saved);
+    if (pendingSaves === 1) {
+      Object.assign(settings, saved);
+      reconcileFurniture();
+    }
     $("save-status").textContent = "Saved on this computer.";
   });
   saveQueue = task
@@ -614,136 +646,6 @@ function fillSettings() {
     );
   if (document.activeElement !== $("mc")) $("mc").value = settings.max_chars;
 }
-for (const kind of Object.keys(PROP_SIZES)) {
-  const b = document.createElement("button");
-  b.className = "furniture-card";
-  b.dataset.kind = kind;
-  b.setAttribute("aria-label", PROP_NAMES[kind]);
-  const preview = document.createElement("canvas");
-  preview.width = 120;
-  preview.height = 104;
-  preview.setAttribute("aria-hidden", "true");
-  const label = document.createElement("span");
-  label.textContent = PROP_NAMES[kind];
-  b.append(preview, label);
-  b.onclick = () => {
-    scene.edit = kind;
-    scene.pointer = null;
-    closeSheets();
-    $("edit-hint").hidden = false;
-    $("edit-message").textContent =
-      "Place " +
-      PROP_NAMES[kind].toLowerCase() +
-      ". Click to place or remove. Arrows move; Enter places.";
-    $("scene-hint").textContent =
-      "Green outline: free space. Orange: occupied.";
-    $("undo-furniture").disabled = furnitureHistory.length === 0;
-    $("c").focus();
-    scene.draw(0);
-  };
-  $("furniture-tools").append(b);
-}
-function renderFurniturePreviews() {
-  for (const b of $("furniture-tools").children) {
-    const sprite = scene.sprites[b.dataset.kind];
-    if (!sprite) continue;
-    const c = b.querySelector("canvas"),
-      g = c.getContext("2d");
-    g.clearRect(0, 0, c.width, c.height);
-    g.imageSmoothingEnabled = false;
-    const scale = Math.min(104 / sprite.width, 88 / sprite.height);
-    g.drawImage(
-      sprite,
-      (120 - sprite.width * scale) / 2,
-      (104 - sprite.height * scale) / 2,
-      sprite.width * scale,
-      sprite.height * scale,
-    );
-  }
-}
-$("c").addEventListener("spritesready", renderFurniturePreviews);
-renderFurniturePreviews();
-function saveFurniture(items) {
-  furnitureHistory.push(structuredClone(settings.furniture));
-  if (furnitureHistory.length > 20) furnitureHistory.shift();
-  $("undo-furniture").disabled = false;
-  return updateSetting("furniture", items);
-}
-function finishFurniture() {
-  scene.edit = null;
-  scene.pointer = null;
-  $("edit-hint").hidden = true;
-  $("scene-hint").textContent = "Select a desk to inspect its activity.";
-}
-$("finish-furniture").onclick = () => {
-  finishFurniture();
-  $("c").focus();
-};
-$("undo-furniture").onclick = () => {
-  if (!furnitureHistory.length) return;
-  updateSetting("furniture", furnitureHistory.pop());
-  $("undo-furniture").disabled = !furnitureHistory.length;
-};
-function placeFurniture(p, grid) {
-  const items = settings.furniture || [];
-  const at = items.findIndex((item) => {
-    const b = propBounds(item, grid);
-    return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
-  });
-  if (at >= 0) {
-    saveFurniture(items.filter((_, i) => i !== at));
-    return;
-  }
-  if (items.length >= 24) {
-    toast("The room has 24 custom props. Remove one first.");
-    return;
-  }
-  const placement = scene.placement(p);
-  if (!placement.valid) {
-    toast(
-      "Choose free floor space away from desks, other furniture, and walls.",
-    );
-    return;
-  }
-  saveFurniture([...items, placement.item]);
-}
-$("clear-furniture").onclick = () => {
-  if (settings.furniture.length) saveFurniture([]);
-};
-$("export-settings").onclick = () =>
-  downloadBlob(
-    new Blob([JSON.stringify({ version: 1, settings }, null, 2)], {
-      type: "application/json",
-    }),
-    "agent-office-layout.json",
-  );
-$("import-settings").onchange = async (e) => {
-  try {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 65536)
-      throw new Error("Layout must be smaller than 64 KB.");
-    const data = JSON.parse(await file.text());
-    if (
-      data.version !== 1 ||
-      !data.settings ||
-      typeof data.settings !== "object" ||
-      Array.isArray(data.settings)
-    )
-      throw new Error("Choose an Agent Office layout export.");
-    const imported = normalizeSettings(data.settings);
-    if (Object.keys(imported).length !== Object.keys(data.settings).length)
-      throw new Error("This layout contains invalid or unsupported settings.");
-    if (imported.layout === "bullpen" && !haveUnlock("layout_bullpen"))
-      imported.layout = "open";
-    await saveSettings(imported);
-    furnitureHistory.length = 0;
-    $("undo-furniture").disabled = true;
-  } catch (err) {
-    toast(err.message || "Could not import this layout.");
-  }
-  e.target.value = "";
-};
 $("exportTrack").onclick = () => {
   const cell = (v) =>
     '"' +
@@ -897,6 +799,11 @@ for (const [id, name] of Object.entries({
   exportTrack: "download",
   "clear-furniture": "trash-2",
   "undo-furniture": "undo-2",
+  "redo-furniture": "redo-2",
+  "arrange-furniture": "move",
+  "edit-furniture": "move",
+  "delete-furniture": "trash-2",
+  "catalog-furniture": "plus",
   "finish-furniture": "check",
 }))
   $(id).prepend(icon(name));

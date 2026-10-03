@@ -21,6 +21,7 @@ class OfficeScene {
     this.time = 0;
     this.last = 0;
     this.edit = null;
+    this.movingIndex = null;
     this.hitBoxes = [];
     this.loadAssets();
     this.bindInput();
@@ -209,9 +210,8 @@ class OfficeScene {
       r(18, by - 10, 85, 42, t.rug);
       r(21, by - 7, 79, 1, t.accent);
       r(21, by + 28, 79, 1, t.accent);
-      for (const p of defaultDecor(g)) this.image(p.kind, p.x, p.y, p.w, p.h);
-      if (this.cosmetics.includes("fish_tank"))
-        this.image("FISH_TANK", w - 85, h - 33, 24, 18);
+      for (const p of defaultDecor(g, this.cosmetics))
+        this.image(p.kind, p.x, p.y, p.w, p.h);
       this.pet(58, h - 20);
       if (this.cosmetics.includes("office_cat"))
         this.image("sleepcat", 34, h - 36, 18, 12);
@@ -219,9 +219,14 @@ class OfficeScene {
         this.rect(68, h - 54, 4, 2, "#efb481");
       if (this.cosmetics.includes("gitcat")) this.pet(w - 68, h - 21, true);
     }
-    for (const item of this.settings.furniture || []) {
+    for (const [i, item] of (this.settings.furniture || []).entries()) {
       const b = propBounds(item, g);
       this.image(item.kind, b.x, b.y, b.w, b.h);
+      if (i === this.movingIndex) {
+        this.ctx.strokeStyle = "#e9ca8e";
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4);
+      }
     }
     if (dark) {
       r(3, 3, w - 6, h - 6, "#111d3a35");
@@ -230,11 +235,12 @@ class OfficeScene {
   pet(x, y, black = false) {
     const sheet = this.sprites[black ? "blackcat" : "cat"];
     if (!sheet) return;
-    const bounce = this.petUntil > this.time ? Math.sin(this.time * 16) * 2 : 0;
+    const key = black ? "blackcat" : "cat";
+    const active = this.petActive === key && this.petUntil > this.time;
+    const bounce = active ? Math.sin(this.time * 16) * 2 : 0;
     this.ctx.drawImage(sheet, 0, 0, 16, 32, x, y - 18 + bounce, 10, 20);
-    if (this.petUntil > this.time)
-      this.text("♥", x + 4, y - 19, "#ecad98", 6, "center");
-    this.petHit = { x: x - 3, y: y - 17, w: 17, h: 24 };
+    if (active) this.text("♥", x + 4, y - 19, "#ecad98", 6, "center");
+    this.petHits.push({ key, x: x - 3, y: y - 17, w: 17, h: 24 });
   }
   desk(s) {
     const { x, y, a } = s,
@@ -408,6 +414,7 @@ class OfficeScene {
     this.grid = room;
     this.dt = dt;
     this.hitBoxes = [];
+    this.petHits = [];
     this.walking = [];
     const scale =
       Math.min((W - 24) / (room.w + 5), (H - 24) / (room.h + 8)) * this.zoom;
@@ -445,12 +452,12 @@ class OfficeScene {
     for (const s of room.seats) this.desk(s);
     for (const { a, c } of this.walking.sort((a, b) => a.c.y - b.c.y))
       this.character(a, c.x, c.y, c);
-    if (this.edit && this.pointer) {
+    if (this.editKind() && this.pointer) {
       const p = this.placement(this.pointer),
         b = p.bounds;
       g.save();
       g.globalAlpha = 0.65;
-      this.image(this.edit, b.x, b.y, b.w, b.h);
+      this.image(this.editKind(), b.x, b.y, b.w, b.h);
       g.globalAlpha = 1;
       g.strokeStyle = p.valid ? "#a5e0b2" : "#ffb29f";
       g.lineWidth = 1 / scale;
@@ -515,22 +522,51 @@ class OfficeScene {
       : null;
   }
   placement(point) {
+    const kind = this.editKind();
+    if (!kind) return null;
     const occupied = [
       ...this.hitBoxes,
-      ...(this.settings.decorations ? defaultDecor(this.grid) : []),
+      ...(this.settings.decorations
+        ? defaultDecor(this.grid, this.cosmetics)
+        : []),
     ];
     return placementAt(
-      this.edit,
+      kind,
       point,
       this.grid,
       occupied,
-      this.settings.furniture || [],
+      (this.settings.furniture || []).filter((_, i) => i !== this.movingIndex),
     );
+  }
+  editKind() {
+    return this.movingIndex !== null
+      ? this.settings.furniture[this.movingIndex]?.kind
+      : Object.hasOwn(PROP_SIZES, this.edit)
+        ? this.edit
+        : null;
+  }
+  propAt(p) {
+    if (!p) return -1;
+    return (this.settings.furniture || []).findLastIndex((item) => {
+      const b = propBounds(item, this.grid);
+      return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+    });
   }
   bindInput() {
     const cv = this.canvas;
     cv.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || !e.isPrimary) return;
+      const point = this.point(e),
+        at = this.edit === "move" ? this.propAt(point) : -1;
+      const newlyPicked = at >= 0 && this.movingIndex !== at;
+      if (at >= 0) this.onPick?.(at);
+      const anchor = at >= 0 ? { ...this.pointer } : null;
       this.drag = {
+        id: e.pointerId,
+        prop: at >= 0,
+        newlyPicked,
+        anchor,
+        point,
         x: e.clientX,
         y: e.clientY,
         pan: { ...this.pan },
@@ -539,20 +575,31 @@ class OfficeScene {
       cv.setPointerCapture(e.pointerId);
     });
     cv.addEventListener("pointermove", (e) => {
+      if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.pointer = this.point(e);
-      if (!this.drag) return;
+      if (!this.drag || this.drag.id !== e.pointerId) return;
       const dx = e.clientX - this.drag.x,
         dy = e.clientY - this.drag.y;
       if (Math.hypot(dx, dy) > 5) this.drag.moved = true;
-      if (this.drag.moved && this.zoom > 1) {
+      if (this.drag.prop) {
+        this.pointer = {
+          x: this.drag.anchor.x + this.pointer.x - this.drag.point.x,
+          y: this.drag.anchor.y + this.pointer.y - this.drag.point.y,
+        };
+      } else if (this.drag.moved && this.zoom > 1) {
         this.pan.x = this.drag.pan.x + dx;
         this.pan.y = this.drag.pan.y + dy;
       }
     });
     cv.addEventListener("pointerup", (e) => {
-      const moved = this.drag?.moved;
+      const drag = this.drag;
+      if (!drag || drag.id !== e.pointerId) return;
       this.drag = null;
-      if (moved) return;
+      if (drag.prop && drag.moved) {
+        this.onPlace(this.pointer, this.grid);
+        return;
+      }
+      if (drag.newlyPicked || drag.moved) return;
       const p = this.point(e);
       if (!p) return;
       if (this.edit) {
@@ -566,17 +613,43 @@ class OfficeScene {
         this.onSelect(hit.id);
         return;
       }
-      const h = this.petHit;
-      if (h && p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h)
+      const h = this.petHits.find(
+        (h) => p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
+      );
+      if (h) {
+        this.petActive = h.key;
         this.petUntil = this.time + 1.5;
+      }
     });
-    cv.addEventListener("pointercancel", () => {
+    cv.addEventListener("pointercancel", (e) => {
+      if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.drag = null;
+      this.pointer = null;
     });
-    cv.addEventListener("pointerleave", () => {
+    cv.addEventListener("lostpointercapture", (e) => {
+      if (this.drag?.id === e.pointerId) this.drag = null;
+    });
+    cv.addEventListener("pointerleave", (e) => {
+      if (!e.isPrimary || this.drag) return;
       this.pointer = null;
     });
     cv.addEventListener("keydown", (e) => {
+      if (
+        this.edit === "move" &&
+        e.key === " " &&
+        this.settings.furniture.length
+      ) {
+        e.preventDefault();
+        this.onPick?.(
+          ((this.movingIndex ?? -1) + 1) % this.settings.furniture.length,
+        );
+        return;
+      }
+      if (this.edit && ["Delete", "Backspace"].includes(e.key)) {
+        e.preventDefault();
+        this.onRemove?.();
+        return;
+      }
       if (this.edit && (e.key.startsWith("Arrow") || e.key === "Enter")) {
         e.preventDefault();
         this.pointer ||= { x: this.grid.w / 2, y: this.grid.h - 18 };

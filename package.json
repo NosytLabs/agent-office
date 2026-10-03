@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test tests/opencode-bridge.test.mjs tests/vscode-panel.test.cjs tests/scene-model.test.cjs",
     "test:browser": "node --test tests/browser.test.cjs",
-    "check": "node --check web/js/icons.js && node --check web/js/data.js && node --check web/js/scene.js && node --check web/js/office.js && node --check vscode/extension.js",
+    "check": "node --check web/js/icons.js && node --check web/js/data.js && node --check web/js/scene.js && node --check web/js/office.js && node --check web/js/editor.js && node --check vscode/extension.js",
     "format": "prettier --write \"web/**/*.{js,css,html}\" \"vscode/*.{js,json}\" \"tests/*.{cjs,mjs}\" package.json .github/workflows/ci.yml",
     "format:check": "prettier --check \"web/**/*.{js,css,html}\" \"vscode/*.{js,json}\" \"tests/*.{cjs,mjs}\" package.json .github/workflows/ci.yml"
   },

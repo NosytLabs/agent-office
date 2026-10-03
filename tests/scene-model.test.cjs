@@ -74,3 +74,16 @@ test("furniture placement rejects overlap and walls while allowing open floor", 
     true,
   );
 });
+test("unlocked aquarium participates in the same decoration collision bounds", () => {
+  const grid = { w: 344, h: 262 };
+  const decor = model.defaultDecor(grid, ["fish_tank"]);
+  assert.ok(decor.some((p) => p.kind === "FISH_TANK"));
+  assert.equal(
+    model.placementAt("cooler", { x: 272, y: 244 }, grid, decor, []).valid,
+    false,
+  );
+  assert.equal(
+    model.defaultDecor(grid, []).some((p) => p.kind === "FISH_TANK"),
+    false,
+  );
+});

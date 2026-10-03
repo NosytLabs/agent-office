@@ -55,9 +55,9 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 - **A furnished scene:** corrected walk/read/type animations, matching object scale, low-contrast floors, and two matching generated furniture atlases.
 - **Readable controls:** locally hosted Geist text, consistent Lucide icons, clear agent nameplates, and touch-friendly menus.
 - **Customization:** Plum, Midnight, and Amber palettes; automatic/day/night lighting; labels and decoration toggles; desk density.
-- **Furniture placement:** preview and place seven props: sofas, server racks, bookshelves, plants, coffee carts, coolers, and lamps. Occupied spaces are blocked; Undo restores your last edit. Export and import your settings as JSON.
+- **Furniture placement:** preview and place seven props: sofas, server racks, bookshelves, plants, coffee carts, coolers, and lamps. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
 - **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. Reduced-motion preferences start the scene paused.
-- **38 achievements:** earned/up-next views and real progress bars. Old retired achievements remain in saved history without losing XP.
+- **38 achievements:** searchable earned/up-next views, XP values, room-reward descriptions, and real progress bars. Old retired achievements remain in saved history without losing XP.
 
 ### Unlocks
 
@@ -77,7 +77,9 @@ The room starts with a decorative cat. Pets and furnishing are ambience; they do
 
 ### Controls
 
-Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click free floor space. A green preview marks a valid position; orange means occupied. Arrow keys move the preview (Shift moves faster), and Enter places it. Click a custom prop while placing to remove it. **Undo** reverses edits; **Done** or Escape finishes placement. Custom props use relative room positions; after changing desk density or viewport size, check their placement.
+Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click free floor space. A green preview marks a valid position; orange means occupied. Arrow keys move the preview (Shift moves faster), and Enter places it. Click a custom prop while placing to remove it. **Undo/Redo** step through your edits; **Done** or Escape finishes placement.
+
+To rearrange existing props, choose **Customize → Arrange custom furniture** or **Move** on the editor toolbar. Drag a prop, or select it and click a new position. With the canvas focused, Space cycles custom props, arrow keys move the preview, Enter commits, and Delete removes the selected prop. Escape cancels an uncommitted move. The original prop stays saved until the new position is valid. Custom props use relative room positions; after changing desk density or viewport size, check their placement.
 
 | Shortcut | Action |
 |---|---|

@@ -49,6 +49,20 @@ first-click offset caused by the toolbar resize. Unused runtime logo SVGs
 were removed; their earlier versions remain in history. Dense mobile rooms
 use compact nameplates so approval indicators stay visible.
 
+## Editor and reward follow-up
+
+Furniture editing now has its own module, with click/drag and keyboard moves,
+explicit removal, undo/redo, and cancellation that leaves the original saved
+prop intact. Layout changes from another tab invalidate stale selections and
+history. Tests cover move/reload/mobile removal and pointer cancellation.
+Save responses also invalidate stale selections immediately, and secondary
+pointers cannot redirect or cancel a primary drag. All 126 character frames
+are checked for visible pixels in Chromium.
+The two interactive cats now keep separate click targets; hiding decorations
+clears both. The unlocked aquarium participates in placement collision checks.
+Achievements expose XP and real room rewards, with persistent search and a
+room-reward filter. Sprite checksums cover the complete runtime PNG inventory.
+
 ## Reference research
 
 - [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents): studied its README, character state machine, and sprite mapping. Adopted the activity-linked animation and shared frontend principles; used the correct atlas columns. This project already bundled adapted character/pet assets.
@@ -60,9 +74,9 @@ use compact nameplates so approval indicators stay visible.
 
 ## Validation
 
-- Python suite: **44 passing tests**.
+- Python suite: **46 passing tests**.
 - Node suites: OpenCode bridge event writes, VS Code URL/iframe behavior, and sprite-frame selection.
-- Browser suite: **21 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, all seven furniture objects and removal after reflow, every menu on desktop/mobile, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, keyboard placement, occupied-space feedback, undo, local font loading, non-overlapping readable labels and crowded-mobile approval alerts, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
+- Browser suite: **26 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, all seven furniture objects and removal after reflow, every menu on desktop/mobile, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, keyboard placement, occupied-space feedback, undo, local font loading, non-overlapping readable labels and crowded-mobile approval alerts, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
 - JavaScript syntax, formatter check, and `git diff --check` passed.
 - Visual review: desktop, 390px mobile, settings, achievements, and midnight palette. Additional bounds checks cover 320px, 768px, and 1440px widths.
 
@@ -91,3 +105,6 @@ require a separate supported GitHub operation.
 ![Achievements](achievements.png)
 ![Mobile settings](mobile-settings.png)
 ![All seven custom furniture objects placed on the floor](furniture-placement.png)
+
+![Move a selected prop with preview and undo/redo controls](furniture-editor.png)
+![Searchable room rewards](room-rewards.png)
