@@ -60,4 +60,17 @@ Logical sizes are 20 × 26 (coffee), 12 × 26 (cooler), 12 × 30 (lamp), and
 10 × 10 (clock). The first three are placeable; the clock decorates the wall.
 See [generated-utilities.json](generated-utilities.json) for the prompt and
 contract, and [asset-checksums.json](asset-checksums.json) for source hashes.
-All seven placeable props have previews made from the actual runtime sprite.
+All eleven placeable props have previews made from the actual runtime sprite.
+
+## Matching cafe and plant atlas
+
+`furniture/decor-atlas.png` was generated for this project on 2026-10-03
+using the built-in ImageGen tool. Its unmodified 1254 × 1254 RGBA source has
+four quadrants: walnut cafe table, sage stool, cream-potted succulent, and
+terracotta planter. It was generated from a written prompt without copied
+reference artwork. Logical sizes: 28 × 24, 16 × 18, 12 × 16, and 32 × 18.
+See [generated-decor.json](generated-decor.json) for the exact prompt and
+[asset-checksums.json](asset-checksums.json) for the source checksum.
+Source transparency and all four runtime-normalized cells were visually
+inspected. Desktop/mobile scene evidence for this atlas was rendered in a
+CPU canvas; browser integration validation remains pending.

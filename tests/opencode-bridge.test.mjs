@@ -15,7 +15,10 @@ function recordEvents(events, customHome = false) {
   const script = `
     import bridgeFactory from ${JSON.stringify(bridgeUrl)};
     const bridge = await bridgeFactory();
-    for (const event of JSON.parse(process.argv[1])) await bridge.event({event});
+    for (const item of JSON.parse(process.argv[1])) {
+      if (item.hook) await bridge[item.hook](item.input, item.output || {});
+      else await bridge.event({event: item});
+    }
   `;
   try {
     const env = { ...process.env, HOME: home };
@@ -100,7 +103,7 @@ test("OpenCode approval events retain the requesting session and response", () =
       {
         event: "approval_request",
         session_id: "approval-session",
-        command: "bash",
+        command: "npm test",
         choice: undefined,
       },
       {
@@ -134,4 +137,170 @@ test("OpenCode retains support for legacy data payloads", () => {
   ]);
   assert.equal(events.length, 1);
   assert.equal(events[0].session_id, "legacy-session");
+});
+
+test("OpenCode session updates change metadata without restarting the session", () => {
+  const events = recordEvents([
+    {
+      type: "session.created",
+      properties: { info: { id: "s", title: "First title" } },
+    },
+    {
+      type: "session.updated",
+      properties: { info: { id: "s", title: "Review the code" } },
+    },
+  ]);
+  assert.deepEqual(
+    events.map(({ event, title }) => ({ event, title })),
+    [
+      { event: "session_start", title: "First title" },
+      { event: "session_update", title: "Review the code" },
+    ],
+  );
+});
+
+test("OpenCode observes model busy and idle lifecycle events", () => {
+  const events = recordEvents([
+    {
+      type: "session.status",
+      properties: { sessionID: "s", status: { type: "busy" } },
+    },
+    {
+      type: "session.status",
+      properties: { sessionID: "s", status: { type: "idle" } },
+    },
+    { type: "session.idle", properties: { sessionID: "s" } },
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["session_busy", "session_idle", "session_idle"],
+  );
+});
+
+test("OpenCode tracks real child sessions instead of duplicate synthetic task agents", () => {
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { tool: "task", sessionID: "parent", callID: "task-call" },
+      output: { args: { description: "Review code" } },
+    },
+    {
+      type: "session.created",
+      properties: {
+        info: { id: "real-child", parentID: "parent", title: "Review code" },
+      },
+    },
+    { type: "session.idle", properties: { sessionID: "real-child" } },
+    {
+      hook: "tool.execute.after",
+      input: { tool: "task", sessionID: "parent", callID: "task-call" },
+      output: {},
+    },
+  ]);
+  assert.deepEqual(
+    events.map(({ event }) => event),
+    ["tool_start", "subagent_start", "subagent_stop", "tool_end"],
+  );
+  assert.equal(events[1].child_session_id, "real-child");
+  assert.equal(events[1].parent_session_id, "parent");
+  assert.equal(events[1].child_goal, "Review code");
+  assert.equal(events[2].child_session_id, "real-child");
+});
+
+test("OpenCode tool calls retain ids and useful description previews", () => {
+  const events = recordEvents([
+    {
+      hook: "tool.execute.before",
+      input: { tool: "task", sessionID: "s", callID: "call-1" },
+      output: { args: { description: "Audit the API" } },
+    },
+    {
+      hook: "tool.execute.after",
+      input: { tool: "task", sessionID: "s", callID: "call-1" },
+      output: {},
+    },
+  ]);
+  const tools = events.filter(
+    ({ event }) => event === "tool_start" || event === "tool_end",
+  );
+  assert.equal(tools[0].preview, "Audit the API");
+  assert.deepEqual(
+    tools.map(({ call_id }) => call_id),
+    ["call-1", "call-1"],
+  );
+});
+
+test("OpenCode legacy permission replies preserve response and request ids", () => {
+  const events = recordEvents([
+    {
+      type: "permission.updated",
+      properties: {
+        id: "p1",
+        sessionID: "s",
+        title: "Run tests",
+        callID: "c1",
+      },
+    },
+    {
+      type: "permission.replied",
+      properties: { sessionID: "s", permissionID: "p1", response: "reject" },
+    },
+  ]);
+  assert.equal(events[0].event, "approval_request");
+  assert.equal(events[0].request_id, "p1");
+  assert.equal(events[0].call_id, "c1");
+  assert.equal(events[1].choice, "reject");
+  assert.equal(events[1].request_id, "p1");
+});
+
+test("OpenCode questions are separate needs-input events", () => {
+  const events = recordEvents([
+    {
+      type: "question.asked",
+      properties: {
+        id: "q1",
+        sessionID: "s",
+        questions: [{ question: "Which branch?", header: "Branch" }],
+        tool: { callID: "question-call" },
+      },
+    },
+    {
+      type: "question.replied",
+      properties: { sessionID: "s", requestID: "q1", answers: [["main"]] },
+    },
+    {
+      type: "question.rejected",
+      properties: { sessionID: "s", requestID: "q2" },
+    },
+  ]);
+  assert.equal(events[0].event, "input_request");
+  assert.equal(events[0].question, "Which branch?");
+  assert.equal(events[0].request_id, "q1");
+  assert.equal(events[0].call_id, "question-call");
+  assert.equal(events[1].event, "input_response");
+  assert.equal(events[1].request_id, "q1");
+  assert.equal(events[2].event, "input_response");
+  assert.equal(events[2].choice, "reject");
+});
+
+test("OpenCode session failures retain the real error without inventing an anonymous agent", () => {
+  const events = recordEvents([
+    {
+      type: "session.error",
+      properties: {
+        sessionID: "s",
+        error: {
+          name: "UnknownError",
+          data: { message: "Provider unavailable" },
+        },
+      },
+    },
+    {
+      type: "permission.asked",
+      properties: { id: "not-a-session", permission: "bash" },
+    },
+  ]);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event, "session_error");
+  assert.equal(events[0].error_message, "Provider unavailable");
 });

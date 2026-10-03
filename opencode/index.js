@@ -7,7 +7,10 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const OFFICE_DIR = join(process.env.HERMES_HOME || join(homedir(), ".hermes"), "pixel-office");
+const OFFICE_DIR = join(
+  process.env.HERMES_HOME || join(homedir(), ".hermes"),
+  "pixel-office",
+);
 const EVENTS = join(OFFICE_DIR, "events.jsonl");
 const ACTIVITY = {
   bash: "running",
@@ -43,90 +46,175 @@ function publish(event) {
 
 function preview(args) {
   if (!args || typeof args !== "object") return "";
-  for (const k of ["command", "path", "filePath", "query", "url", "pattern", "content"]) {
+  for (const k of [
+    "command",
+    "path",
+    "filePath",
+    "query",
+    "url",
+    "pattern",
+    "description",
+    "prompt",
+    "content",
+  ]) {
     if (args[k]) return String(args[k]).replace(/\n/g, " ").slice(0, 60);
   }
   return "";
 }
 
-export const PixelOfficeBridge = async () => ({
-  event: async ({ event }) => {
-    try {
-      const type = event?.type || "";
-      const data = event?.properties || event?.data || event || {};
-      const sid = data.sessionID || data.sessionId || data.info?.id || data.id || "";
-      if (type === "session.created" || type === "session.updated") {
-        if (sid) publish({ event: "session_start", session_id: sid, platform: "opencode" });
-      } else if (type === "session.deleted" || type === "session.idle") {
-        // idle is a heartbeat-end, not a walk-out — skip end on idle
-        if (type === "session.deleted" && sid) publish({ event: "session_end", session_id: sid });
-      } else if (type === "session.error") {
-        if (sid) publish({ event: "tool_end", session_id: sid, status: "error", error_message: "session error" });
-      } else if (type === "permission.asked" || type === "permission.requested") {
-        publish({
-          event: "approval_request",
-          session_id: sid,
-          command: data.permission || data.pattern || data.title || "needs approval",
-        });
-      } else if (type === "permission.replied") {
-        publish({
-          event: "approval_response",
-          session_id: sid,
-          choice: data.reply || data.decision || data.choice || "",
-        });
+export const PixelOfficeBridge = async () => {
+  const childSessions = new Set();
+  const publishIdle = (sid) =>
+    publish(
+      childSessions.has(sid)
+        ? { event: "subagent_stop", child_session_id: sid }
+        : { event: "session_idle", session_id: sid },
+    );
+  return {
+    event: async ({ event }) => {
+      try {
+        const type = event?.type || "";
+        const data = event?.properties || event?.data || event || {};
+        const sid =
+          data.sessionID ||
+          data.sessionId ||
+          data.info?.id ||
+          (type.startsWith("session.") ? data.id : "") ||
+          "";
+        if (!sid) return;
+        if (type === "session.created" || type === "session.updated") {
+          const info = data.info || data;
+          if (info.parentID) childSessions.add(sid);
+          if (type === "session.created" && info.parentID) {
+            publish({
+              event: "subagent_start",
+              parent_session_id: info.parentID,
+              child_session_id: sid,
+              child_goal: info.title || "subagent",
+            });
+          } else {
+            publish({
+              event:
+                type === "session.created" ? "session_start" : "session_update",
+              session_id: sid,
+              title: info.title || "",
+              parent_session_id: info.parentID || "",
+            });
+          }
+        } else if (type === "session.deleted") {
+          publish({ event: "session_end", session_id: sid });
+          childSessions.delete(sid);
+        } else if (type === "session.idle") {
+          publishIdle(sid);
+        } else if (type === "session.status") {
+          if (data.status?.type === "idle") publishIdle(sid);
+          else if (
+            data.status?.type === "busy" ||
+            data.status?.type === "retry"
+          ) {
+            publish({ event: "session_busy", session_id: sid });
+          }
+        } else if (type === "session.error") {
+          publish({
+            event: "session_error",
+            session_id: sid,
+            status: "error",
+            error_message: String(
+              data.error?.data?.message ||
+                data.error?.message ||
+                data.error?.name ||
+                "session error",
+            ).slice(0, 80),
+          });
+        } else if (
+          type === "permission.asked" ||
+          type === "permission.requested" ||
+          type === "permission.updated"
+        ) {
+          publish({
+            event: "approval_request",
+            session_id: sid,
+            request_id: data.id || data.requestID || data.permissionID || "",
+            call_id: data.tool?.callID || data.callID || "",
+            command: String(
+              data.patterns?.join(", ") ||
+                data.pattern ||
+                data.title ||
+                data.permission ||
+                "needs approval",
+            ).slice(0, 80),
+          });
+        } else if (type === "permission.replied") {
+          publish({
+            event: "approval_response",
+            session_id: sid,
+            request_id: data.requestID || data.permissionID || "",
+            choice:
+              data.reply || data.response || data.decision || data.choice || "",
+          });
+        } else if (type === "question.asked") {
+          publish({
+            event: "input_request",
+            session_id: sid,
+            request_id: data.id || "",
+            call_id: data.tool?.callID || "",
+            question: String(
+              data.questions?.[0]?.question ||
+                data.questions?.[0]?.header ||
+                "needs an answer",
+            ).slice(0, 80),
+          });
+        } else if (
+          type === "question.replied" ||
+          type === "question.rejected"
+        ) {
+          publish({
+            event: "input_response",
+            session_id: sid,
+            request_id: data.requestID || "",
+            choice: type === "question.rejected" ? "reject" : "answered",
+          });
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
-  },
+    },
 
-  "tool.execute.before": async (input, output) => {
-    try {
-      const tool = input?.tool || "";
-      const args = output?.args || input?.args || {};
-      const sid = input?.sessionID || "";
-      if (tool === "task") {
+    "tool.execute.before": async (input, output) => {
+      try {
+        const tool = input?.tool || "";
+        const args = output?.args || input?.args || {};
+        if (!input?.sessionID) return;
         publish({
-          event: "subagent_start",
-          parent_session_id: sid,
-          child_session_id: sid + ":task:" + (input?.callID || Date.now()),
-          child_goal: preview(args) || "task",
+          event: "tool_start",
+          session_id: input?.sessionID || "",
+          call_id: input?.callID || "",
+          tool_name: tool,
+          activity: ACTIVITY[tool] || "working",
+          preview: preview(args),
         });
+      } catch {
+        /* ignore */
       }
-      publish({
-        event: "tool_start",
-        session_id: input?.sessionID || "",
-        tool_name: tool,
-        activity: ACTIVITY[tool] || "working",
-        preview: preview(args),
-      });
-    } catch {
-      /* ignore */
-    }
-  },
+    },
 
-  "tool.execute.after": async (input, output) => {
-    try {
-      const err = output?.error || output?.metadata?.error;
-      const tool = input?.tool || "";
-      const sid = input?.sessionID || "";
-      if (tool === "task") {
+    "tool.execute.after": async (input, output) => {
+      try {
+        const err = output?.error || output?.metadata?.error;
+        if (!input?.sessionID) return;
         publish({
-          event: "subagent_stop",
-          child_session_id: sid + ":task:" + (input?.callID || "x"),
+          event: "tool_end",
+          session_id: input?.sessionID || "",
+          call_id: input?.callID || "",
+          tool_name: input?.tool || "",
+          status: err ? "error" : "ok",
+          error_message: err ? String(err).slice(0, 80) : "",
         });
+      } catch {
+        /* ignore */
       }
-      publish({
-        event: "tool_end",
-        session_id: input?.sessionID || "",
-        tool_name: input?.tool || "",
-        status: err ? "error" : "ok",
-        error_message: err ? String(err).slice(0, 80) : "",
-      });
-    } catch {
-      /* ignore */
-    }
-  },
-});
+    },
+  };
+};
 
 export default PixelOfficeBridge;

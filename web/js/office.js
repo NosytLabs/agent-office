@@ -171,9 +171,9 @@ function fillSetup() {
     telegram:
       "Install the Hermes observer first, then use your existing Hermes Telegram gateway. Bot credentials and gateway setup belong in Hermes. Telegram sessions appear only when Hermes emits those events; this office does not connect a bot or send messages.",
     opencode:
-      "The installer appends the local opencode bridge to ~/.config/opencode/opencode.json. If that file is missing, create it as a JSON object using your OpenCode configuration, then rerun the installer and restart OpenCode. Keep run.py running.",
+      "The installer adds the local bridge file URL to ~/.config/opencode/opencode.json and creates missing JSON settings. For an existing opencode.jsonc, follow the manual plugin entry printed by the installer; comments are preserved. Restart OpenCode and keep run.py running.",
     claude:
-      "The installer adds observer hooks to ~/.claude/settings.json. If the file is missing, create it as a JSON object, rerun the installer, and restart Claude Code. Other hooks are preserved. Keep run.py running.",
+      "The installer adds observer hooks to ~/.claude/settings.json and creates missing settings. Rerun it after upgrading to add session, prompt, completion, and permission hooks. Existing unrelated hooks are preserved. Restart Claude Code and keep run.py running.",
     vscode:
       "The installer copies the local extension. Reload VS Code and run Agent Office: Open Floor. Keep the observer running; if using a different port, update hermesPixelOffice.stateUrl to its /state URL.",
   };
@@ -226,7 +226,7 @@ function agentCard(a) {
     )
       ? a.status
       : "idle");
-  status.textContent = a.status === "waiting" ? "Needs input" : a.status;
+  status.textContent = STATUS_NAMES[a.status] || a.status;
   button.append(body, status);
   button.onclick = () => selectAgent(a.id);
   return button;
@@ -325,7 +325,7 @@ function fillInspector() {
   box.innerHTML = kv([
     ["Agent", a.label || a.id],
     ["Runtime", platOf(a)],
-    ["Status", a.status],
+    ["Status", STATUS_NAMES[a.status] || a.status],
     ["Tool", a.tool || "—"],
     ["Detail", a.detail || "—"],
     ["Session", a.id],
@@ -351,9 +351,13 @@ function fillInspector() {
 }
 function eventText(e) {
   return [
-    e.tool_name || String(e.event || "event").replaceAll("_", " "),
+    e.tool_name ||
+      EVENT_NAMES[e.event] ||
+      String(e.event || "event").replaceAll("_", " "),
     e.preview ||
       e.command ||
+      e.question ||
+      e.title ||
       e.child_goal ||
       e.error_message ||
       e.platform ||
@@ -368,7 +372,7 @@ function eventRow(e) {
   const row = document.createElement("div");
   row.className = "event";
   const when = new Date(Number(e.ts) * 1000);
-  row.innerHTML = `<header><strong>${escapeHTML(String(e.event || "event").replaceAll("_", " "))}</strong><time>${escapeHTML(Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
+  row.innerHTML = `<header><strong>${escapeHTML(EVENT_NAMES[e.event] || String(e.event || "event").replaceAll("_", " "))}</strong><time>${escapeHTML(Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
   return row;
 }
 function fillEvents() {
@@ -508,13 +512,17 @@ function applyState(state, pollRevision = settingsRevision) {
       }
     }
   }
-  if (
-    initialized &&
-    agents.some(
-      (a) => a.status === "waiting" && previous.get(a.id) !== "waiting",
-    )
-  )
+  const newlyWaiting = agents.filter(
+    (a) => a.status === "waiting" && previous.get(a.id) !== "waiting",
+  );
+  if (initialized && newlyWaiting.length) {
     chime();
+    toast(
+      newlyWaiting.length === 1
+        ? `${newlyWaiting[0].label || newlyWaiting[0].id} needs input. Use the button above the floor; respond in the original runtime.`
+        : `${newlyWaiting.length} agents need input. Use the button above the floor; respond in their original runtimes.`,
+    );
+  }
   const last = state.events.at(-1);
   $("latest-event").textContent = last
     ? eventText(last)

@@ -36,6 +36,7 @@ Nothing here touches the conversation, the prompt cache, or tool results.
 from __future__ import annotations
 
 import json
+import contextvars
 import logging
 import math
 import os
@@ -66,10 +67,11 @@ _STALE_SECONDS = 30 * 60
 _lock = threading.RLock()
 _server_started = False
 _port: int = DEFAULT_PORT
-# Approval hooks don't carry session_id (only a gateway session_key), so we
-# attribute them to the most recent session that fired a tool in this
-# process — approvals always happen inside a tool dispatch.
-_last_session_id: str = ""
+# Current Hermes versions provide session/tool ids on approvals. Keep a
+# context-local fallback for older hooks; one gateway process runs concurrent
+# sessions, so a process-global "last session" can attribute the wrong agent.
+_current_session_id = contextvars.ContextVar("office_session_id", default="")
+_current_call_id = contextvars.ContextVar("office_call_id", default="")
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +121,7 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         elif key == "furniture" and isinstance(value, list):
             items = []
             for item in value[:24]:
-                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp")
+                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp", "roundtable", "stool", "succulent", "planter")
                     and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
                     items.append({k: item[k] for k in ("kind", "x", "y")})
             out[key] = items
@@ -276,6 +278,8 @@ def build_state() -> Dict[str, Any]:
 def _build_state_locked() -> Dict[str, Any]:
     """Fold the event log into {agents: [...]} for the frontend."""
     agents: Dict[str, Dict[str, Any]] = {}
+    active_tools: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    pending_input: Dict[str, Dict[tuple, Dict[str, Any]]] = {}
     now = time.time()
 
     def ensure(key: str, ev: Dict[str, Any]) -> Dict[str, Any]:
@@ -295,7 +299,47 @@ def _build_state_locked() -> Dict[str, Any]:
             }
             agents[key] = a
         a["updated_at"] = ev.get("ts", a["updated_at"])
+        if ev.get("platform"):
+            a["platform"] = str(ev["platform"])
+        if ev.get("parent_session_id"):
+            a["kind"] = "subagent"
+            a["parent"] = str(ev["parent_session_id"])
         return a
+
+    def clear_tool(a: Dict[str, Any]) -> None:
+        a["tool"] = ""
+        a["activity"] = ""
+        a["detail"] = ""
+
+    def session_metadata(a: Dict[str, Any], ev: Dict[str, Any]) -> None:
+        if ev.get("title"):
+            a["label"] = _short(ev["title"], 60)
+        if ev.get("parent_session_id"):
+            a["kind"] = "subagent"
+            a["parent"] = str(ev["parent_session_id"])
+
+    def clear_pending(key: str) -> None:
+        active_tools.pop(key, None)
+        pending_input.pop(key, None)
+
+    def settle(a: Dict[str, Any], key: str, detail: str = "") -> None:
+        """A parallel completion must not erase another tool or unanswered prompt."""
+        clear_tool(a)
+        waiting = pending_input.get(key, {})
+        tools = active_tools.get(key, {})
+        if waiting:
+            request = list(waiting.values())[-1]
+            a["status"] = "waiting"
+            a["detail"] = _short(request.get("question") or request.get("command"), 60) or "needs input"
+        elif tools:
+            tool = list(tools.values())[-1]
+            a["status"] = "working"
+            a["tool"] = str(tool.get("tool_name") or "")
+            a["activity"] = str(tool.get("activity") or "working")
+            a["detail"] = _short(tool.get("preview"))
+        else:
+            a["status"] = "thinking"
+            a["detail"] = detail
 
     events = _read_events()
     for ev in events:
@@ -306,12 +350,36 @@ def _build_state_locked() -> Dict[str, Any]:
 
         if kind == "session_start":
             a = ensure(key, ev)
+            clear_pending(key)
+            clear_tool(a)
             a["status"] = "idle"
             plat = ev.get("platform") or ""
             a["label"] = f"{plat or 'hermes'} {key[-6:]}"
             a["detail"] = "session started"
+            session_metadata(a, ev)
+        elif kind == "session_update":
+            # Titles/diffs change during a turn; metadata is not a new session.
+            a = ensure(key, ev)
+            session_metadata(a, ev)
+        elif kind == "session_busy":
+            a = ensure(key, ev)
+            if a["status"] not in ("working", "waiting"):
+                clear_tool(a)
+                a["status"] = "thinking"
+        elif kind in ("session_idle", "session_error"):
+            a = ensure(key, ev)
+            previous_error = a["detail"] if a["status"] == "idle" and a["detail"].startswith("⚠ ") else ""
+            clear_pending(key)
+            clear_tool(a)
+            a["status"] = "idle"
+            if kind == "session_error":
+                a["detail"] = f"⚠ {_short(ev.get('error_message'), 60) or 'session error'}"
+            else:
+                a["detail"] = previous_error
         elif kind == "session_end":
             if key in agents:
+                clear_pending(key)
+                clear_tool(agents[key])
                 agents[key]["status"] = "gone"
                 agents[key]["updated_at"] = ev.get("ts", now)
         elif kind == "subagent_start":
@@ -321,6 +389,8 @@ def _build_state_locked() -> Dict[str, Any]:
                 ev2 = dict(ev)
                 ev2["session_id"] = ck
                 a = ensure(ck, ev2)
+                clear_pending(ck)
+                clear_tool(a)
                 a["kind"] = "subagent"
                 a["label"] = _short(ev.get("child_goal"), 26) or f"sub {ck[-6:]}"
                 a["status"] = "working"
@@ -329,36 +399,72 @@ def _build_state_locked() -> Dict[str, Any]:
         elif kind == "subagent_stop":
             child = ev.get("child_session_id")
             if child and str(child) in agents:
+                clear_pending(str(child))
+                clear_tool(agents[str(child)])
                 agents[str(child)]["status"] = "done"
                 agents[str(child)]["updated_at"] = ev.get("ts", now)
         elif kind == "tool_start":
             a = ensure(key, ev)
-            a["status"] = "working"
-            a["tool"] = str(ev.get("tool_name") or "")
-            a["activity"] = str(ev.get("activity") or "working")
-            a["detail"] = _short(ev.get("preview"))
+            call = str(ev.get("call_id") or f"legacy:{ev.get('tool_name') or ''}")
+            active_tools.setdefault(key, {})[call] = ev
+            settle(a, key)
         elif kind == "tool_end":
             a = ensure(key, ev)
-            a["status"] = "thinking"
-            a["tool"] = ""
+            tools = active_tools.setdefault(key, {})
+            call = ev.get("call_id")
+            if call:
+                tools.pop(str(call), None)
+            else:
+                matched = [c for c, tool in tools.items() if tool.get("tool_name") == ev.get("tool_name")]
+                if matched:
+                    for c in matched:
+                        tools.pop(c)
+                else:
+                    # Older hooks do not expose call ids (or even tool names).
+                    tools.clear()
+            waiting = pending_input.get(key, {})
+            for request, data in list(waiting.items()):
+                if ((call and data.get("call_id") == call)
+                    or (not data.get("call_id") and ev.get("tool_name") and data.get("tool_name") == ev["tool_name"])
+                    or (not call and not data.get("call_id") and not data.get("tool_name"))):
+                    waiting.pop(request)
+            detail = ""
             if ev.get("status") == "error":
-                a["detail"] = f"⚠ {_short(ev.get('error_message'), 40)}"
-            else:
-                a["detail"] = ""
-        elif kind == "approval_request":
+                detail = f"⚠ {_short(ev.get('error_message'), 40) or 'tool failed'}"
+            settle(a, key, detail)
+        elif kind in ("approval_request", "input_request"):
             a = ensure(key, ev)
-            a["status"] = "waiting"
-            a["tool"] = ""
-            a["detail"] = _short(ev.get("command"), 40) or "needs approval"
-        elif kind == "approval_response":
+            request = (kind, str(ev.get("request_id") or ev.get("call_id") or "legacy"))
+            pending_input.setdefault(key, {})[request] = ev
+            settle(a, key)
+        elif kind in ("approval_response", "input_response"):
             a = ensure(key, ev)
-            choice = str(ev.get("choice") or "")
-            if choice in ("deny", "timeout"):
-                a["status"] = "thinking"
-                a["detail"] = f"approval: {choice}"
-            else:
+            request_kind = kind.replace("response", "request")
+            waiting = pending_input.setdefault(key, {})
+            request_id = ev.get("request_id") or ev.get("call_id")
+            resolved = waiting.pop((request_kind, str(request_id or "legacy")), None)
+            if resolved is None and not ev.get("request_id") and ev.get("tool_name"):
+                # Claude PermissionRequest omits tool_use_id on some versions.
+                for request, data in list(waiting.items()):
+                    if request[0] == request_kind and not data.get("call_id") and data.get("tool_name") == ev["tool_name"]:
+                        resolved = waiting.pop(request)
+            if not request_id:
+                for request in [r for r in waiting if r[0] == request_kind]:
+                    resolved = waiting.pop(request)
+            choice = str(ev.get("choice") or "").lower()
+            accepted = choice in ("once", "always", "allow", "approve", "approved", "yes", "y")
+            detail = ""
+            rejected_input = kind == "input_response" and choice in ("reject", "deny", "denied", "timeout", "cancelled")
+            if (kind == "approval_response" and not accepted) or rejected_input:
+                call = ev.get("call_id") or (resolved or {}).get("call_id")
+                if call:
+                    active_tools.setdefault(key, {}).pop(str(call), None)
+                elif resolved or not request_id:
+                    active_tools.pop(key, None)
+                detail = f"{'question' if rejected_input else 'approval'}: {choice or 'response received'}"
+            settle(a, key, detail)
+            if kind == "approval_response" and accepted and a["status"] == "thinking":
                 a["status"] = "working"
-                a["detail"] = ""
 
     # Sweep stale + long-gone agents.
     visible = []
@@ -372,6 +478,7 @@ def _build_state_locked() -> Dict[str, Any]:
             continue
         # Agents quiet for a bit are "idle", not eternally "thinking".
         if a["status"] in ("working", "thinking") and age > 300:
+            clear_tool(a)
             a["status"] = "idle"
         visible.append(a)
 
@@ -669,10 +776,9 @@ def _on_session_end(**kw: Any) -> None:
 
 
 def _pre_tool_call(**kw: Any) -> None:
-    global _last_session_id
     sid = kw.get("session_id") or ""
-    if sid:
-        _last_session_id = str(sid)
+    _current_session_id.set(str(sid))
+    _current_call_id.set(str(kw.get("tool_call_id") or kw.get("call_id") or ""))
     args = kw.get("args") or {}
     preview = ""
     if isinstance(args, dict):
@@ -684,6 +790,7 @@ def _pre_tool_call(**kw: Any) -> None:
     _publish({
         "event": "tool_start",
         "session_id": sid,
+        "call_id": _current_call_id.get(),
         "tool_name": tool,
         "activity": _activity_for(tool),
         "preview": _short(preview),
@@ -695,11 +802,15 @@ def _post_tool_call(**kw: Any) -> None:
     _publish({
         "event": "tool_end",
         "session_id": kw.get("session_id"),
+        "call_id": kw.get("tool_call_id") or kw.get("call_id") or "",
         "tool_name": kw.get("tool_name"),
         "status": kw.get("status") or "ok",
         "error_message": kw.get("error_message"),
         "duration_ms": kw.get("duration_ms"),
     })
+    if str(kw.get("session_id") or "") == _current_session_id.get():
+        _current_session_id.set("")
+        _current_call_id.set("")
 
 
 def _subagent_start(**kw: Any) -> None:
@@ -722,7 +833,9 @@ def _subagent_stop(**kw: Any) -> None:
 def _pre_approval_request(**kw: Any) -> None:
     _publish({
         "event": "approval_request",
-        "session_id": kw.get("session_id") or _last_session_id,
+        "session_id": kw.get("session_id") or _current_session_id.get(),
+        "call_id": kw.get("tool_call_id") or kw.get("call_id") or _current_call_id.get(),
+        "request_id": kw.get("request_id") or "",
         "command": kw.get("command") or kw.get("description"),
         "surface": kw.get("surface"),
     })
@@ -731,7 +844,9 @@ def _pre_approval_request(**kw: Any) -> None:
 def _post_approval_response(**kw: Any) -> None:
     _publish({
         "event": "approval_response",
-        "session_id": kw.get("session_id") or _last_session_id,
+        "session_id": kw.get("session_id") or _current_session_id.get(),
+        "call_id": kw.get("tool_call_id") or kw.get("call_id") or _current_call_id.get(),
+        "request_id": kw.get("request_id") or "",
         "choice": kw.get("choice"),
     })
 

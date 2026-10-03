@@ -69,6 +69,30 @@ const STATUS_COLORS = {
   done: "#b6b0e5",
   gone: "#8c98a2",
 };
+const STATUS_NAMES = {
+  working: "Working",
+  thinking: "Thinking",
+  waiting: "Needs input",
+  idle: "Idle",
+  done: "Completed",
+  gone: "Ended",
+};
+const EVENT_NAMES = {
+  session_start: "Session started",
+  session_end: "Session ended",
+  session_busy: "Session working",
+  session_idle: "Session idle",
+  session_update: "Session updated",
+  session_error: "Session error",
+  tool_start: "Tool started",
+  tool_end: "Tool finished",
+  approval_request: "Approval requested",
+  approval_response: "Approval answered",
+  input_request: "Question asked",
+  input_response: "Question answered",
+  subagent_start: "Subagent started",
+  subagent_stop: "Subagent completed",
+};
 const PROP_SIZES = {
   sofa: [40, 28],
   server: [20, 32],
@@ -77,6 +101,10 @@ const PROP_SIZES = {
   coffee: [20, 26],
   cooler: [12, 26],
   lamp: [12, 30],
+  roundtable: [28, 24],
+  stool: [16, 18],
+  succulent: [12, 16],
+  planter: [32, 18],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -86,6 +114,10 @@ const PROP_NAMES = {
   coffee: "Coffee cart",
   cooler: "Water cooler",
   lamp: "Floor lamp",
+  roundtable: "Cafe table",
+  stool: "Sage stool",
+  succulent: "Succulent",
+  planter: "Planter box",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
@@ -128,6 +160,11 @@ function defaultDecor(grid, cosmetics = []) {
     { kind: "cooler", x: 11, y: 32, w: 12, h: 26 },
     { kind: "server", x: grid.w - 28, y: grid.h - 86, w: 17, h: 27 },
   ];
+  if (grid.w >= 320)
+    props.push(
+      { kind: "roundtable", x: 111, y: grid.h - 40, w: 28, h: 24 },
+      { kind: "stool", x: 145, y: grid.h - 29, w: 16, h: 18 },
+    );
   if (cosmetics.includes("fish_tank"))
     props.push({
       kind: "FISH_TANK",
@@ -137,6 +174,78 @@ function defaultDecor(grid, cosmetics = []) {
       h: 18,
     });
   return props;
+}
+// Four-way breadth-first navigation for character feet. Inflated rectangles keep
+// sprites clear of furniture; an unreachable desk gets a seated arrival instead.
+function officePath(start, target, grid, occupied) {
+  const step = 4,
+    margin = 4;
+  const inside = (p) =>
+    p.x >= 10 && p.x <= grid.w - 10 && p.y >= 30 && p.y <= grid.h - 11;
+  const clear = (p) =>
+    inside(p) &&
+    !occupied.some(
+      (b) =>
+        p.x > b.x - margin &&
+        p.x < b.x + b.w + margin &&
+        p.y > b.y - margin &&
+        p.y < b.y + b.h + margin,
+    );
+  if (!clear(start) || !clear(target)) return null;
+  // Anchor the lattice at the exact start, then join the goal only along a
+  // short unobstructed segment. No diagonal corner cutting between grid cells.
+  const segmentClear = (a, b) => {
+    const d = Math.hypot(b.x - a.x, b.y - a.y),
+      n = Math.max(1, Math.ceil(d));
+    for (let i = 0; i <= n; i++)
+      if (
+        !clear({
+          x: a.x + ((b.x - a.x) * i) / n,
+          y: a.y + ((b.y - a.y) * i) / n,
+        })
+      )
+        return false;
+    return true;
+  };
+  const queue = [{ x: start.x, y: start.y, ix: 0, iy: 0, parent: -1 }],
+    seen = new Set(["0,0"]);
+  let goal = -1;
+  for (let head = 0; head < queue.length; head++) {
+    const p = queue[head];
+    if (
+      Math.hypot(p.x - target.x, p.y - target.y) <= step * 1.5 &&
+      segmentClear(p, target)
+    ) {
+      goal = head;
+      break;
+    }
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ]) {
+      const ix = p.ix + dx,
+        iy = p.iy + dy;
+      const q = {
+          x: start.x + ix * step,
+          y: start.y + iy * step,
+          ix,
+          iy,
+          parent: head,
+        },
+        key = `${ix},${iy}`;
+      if (!seen.has(key) && segmentClear(p, q)) {
+        seen.add(key);
+        queue.push(q);
+      }
+    }
+  }
+  if (goal < 0) return null;
+  const path = [{ x: target.x, y: target.y }];
+  for (let i = goal; i > 0; i = queue[i].parent)
+    path.unshift({ x: queue[i].x, y: queue[i].y });
+  return path;
 }
 function hash(text) {
   let h = 0;
