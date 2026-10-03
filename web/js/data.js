@@ -74,6 +74,18 @@ const PROP_SIZES = {
   server: [20, 32],
   shelf: [34, 28],
   monstera: [26, 32],
+  coffee: [20, 26],
+  cooler: [12, 26],
+  lamp: [12, 30],
+};
+const PROP_NAMES = {
+  sofa: "Sofa",
+  server: "Server rack",
+  shelf: "Bookcase",
+  monstera: "Monstera",
+  coffee: "Coffee cart",
+  cooler: "Water cooler",
+  lamp: "Floor lamp",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
@@ -83,6 +95,39 @@ function propBounds(item, grid) {
     w,
     h,
   };
+}
+function overlapsRect(a, b, gap = 2) {
+  return (
+    a.x < b.x + b.w + gap &&
+    a.x + a.w + gap > b.x &&
+    a.y < b.y + b.h + gap &&
+    a.y + a.h + gap > b.y
+  );
+}
+function placementAt(kind, point, grid, occupied, items) {
+  const [w, h] = PROP_SIZES[kind];
+  const bounds = { x: point.x - w / 2, y: point.y - h, w, h };
+  const item = { kind, x: point.x / grid.w, y: point.y / grid.h };
+  const inside =
+    bounds.x >= 7 &&
+    bounds.x + w <= grid.w - 7 &&
+    bounds.y >= 28 &&
+    point.y <= grid.h - 10;
+  const blocked = [...occupied, ...items.map((p) => propBounds(p, grid))].some(
+    (b) => overlapsRect(bounds, b),
+  );
+  return { valid: inside && !blocked && items.length < 24, bounds, item };
+}
+function defaultDecor(grid) {
+  return [
+    { kind: "sofa", x: 23, y: grid.h - 51, w: 40, h: 28 },
+    { kind: "coffee", x: 79, y: grid.h - 52, w: 20, h: 26 },
+    { kind: "lamp", x: 64, y: grid.h - 58, w: 12, h: 30 },
+    { kind: "shelf", x: grid.w - 52, y: grid.h - 42, w: 34, h: 28 },
+    { kind: "monstera", x: grid.w - 33, y: 29, w: 22, h: 28 },
+    { kind: "cooler", x: 11, y: 32, w: 12, h: 26 },
+    { kind: "server", x: grid.w - 28, y: grid.h - 86, w: 17, h: 27 },
+  ];
 }
 function hash(text) {
   let h = 0;

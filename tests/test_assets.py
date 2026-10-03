@@ -17,6 +17,7 @@ def test_runtime_sprite_dimensions_and_png_headers():
         **{f"characters/char_{i}.png": (112, 96) for i in range(6)},
         "pets/claudio.png": (96, 96), "pets/gitcat.png": (96, 96),
         "pets/sleep_cat.png": (24, 16), "furniture/studio-atlas.png": (1254, 1254),
+        "furniture/utilities-atlas.png": (1254, 1254),
     }
     for rel, size in expected.items():
         raw = (SPRITES / rel).read_bytes()
@@ -35,7 +36,7 @@ def test_safe_web_file_serves_js(tmp_path, monkeypatch):
 
 def test_logos_are_svg():
     assets = ROOT / "web" / "assets"
-    for name in ("hermes", "opencode", "claude", "telegram", "cli"):
+    for name in ("office",):
         text = (assets / f"{name}.svg").read_text()
         assert "<svg" in text
         assert "<text" not in text

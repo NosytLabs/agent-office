@@ -32,9 +32,22 @@ workspace. They do not show a live LLM session.
 The scene is separated from application state and panel rendering. New UI
 includes an observed-task overview, accessible modal focus management,
 visible activity/help controls, a searchable event stream, settings
-export/import, four placeable generated props, zoom/drag/fit, pause,
+export/import, seven placeable generated props with previews, collision checks, keyboard placement, and undo, zoom/drag/fit, pause,
 reduced-motion support, and scene downloads. Achievements have earned and
 up-next filters. The frontend remains vanilla JavaScript with no build step.
+
+## Readability and decor follow-up
+
+The second pass replaces tiny interface text with a local Geist variable font,
+unifies navigation under Lucide icons, and gives agent labels their own
+screen-resolution backgrounds. Mobile navigation wraps and keeps camera
+controls reachable by scrolling. Matching coffee cart, cooler, lamp, and
+clock art replaces four old utility images. Furniture cards show runtime
+sprites, and new placements reject desks, walls, and existing objects.
+Entering the editor now immediately refreshes canvas geometry, fixing a
+first-click offset caused by the toolbar resize. Unused runtime logo SVGs
+were removed; their earlier versions remain in history. Dense mobile rooms
+use compact nameplates so approval indicators stay visible.
 
 ## Reference research
 
@@ -42,13 +55,14 @@ up-next filters. The frontend remains vanilla JavaScript with no build step.
 - [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office): reviewed its task-board, focus, layout-editor, and activity-log concepts. Implemented observer-compatible task grouping and furniture placement. Its inference/tool-execution engine was not imported.
 - [thepixeloffice.ai](https://thepixeloffice.ai/): inspected the landing page with Firecrawl for visual direction. Marketing claims were not treated as evidence of functioning integrations; no site artwork was copied.
 - [VS Code remote-extension guidance](https://code.visualstudio.com/api/advanced-topics/remote-extensions): queried through Context7; used `asExternalUri` for the iframe and matched its CSP origin.
+- [MDN Canvas guidance](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas): queried through Context7 for DPR-aware rendering and measured text.
 - [GitHub's Ubuntu 24.04 image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md): verified maintained Chrome availability for CI.
 
 ## Validation
 
 - Python suite: **44 passing tests**.
 - Node suites: OpenCode bridge event writes, VS Code URL/iframe behavior, and sprite-frame selection.
-- Browser suite: **18 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, all four furniture objects and removal after reflow, every menu on desktop/mobile, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
+- Browser suite: **21 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, all seven furniture objects and removal after reflow, every menu on desktop/mobile, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, keyboard placement, occupied-space feedback, undo, local font loading, non-overlapping readable labels and crowded-mobile approval alerts, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
 - JavaScript syntax, formatter check, and `git diff --check` passed.
 - Visual review: desktop, 390px mobile, settings, achievements, and midnight palette. Additional bounds checks cover 320px, 768px, and 1440px widths.
 
@@ -76,4 +90,4 @@ require a separate supported GitHub operation.
 ![Midnight studio](midnight-studio.png)
 ![Achievements](achievements.png)
 ![Mobile settings](mobile-settings.png)
-![All four custom furniture objects placed on the floor](furniture-placement.png)
+![All seven custom furniture objects placed on the floor](furniture-placement.png)

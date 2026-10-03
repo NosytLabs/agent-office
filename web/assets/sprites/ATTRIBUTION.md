@@ -20,14 +20,14 @@ No new character sheets were downloaded in this audit.
 
 ## Existing furniture
 
-`DOOR`, `CLOCK`, `COFFEE`, `WATER_COOLER`, `LAMP`, and `FISH_TANK` PNGs are
+`DOOR` and `FISH_TANK` PNGs are
 retained project assets. Repository history records furniture redesigns in
 commits `22f45f0` and `6421fcb` (the latter describes PixelLab furniture).
 They are not newly sourced from the reference landing page. The original
 project license remains unchanged; no independent provider-license review
 was performed in this audit.
 
-Unused furniture, idle-pet copies, and NPC sheets were removed from the
+Replaced utility sprites, unused furniture, idle-pet copies, and NPC sheets were removed from the
 working tree; their prior versions remain available in Git history.
 
 ## New generated atlas
@@ -47,3 +47,17 @@ inspected. `asset-checksums.json` identifies the final PNG files.
 
 Logical sizes are 40 × 28 (sofa), 20 × 32 (server), 34 × 28 (shelf), and
 26 × 32 (monstera). The atlas contains decoration, not animation frames.
+
+## Matching utility atlas
+
+`furniture/utilities-atlas.png` was generated for this project on 2026-10-03
+using OpenAI's built-in image-generation tool. The unmodified 1254 × 1254
+RGBA source has four quadrants: coffee cart, water cooler, floor lamp, and
+wall clock. It uses the same alpha-bound normalization as the studio atlas.
+The written prompt did not include reference-site artwork.
+
+Logical sizes are 20 × 26 (coffee), 12 × 26 (cooler), 12 × 30 (lamp), and
+10 × 10 (clock). The first three are placeable; the clock decorates the wall.
+See [generated-utilities.json](generated-utilities.json) for the prompt and
+contract, and [asset-checksums.json](asset-checksums.json) for source hashes.
+All seven placeable props have previews made from the actual runtime sprite.

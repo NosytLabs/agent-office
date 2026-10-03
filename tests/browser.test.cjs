@@ -92,18 +92,32 @@ const launch = () =>
   });
 async function withPage(fn) {
   const browser = await launch();
+  let page;
+  const errors = [];
   try {
-    const page = await browser.newPage({
+    page = await browser.newPage({
       viewport: { width: 1440, height: 900 },
     });
-    const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(baseURL);
     await page.waitForFunction(() =>
       document.querySelector("#count").textContent.includes("agent"),
     );
+    await page.evaluate(() => document.fonts.ready);
     await fn(page);
     assert.deepEqual(errors, []);
+  } catch (err) {
+    const state = await page.evaluate(() => ({
+      edit: officeScene.edit,
+      pending: pendingSaves,
+      toast: document.querySelector("#toast").textContent,
+      furniture: settings.furniture,
+      transform: officeScene.transform,
+      size: [officeScene.canvas.clientWidth, officeScene.canvas.clientHeight],
+      pointer: officeScene.pointer,
+    }));
+    err.stack += "\nBrowser state: " + JSON.stringify({ ...state, errors });
+    throw err;
   } finally {
     await browser.close();
   }
@@ -225,7 +239,7 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
 test("all sprite images load and canvas frames stay within room bounds on desktop and mobile", () =>
   withPage(async (p) => {
     await p.waitForFunction(
-      () => officeScene.loadedAssets === 16 && officeScene.sprites.monstera,
+      () => officeScene.loadedAssets === 13 && officeScene.sprites.monstera,
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
     for (const width of [1440, 768, 390, 320]) {
@@ -321,7 +335,7 @@ test("pause, zoom, runtime filters, snapshot download, achievements and furnitur
     await p.waitForFunction(() => pendingSaves === 0);
     await p
       .locator("#furniture-tools button")
-      .filter({ hasText: "server" })
+      .filter({ hasText: "Server rack" })
       .click();
     const point = await p.evaluate(() => {
       const { scale, ox, oy } = officeScene.transform,
@@ -374,20 +388,31 @@ test("all new furniture can be placed, retained, and removed through the canvas"
         max_chars: 4,
       }),
     );
-    const kinds = ["sofa", "server", "shelf", "monstera"];
+    const kinds = [
+      "sofa",
+      "server",
+      "shelf",
+      "monstera",
+      "coffee",
+      "cooler",
+      "lamp",
+    ];
     for (const [i, kind] of kinds.entries()) {
       await p.locator("#settingsbtn").click();
       await p
         .locator("#furniture-tools")
-        .getByRole("button", { name: kind, exact: true })
+        .locator(`[data-kind="${kind}"]`)
         .click();
       const point = await p.evaluate((i) => {
         const s = officeScene,
           b = s.canvas.getBoundingClientRect(),
           t = s.transform;
         return {
-          x: b.left + t.ox + (60 + i * 65) * t.scale,
-          y: b.top + t.oy + (s.grid.h - 12) * t.scale,
+          x:
+            b.left +
+            t.ox +
+            (i < 4 ? 60 + i * 65 : 205 + (i - 4) * 45) * t.scale,
+          y: b.top + t.oy + (i < 4 ? s.grid.h - 12 : 170) * t.scale,
         };
       }, i);
       await p.mouse.click(point.x, point.y);
@@ -402,7 +427,7 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       () =>
         initialized &&
         officeScene.sprites.monstera &&
-        settings.furniture.length === 4,
+        settings.furniture.length === 7,
     );
     assert.deepEqual(
       await p.evaluate(() => settings.furniture.map((x) => x.kind)),
@@ -426,7 +451,7 @@ test("all new furniture can be placed, retained, and removed through the canvas"
     await p.locator("#settingsbtn").click();
     await p
       .locator("#furniture-tools")
-      .getByRole("button", { name: "sofa", exact: true })
+      .getByRole("button", { name: "Sofa", exact: true })
       .click();
     const point = await p.evaluate(() => {
       const s = officeScene,
@@ -505,6 +530,139 @@ test("malformed layout import leaves settings intact", () =>
     );
     assert.equal(await p.evaluate(() => settings.theme), theme);
   }));
+test("readable local fonts, decorative icons, labels, and catalog previews load", () =>
+  withPage(async (p) => {
+    const font = await p.request.get(
+      baseURL + "/assets/fonts/geist-latin-variable.woff2",
+    );
+    assert.equal(font.status(), 200);
+    assert.ok(font.headers()["content-type"].startsWith("font/woff2"));
+    assert.ok(await p.evaluate(() => document.fonts.check('15px "Geist"')));
+    assert.ok(
+      await p.evaluate(
+        () =>
+          parseFloat(
+            getComputedStyle(document.querySelector("#floorbtn")).fontSize,
+          ) >= 14,
+      ),
+    );
+    assert.equal(
+      await p.locator("#toolbar svg:not([aria-hidden=true])").count(),
+      0,
+    );
+    await p.waitForFunction(
+      () => officeScene.sprites.clock && officeScene.labelBoxes.length === 6,
+    );
+    for (const width of [1440, 390, 320]) {
+      await p.setViewportSize({ width, height: 900 });
+      await p.waitForTimeout(200);
+      const boxes = await p.evaluate(() => officeScene.labelBoxes);
+      assert.equal(boxes.length, 6);
+      for (let i = 0; i < boxes.length; i++)
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i],
+            b = boxes[j];
+          assert.equal(
+            a.x < b.x + b.w &&
+              a.x + a.w > b.x &&
+              a.y < b.y + b.h &&
+              a.y + a.h > b.y,
+            false,
+          );
+        }
+    }
+    await p.locator("#settingsbtn").click();
+    assert.equal(await p.locator("#furniture-tools button").count(), 7);
+    const populated = await p
+      .locator("#furniture-tools canvas")
+      .evaluateAll((cs) =>
+        cs.every((c) =>
+          c
+            .getContext("2d")
+            .getImageData(0, 0, c.width, c.height)
+            .data.some((value, i) => i % 4 === 3 && value > 0),
+        ),
+      );
+    assert.equal(populated, true);
+  }));
+test("crowded mobile labels leave approval alerts visible", () =>
+  withPage(async (p) => {
+    await p.setViewportSize({ width: 390, height: 900 });
+    await p.waitForTimeout(100);
+    for (const count of [8, 10]) {
+      const layout = await p.evaluate((count) => {
+        const previous = officeScene.agents;
+        officeScene.agents = Array.from({ length: count }, (_, i) => ({
+          ...previous[0],
+          id: "crowded-" + i,
+          label: "Review " + i,
+          status: "waiting",
+        }));
+        officeScene.draw(0);
+        const { ox, oy, scale } = officeScene.transform;
+        const result = {
+          labels: officeScene.labelBoxes,
+          alerts: officeScene.grid.seats.map((s) => ({
+            x: ox + (s.x + 17) * scale,
+            y: oy + (s.y - 28) * scale,
+            w: 10 * scale,
+            h: 11 * scale,
+          })),
+        };
+        officeScene.agents = previous;
+        return result;
+      }, count);
+      assert.equal(layout.labels.length, count);
+      for (const a of layout.labels)
+        for (const b of layout.alerts)
+          assert.equal(
+            a.x < b.x + b.w &&
+              a.x + a.w > b.x &&
+              a.y < b.y + b.h &&
+              a.y + a.h > b.y,
+            false,
+          );
+    }
+  }));
+test("furniture supports keyboard placement, collision feedback, undo and Done", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ furniture: [], decorations: false }));
+    await p.locator("#settingsbtn").click();
+    await p.locator('#furniture-tools [data-kind="coffee"]').click();
+    const blocked = await p.evaluate(() => {
+      const b = officeScene.hitBoxes[0],
+        { scale, ox, oy } = officeScene.transform,
+        rect = officeScene.canvas.getBoundingClientRect();
+      return {
+        x: rect.left + ox + (b.x + b.w / 2) * scale,
+        y: rect.top + oy + (b.y + b.h / 2) * scale,
+      };
+    });
+    await p.mouse.click(blocked.x, blocked.y);
+    assert.equal(await p.evaluate(() => settings.furniture.length), 0);
+    assert.match(await p.locator("#toast").innerText(), /free floor/i);
+    await p.evaluate(() => {
+      officeScene.pointer = null;
+    });
+    await p.locator("#c").press("ArrowRight");
+    assert.equal(
+      await p.evaluate(() => officeScene.placement(officeScene.pointer).valid),
+      true,
+    );
+    await p.locator("#c").press("Enter");
+    await p.waitForFunction(
+      () => settings.furniture.length === 1 && pendingSaves === 0,
+    );
+    await p.locator("#undo-furniture").click();
+    await p.waitForFunction(
+      () => settings.furniture.length === 0 && pendingSaves === 0,
+    );
+    assert.equal(await p.locator("#undo-furniture").isDisabled(), true);
+    await p.locator("#finish-furniture").click();
+    assert.equal(await p.locator("#edit-hint").isVisible(), false);
+    assert.equal(await p.evaluate(() => officeScene.edit), null);
+    await p.evaluate(() => saveSettings({ decorations: true }));
+  }));
 test("lost connection is visible and polling recovers", () =>
   withPage(async (p) => {
     await p.route("**/state", (r) => r.abort());
@@ -531,7 +689,7 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 16 &&
+        officeScene.loadedAssets === 13 &&
         officeScene.sprites.sofa &&
         initialized,
     );
@@ -552,7 +710,12 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.evaluate(() => saveSettings({ theme: "default", ambience: "day" }));
     await p.setViewportSize({ width: 390, height: 844 });
     await p.waitForTimeout(200);
-    await p.screenshot({ path: path.join(dir, "mobile-studio.png") });
+    await p.locator("#capturebtn").scrollIntoViewIfNeeded();
+    assert.equal(await p.locator("#capturebtn").isVisible(), true);
+    await p.screenshot({
+      path: path.join(dir, "mobile-studio.png"),
+      fullPage: true,
+    });
     await p.locator("#settingsbtn").click();
     await p.screenshot({ path: path.join(dir, "mobile-settings.png") });
   }));

@@ -17,14 +17,21 @@
       property="og:description"
       content="An open-source pixel office for real coding sessions. Runs locally. No account or build step."
     />
+    <link
+      rel="preload"
+      href="assets/fonts/geist-latin-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="css/style.css" />
-    <link rel="icon" href="assets/hermes.svg" />
+    <link rel="icon" href="assets/office.svg" />
   </head>
   <body>
     <div id="wrap">
       <header id="hdr">
         <div class="brand">
-          <img src="assets/hermes.svg" alt="" width="28" height="28" />
+          <img src="assets/office.svg" alt="" width="40" height="40" />
           <div>
             <h1>Agent Office<span class="edition">LOCAL WORKSPACE</span></h1>
             <span class="tagline">Your agents, in good company.</span>
@@ -138,17 +145,20 @@
             id="c"
             tabindex="0"
             aria-label="Live pixel office. Select an agent to inspect its activity. Use the Agents button for a keyboard-accessible list."
-          ></canvas>
+            >Use the Agents menu for an accessible list of every session and its
+            activity.</canvas
+          >
           <div id="empty-state" hidden>
             <h3>The office is ready.</h3>
             <p>Start a connected agent to bring the room to life.</p>
             <code>python3 demo_feed.py</code>
             <p class="h">Try a separate demo with synthetic activity.</p>
           </div>
-          <div id="edit-hint" hidden>
-            Click an empty floor tile to place furniture. Click a placed item to
-            remove it.
-          </div>
+        </div>
+        <div id="edit-hint" hidden>
+          <span id="edit-message">Choose free floor space.</span>
+          <button class="btn" id="undo-furniture" disabled>Undo</button>
+          <button class="btn" id="finish-furniture">Done</button>
         </div>
         <div class="scene-controls">
           <span class="hint" id="scene-hint"
@@ -263,7 +273,7 @@
         Choose a prop, then click a free area on the floor. Up to 24 custom
         props.
       </p>
-      <div class="seg" id="furniture-tools"></div>
+      <div id="furniture-tools" aria-label="Furniture catalog"></div>
       <button class="btn" id="clear-furniture">Clear custom furniture</button>
       <h3>Your setup</h3>
       <div class="cluster">
@@ -330,6 +340,7 @@
       </p>
     </section>
     <script src="js/data.js"></script>
+    <script src="js/icons.js"></script>
     <script src="js/scene.js"></script>
     <script src="js/office.js"></script>
   </body>
