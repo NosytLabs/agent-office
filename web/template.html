@@ -1,61 +1,336 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Agent Office — Pixel Art Virtual Office for AI Agents</title>
-<meta name="description" content="Multi-runtime pixel-art virtual office for Hermes, OpenCode, Claude Code, Telegram, CLI, and cron agents. Watch agents work at desks, earn ranks, unlock layouts, and collect pets.">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="css/style.css">
-<link rel="icon" href="assets/hermes.svg">
-</head>
-<body>
-<div id="wrap">
-  <h1 class="sr-only">Agent Office — pixel-art virtual office for AI agents</h1>
-  <header id="hdr">
-    <div class="row top">
-      <span class="mark"><img src="assets/hermes.svg?v=3" alt="" width="18" height="18">AGENT OFFICE</span>
-      <span id="rank">intern · 0 xp</span>
-      <span id="xpbar"><span id="xpfill"></span></span>
-      <span id="chips"></span>
-      <span class="dim" id="count">connecting…</span>
+  <head>
+    <meta charset="utf-8" />
+    <title>Agent Office — A living workspace for your coding agents</title>
+    <meta
+      name="description"
+      content="A local pixel-art workspace for Hermes, Claude Code and OpenCode. See real agent activity, inspect tasks, customize your office and earn achievements."
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#171e28" />
+    <meta
+      property="og:title"
+      content="Agent Office — Your agents, in good company"
+    />
+    <meta
+      property="og:description"
+      content="An open-source pixel office for real coding sessions. Runs locally. No account or build step."
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="icon" href="assets/hermes.svg" />
+  </head>
+  <body>
+    <div id="wrap">
+      <header id="hdr">
+        <div class="brand">
+          <img src="assets/hermes.svg" alt="" width="28" height="28" />
+          <div>
+            <h1>Agent Office<span class="edition">LOCAL WORKSPACE</span></h1>
+            <span class="tagline">Your agents, in good company.</span>
+          </div>
+        </div>
+        <div class="connection">
+          <span id="connection-dot"></span
+          ><span id="connection">Connecting</span
+          ><span id="mode" hidden>DEMO</span>
+        </div>
+        <div class="rankbox">
+          <span id="rank">Intern · 0 XP</span
+          ><span id="xpbar"><span id="xpfill"></span></span>
+        </div>
+        <a
+          class="repo-link"
+          href="https://github.com/NosytLabs/agent-office"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Agent Office on GitHub"
+          >GitHub ↗</a
+        >
+      </header>
+      <nav id="toolbar" aria-label="Office controls">
+        <div class="cluster">
+          <button
+            class="btn"
+            id="floorbtn"
+            data-sheet="sheet-floor"
+            aria-expanded="false"
+          >
+            Agents <span id="agent-total">0</span>
+          </button>
+          <button
+            class="btn"
+            id="tasksbtn"
+            data-sheet="sheet-tasks"
+            aria-expanded="false"
+          >
+            Tasks
+          </button>
+          <button
+            class="btn"
+            id="eventsbtn"
+            data-sheet="sheet-events"
+            aria-expanded="false"
+          >
+            Activity
+          </button>
+          <button
+            class="btn"
+            id="achbtn"
+            data-sheet="sheet-unlocks"
+            aria-expanded="false"
+          >
+            Achievements
+          </button>
+          <button
+            class="btn"
+            id="settingsbtn"
+            data-sheet="sheet-settings"
+            aria-expanded="false"
+          >
+            Customize
+          </button>
+        </div>
+        <div class="cluster secondary">
+          <label class="sr-only" for="filterbtn">Filter runtime</label
+          ><select id="filterbtn" class="btn">
+            <option value="every">All runtimes</option>
+            <option value="hermes">Hermes</option>
+            <option value="claude">Claude Code</option>
+            <option value="opencode">OpenCode</option>
+            <option value="telegram">Telegram</option>
+            <option value="cli">CLI</option>
+          </select>
+          <button class="btn" id="themeNextbtn" title="Change theme (T)">
+            Plum
+          </button>
+          <button
+            class="btn"
+            id="sound"
+            aria-pressed="false"
+            title="Notification sounds"
+          >
+            Sound off
+          </button>
+          <button
+            class="btn"
+            id="helpbtn"
+            data-sheet="sheet-legend"
+            aria-expanded="false"
+            aria-label="Help and shortcuts"
+          >
+            ?
+          </button>
+        </div>
+      </nav>
+      <main id="workspace">
+        <div class="scene-heading">
+          <div>
+            <span class="eyebrow">THE WORKSPACE</span>
+            <h2 id="room-name">The studio</h2>
+          </div>
+          <div id="summary">
+            <span id="count">Connecting…</span><span id="waiting-count"></span>
+          </div>
+        </div>
+        <div id="stage">
+          <canvas
+            id="c"
+            tabindex="0"
+            aria-label="Live pixel office. Select an agent to inspect its activity. Use the Agents button for a keyboard-accessible list."
+          ></canvas>
+          <div id="empty-state" hidden>
+            <h3>The office is ready.</h3>
+            <p>Start a connected agent to bring the room to life.</p>
+            <code>python3 demo_feed.py</code>
+            <p class="h">Try a separate demo with synthetic activity.</p>
+          </div>
+          <div id="edit-hint" hidden>
+            Click an empty floor tile to place furniture. Click a placed item to
+            remove it.
+          </div>
+        </div>
+        <div class="scene-controls">
+          <span class="hint" id="scene-hint"
+            >Click an agent to see what’s happening.</span
+          >
+          <div class="cluster">
+            <button class="btn" id="zoom-out" aria-label="Zoom out">−</button
+            ><button class="btn" id="zoom-fit">Fit</button
+            ><button class="btn" id="zoom-in" aria-label="Zoom in">+</button
+            ><button class="btn" id="pausebtn" aria-pressed="false">
+              Pause motion</button
+            ><button class="btn" id="capturebtn">Snapshot ↓</button>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <span class="live-label">● ACTIVITY</span
+        ><span id="latest-event">Waiting for a session…</span
+        ><span class="footer-note">Local · Observer only</span>
+      </footer>
     </div>
-    <div class="row icons" role="toolbar" aria-label="office controls">
-      <div class="cluster" role="group" aria-label="panels">
-        <button type="button" class="btn" id="floorbtn" data-sheet="sheet-floor" aria-expanded="false" title="agents + usage (R)">floor</button>
-        <button type="button" class="btn" id="achbtn" data-sheet="sheet-unlocks" aria-expanded="false" title="badges (B)">badges</button>
-        <button type="button" class="btn" id="settingsbtn" data-sheet="sheet-settings" aria-expanded="false" title="settings (S)">settings</button>
-        <button type="button" class="btn" id="debugbtn" data-sheet="sheet-debug" aria-expanded="false" title="raw state (D / ?debug=1)" style="display:none">dbg</button>
-        <button type="button" class="btn" id="inspectorbtn" data-sheet="sheet-inspector" aria-expanded="false" title="inspect focused agent" style="display:none">inspect</button>
-        <button type="button" class="btn" id="spawn" style="display:none" title="open a terminal">+ agent</button>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="backdrop" hidden></div>
+    <section
+      class="sheet"
+      id="sheet-floor"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Agents"
+      hidden
+    >
+      <h2>On the floor</h2>
+      <p class="h">
+        Live sessions, with blocked agents first. Select one for details.
+      </p>
+      <input
+        class="txt"
+        id="trackSearch"
+        type="search"
+        placeholder="Find an agent, tool or status…"
+        aria-label="Filter agents"
+      />
+      <div id="roster"></div>
+      <h3>Usage</h3>
+      <div id="statbox"></div>
+      <button class="btn" id="exportTrack">Export CSV ↓</button>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-tasks"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tasks"
+      hidden
+    >
+      <h2>Work in progress</h2>
+      <p class="h">
+        Observed session activity. Assign and approve work in your agent’s own
+        terminal.
+      </p>
+      <div id="taskboard"></div>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-events"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Activity"
+      hidden
+    >
+      <h2>Activity stream</h2>
+      <p class="h">The latest 30 recorded events. Updates every 1.5 seconds.</p>
+      <input
+        class="txt"
+        id="eventSearch"
+        type="search"
+        placeholder="Search events…"
+        aria-label="Search events"
+      />
+      <div id="eventbox"></div>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-unlocks"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Achievements"
+      hidden
+    >
+      <h2>Small wins, better office</h2>
+      <p class="h" id="badge-summary"></p>
+      <div class="seg" id="badge-tabs">
+        <button data-filter="all" aria-pressed="true">All</button
+        ><button data-filter="earned" aria-pressed="false">Earned</button
+        ><button data-filter="next" aria-pressed="false">Up next</button>
       </div>
-      <div class="cluster" role="group" aria-label="view">
-        <button type="button" class="btn" id="filterbtn" title="filter by runtime">every</button>
-        <button type="button" class="btn" id="themeNextbtn" title="cycle theme (T)">theme</button>
-        <button type="button" class="btn" id="sound" aria-pressed="false" title="chime on approval / unlock">sound</button>
+      <div class="grid" id="achgrid"></div>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-settings"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Customize"
+      hidden
+    >
+      <h2>Make yourself at home</h2>
+      <div id="layoutbox"></div>
+      <div id="settingsbox"></div>
+      <h3>Place furniture</h3>
+      <p class="h">
+        Choose a prop, then click a free area on the floor. Up to 24 custom
+        props.
+      </p>
+      <div class="seg" id="furniture-tools"></div>
+      <button class="btn" id="clear-furniture">Clear custom furniture</button>
+      <h3>Your setup</h3>
+      <div class="cluster">
+        <button class="btn" id="export-settings">Export layout ↓</button
+        ><label class="btn"
+          >Import layout
+          <input
+            id="import-settings"
+            type="file"
+            accept="application/json,.json"
+            class="sr-only"
+        /></label>
       </div>
-    </div>
-  </header>
-  <canvas id="c"></canvas>
-</div>
-<div id="toast"></div>
-<div class="sheet" id="sheet-floor" role="dialog" aria-label="Floor">
-  <h2>FLOOR</h2>
-  <div id="roster"></div>
-  <h2 class="sub">USAGE</h2>
-  <div id="statbox"></div>
-</div>
-<div class="sheet" id="sheet-unlocks" role="dialog" aria-label="Badges"><h2>BADGES</h2><div class="grid" id="achgrid"></div></div>
-<div class="sheet" id="sheet-settings" role="dialog" aria-label="Settings">
-  <h2>SETTINGS</h2>
-  <div id="layoutbox"></div>
-  <div id="settingsbox"></div>
-</div>
-<div class="sheet" id="sheet-debug" role="dialog" aria-label="Debug"><h2>DEBUG</h2><pre id="debugbox" style="font-size:11px;line-height:1.5;white-space:pre-wrap"></pre></div>
-<div class="sheet" id="sheet-inspector" role="dialog" aria-label="Inspect"><h2>INSPECT</h2><div id="inspectorbox"></div></div>
-<div class="sheet" id="sheet-legend" role="dialog" aria-label="Legend"><h2>LEGEND</h2><div id="legendbox"></div></div>
-<div class="sheet" id="sheet-events" role="dialog" aria-label="Live"><h2>LIVE</h2><div id="eventbox"></div></div>
-
-<script src="js/data.js"></script>
-<script src="js/office.js"></script>
-</body>
+      <p id="save-status" class="h" role="status"></p>
+      <h3>Start fresh</h3>
+      <p class="h">
+        Reset clears XP, earned badges and event history. Your room settings
+        stay.
+      </p>
+      <button class="btn danger" id="resetbtn">Reset progress</button>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-inspector"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Agent details"
+      hidden
+    >
+      <h2>At this desk</h2>
+      <div id="inspectorbox"></div>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-legend"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Help"
+      hidden
+    >
+      <h2>A little orientation</h2>
+      <p>
+        This office reflects events from your coding agents. It does not run
+        tasks or approve actions. Pets and room objects are decoration.
+      </p>
+      <h3>Connect a runtime</h3>
+      <p>
+        Run <code>python3 install.py</code> from the repository, restart your
+        runtime, and keep <code>python3 run.py</code> open. The installer
+        detects Hermes, OpenCode, Claude Code and VS Code.
+      </p>
+      <p>
+        The demo runs in a temporary directory and is marked <b>DEMO</b>. Its XP
+        and events are separate from your real sessions.
+      </p>
+      <div id="legendbox"></div>
+      <p>
+        <a
+          href="https://github.com/NosytLabs/agent-office#troubleshooting"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Setup and troubleshooting ↗</a
+        >
+      </p>
+    </section>
+    <script src="js/data.js"></script>
+    <script src="js/scene.js"></script>
+    <script src="js/office.js"></script>
+  </body>
 </html>

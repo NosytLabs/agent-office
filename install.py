@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -94,7 +95,7 @@ def enable_claude() -> str:
     settings = HOME / ".claude/settings.json"
     hook = str(HERE / "claude/hook.py")
     os.chmod(HERE / "claude/hook.py", 0o755)
-    cmd = f"{sys.executable} {hook}"
+    cmd = shlex.join([sys.executable, hook])
     if not settings.exists():
         return "skip claude (no settings.json)"
     try:
@@ -129,12 +130,12 @@ def enable_vscode() -> str:
     if not (src / "extension.js").exists():
         return "skip vscode (no vscode/ in tree)"
     ext.mkdir(parents=True, exist_ok=True)
-    for name in ("extension.js", "package.json", "LICENSE", "README.md"):
+    for name in ("extension.js", "panel.js", "package.json", "LICENSE", "README.md"):
         if (src / name).exists():
             shutil.copy2(src / name, ext / name)
     media = ext / "media"
     media.mkdir(exist_ok=True)
-    html = HERE / "web/template.html"
+    html = src / "media/office.html"
     if html.exists():
         shutil.copy2(html, media / "office.html")
     return f"vscode ext → {ext} (reload window)"
@@ -162,8 +163,8 @@ def main() -> int:
     else:
         print("• skip vscode")
     print()
-    print("open  http://127.0.0.1:8113  after a fresh hermes/opencode/claude session")
-    print("demo  python3 demo_feed.py")
+    print("serve python3 run.py  — open http://127.0.0.1:8113")
+    print("demo  python3 demo_feed.py  — separate demo at http://127.0.0.1:8114")
     return 0
 
 

@@ -1,71 +1,59 @@
-# Agent Office — architecture
+# Architecture
 
-Multi-runtime pixel-art virtual office. Observer only — never blocks,
-vetoes, or rewrites prompts.
+Agent Office is a local observer. Python handles event folding and persistence; the browser renders canvas and DOM. No database, bundler, agent executor, or model provider is required.
 
-## event flow
-
-```
-              hooks / plugins
-                   │
-   hermes ─────────┤
-   opencode ───────┼──► ~/.hermes/pixel-office/events.jsonl
-   claude code ────┤            │
-   telegram ───────┤            ▼
-   cli / cron ─────┘   ingest() ──► progress.json
-                            │
-                            ▼
-                       /state (HTTP)
-                            │
-                ┌───────────┼────────────┐
-                ▼           ▼            ▼
-           canvas      vscode ext    standalone CLI
+```mermaid
+flowchart TD
+  H["Hermes hooks"] --> E["events.jsonl"]
+  O["OpenCode bridge"] --> E
+  C["Claude hooks"] --> E
+  E --> S["Python observer server"]
+  S <--> P["Progress and settings JSON"]
+  S --> W["Canvas scene and DOM panels"]
+  V["VS Code panel"] --> W
 ```
 
-## server endpoints
+## Boundaries
 
-| path | method | purpose |
+| File | Responsibility |
+|---|---|
+| `run.py` | Standalone local server entry point |
+| `demo_feed.py` | Isolated, explicitly synthetic example feed |
+| `__init__.py` | Hermes callbacks, event validation/folding, HTTP routes, settings validation |
+| `progress.py` | XP, achievements, idempotent event cursor, persisted progress |
+| `claude/hook.py` | Claude stdin hook payload → normalized event |
+| `opencode/index.js` | OpenCode event/plugin payload → normalized event |
+| `install.py` | Preserve and extend existing runtime configuration |
+| `web/js/data.js` | Presentation constants, sprite-frame mapping, settings normalization |
+| `web/js/scene.js` | Asset loading, camera, movement, scene drawing, hit testing |
+| `web/js/office.js` | State polling, safe text rendering, panels, searches, import/export |
+| `vscode/extension.js`, `panel.js` | Single iframe frontend with a configurable, forwarded server URL |
+
+## HTTP
+
+| Method | Path | Purpose |
 |---|---|---|
-| `/` | GET | pixel office HTML |
-| `/state` | GET | folded agents + progress + settings + last 30 events |
-| `/state` | DELETE | reset progress + event history |
-| `/settings` | GET | persisted layout / theme / toggles |
-| `/settings` | POST | save whitelisted settings (theme switches tracked) |
-| `/assets-manifest` | GET | bundled + user SVGs |
-| `/assets/sprites/**.png` | GET | pixel-art sheets |
-| `/user/<name>.svg` | GET | user-uploaded logo |
+| GET | `/` | Frontend |
+| GET | `/state` | Agents, last 30 events, progress, validated settings, live/demo marker |
+| GET | `/settings` | Validated settings |
+| POST | `/settings` | Partial settings update; JSON object, maximum 64 KiB |
+| DELETE | `/state` | Reset progress/events; retain room settings |
+| GET | `/assets-manifest` | Compatibility endpoint for bundled/user SVG inventory |
+| GET | `/user/<name>.svg` | Optional user SVG |
+| GET | `/js/*`, `/css/*`, `/assets/*` | Bundled static files with path containment |
 
-Static files under `web/` are served with a path-safe handler.
+Writes return JSON errors for malformed bodies, unsupported content types, oversized requests, and failed writes. Settings are whitelisted, typed, and atomically replaced. A process lock serializes state folds, settings saves, and resets; it is not a cross-process database lock. Runtime bridges append to the same event log.
 
-## persistence
+The server starts independently for Claude/OpenCode, or lazily from Hermes. State is reconstructed from disk so sessions from separate processes can appear together. Invalid JSON lines, non-object events, and invalid timestamps are skipped. The progress cursor counts events sharing the same final timestamp without replaying them on the next poll. Legacy stores migrate without replaying the final event.
 
-| file | format | purpose |
-|---|---|---|
-| `events.jsonl` | newline-delimited JSON | raw hook events, trimmed to 512 KB |
-| `progress.json` | JSON | ranks, unlocks, stats — 41 badge catalog |
-| `settings.json` | JSON | layout, theme, max_chars |
+## Rendering
 
-## front-end
+The canvas uses a device-pixel-ratio-aware transform and nearest-neighbor sampling. World geometry and text resolution are separate. All agent stations are laid out inside the room; mobile caps the initial view at two columns. Fit keeps the room in bounds; zoom permits dragging. Movement uses elapsed time, a bounded frame rate, aisle waypoints, and distance-based walk animation. Reading and typing use the correct source columns. Hidden tabs skip painting, and reduced-motion preferences pause animation without stopping network updates.
 
-Vanilla canvas + DOM, no build step. `data.js` then `office.js`.
+The generated atlas is decoded once. Its four quadrant bounds are found from alpha, trimmed, and sampled onto small logical sprite canvases. Desk geometry does not depend on image dimensions. The roster uses the same character sheets as the scene.
 
-Header panels: **floor** (roster + usage), **badges**, **settings** (layout + theme).
-Shortcuts: `R/U` floor, `B` badges, `S/L` settings, `E` live, `?` legend, `T` theme, `N` day/night, `esc` close.
+Modal panels keep keyboard focus inside and return it when closed. Search inputs are persistent DOM nodes. Polling refreshes data containers without replacing typed text. All event-derived markup is escaped. Settings updates are queued, and pending edits are protected from stale polling responses.
 
-Characters render from sprite sheets (`assets/sprites/`, adapted from pixel-agents, MIT)
-with a procedural fallback while sheets load. NPCs use dedicated idle sprites.
+## Deliberate scope
 
-## plugins
-
-| file | hook | events written |
-|---|---|---|
-| `__init__.py` (hermes) | `on_session_start`, `pre_tool_call`, ... | full lifecycle |
-| `opencode/index.js` | `tool.execute.*`, `session.*` | full lifecycle |
-| `claude/hook.py` | stdin JSON for SessionStart/PreToolUse/... | full lifecycle |
-| `vscode/extension.js` | polls `/state` every 1.5s | observer only |
-
-## tests
-
-```
-python3 -m pytest tests/ -q
-```
+The task board groups observed sessions. There is no task-dispatch endpoint, autonomous hiring, chat memory, inference loop, or tool-execution service. The reference repositories use different architectures; their execution engines were not combined with this observer. Live third-party CLI installations and a real VS Code extension host still require integration testing in the user's environment.

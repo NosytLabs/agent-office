@@ -6,6 +6,7 @@ Never raises into the agent loop.
 from __future__ import annotations
 
 import json
+from collections import Counter
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -47,18 +48,15 @@ CATALOG = [
     {"id": "fashion", "name": "Office drip", "hint": "hit staff rank", "xp": 0},
     {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
     {"id": "layout_bullpen", "name": "Bullpen layout", "hint": "10 sessions ever", "xp": 25},
-    {"id": "areas_q1", "name": "Cartographer", "hint": "paint one named area", "xp": 10},
-    {"id": "areas_q2", "name": "City planner", "hint": "paint three areas", "xp": 25},
     {"id": "pet_cat", "name": "Office cat", "hint": "50 sessions", "xp": 15},
     {"id": "pet_plant", "name": "Office fern", "hint": "first session", "xp": 0},
-    {"id": "pet_dog", "name": "Office dog", "hint": "100 sessions + 50 tools", "xp": 30},
+    {"id": "pet_dog", "name": "Midnight cat", "hint": "100 sessions + 50 tools", "xp": 30},
     {"id": "pet_fish", "name": "Office fish", "hint": "25 browse tools", "xp": 20},
-    {"id": "weather_storm", "name": "Stormy", "hint": "5 errors in one day", "xp": 15},
+    {"id": "weather_storm", "name": "Stormy", "hint": "5 tool errors lifetime", "xp": 15},
     {"id": "weather_sun", "name": "Sunny", "hint": "100 sessions", "xp": 25},
     {"id": "workhorse", "name": "Workhorse", "hint": "500 tools", "xp": 50},
     {"id": "deep_work", "name": "Deep work", "hint": "50 sessions", "xp": 40},
     {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
-    {"id": "architect", "name": "Architect", "hint": "3 areas + folder maps", "xp": 40},
     {"id": "marathon", "name": "Marathon", "hint": "10k tools", "xp": 80},
 ]
 
@@ -83,6 +81,7 @@ def _empty() -> Dict[str, Any]:
         },
         "unlocks": {},
         "last_ts": 0.0,
+        "last_ts_counts": {},
         "recent": [],
     }
 
@@ -94,6 +93,8 @@ def load(path: Path) -> Dict[str, Any]:
             base = _empty()
             base.update({k: data.get(k, base[k]) for k in base})
             base["stats"] = {**_empty()["stats"], **(data.get("stats") or {})}
+            if "last_ts_counts" not in data:
+                base["last_ts_counts"] = None
             return base
     except Exception:
         pass
@@ -119,30 +120,18 @@ def rank_for(xp: int) -> str:
 
 
 def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
-    out = ["desk_basic"]
+    out = []
     r = rank_for(xp)
-    if r in ("junior", "staff", "principal", "distinguished"):
-        out.append("beanie")
     if r in ("staff", "principal", "distinguished"):
-        out.extend(["plant", "mug"])
+        out.append("mug")
     if r in ("principal", "distinguished"):
         out.append("gold_monitor")
     if r == "distinguished":
-        out.extend(["cape", "crown"])
-    if "open_floor" in unlocks:
-        out.append("visor")
-    if "telegram_desk" in unlocks:
-        out.append("pin")
-    if "night_owl" in unlocks:
-        out.append("headphones")
-    if "gold_collar" in unlocks:
-        out.append("gold_trim")
-    if "claude_desk" in unlocks:
-        out.append("orange_scarf")
+        out.append("crown")
     if "pet_plant" in unlocks:
         out.append("fern")
     if "pet_dog" in unlocks:
-        out.append("gitcat")   # second cat sprite (acts as office dog)
+        out.append("gitcat")   # legacy badge id; reward is a second cat
     if "pet_fish" in unlocks:
         out.append("fish_tank")  # procedural fish tank decoration
     if "pet_cat" in unlocks:
@@ -166,19 +155,6 @@ def _unlock(data: Dict[str, Any], aid: str) -> None:
     data["recent"] = rec[-8:]
 
 
-def apply_client_unlocks(data: Dict[str, Any]) -> None:
-    """Unlock badges driven by client-side state (settings/sheet actions).
-    Called from the /state fold after _have_* stats are injected."""
-    stats = data["stats"]
-    if stats.get("_have_areas"):
-        _unlock(data, "areas_q1")
-    if int(stats.get("_area_count") or 0) >= 3:
-        _unlock(data, "areas_q2")
-    if stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3 \
-            and len(stats.get("_folder_areas") or {}) >= 1:
-        _unlock(data, "architect")
-
-
 def record_theme_switch(path=None) -> None:
     ppath = path or (Path.home() / ".hermes" / "pixel-office" / "progress.json")
     data = load(ppath) if Path(ppath).exists() else _empty()
@@ -194,9 +170,10 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
     last = float(data.get("last_ts") or 0)
     stats = data["stats"]
     plats: Set[str] = set(stats.get("platforms") or [])
-    live: Set[str] = set()
-    max_seen = int(stats.get("max_concurrent") or 0)
     newest = last
+    previous_counts = data.get("last_ts_counts")
+    boundary_counts = Counter()
+    newest_counts = Counter()
 
     READ = {"read_file", "search_files", "skill_view", "read", "glob", "grep", "list", "Read", "Grep", "Glob"}
     WRITE = {"write_file", "patch", "skill_manage", "edit", "write", "apply_patch", "Edit", "Write"}
@@ -208,9 +185,20 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
 
     for ev in events:
         ts = float(ev.get("ts") or 0)
-        if ts <= last:
+        if ts < last:
             continue
-        newest = max(newest, ts)
+        identity = json.dumps(ev, sort_keys=True, separators=(",", ":"))
+        if ts > newest:
+            newest = ts
+            newest_counts.clear()
+        if ts == newest:
+            newest_counts[identity] += 1
+        if ts == last:
+            boundary_counts[identity] += 1
+            # Existing stores without a boundary cursor have already counted
+            # their final timestamp. Start tracking that boundary on migration.
+            if previous_counts is None or boundary_counts[identity] <= previous_counts.get(identity, 0):
+                continue
         kind = ev.get("event")
         plat = str(ev.get("platform") or "")
         if plat:
@@ -219,9 +207,6 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         if kind == "session_start":
             stats["sessions"] = int(stats.get("sessions") or 0) + 1
             data["xp"] = int(data.get("xp") or 0) + 5
-            sid = ev.get("session_id")
-            if sid:
-                live.add(str(sid))
             hour = time.localtime(ts).tm_hour
             if 0 <= hour < 5:
                 _unlock(data, "night_owl")
@@ -285,6 +270,7 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "typer")
     if int(stats.get("browses") or 0) >= 15:
         _unlock(data, "browser_tab")
+    if int(stats.get("browses") or 0) >= 25:
         _unlock(data, "pet_fish")
     if (int(stats.get("sessions") or 0) >= 100) and (int(stats.get("tools") or 0) >= 50):
         _unlock(data, "pet_dog")
@@ -310,7 +296,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
         _unlock(data, "deep_work")
     if int(stats.get("tools") or 0) >= 10000:
         _unlock(data, "marathon")
-    _unlock(data, "pet_plant")
+    if int(stats.get("sessions") or 0) >= 1:
+        _unlock(data, "pet_plant")
     if int(stats.get("sessions") or 0) >= 100:
         _unlock(data, "weather_sun")
     if int(stats.get("errors") or 0) >= 5:
@@ -318,7 +305,8 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]
 
     data["stats"] = stats
     data["last_ts"] = newest
-    data["max_concurrent"] = max_seen
+    if newest_counts:
+        data["last_ts_counts"] = dict(newest_counts)
     return data
 
 
@@ -357,7 +345,7 @@ def snapshot(data: Dict[str, Any]) -> Dict[str, Any]:
         "catalog": [
             {"id": c["id"], "name": c["name"], "hint": c["hint"],
              "have": c["id"] in (data.get("unlocks") or {}),
-             "progress": _progress_for(c["id"], stats, xp, plats, by_tool, by_platform)}
+             "progress": 100 if c["id"] in (data.get("unlocks") or {}) else _progress_for(c["id"], stats, xp, plats, by_tool, by_platform)}
             for c in CATALOG
         ],
     }
@@ -409,11 +397,9 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "red_alert": pct(int(stats.get("approvals") or 0),1),
         "night_owl": 100 if has_nightowl else 0,
         "early_bird": 100 if "early_bird" in (stats.get("_unlocks") or {}) else 0,
-        "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,50),
-        "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,300),
+        "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,150),
+        "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,400),
         "layout_bullpen": pct(sessions,10),
-        "areas_q1": 100 if stats.get("_have_areas") else 0,
-        "areas_q2": pct(int(stats.get("_area_count") or 0),3),
         "pet_cat": pct(sessions,50),
         "pet_plant": 100 if sessions >= 1 else 0,
         "pet_dog": min(pct(sessions,100), pct(tools,50)),
@@ -423,7 +409,5 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "workhorse": pct(tools,500),
         "deep_work": pct(sessions,50),
         "theme_designer": pct(int(stats.get("theme_switches") or 0), 5),
-        "architect": 100 if (stats.get("_have_areas") and int(stats.get("_area_count") or 0) >= 3
-                            and len(stats.get("_folder_areas") or {}) >= 1) else 0,
         "marathon": pct(tools,10000),
     }.get(badge_id, 0)

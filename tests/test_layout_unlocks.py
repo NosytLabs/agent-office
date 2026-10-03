@@ -48,28 +48,18 @@ def test_claude_platform_unlocks(tmp_path):
         {"ts": 1.0, "event": "session_start", "session_id": "x", "platform": "claude"},
     ])
     assert "claude_desk" in data["unlocks"]
-    assert "orange_scarf" in snapshot(data)["cosmetics"]
+    assert "fern" in snapshot(data)["cosmetics"]
 
 
-def test_catalog_size():
-    assert len(CATALOG) == 41
-
-
-def test_catalog_grew():
-    ids = {c["id"] for c in CATALOG}
-    assert {"layout_bullpen",
-            "pet_dog", "pet_fish",
-            "areas_q1", "areas_q2",
-            "pet_cat", "pet_plant", "weather_storm", "weather_sun",
-            "workhorse", "deep_work", "theme_designer",
-            "architect", "marathon"} <= ids
-    # retired bloat stays retired (lounge/library layouts, dead desk cosmetics)
-    assert not {"layout_lounge", "layout_library",
-                "layout_war_room", "layout_mexico", "layout_garden",
-                "layout_arcade", "layout_penthouse", "layout_beach",
-                "layout_atelier", "layout_spaceship",
-                "canvas_artisan", "decorator", "auto_arrange",
-                "tour_guide", "screenshotter", "mood_master"} & ids
+def test_legacy_earned_badges_do_not_lose_xp(tmp_path):
+    data = load(tmp_path / "progress.json")
+    data["xp"] = 80
+    data["unlocks"]["architect"] = {"name": "Architect", "at": 1}
+    save(tmp_path / "progress.json", data)
+    restored = load(tmp_path / "progress.json")
+    assert snapshot(restored)["xp"] == 80
+    assert "architect" in restored["unlocks"]
+    assert not any(b["id"] == "architect" for b in snapshot(restored)["catalog"])
 
 
 def test_no_dead_cosmetics():

@@ -11,39 +11,22 @@ import __init__ as plugin  # noqa: E402
 SPRITES = ROOT / "web" / "assets" / "sprites"
 
 
-def test_furniture_and_npc_sprites_exist():
-    for rel in (
-        "furniture/DOOR.png",
-        "furniture/COFFEE.png",
-        "furniture/LARGE_PLANT.png",
-        "furniture/WATER_COOLER.png",
-        "furniture/LAMP.png",
-        "furniture/CLOCK.png",
-        "furniture/BOOKSHELF.png",
-        "furniture/FISH_TANK.png",
-        "furniture/BIN.png",
-        "furniture/CACTUS.png",
-        "furniture/PACKAGE.png",
-        "npcs/mail.png",
-        "npcs/cleaner.png",
-        "npcs/intern.png",
-        "pets/sleep_cat.png",
-        "pets/claudio.png",
-        "pets/gitcat.png",
-        "pets/claudio_idle.png",
-        "pets/gitcat_idle.png",
-        "characters/char_0.png",
-    ):
-        assert (SPRITES / rel).is_file(), rel
-
-
-def test_sofa_retired():
-    assert not (SPRITES / "furniture" / "SOFA_FRONT.png").exists()
+def test_runtime_sprite_dimensions_and_png_headers():
+    import struct
+    expected = {
+        **{f"characters/char_{i}.png": (112, 96) for i in range(6)},
+        "pets/claudio.png": (96, 96), "pets/gitcat.png": (96, 96),
+        "pets/sleep_cat.png": (24, 16), "furniture/studio-atlas.png": (1254, 1254),
+    }
+    for rel, size in expected.items():
+        raw = (SPRITES / rel).read_bytes()
+        assert raw[:8] == b"\x89PNG\r\n\x1a\n", rel
+        assert struct.unpack(">II", raw[16:24]) == size, rel
 
 
 def test_safe_web_file_serves_js(tmp_path, monkeypatch):
     web = ROOT / "web"
-    for rel in ("js/data.js", "js/office.js", "css/style.css"):
+    for rel in ("js/data.js", "js/scene.js", "js/office.js", "css/style.css"):
         p = plugin._safe_web_file(web, "/" + rel)
         assert p is not None and p.is_file()
     assert plugin._safe_web_file(web, "/js/../__init__.py") is None

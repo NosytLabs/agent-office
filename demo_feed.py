@@ -1,80 +1,52 @@
-"""Self-test feed for the pixel-office plugin — no Hermes install required.
-
-Loads the plugin module from this directory and fires its real hook
-callbacks with synthetic sessions/subagents/approvals, serving the office
-on the default port. Run, then open http://127.0.0.1:8113.
-
-    HERMES_HOME=$(mktemp -d)/.hermes python3 demo_feed.py
-
-Ctrl+C to stop.
-"""
-import importlib.util
+#!/usr/bin/env python3
+"""Synthetic office activity in a temporary workspace. Never writes live progress."""
+import argparse
 import os
 import random
-import sys
+import tempfile
 import time
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
 
-# The plugin only needs get_hermes_home(); stub it if hermes isn't importable
-# so this demo runs on a machine with nothing but Python.
-try:
-    import hermes_constants  # noqa: F401
-except ImportError:
-    import types
-    hh = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
-    stub = types.ModuleType("hermes_constants")
-    stub.get_hermes_home = lambda: hh
-    sys.modules["hermes_constants"] = stub
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--port', type=int, default=8114)
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535:
+        parser.error('port must be between 1 and 65535')
+    # A demo is always isolated, even if the shell sets a live HERMES_HOME.
+    with tempfile.TemporaryDirectory(prefix='agent-office-demo-') as demo_home:
+        os.environ['HERMES_HOME'] = demo_home
+        os.environ['AGENT_OFFICE_PORT'] = str(args.port)
+        os.environ['AGENT_OFFICE_DEMO'] = '1'
+        import __init__ as office
+        if office._probe_port(args.port) == 'office':
+            parser.error('port is already running an office; choose another --port')
+        sessions = [('cli', 'cli-build'), ('claude', 'claude-review'), ('opencode', 'opencode-api'),
+                    ('telegram', 'telegram-notes'), ('hermes', 'hermes-research')]
+        for platform, sid in sessions:
+            office._on_session_start(session_id=sid, platform=platform)
+        office._subagent_start(parent_session_id='cli-build', child_session_id='sub-tests', child_goal='Check the test suite')
+        print(f'DEMO — synthetic activity, separate progress: http://127.0.0.1:{args.port}', flush=True)
+        tools = [('terminal', {'command': 'python -m pytest -q'}), ('read_file', {'path': 'README.md'}),
+                 ('write_file', {'path': 'src/app.ts'}), ('web_search', {'query': 'Python documentation'})]
+        try:
+            n = 0
+            while True:
+                for _, sid in sessions:
+                    tool, payload = random.choice(tools)
+                    office._pre_tool_call(session_id=sid, tool_name=tool, args=payload)
+                time.sleep(3)
+                for _, sid in sessions:
+                    office._post_tool_call(session_id=sid, tool_name='terminal', status='ok')
+                if n % 3 == 0:
+                    office._publish({'event': 'approval_request', 'session_id': 'claude-review', 'command': 'Apply the reviewed patch'})
+                office._pre_tool_call(session_id='sub-tests', tool_name='terminal', args={'command': 'Run regression tests'})
+                time.sleep(5)
+                office._post_approval_response(session_id='claude-review', choice='once')
+                n += 1
+        except KeyboardInterrupt:
+            pass
 
-spec = importlib.util.spec_from_file_location("pixel_office", HERE / "__init__.py")
-mod = importlib.util.module_from_spec(spec)
-sys.modules["pixel_office"] = mod
-spec.loader.exec_module(mod)
 
-TOOLS = [
-    ("terminal", {"command": "pytest tests/gateway -q"}),
-    ("read_file", {"path": "run_agent.py"}),
-    ("web_search", {"query": "pixel agents vs code"}),
-    ("write_file", {"path": "model_tools.py"}),
-    ("search_files", {"pattern": "invoke_hook"}),
-]
-GOALS = ["Review PR #81212", "Research competitor docs", "Fix flaky gateway test",
-         "Write release notes", "Audit dep pins"]
-
-mod._on_session_start(session_id="sess-main-cli", platform="cli")
-mod._on_session_start(session_id="sess-tg-main", platform="telegram")
-print("pixel-office demo feed running — open http://127.0.0.1:%d" % mod._resolve_port())
-
-live_subs, n = [], 0
-while True:
-    n += 1
-    for sid in ("sess-main-cli", "sess-tg-main"):
-        tool, args = random.choice(TOOLS)
-        mod._pre_tool_call(tool_name=tool, args=args, session_id=sid)
-        time.sleep(random.uniform(2, 5))
-        mod._post_tool_call(tool_name=tool, args={}, result="{}", session_id=sid,
-                            status="ok", duration_ms=random.randint(200, 4000))
-    if len(live_subs) < 3 and random.random() < 0.6:
-        sub = f"sub-{n}"
-        mod._subagent_start(parent_session_id="sess-main-cli", child_session_id=sub,
-                            child_role="leaf", child_goal=random.choice(GOALS))
-        tool, args = random.choice(TOOLS)
-        mod._pre_tool_call(tool_name=tool, args=args, session_id=sub)
-        live_subs.append(sub)
-    if live_subs and random.random() < 0.4:
-        done = live_subs.pop(0)
-        mod._post_tool_call(tool_name="terminal", args={}, result="{}",
-                            session_id=done, status="ok")
-        mod._subagent_stop(child_session_id=done)
-    if n % 4 == 2:
-        mod._pre_tool_call(tool_name="terminal",
-                           args={"command": "sudo systemctl restart nginx"},
-                           session_id="sess-main-cli")
-        mod._pre_approval_request(command="sudo systemctl restart nginx",
-                                  description="restart service", surface="cli")
-        time.sleep(8)
-        mod._post_approval_response(command="sudo systemctl restart nginx",
-                                    choice="once", surface="cli")
-    time.sleep(random.uniform(2, 4))
+if __name__ == '__main__':
+    main()

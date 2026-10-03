@@ -15,20 +15,20 @@ def test_settings_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
     assert plugin._load_settings()["layout"] == "open"
     plugin._save_settings({"layout": "bullpen", "theme": "midnight",
-                           "areas": {"api": "#5fce7a"},
-                           "paint": True, "painted": {"10,12": "api"}})
+                           "ambience": "day", "show_labels": False,
+                           "furniture": [{"kind":"sofa", "x":0.5, "y":0.8}]})
     s = plugin._load_settings()
     assert s["layout"] == "bullpen"
     assert s["theme"] == "midnight"
-    assert s["paint"] is True
-    assert s["painted"] == {"10,12": "api"}
+    assert s["show_labels"] is False
+    assert s["furniture"] == [{"kind":"sofa", "x":0.5, "y":0.8}]
 
 
 def test_unknown_key_ignored(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
     plugin._save_settings({"layout": "lounge", "unknown": "x", "rce": True})
     s = plugin._load_settings()
-    assert s["layout"] == "lounge"
+    assert s["layout"] == "open"
     assert "unknown" not in s
     assert "rce" not in s
 

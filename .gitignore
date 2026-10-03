@@ -11,3 +11,7 @@ shots/
 
 # Defensive patterns (added by cleanup)
 *.log
+.venv/
+reports/
+playwright-report/
+test-results/
