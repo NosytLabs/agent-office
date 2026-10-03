@@ -22,6 +22,7 @@ let trackQuery = "",
   returnFocus = null,
   initialized = false;
 let pendingSaves = 0,
+  settingsRevision = 0,
   saveQueue = Promise.resolve(),
   audioContext = null,
   settingsSignature = "";
@@ -297,7 +298,7 @@ function fillInspector() {
 }
 function eventText(e) {
   return [
-    e.tool_name || e.event.replaceAll("_", " "),
+    e.tool_name || String(e.event || "event").replaceAll("_", " "),
     e.preview ||
       e.command ||
       e.child_goal ||
@@ -314,7 +315,7 @@ function eventRow(e) {
   const row = document.createElement("div");
   row.className = "event";
   const when = new Date(Number(e.ts) * 1000);
-  row.innerHTML = `<header><strong>${escapeHTML(String(e.event).replaceAll("_", " "))}</strong><time>${escapeHTML(Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
+  row.innerHTML = `<header><strong>${escapeHTML(String(e.event || "event").replaceAll("_", " "))}</strong><time>${escapeHTML(Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
   return row;
 }
 function fillEvents() {
@@ -372,7 +373,7 @@ for (const b of $("badge-tabs").querySelectorAll("button"))
       x.setAttribute("aria-pressed", String(x === b));
     fillBadges();
   };
-function applyState(state) {
+function applyState(state, pollRevision = settingsRevision) {
   if (!state || !Array.isArray(state.agents) || !Array.isArray(state.events))
     throw new Error("Invalid office state");
   window._state = state;
@@ -380,7 +381,7 @@ function applyState(state) {
   const previous = new Map(agents.map((a) => [a.id, a.status]));
   agents = state.agents;
   progress = state.progress || null;
-  if (state.settings && !pendingSaves) {
+  if (state.settings && !pendingSaves && pollRevision === settingsRevision) {
     Object.assign(settings, normalizeSettings(state.settings));
   }
   applyTheme();
@@ -449,23 +450,21 @@ function applyState(state) {
   else if (opened === "sheet-tasks") fillTasks();
   else if (opened === "sheet-unlocks") fillBadges();
   const signature = JSON.stringify(settings) + haveUnlock("layout_bullpen");
-  if (
-    signature !== settingsSignature &&
-    !$("settingsbox").contains(document.activeElement)
-  ) {
+  if (signature !== settingsSignature) {
     settingsSignature = signature;
     fillSettings();
   }
   initialized = true;
 }
 async function poll() {
+  const revision = settingsRevision;
   try {
     const r = await fetch("state", {
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    applyState(await r.json());
+    applyState(await r.json(), revision);
   } catch {
     offline = true;
     document.body.classList.add("offline");
@@ -483,8 +482,10 @@ function saveSettings(patch) {
   patch = normalizeSettings(patch);
   Object.assign(settings, patch);
   pendingSaves++;
+  settingsRevision++;
   applyTheme();
   updateScene();
+  fillSettings();
   $("save-status").textContent = "Saving…";
   const task = saveQueue.then(async () => {
     const r = await fetch("settings", {
@@ -505,6 +506,8 @@ function saveSettings(patch) {
     })
     .finally(() => {
       pendingSaves--;
+      // Also invalidate polls started while the write was in flight.
+      settingsRevision++;
       applyTheme();
       updateScene();
       fillSettings();
@@ -523,6 +526,8 @@ function segmented(label, key, options) {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = name;
+    b.dataset.setting = key;
+    b.dataset.value = JSON.stringify(id);
     b.setAttribute("aria-pressed", String(settings[key] === id));
     b.onclick = () => updateSetting(key, id);
     seg.append(b);
@@ -532,15 +537,22 @@ function segmented(label, key, options) {
 }
 function fillSettings() {
   const layout = $("layoutbox");
-  layout.replaceChildren();
+  if (!layout.children.length)
+    for (const l of LAYOUTS) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const info = document.createElement("div");
+      info.innerHTML = `<strong class="setting-label">${escapeHTML(l.name)}</strong><div class="h">${escapeHTML(l.hint)}</div>`;
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.dataset.layout = l.id;
+      b.onclick = () => updateSetting("layout", l.id);
+      row.append(info, b);
+      layout.append(row);
+    }
   for (const l of LAYOUTS) {
+    const b = layout.querySelector(`[data-layout="${l.id}"]`);
     const locked = l.require && !haveUnlock(l.require);
-    const row = document.createElement("div");
-    row.className = "row";
-    const info = document.createElement("div");
-    info.innerHTML = `<strong class="setting-label">${escapeHTML(l.name)}</strong><div class="h">${escapeHTML(l.hint)}</div>`;
-    const b = document.createElement("button");
-    b.className = "btn";
     b.disabled = !!locked;
     b.textContent = locked
       ? "Locked"
@@ -548,44 +560,47 @@ function fillSettings() {
         ? "Selected"
         : "Use layout";
     b.setAttribute("aria-pressed", String(settings.layout === l.id));
-    b.onclick = () => updateSetting("layout", l.id);
-    row.append(info, b);
-    layout.append(row);
   }
   const box = $("settingsbox");
-  if (box.contains(document.activeElement)) return;
-  box.replaceChildren();
-  box.append(
-    segmented(
-      "Color palette",
-      "theme",
-      THEMES.map((t) => [t.id, t.name]),
-    ),
-    segmented("Lighting", "ambience", [
-      ["auto", "Auto"],
-      ["day", "Day"],
-      ["night", "Night"],
-    ]),
-    segmented("Desk labels", "show_labels", [
-      [true, "Show"],
-      [false, "Hide"],
-    ]),
-    segmented("Room decorations", "decorations", [
-      [true, "Show"],
-      [false, "Hide"],
-    ]),
-  );
-  const row = document.createElement("label");
-  row.className = "row";
-  row.innerHTML =
-    '<span class="setting-label">Maximum desks per row</span><input class="txt" type="number" id="mc" min="2" max="8" aria-label="Maximum desks per row">';
-  row.querySelector("input").value = settings.max_chars;
-  row.querySelector("input").onchange = (e) =>
-    updateSetting(
-      "max_chars",
-      Math.max(2, Math.min(8, Math.round(Number(e.target.value) || 4))),
+  if (!box.children.length) {
+    box.append(
+      segmented(
+        "Color palette",
+        "theme",
+        THEMES.map((t) => [t.id, t.name]),
+      ),
+      segmented("Lighting", "ambience", [
+        ["auto", "Auto"],
+        ["day", "Day"],
+        ["night", "Night"],
+      ]),
+      segmented("Desk labels", "show_labels", [
+        [true, "Show"],
+        [false, "Hide"],
+      ]),
+      segmented("Room decorations", "decorations", [
+        [true, "Show"],
+        [false, "Hide"],
+      ]),
     );
-  box.append(row);
+    const row = document.createElement("label");
+    row.className = "row";
+    row.innerHTML =
+      '<span class="setting-label">Maximum desks per row</span><input class="txt" type="number" id="mc" min="2" max="8" aria-label="Maximum desks per row">';
+    row.querySelector("input").value = settings.max_chars;
+    row.querySelector("input").onchange = (e) =>
+      updateSetting(
+        "max_chars",
+        Math.max(2, Math.min(8, Math.round(Number(e.target.value) || 4))),
+      );
+    box.append(row);
+  }
+  for (const b of box.querySelectorAll("[data-setting]"))
+    b.setAttribute(
+      "aria-pressed",
+      String(settings[b.dataset.setting] === JSON.parse(b.dataset.value)),
+    );
+  if (document.activeElement !== $("mc")) $("mc").value = settings.max_chars;
 }
 for (const kind of Object.keys(PROP_SIZES)) {
   const b = document.createElement("button");

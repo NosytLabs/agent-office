@@ -240,6 +240,8 @@ def _read_events() -> List[Dict[str, Any]]:
                     event = json.loads(line)
                     if not isinstance(event, dict):
                         continue
+                    if not isinstance(event.get("event"), str) or not event["event"].strip():
+                        continue
                     timestamp = float(event.get("ts") or 0)
                     if not math.isfinite(timestamp):
                         continue

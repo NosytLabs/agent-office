@@ -9,12 +9,14 @@ workspace. They do not show a live LLM session.
 | Finding | Cause and correction |
 |---|---|
 | Settings ignored after reload | Frontend used `key in array` instead of a settings-key check. Shared typed settings normalization now applies server values. |
+| Delayed polls undo saved settings | Polls now capture a settings revision; writes invalidate requests started before or during the save. |
+| Focused settings show stale selection | Settings and layout controls persist, synchronize their pressed state in place, and retain keyboard focus. |
 | Search loses focus after one character | Roster and event inputs were rebuilt during input/poll callbacks. Inputs are now persistent DOM nodes. |
 | Event text executes as HTML | Agent details were concatenated into raw markup. All event-derived text is escaped. A browser regression demonstrated the old injection. |
 | Glitching walk cycles | Six columns were assumed to be walk frames. Upstream mapping confirms three walk, two typing, and two reading columns. |
 | Giant agents, tiny props, clipped mobile desks | Sprite scale, grid scale, and viewport fitting disagreed. World geometry, sprite sizing, and text scale are now separate. |
 | Settings/API corruption | Non-object JSON and invalid types were accepted. Values are validated; HTTP failures return JSON status codes. |
-| Corrupt log crashes `/state` | Scalar JSON events and nonnumeric timestamps entered the fold. Invalid records are skipped. |
+| Corrupt log interrupts the office | Scalar JSON, invalid event names, and nonnumeric timestamps entered the fold. Invalid records are skipped, and activity rendering has a defensive fallback. |
 | Same-timestamp events lose XP | Progress only tracked a timestamp. A boundary multiset now counts newly appended events at that timestamp without replay. |
 | Theme achievement never advances standalone | Relative import failed outside plugin loading. Both standalone and package imports work. |
 | Incorrect achievement thresholds | Fish unlocked at 15 rather than 25 browsing calls; plants unlocked with no session; earned time badges displayed 0%. Corrected and tested. |
@@ -43,9 +45,9 @@ up-next filters. The frontend remains vanilla JavaScript with no build step.
 
 ## Validation
 
-- Python suite: **43 passing tests**.
+- Python suite: **44 passing tests**.
 - Node suites: OpenCode bridge event writes, VS Code URL/iframe behavior, and sprite-frame selection.
-- Browser suite: **13 passing flows** against an actual Python HTTP server with an isolated data directory. Covers saved settings, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, furniture placement, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, and confirmed reset.
+- Browser suite: **16 passing cases** against an actual Python HTTP server with an isolated data directory. Covers saved settings, delayed poll responses, focused controls, malformed event names, search focus, unsafe-text rendering, assets, mobile bounds, activity/task inspection, layout import/export, furniture placement, zoom, pause, snapshot downloads, achievements, malformed requests, invalid imports, disconnection/recovery, and confirmed reset. The screenshot case writes evidence when `OFFICE_SCREENSHOTS` is set, as it is in CI.
 - JavaScript syntax, formatter check, and `git diff --check` passed.
 - Visual review: desktop, 390px mobile, settings, achievements, and midnight palette. Additional bounds checks cover 320px, 768px, and 1440px widths.
 

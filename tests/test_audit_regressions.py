@@ -18,6 +18,14 @@ def test_corrupt_event_records_do_not_break_state(tmp_path, monkeypatch):
     assert [a['id'] for a in plugin.build_state()['agents']] == ['good']
 
 
+def test_event_names_must_be_nonempty_strings(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, '_office_dir', lambda: tmp_path)
+    records = [{'ts': 1}, {'ts': 2, 'event': None}, {'ts': 3, 'event': []},
+               {'ts': 4, 'event': ''}, {'ts': 5, 'event': 'tool_start'}]
+    (tmp_path / 'events.jsonl').write_text('\n'.join(json.dumps(x) for x in records))
+    assert plugin._read_events() == [records[-1]]
+
+
 def test_settings_recover_from_non_object_file(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, '_office_dir', lambda: tmp_path)
     (tmp_path / 'settings.json').write_text('[1,2]')

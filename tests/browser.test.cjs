@@ -130,6 +130,67 @@ test("roster search keeps focus and query through typing and polling", () =>
       "trackSearch",
     );
   }));
+test("a delayed state response cannot undo a completed settings save", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ theme: "amber" }));
+    const stale = await (await p.request.get(baseURL + "/state")).json();
+    stale.reviewMarker = "stale settings response";
+    let release, markHeld;
+    const gate = new Promise((r) => (release = r));
+    const held = new Promise((r) => (markHeld = r));
+    await p.route("**/state", async (route) => {
+      markHeld();
+      await gate;
+      await route.fulfill({ json: stale });
+    });
+    try {
+      await held;
+      await p.evaluate(() => saveSettings({ theme: "midnight" }));
+      release();
+      await p.waitForFunction(() => window._state.reviewMarker);
+      assert.equal(
+        await p.locator("html").getAttribute("data-theme"),
+        "midnight",
+      );
+    } finally {
+      release();
+      await p.unroute("**/state");
+    }
+  }));
+test("focused settings controls update their selected state without losing focus", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ theme: "default" }));
+    await p.locator("#settingsbtn").click();
+    const panel = p.locator("#settingsbox");
+    const amber = panel.getByRole("button", { name: "Amber", exact: true });
+    await amber.click();
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(await amber.getAttribute("aria-pressed"), "true");
+    assert.equal(
+      await panel
+        .getByRole("button", { name: "Plum", exact: true })
+        .getAttribute("aria-pressed"),
+      "false",
+    );
+    assert.equal(
+      await amber.evaluate((b) => b === document.activeElement),
+      true,
+    );
+    await p.waitForTimeout(1700);
+    assert.equal(await amber.getAttribute("aria-pressed"), "true");
+  }));
+test("malformed event names do not interrupt polling or activity rendering", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => {
+      const state = structuredClone(window._state);
+      state.events.push({ ts: Date.now() / 1000 });
+      applyState(state);
+    });
+    assert.equal(await p.locator("#connection").innerText(), "Connected");
+    assert.equal(await p.locator("#latest-event").innerText(), "event");
+    await p.locator("#eventsbtn").click();
+    assert.ok((await p.locator("#eventbox").innerText()).includes("event"));
+  }));
 test("agent and event text cannot become executable markup", () =>
   withPage(async (p) => {
     await p.evaluate(() => {
