@@ -52,9 +52,10 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 - **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Search keeps your cursor while the state refreshes.
 - **Task overview:** sessions grouped by current status. This is an observed-work board, not a task dispatch engine.
 - **Activity stream:** searchable recent events, with timestamps. Usage and CSV export report the events this observer has recorded.
-- **A furnished scene:** corrected walk/read/type animations, matching object scale, low-contrast floors, and a generated furniture atlas.
+- **A furnished scene:** corrected walk/read/type animations, matching object scale, low-contrast floors, and two matching generated furniture atlases.
+- **Readable controls:** locally hosted Geist text, consistent Lucide icons, clear agent nameplates, and touch-friendly menus.
 - **Customization:** Plum, Midnight, and Amber palettes; automatic/day/night lighting; labels and decoration toggles; desk density.
-- **Furniture placement:** add or remove sofas, servers, shelves, and plants in free floor space. Export and import your settings as JSON.
+- **Furniture placement:** preview and place seven props: sofas, server racks, bookshelves, plants, coffee carts, coolers, and lamps. Occupied spaces are blocked; Undo restores your last edit. Export and import your settings as JSON.
 - **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. Reduced-motion preferences start the scene paused.
 - **38 achievements:** earned/up-next views and real progress bars. Old retired achievements remain in saved history without losing XP.
 
@@ -76,7 +77,7 @@ The room starts with a decorative cat. Pets and furnishing are ambience; they do
 
 ### Controls
 
-Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click the floor; click a custom prop while placing to remove it. Escape finishes placement. Custom props use relative room positions; after changing desk density or viewport size, check their placement.
+Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click free floor space. A green preview marks a valid position; orange means occupied. Arrow keys move the preview (Shift moves faster), and Enter places it. Click a custom prop while placing to remove it. **Undo** reverses edits; **Done** or Escape finishes placement. Custom props use relative room positions; after changing desk density or viewport size, check their placement.
 
 | Shortcut | Action |
 |---|---|
@@ -117,7 +118,7 @@ The browser suite starts its own Python server and temporary data directory, wri
 
 CI is configured for pull requests and main-branch code changes, plus manual dispatch. It runs Python, Node, formatting, and browser checks in one bounded job; artifacts expire after three days. Documentation-only changes skip CI. The Ubuntu runner's maintained Chrome avoids redundant browser downloads. If GitHub shows the workflow as disabled, enable it under **Actions → CI** before expecting runs. The repository's last audit found it manually disabled; see [validation details](docs/audit/README.md).
 
-See [the audit and screenshots](docs/audit/README.md), [architecture](docs/architecture.md), and [asset provenance](web/assets/sprites/ATTRIBUTION.md).
+See [the audit and screenshots](docs/audit/README.md), [architecture](docs/architecture.md), and [sprite provenance](web/assets/sprites/ATTRIBUTION.md), and [font/icon credits](web/assets/ATTRIBUTION.md).
 
 ## Troubleshooting
 
@@ -132,4 +133,4 @@ See [the audit and screenshots](docs/audit/README.md), [architecture](docs/archi
 
 Inspired by [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), [thepixeloffice.ai](https://thepixeloffice.ai/), and [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office). The reference research and what was adopted are documented in the audit. This is an independent local observer, with no claim of feature parity or affiliation.
 
-MIT; existing copyright notices are preserved in [LICENSE](LICENSE). Character/pet sources, furniture history, generated-art provenance, and third-party notices are in [ATTRIBUTION.md](web/assets/sprites/ATTRIBUTION.md).
+MIT; existing copyright notices are preserved in [LICENSE](LICENSE). Font and icon licenses are listed in [asset credits](web/assets/ATTRIBUTION.md). Character/pet sources, furniture history, generated-art provenance, and third-party notices are in [ATTRIBUTION.md](web/assets/sprites/ATTRIBUTION.md).

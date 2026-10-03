@@ -52,3 +52,25 @@ test("imported edge furniture stays inside the floor after viewport changes", ()
         assert.ok(b.y + b.h <= grid.h - 10);
       }
 });
+test("furniture placement rejects overlap and walls while allowing open floor", () => {
+  const grid = { w: 344, h: 262 },
+    occupied = [{ x: 80, y: 80, w: 40, h: 40 }];
+  assert.equal(
+    model.placementAt("sofa", { x: 100, y: 120 }, grid, occupied, []).valid,
+    false,
+  );
+  assert.equal(
+    model.placementAt("sofa", { x: 5, y: 100 }, grid, [], []).valid,
+    false,
+  );
+  const existing = [{ kind: "sofa", x: 0.5, y: 0.8 }];
+  assert.equal(
+    model.placementAt("server", { x: 195, y: 205 }, grid, [], existing).valid,
+    false,
+  );
+  assert.equal(
+    model.placementAt("server", { x: 270, y: 230 }, grid, occupied, existing)
+      .valid,
+    true,
+  );
+});

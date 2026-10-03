@@ -27,6 +27,7 @@ let pendingSaves = 0,
   audioContext = null,
   settingsSignature = "";
 const seenUnlocks = new Set();
+const furnitureHistory = [];
 const scene = new OfficeScene($("c"), selectAgent, placeFurniture);
 window.officeScene = scene;
 function duration(seconds) {
@@ -74,12 +75,23 @@ function chime() {
 }
 function applyTheme() {
   document.documentElement.dataset.theme = settings.theme;
-  $("themeNextbtn").textContent =
-    THEMES.find((t) => t.id === settings.theme)?.name || "Plum";
+  labelButton(
+    $("themeNextbtn"),
+    "palette",
+    THEMES.find((t) => t.id === settings.theme)?.name || "Plum",
+  );
   $("room-name").textContent =
     LAYOUTS.find((l) => l.id === settings.layout)?.name || "The studio";
-  $("sound").textContent = settings.sound ? "Sound on" : "Sound off";
+  labelButton(
+    $("sound"),
+    settings.sound ? "volume-2" : "volume-x",
+    settings.sound ? "Sound on" : "Sound off",
+  );
   $("sound").setAttribute("aria-pressed", String(settings.sound));
+  $("sound").setAttribute(
+    "aria-label",
+    settings.sound ? "Sound on" : "Sound off",
+  );
 }
 function updateScene() {
   scene.update(agents, settings, progress, focusedId, platFilter);
@@ -130,7 +142,7 @@ for (const panel of document.querySelectorAll(".sheet")) {
   b.type = "button";
   b.className = "btn close";
   b.setAttribute("aria-label", "Close panel");
-  b.textContent = "×";
+  b.append(icon("x"));
   b.onclick = closeSheets;
   panel.prepend(b);
 }
@@ -604,15 +616,74 @@ function fillSettings() {
 }
 for (const kind of Object.keys(PROP_SIZES)) {
   const b = document.createElement("button");
-  b.textContent = kind;
+  b.className = "furniture-card";
+  b.dataset.kind = kind;
+  b.setAttribute("aria-label", PROP_NAMES[kind]);
+  const preview = document.createElement("canvas");
+  preview.width = 120;
+  preview.height = 104;
+  preview.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.textContent = PROP_NAMES[kind];
+  b.append(preview, label);
   b.onclick = () => {
     scene.edit = kind;
+    scene.pointer = null;
     closeSheets();
     $("edit-hint").hidden = false;
-    $("scene-hint").textContent = "Placing " + kind + " · Escape to finish";
+    $("edit-message").textContent =
+      "Place " +
+      PROP_NAMES[kind].toLowerCase() +
+      ". Click to place or remove. Arrows move; Enter places.";
+    $("scene-hint").textContent =
+      "Green outline: free space. Orange: occupied.";
+    $("undo-furniture").disabled = furnitureHistory.length === 0;
+    $("c").focus();
+    scene.draw(0);
   };
   $("furniture-tools").append(b);
 }
+function renderFurniturePreviews() {
+  for (const b of $("furniture-tools").children) {
+    const sprite = scene.sprites[b.dataset.kind];
+    if (!sprite) continue;
+    const c = b.querySelector("canvas"),
+      g = c.getContext("2d");
+    g.clearRect(0, 0, c.width, c.height);
+    g.imageSmoothingEnabled = false;
+    const scale = Math.min(104 / sprite.width, 88 / sprite.height);
+    g.drawImage(
+      sprite,
+      (120 - sprite.width * scale) / 2,
+      (104 - sprite.height * scale) / 2,
+      sprite.width * scale,
+      sprite.height * scale,
+    );
+  }
+}
+$("c").addEventListener("spritesready", renderFurniturePreviews);
+renderFurniturePreviews();
+function saveFurniture(items) {
+  furnitureHistory.push(structuredClone(settings.furniture));
+  if (furnitureHistory.length > 20) furnitureHistory.shift();
+  $("undo-furniture").disabled = false;
+  return updateSetting("furniture", items);
+}
+function finishFurniture() {
+  scene.edit = null;
+  scene.pointer = null;
+  $("edit-hint").hidden = true;
+  $("scene-hint").textContent = "Select a desk to inspect its activity.";
+}
+$("finish-furniture").onclick = () => {
+  finishFurniture();
+  $("c").focus();
+};
+$("undo-furniture").onclick = () => {
+  if (!furnitureHistory.length) return;
+  updateSetting("furniture", furnitureHistory.pop());
+  $("undo-furniture").disabled = !furnitureHistory.length;
+};
 function placeFurniture(p, grid) {
   const items = settings.furniture || [];
   const at = items.findIndex((item) => {
@@ -620,40 +691,25 @@ function placeFurniture(p, grid) {
     return p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
   });
   if (at >= 0) {
-    updateSetting(
-      "furniture",
-      items.filter((_, i) => i !== at),
-    );
-    return;
-  }
-  const [w, h] = PROP_SIZES[scene.edit];
-  const overlaps = scene.hitBoxes.some(
-    (b) =>
-      p.x + w / 2 > b.x &&
-      p.x - w / 2 < b.x + b.w &&
-      p.y > b.y &&
-      p.y - h < b.y + b.h,
-  );
-  if (
-    p.x < w / 2 + 7 ||
-    p.x > grid.w - w / 2 - 7 ||
-    p.y < h + 28 ||
-    p.y > grid.h - 10 ||
-    overlaps
-  ) {
-    toast("Choose free floor space away from a workstation or wall.");
+    saveFurniture(items.filter((_, i) => i !== at));
     return;
   }
   if (items.length >= 24) {
     toast("The room has 24 custom props. Remove one first.");
     return;
   }
-  updateSetting("furniture", [
-    ...items,
-    { kind: scene.edit, x: p.x / grid.w, y: p.y / grid.h },
-  ]);
+  const placement = scene.placement(p);
+  if (!placement.valid) {
+    toast(
+      "Choose free floor space away from desks, other furniture, and walls.",
+    );
+    return;
+  }
+  saveFurniture([...items, placement.item]);
 }
-$("clear-furniture").onclick = () => updateSetting("furniture", []);
+$("clear-furniture").onclick = () => {
+  if (settings.furniture.length) saveFurniture([]);
+};
 $("export-settings").onclick = () =>
   downloadBlob(
     new Blob([JSON.stringify({ version: 1, settings }, null, 2)], {
@@ -681,6 +737,8 @@ $("import-settings").onchange = async (e) => {
     if (imported.layout === "bullpen" && !haveUnlock("layout_bullpen"))
       imported.layout = "open";
     await saveSettings(imported);
+    furnitureHistory.length = 0;
+    $("undo-furniture").disabled = true;
   } catch (err) {
     toast(err.message || "Could not import this layout.");
   }
@@ -755,7 +813,11 @@ $("pausebtn").onclick = () => {
   syncPause();
 };
 function syncPause() {
-  $("pausebtn").textContent = scene.paused ? "Resume motion" : "Pause motion";
+  labelButton(
+    $("pausebtn"),
+    scene.paused ? "play" : "pause",
+    scene.paused ? "Resume motion" : "Pause motion",
+  );
   $("pausebtn").setAttribute("aria-pressed", String(scene.paused));
 }
 $("capturebtn").onclick = () => scene.snapshot();
@@ -774,9 +836,7 @@ $("legendbox").innerHTML = kv([
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeSheets();
-    scene.edit = null;
-    $("edit-hint").hidden = true;
-    $("scene-hint").textContent = "Click an agent to see what’s happening.";
+    finishFurniture();
     return;
   }
   if (opened && e.key === "Tab") {
@@ -826,6 +886,24 @@ document.addEventListener("keydown", (e) => {
     );
   }
 });
+for (const [id, name] of Object.entries({
+  floorbtn: "users",
+  tasksbtn: "list-checks",
+  eventsbtn: "activity",
+  achbtn: "trophy",
+  settingsbtn: "sliders-horizontal",
+  capturebtn: "camera",
+  "export-settings": "download",
+  exportTrack: "download",
+  "clear-furniture": "trash-2",
+  "undo-furniture": "undo-2",
+  "finish-furniture": "check",
+}))
+  $(id).prepend(icon(name));
+labelButton($("helpbtn"), "circle-help", "Help");
+labelButton($("zoom-fit"), "scan", "Fit");
+$("zoom-in").replaceChildren(icon("plus"));
+$("zoom-out").replaceChildren(icon("minus"));
 fillSettings();
 applyTheme();
 syncPause();

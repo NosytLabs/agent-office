@@ -1,0 +1,41 @@
+{
+  "asset": "furniture/utilities-atlas.png",
+  "created": "2026-10-03",
+  "provider": "OpenAI built-in image generation",
+  "usage": "Matching coffee cart, water cooler, floor lamp and wall clock",
+  "sourceDimensions": [
+    1254,
+    1254
+  ],
+  "alpha": true,
+  "grid": [
+    2,
+    2
+  ],
+  "cells": [
+    "coffee",
+    "cooler",
+    "lamp",
+    "clock"
+  ],
+  "logicalDimensions": {
+    "coffee": [
+      20,
+      26
+    ],
+    "cooler": [
+      12,
+      26
+    ],
+    "lamp": [
+      12,
+      30
+    ],
+    "clock": [
+      10,
+      10
+    ]
+  },
+  "normalization": "Runtime alpha bounds above threshold 32 within each quadrant, sampled once to a logical canvas with smoothing disabled. Source PNG preserved.",
+  "prompt": "Create a production pixel-art sprite atlas for a cozy top-down office game. One square transparent PNG, a precise 2 by 2 grid of four separate isolated objects. No title, no text, no labels, no grid lines, no gradients, no extra objects. Match classic 16-bit office sprites with crisp integer pixels, a three-quarter top-down viewpoint, dark charcoal outlines, muted warm walnut, cream, sage green and slate blue, light from upper left. Each object centered safely within its own quadrant, with ample fully transparent padding and no shadows outside its own cell. TOP LEFT: a small freestanding walnut coffee cart with cream espresso machine and two little cups, seen from front-above; clear simple silhouette, not a kitchen cabinet. TOP RIGHT: a slim standing office water cooler, blue translucent jug over cream base. BOTTOM LEFT: a slender brass standing floor lamp with a cream lampshade, warm muted yellow, stable round base. BOTTOM RIGHT: a simple small cream circular wall clock with walnut rim and dark hands, directly front facing. These will be normalized to tiny 20x26, 12x26, 12x30, 10x10 pixel sprites, so prioritize readable blocks and very few details. Keep proportions intact, do not add scenery. Transparent background."
+}

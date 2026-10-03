@@ -119,7 +119,7 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         elif key == "furniture" and isinstance(value, list):
             items = []
             for item in value[:24]:
-                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera")
+                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp")
                     and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
                     items.append({k: item[k] for k in ("kind", "x", "y")})
             out[key] = items
@@ -449,6 +449,7 @@ _STATIC_TYPES = {
     ".svg": "image/svg+xml",
     ".png": "image/png",
     ".json": "application/json",
+    ".woff2": "font/woff2",
 }
 
 
