@@ -13,7 +13,8 @@ This document separates current checks from historical browser evidence. All pic
 
 | Check | Evidence |
 | --- | --- |
-| Python | 97 tests pass: lifecycle folding, concurrent tools/requests, hooks, installer, API/settings, XP and assets |
+| Python | 98 tests pass: lifecycle folding, concurrent tools/requests, hooks, installer, API/settings, XP and assets |
+| Standalone HTTP | Actual run.py boot and Claude hook stdin → disk → HTTP status transitions; new props saved/reloaded and atlas bytes served from an isolated workspace |
 | Node | 23 tests pass: OpenCode payloads, geometry/paths, NPC cleanup and VS Code URL behavior |
 | Static | JavaScript syntax, Python compilation, Prettier and diff checks |
 | Scene renderer | Actual asset loader and draw loop in a CPU canvas: 14 assets, desktop/mobile/night, arrivals reach desks, two-route budget, 128-session bootstrap/relayout without path work |
