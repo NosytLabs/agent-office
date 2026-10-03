@@ -8,8 +8,8 @@ Design:
 
 * Hooks are pure observers — they never block, veto, or transform anything.
   Each hook appends one JSON line to ``~/.hermes/pixel-office/events.jsonl``.
-  Appends are O(1) and wrapped in try/except, so the agent loop never pays
-  more than a few microseconds.
+  Appends and server startup are wrapped in try/except so observer errors
+  never propagate into the agent loop.
 
 * A daemon HTTP server thread is started lazily on the first event. It
   serves the office page and ``/state``, which folds the event log into a
@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import socket
 import sys
@@ -45,7 +46,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hermes_constants import get_hermes_home
+try:
+    from hermes_constants import get_hermes_home
+except ImportError:
+    def get_hermes_home() -> Path:
+        return Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
@@ -58,7 +63,7 @@ _MAX_LOG_BYTES = 512 * 1024
 # An agent with no events for this long is swept from the office.
 _STALE_SECONDS = 30 * 60
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _server_started = False
 _port: int = DEFAULT_PORT
 # Approval hooks don't carry session_id (only a gateway session_key), so we
@@ -90,14 +95,35 @@ _DEFAULTS = {
     "theme": "default",
     "sound": False,
     "max_chars": 4,
-    "areas": {},
-    "folder_areas": {},
-    "paint": False,
-    "paint_color": "#5fce7a",
-    "painted": {},
-    "lock_floor": False,
-    "fog": False,
+    "ambience": "auto",
+    "show_labels": True,
+    "decorations": True,
+    "furniture": [],
 }
+
+
+def _valid_settings(data: Any) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    out = {}
+    choices = {"layout": {"open", "bullpen"}, "theme": {"default", "midnight", "amber"},
+               "ambience": {"auto", "day", "night"}}
+    for key, value in data.items():
+        if key in choices:
+            if isinstance(value, str) and value in choices[key]:
+                out[key] = value
+        elif key in ("sound", "show_labels", "decorations") and isinstance(value, bool):
+            out[key] = value
+        elif key == "max_chars" and type(value) is int and 2 <= value <= 8:
+            out[key] = value
+        elif key == "furniture" and isinstance(value, list):
+            items = []
+            for item in value[:24]:
+                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera")
+                    and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
+                    items.append({k: item[k] for k in ("kind", "x", "y")})
+            out[key] = items
+    return out
 
 
 def _load_settings() -> Dict[str, Any]:
@@ -110,20 +136,26 @@ def _load_settings() -> Dict[str, Any]:
     except Exception:
         data = {}
     out = dict(_DEFAULTS)
-    out.update({k: v for k, v in (data or {}).items() if k in _DEFAULTS})
+    out.update(_valid_settings(data))
     return out
 
 
 def _save_settings(payload: Dict[str, Any]) -> None:
+    with _lock:
+        _save_settings_locked(payload)
+
+
+def _save_settings_locked(payload: Dict[str, Any]) -> None:
     cur = _load_settings()
     prev_theme = cur.get("theme")
-    for k, v in (payload or {}).items():
-        if k in _DEFAULTS:
-            cur[k] = v
+    cur.update(_valid_settings(payload))
     # track theme switches for theme_designer badge
     if cur.get("theme") and cur.get("theme") != prev_theme:
         try:
-            from .progress import record_theme_switch
+            try:
+                from .progress import record_theme_switch
+            except ImportError:
+                from progress import record_theme_switch
             record_theme_switch(_office_dir() / "progress.json")
         except Exception:
             logger.debug("pixel-office theme switch tracking failed", exc_info=True)
@@ -134,6 +166,7 @@ def _save_settings(payload: Dict[str, Any]) -> None:
         tmp.replace(path)
     except Exception:
         logger.debug("pixel-office settings save failed", exc_info=True)
+        raise
 
 
 def _asset_manifest() -> Dict[str, Any]:
@@ -204,7 +237,14 @@ def _read_events() -> List[Dict[str, Any]]:
                 if not line:
                     continue
                 try:
-                    out.append(json.loads(line))
+                    event = json.loads(line)
+                    if not isinstance(event, dict):
+                        continue
+                    timestamp = float(event.get("ts") or 0)
+                    if not math.isfinite(timestamp):
+                        continue
+                    event["ts"] = timestamp
+                    out.append(event)
                 except Exception:
                     continue
     except Exception:
@@ -227,6 +267,11 @@ def _short(text: Any, n: int = 60) -> str:
 
 
 def build_state() -> Dict[str, Any]:
+    with _lock:
+        return _build_state_locked()
+
+
+def _build_state_locked() -> Dict[str, Any]:
     """Fold the event log into {agents: [...]} for the frontend."""
     agents: Dict[str, Dict[str, Any]] = {}
     now = time.time()
@@ -250,7 +295,8 @@ def build_state() -> Dict[str, Any]:
         a["updated_at"] = ev.get("ts", a["updated_at"])
         return a
 
-    for ev in _read_events():
+    events = _read_events()
+    for ev in events:
         kind = ev.get("event")
         key = _agent_key(ev)
         if not key:
@@ -339,27 +385,20 @@ def build_state() -> Dict[str, Any]:
     progress = {}
     try:
         try:
-            from .progress import apply_client_unlocks, apply_live, ingest, load, save, snapshot
+            from .progress import apply_live, ingest, load, save, snapshot
         except ImportError:
-            from progress import apply_client_unlocks, apply_live, ingest, load, save, snapshot
+            from progress import apply_live, ingest, load, save, snapshot
 
         ppath = _office_dir() / "progress.json"
         pdata = load(ppath)
-        pdata = ingest(pdata, _read_events())
+        pdata = ingest(pdata, events)
         apply_live(pdata, len(visible))
-        # expose painted areas into stats for progress bars
-        areas = settings.get("areas") or {}
-        pdata["stats"]["_have_areas"] = bool(areas)
-        pdata["stats"]["_area_count"] = len(areas)
-        pdata["stats"]["_painted_count"] = len(settings.get("painted") or {})
-        pdata["stats"]["_folder_areas"] = settings.get("folder_areas") or {}
-        apply_client_unlocks(pdata)
         save(ppath, pdata)
         progress = snapshot(pdata)
     except Exception:
         logger.debug("pixel-office progress fold failed", exc_info=True)
     return {"agents": visible, "ts": now, "progress": progress, "settings": settings,
-            "events": _read_events()[-30:]}
+            "events": events[-30:], "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +406,8 @@ def build_state() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _resolve_port() -> int:
+    if os.environ.get("AGENT_OFFICE_PORT"):
+        return int(os.environ["AGENT_OFFICE_PORT"])
     try:
         from hermes_cli.config import cfg_get, load_config
 
@@ -487,54 +528,55 @@ def _serve() -> None:
             except Exception:
                 logger.debug("pixel-office request failed", exc_info=True)
 
+        def respond(self, code, data):
+            body = json.dumps(data).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_DELETE(self) -> None:
-            """DELETE /state — wipe progress + event history (fresh start)."""
+            if self.path.split("?")[0] != "/state":
+                self.respond(404, {"error": "not found"})
+                return
             try:
-                if self.path.split("?")[0] != "/state":
-                    self.send_response(404)
-                    body = b"not found"
-                    self.send_header("Content-Type", "text/plain")
-                else:
+                with _lock:
                     removed = []
-                    for f in ("progress.json", "events.jsonl"):
-                        p = _office_dir() / f
-                        if p.exists():
-                            p.unlink()
-                            removed.append(f)
-                    # reset painted tiles too
-                    st = _load_settings()
-                    st["painted"] = {}
-                    st["areas"] = {}
-                    _save_settings(st)
-                    logger.info("pixel-office: state reset (removed %s)", ", ".join(removed) or "nothing")
-                    body = json.dumps({"ok": True, "removed": removed}).encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except Exception:
-                logger.debug("pixel-office DELETE failed", exc_info=True)
+                    for filename in ("progress.json", "events.jsonl"):
+                        path = _office_dir() / filename
+                        if path.exists():
+                            path.unlink()
+                            removed.append(filename)
+                self.respond(200, {"ok": True, "removed": removed})
+            except OSError:
+                self.respond(500, {"error": "could not reset state"})
 
         def do_POST(self) -> None:
+            if self.path.split("?")[0] != "/settings":
+                self.respond(404, {"error": "not found"})
+                return
+            if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+                self.respond(415, {"error": "use application/json"})
+                return
             try:
                 length = int(self.headers.get("Content-Length") or 0)
-                raw = self.rfile.read(length).decode("utf-8", errors="replace") if length else "{}"
-                payload = json.loads(raw) if raw else {}
-                if self.path.split("?")[0] == "/settings":
-                    _save_settings(payload)
-                    body = json.dumps(_load_settings()).encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                else:
-                    self.send_response(404)
-                    body = b"not found"
-                    self.send_header("Content-Type", "text/plain")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except Exception:
-                logger.debug("pixel-office POST failed", exc_info=True)
+                if not 0 < length <= 65536:
+                    self.respond(413, {"error": "settings must be 1–65536 bytes"})
+                    return
+                self.connection.settimeout(5)
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise ValueError("object required")
+            except (ValueError, UnicodeError):
+                self.respond(400, {"error": "expected a JSON object"})
+                return
+            try:
+                _save_settings(payload)
+                self.respond(200, _load_settings())
+            except OSError:
+                self.respond(500, {"error": "could not save settings"})
 
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", _port), Handler)
@@ -677,7 +719,7 @@ def _subagent_stop(**kw: Any) -> None:
 def _pre_approval_request(**kw: Any) -> None:
     _publish({
         "event": "approval_request",
-        "session_id": _last_session_id,
+        "session_id": kw.get("session_id") or _last_session_id,
         "command": kw.get("command") or kw.get("description"),
         "surface": kw.get("surface"),
     })
@@ -686,7 +728,7 @@ def _pre_approval_request(**kw: Any) -> None:
 def _post_approval_response(**kw: Any) -> None:
     _publish({
         "event": "approval_response",
-        "session_id": _last_session_id,
+        "session_id": kw.get("session_id") or _last_session_id,
         "choice": kw.get("choice"),
     })
 

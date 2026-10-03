@@ -1,0 +1,41 @@
+{
+  "asset": "furniture/studio-atlas.png",
+  "created": "2026-10-03",
+  "provider": "OpenAI built-in image generation",
+  "usage": "Four decorative furniture sprites in the Agent Office scene",
+  "sourceDimensions": [
+    1254,
+    1254
+  ],
+  "alpha": true,
+  "grid": [
+    2,
+    2
+  ],
+  "cells": [
+    "sofa",
+    "server",
+    "shelf",
+    "monstera"
+  ],
+  "logicalDimensions": {
+    "sofa": [
+      40,
+      28
+    ],
+    "server": [
+      20,
+      32
+    ],
+    "shelf": [
+      34,
+      28
+    ],
+    "monstera": [
+      26,
+      32
+    ]
+  },
+  "normalization": "Runtime alpha bounds within each quadrant, sampled once to a logical canvas with smoothing disabled. Source PNG preserved.",
+  "prompt": "Use case: stylized-concept. Asset type: production pixel-art furniture sprite atlas for a cozy coding-agent office, 2x2 sheet on TRANSPARENT background, square 1024x1024. Four isolated objects, each wholly contained in one equally sized 512x512 quadrant with generous empty padding. TOP LEFT: a small moss-green upholstered two-seat sofa facing straight down toward viewer, with two cushions and wooden feet. TOP RIGHT: a dark navy single server rack with small teal LEDs, 3 shelves and a warm amber indicator. BOTTOM LEFT: a low walnut bookcase with multicolored books, a tiny succulent on top. BOTTOM RIGHT: a big lush leafy monstera in a terracotta pot. Strict consistent 2D top-down RPG 3/4 front view with visible top surfaces; no isometric diagonal perspective. Authentic chunky 16-bit pixel art, each object resembles a 48x48 source sprite blown up with nearest-neighbor pixels, limited warm earthy palette with dark indigo outline, clean block shading, no smoothing, no antialiasing, no gradients. Baseline centered inside each quadrant. No ground planes, no flooring, no scene, no labels, no grid lines, no text, no logos, no watermarks, no objects touching other quadrants. Transparent negative space, alpha cutouts ready for a Canvas 2D game."
+}

@@ -50,7 +50,7 @@ def test_first_shift_and_platforms(tmp_path: Path):
     assert "two_houses" in ids
     assert "pair_programming" in ids
     assert snap["xp"] > 0
-    assert "visor" in snap["cosmetics"]
+    assert "fern" in snap["cosmetics"]
 
 
 def test_tool_buckets_and_persist(tmp_path: Path):
