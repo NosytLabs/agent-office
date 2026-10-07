@@ -15,3 +15,10 @@ shots/
 reports/
 playwright-report/
 test-results/
+
+# Local state and static build outputs
+office.sqlite3*
+event-epoch
+inbox/
+dist/
+*.vsix

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "source": "Original Agent Office artwork",
+  "fish": {
+    "ember": {
+      "url": "assets/sprites/aquarium/original-fish.png",
+      "kind": "Goldfish",
+      "region": [
+        0,
+        0,
+        627,
+        610
+      ],
+      "facing": "right"
+    },
+    "mint": {
+      "url": "assets/sprites/aquarium/original-fish.png",
+      "kind": "Guppy",
+      "region": [
+        635,
+        0,
+        619,
+        610
+      ],
+      "facing": "right"
+    },
+    "violet": {
+      "url": "assets/sprites/aquarium/original-fish.png",
+      "kind": "Betta",
+      "region": [
+        0,
+        620,
+        675,
+        634
+      ],
+      "facing": "right"
+    },
+    "pearl": {
+      "url": "assets/sprites/aquarium/original-fish.png",
+      "kind": "Angelfish",
+      "region": [
+        685,
+        610,
+        569,
+        644
+      ],
+      "facing": "right"
+    }
+  }
+}

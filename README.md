@@ -1,150 +1,96 @@
 # Agent Office
 
-**Your coding agents, in good company.** A local pixel-art workspace for Hermes, OpenCode, Claude Code, and Telegram/CLI sessions.
+A local pixel office for watching your coding agents work. See current tools, find sessions waiting for input, inspect subagents, and track the usage your runtimes report.
 
-Watch real tool activity, find sessions waiting for input, inspect subagents, and make the room your own. Agent Office is an **observer**: it never executes tasks, grants approval, or fabricates agent output.
+**Version 0.5.0** · [Demo and preview](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
 
-![Agent Office showing six synthetic sessions in the studio](docs/screenshot.png)
+![Agent Office with synthetic runtime activity](docs/screenshots/office.png)
 
-## Start the office
+Agent Office observes existing runtimes. It does not launch agents, send prompts, execute their tools, or grant approvals. Respond to questions and permission requests in the original runtime.
 
-Python 3.10+ is enough. The app has no third-party runtime dependencies, frontend build step, account, or API key.
+## Start locally
 
-```bash
+Python 3.10+ is sufficient. The server uses Python's standard library, including SQLite; the frontend needs no build step. Running the office itself requires no account or API key.
+
+```sh
 git clone https://github.com/NosytLabs/agent-office.git
 cd agent-office
 python3 run.py
 ```
 
-Open **[127.0.0.1:8113](http://127.0.0.1:8113)**. Keep the server running while using Claude Code or OpenCode. Hermes can also start the server from its plugin hooks.
+Open **[http://127.0.0.1:8113](http://127.0.0.1:8113)**. The server binds to loopback. Use `python3 run.py --port 8120` for another port.
 
-To try the room without connecting an agent:
+For an isolated example, run `python3 demo_feed.py` and open **[http://127.0.0.1:8114](http://127.0.0.1:8114)**. Its **DEMO** label identifies synthetic activity. The demo always uses temporary data, even when your shell has a live `HERMES_HOME`. Ctrl+C stops it. The [preview guide](docs/preview.md) covers the shareable demonstration.
 
-```bash
-python3 demo_feed.py
-```
+## Connect an existing runtime
 
-Open **[127.0.0.1:8114](http://127.0.0.1:8114)**. The **DEMO** label means synthetic events. Every demo uses a temporary workspace, even if `HERMES_HOME` is set; it does not modify your real XP or event history. Ctrl+C stops it.
+In another terminal, run:
 
-Both commands accept `--port 8120`. The server binds to loopback only.
-
-## Connect your agents
-
-```bash
+```sh
 python3 install.py
 ```
 
-The installer detects existing runtime installations, adds this observer, and preserves other configuration. Restart the runtime after installation. Invalid configuration is reported without replacement.
+The installer detects existing installations and adds observer definitions while preserving unrelated configuration. It does not install the runtimes. Restart each connected runtime after installation; rerun the installer after upgrading Agent Office.
 
-Missing Claude/OpenCode JSON settings are created only when their runtime is detected. Source folders and the observer’s data directory do not count as installed runtimes. If you use `opencode.jsonc`, the installer preserves comments and prints the local bridge URL to add manually to its `plugin` array. Rerun the installer after upgrading to register the latest lifecycle hooks. Configuration writes preserve existing file permissions and symlinks.
+| Integration | Observations | Setup |
+| --- | --- | --- |
+| Hermes, including Telegram/CLI sessions | Sessions, tools, approvals, subagents; API usage when the installed Hermes exposes the hook | Enables the local `pixel-office` plugin |
+| OpenCode | Sessions, tools, permissions, questions, child sessions; assistant-message usage | Adds a local plugin URL; existing JSONC receives manual instructions |
+| Claude Code | Session, prompt, tool, approval, question, and subagent hooks | Merges observer hooks into `~/.claude/settings.json` |
+| Codex | Session, prompt, tool, permission, subagent, stop, and interrupt hooks | Merges `hooks.json` in `CODEX_HOME` or `~/.codex`; review and trust it through Codex `/hooks` |
+| VS Code view | The same office interface beside your editor | Installs the local extension; reload VS Code and run **Agent Office: Open Floor** |
 
-On an empty first visit, choose **Connect your first agent**. You can reopen the runtime-specific connection guide from **Customize → Connection guide**. Choose Hermes, Telegram via Hermes, OpenCode, Claude Code or VS Code for specific instructions. Copy the observer and installer commands, follow the three steps, and check recorded sessions without confusing demo activity for a live connection. A reachable observer alone does not verify a runtime installation. The **needs input** button above the floor cycles through every waiting session; respond in the original runtime.
+Keep `run.py` running for standalone adapters. Hermes can also start the observer server from its plugin. Set the same `HERMES_HOME` for the server and runtime processes when using a custom data location.
 
-| Integration | What it observes | Setup |
-|---|---|---|
-| Hermes | Sessions, tools, subagents, approval requests | Enables `pixel-office` through the Hermes plugin CLI |
-| OpenCode | Session, tool, and permission events | Adds the local bridge to `~/.config/opencode/opencode.json` |
-| Claude Code | Session/tool hooks, permissions, subagents | Adds hooks to `~/.claude/settings.json` |
-| Telegram / CLI | Sessions emitted by Hermes with those platform labels | Configure the bridge in Hermes itself |
-| VS Code | The same local web interface | Installs the local extension; run **Agent Office: Open Floor** |
+The in-app **Connection guide** provides setup and troubleshooting. A reachable office server does not establish that a runtime is delivering events. Adapter fixtures have exercised actual publication, SQLite ingestion, HTTP state, and browser flows; installed Hermes, Claude Code, Codex, and OpenCode CLI sessions were unavailable in the validation environment. See [coverage and remaining checks](docs/audit/README.md), including the separate VS Code extension-host limitation.
 
-For a custom data directory, set the same `HERMES_HOME` for the server and each agent runtime. The installer configures runtime files in their standard locations; it does not install the runtimes themselves. No message is sent to Telegram by this app.
+## Activity, usage, and room controls
 
-## A room that reflects the work
+- **Watch work:** tool activity, parallel calls, parent/child relationships, status filters, custom display names, and an observed task board. The needs-input control cycles through waiting sessions. A quiet-agent notice opens its last reported status and tool; silence alone does not establish that work is stuck or finished.
+- **Inspect history:** search retained events, focus on a session, inspect current activity, and export recorded data. The UI reconnects automatically and labels a retained scene when disconnected.
+- **Read reported usage:** token totals by runtime and model, plus usage for visible sessions. Missing values say **Not reported**; partial coverage remains visible. Dollar amounts are labeled runtime estimates, with their source. An optional cost threshold shows an alert without stopping a runtime.
+- **Arrange the room:** choose among **20 props**, move or remove custom furniture, undo/redo edits, and import/export preferences. Saves enter history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
+- **Use the camera:** zoom, drag while zoomed, return to Fit, pause animation, or save a scene image. At Fit, mobile swipes scroll the page. Reduced-motion preferences pause motion without stopping tracking.
 
-- **Real activity:** working, thinking, waiting, idle, completed, and ended sessions. Tool completion clears stale animations; concurrent calls stay attributed to their sessions. Permission requests, Claude questions and OpenCode questions show needs-input cues and a notification. Failed OpenCode tools clear their active state even when the runtime skips its after hook. Respond in the original runtime.
-- **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Focused cards keep updating as sessions work or leave; search matches the readable status names.
-- **Task overview:** sessions grouped by current status. This is an observed-work board, not a task dispatch engine.
-- **Activity stream:** searchable recent events, with timestamps. Usage and CSV export report the events this observer has recorded.
-- **A furnished scene:** corrected walk/read/type animations, paths around desks and props, matching object scale, low-contrast floors, and four matching generated furniture atlases. Existing sessions, crowded rooms above 16 sessions, and enclosed desks use seated arrivals to keep the view responsive.
-- **Readable controls:** locally hosted Geist text, consistent Lucide icons, clear agent nameplates, and touch-friendly menus.
-- **Customization:** Plum, Midnight, and Amber palettes; automatic/day/night lighting; labels and decoration toggles; desk density.
-- **Furniture placement:** preview fifteen props: sofas, server racks, bookcases, monsteras, coffee carts, coolers, lamps, cafe tables, stools, succulents, planter boxes, planning boards, printer cabinets, supply carts and coat racks. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
-- **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. On mobile, swipes at Fit scroll the page; zooming and furniture editing reserve gestures for the canvas. Reduced-motion preferences start the scene paused.
-- **38 achievements:** searchable earned/up-next views, XP values, room-reward descriptions, and real progress bars. Old retired achievements remain in saved history without losing XP.
+Claude hooks do not report token usage. Hermes reports supported main-loop API attempts. OpenCode reports assistant-message counters and runtime cost estimates. Codex usage can be imported from an already captured `codex exec --json` stream with a stable capture ID. See [exact usage semantics and commands](docs/runtime-observers.md); the office does not infer pricing or present these values as an invoice.
 
-### Unlocks
+### Earned room rewards
 
-| Milestone | Visible reward |
-|---|---|
-| First session | Desk ferns |
-| 10 sessions | Bullpen layout |
-| Staff rank · 150 XP | Coffee mugs |
-| Principal rank · 400 XP | Gold monitor trim |
-| Distinguished rank · 1,200 XP | Crowns |
-| 25 browsing tools | Lounge aquarium |
-| 50 sessions | Sleeping cat on the sofa |
-| 100 sessions + 50 tools | A second cat |
-| 5 tool errors lifetime | Warm accent on the lounge lamp |
+The catalog contains **44 reachable achievements**, with XP, progress, and visible reward descriptions. Four furniture choices unlock through observed activity:
 
-The room starts with a decorative cat. Pets and furnishing are ambience; they do not represent additional agents. XP is a playful event counter, not a measurement of work quality or task completion.
+| Activity | Placeable reward |
+| --- | --- |
+| 100 tool starts | Arcade cabinet |
+| 5 sessions | Record player |
+| 1 subagent start | Desk robot |
+| 25 read/search tools | Terrarium |
 
-![Runtime connection guide on mobile](docs/audit/connection-guide.png)
+Other milestones add ferns, cats, mugs, monitor trim, and room accents. XP records observed events and achievements; it does not measure code quality or task completion. Retired achievement entries are removed while their earned XP and statistics remain. Runtime aliases count as one runtime family for achievements.
 
-Browser screenshots use synthetic events in an isolated local observer. They demonstrate the interface, not a live model run.
+### Aquarium and jukebox
 
-### Controls
+The aquarium has four selectable fish: one available immediately, with others unlocked by **10 read/search tools**, **25 tool starts**, and **one valid usage report**. Name the aquarium, choose its inhabitants, and feed them by pointer or keyboard. Fish interactions do not create runtime activity or award work XP.
 
-Click an agent or choose one in **Agents**. Open **Customize → Place furniture**, select a prop, then click free floor space. A green preview marks a valid position; orange means occupied. Arrow keys move the preview (Shift moves faster), and Enter places it. Click a custom prop while placing to remove it. **Undo/Redo** step through your edits; **Done** or Escape finishes placement.
+The public repository and preview include original fish art. An [optional offline importer](docs/aquarium-assets.md) can use the verified Smallburg Diving sheets from an existing, legitimately licensed Little Current checkout. Those commercial source assets are not distributed with Agent Office.
 
-To rearrange existing props, choose **Customize → Arrange custom furniture** or **Move** on the editor toolbar. Drag a prop, or select it and click a new position. With the canvas focused, Space cycles custom props, arrow keys move the preview, Enter commits, and Delete removes the selected prop. Escape cancels an uncommitted move. The original prop stays saved until the new position is valid. Custom props keep their saved relative positions. When a viewport or desk layout would overlap them, the scene finds nearby free floor for that view. A notice reports shifted props or props with no available space; saved/exported positions stay unchanged. Unplaced props remain selectable with Space and removable with Delete in Arrange mode.
+The jukebox synthesizes three original Web Audio loops locally. Choose a track and press **Play music** to start it. Muting sound, hiding the tab, or leaving the page stops playback; returning does not autoplay.
 
-Edits enter undo/redo history after the server confirms the save. If a save fails, the last confirmed room returns and the operation remains retryable. Failed imports keep the current room and history. Furniture controls briefly disable while an edit is saving.
+## Local data and retention
 
-| Shortcut | Action |
-|---|---|
-| R / U | Agents and usage |
-| B | Achievements |
-| S / L | Customize |
-| E | Activity stream |
-| T / N | Cycle palette / lighting |
-| ? | Help |
-| Escape | Close panel / finish placing |
+Data lives in `$HERMES_HOME/pixel-office`, defaulting to `~/.hermes/pixel-office`. SQLite holds authoritative progress, live state, history, and usage accounting. `settings.json` stores room preferences; `progress.json` is a compatibility mirror. Events can include command, question, or file-path previews. The office serves local assets and makes no analytics or model-provider requests.
 
-## Data and privacy
+Raw activity is limited by **1,000 events, seven days, and 5 MiB by default**, keeping the newest records that fit all three limits. Change these in Customize. Trimming history preserves earned XP, usage totals, and unresolved approvals. **Clear history** removes retained activity; **Reset progress** also clears live tracking, XP, achievements, and the usage ledger, while retaining room preferences.
 
-By default, files live in `~/.hermes/pixel-office/`: `events.jsonl`, `progress.json`, and `settings.json`. Events can contain command or file-path previews. The web app loads local assets and makes no analytics or model-provider requests. There is no hosted backend.
+The history limit is not a cap on the whole database. Compact per-usage identities remain for exact replay handling and corrections. An offline server leaves pending inbox files until it runs again. Old `events.jsonl` integrations remain readable, but their files are not rewritten or truncated. Storage notices identify backlog, invalid records, or a nearly full raw-history byte allowance. [Architecture](docs/architecture.md) explains these boundaries and reset recovery.
 
-The server folds the full retained event log and returns the last 30 events. It reuses parsed history while the file is unchanged; appends, rewrites and rotation trigger a fresh read. Hermes trims its publisher log, while standalone Claude/OpenCode logs can grow until managed separately. Quiet working/thinking sessions become idle after five minutes; sessions expire from the scene after 30 minutes. Ended sessions leave after 20 seconds and completed subagents after two minutes. The UI reconnects automatically; on disconnection it retains the last scene and labels it disconnected.
+## Help and development
 
-**Reset progress** requires confirmation and deletes recorded events, XP, and achievements. Room settings remain. Previously recorded data may be recreated as connected runtimes continue emitting events.
+For an empty room, verify that the server is running, restart the configured runtime, and check their shared data location. For another VS Code endpoint, change `hermesPixelOffice.stateUrl` to its `/state` URL and use **Agent Office: Reload Connection**. Full extension setup and packaging instructions are in [vscode/README.md](vscode/README.md).
 
-## Development and tests
+See [CONTRIBUTING.md](CONTRIBUTING.md) for Python, Node, formatting, and browser checks, and [validation evidence](docs/audit/README.md) for screenshots and integration limits.
 
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
+## Sources and license
 
-# Node 22+ is only required for bridge/frontend development checks.
-npm ci
-npm run check
-npm test
-npm run format:check
-npx playwright install chromium --only-shell
-npm run test:browser
-```
+Design references include [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office), [AgentSystemLabs](https://github.com/AgentSystemLabs/agent-office), [Claw3D](https://www.claw3d.ai/#features), and [thepixeloffice.ai](https://thepixeloffice.ai/). [The source review](docs/reference-review-2026-10-07.md) records inspected code paths, adopted concepts, and license boundaries. This project is independent of those products and the runtimes it observes.
 
-The browser suite starts its own Python server and temporary data directory, writes representative event fixtures, and exercises the real HTTP routes, DOM controls, canvas, and asset loader. It does not call an LLM or modify runtime configurations. To use an existing Chrome installation, set `CHROMIUM_PATH` to its executable. Set `OFFICE_SCREENSHOTS=reports/screenshots` to save browser evidence.
-
-Optional scene-only checks use a separately installed `skia-canvas` development module: run `node tests/render-scene.cjs`, or set `SCENE_CANVAS_MODULE` to its module path. This runs the actual asset loader and draw loop at desktop/mobile sizes and writes PNGs under `reports/scene-render`. It does not replace browser interaction tests or add a production dependency.
-
-CI is configured for pull requests and main-branch code changes, plus manual dispatch. It runs Python, Node, formatting, and browser checks in one bounded job; artifacts expire after three days. Documentation-only changes skip CI. The Ubuntu runner's maintained Chrome avoids redundant browser downloads. If GitHub shows the workflow as disabled, enable it under **Actions → CI** before expecting runs. The repository's last audit found it manually disabled; see [validation details](docs/audit/README.md).
-
-See [the audit and screenshots](docs/audit/README.md), [architecture](docs/architecture.md), and [sprite provenance](web/assets/sprites/ATTRIBUTION.md), and [font/icon credits](web/assets/ATTRIBUTION.md).
-
-## Troubleshooting
-
-- **Empty room:** start `run.py`, run `install.py`, restart the agent, and check that the server and runtime use the same `HERMES_HOME`. A standalone OpenCode/Claude hook records events but does not start an HTTP server.
-- **Port occupied:** use `python3 run.py --port 8120`. For Hermes, configure `plugins.entries.pixel-office.port`. For VS Code, set `hermesPixelOffice.stateUrl` to the matching `/state` URL.
-- **VS Code panel unavailable:** keep the local server running and reload the extension after reinstalling. Remote forwarding uses VS Code's `asExternalUri`; full extension-host testing is separate from browser tests.
-- **Settings will not save:** the panel shows a failed-save message. Check that the local server is running and the data directory is writable.
-- **Old room preferences:** removed paint/fog/area settings and invalid values are ignored. Existing supported settings and earned XP remain.
-- **Small characters on a crowded floor:** increase desks per row or zoom in and drag. Use the Agents panel for full names and details.
-
-## Credits and license
-
-Inspired by [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), [thepixeloffice.ai](https://thepixeloffice.ai/), and [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office). The reference research and what was adopted are documented in the audit. This is an independent local observer, with no claim of feature parity or affiliation.
-
-MIT; existing copyright notices are preserved in [LICENSE](LICENSE). Font and icon licenses are listed in [asset credits](web/assets/ATTRIBUTION.md). Character/pet sources, furniture history, generated-art provenance, and third-party notices are in [ATTRIBUTION.md](web/assets/sprites/ATTRIBUTION.md).
+Project code is [MIT licensed](LICENSE). Retain the applicable notices in [sprite provenance](web/assets/sprites/ATTRIBUTION.md) and [font, icon, and runtime mark credits](web/assets/ATTRIBUTION.md). Optional local commercial artwork remains subject to its own license.

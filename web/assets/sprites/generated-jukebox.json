@@ -1,0 +1,17 @@
+{
+  "created": "2026-10-07",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/jukebox.png",
+  "source_dimensions": {
+    "width": 1024,
+    "height": 1536
+  },
+  "sha256": "a6c2e4bab07ccd9d287b284b400f2f3cfd409752c770003c619088c8a7e7abc3",
+  "description": "Original cream, sage, navy and walnut arched office jukebox. Source PNG preserved unmodified. Selected the original result after comparing a background-edit attempt.",
+  "logical_size": [
+    24,
+    36
+  ],
+  "normalization": "Runtime trims alpha >32 then samples once with nearest-neighbor interpolation. Logical bounds are used for placement and interaction.",
+  "audio": "Three original deterministic melodies in web/js/jukebox.js are synthesized locally with Web Audio. There are no third-party music files or network audio requests."
+}

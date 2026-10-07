@@ -20,6 +20,7 @@ def test_runtime_sprite_dimensions_and_png_headers():
         "furniture/utilities-atlas.png": (1254, 1254),
         "furniture/decor-atlas.png": (1254, 1254),
         "furniture/workshop-atlas.png": (1254, 1254),
+        "furniture/rewards-atlas.png": (1254, 1254),
     }
     for rel, size in expected.items():
         raw = (SPRITES / rel).read_bytes()

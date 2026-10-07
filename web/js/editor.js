@@ -72,8 +72,22 @@ function syncFurnitureControls() {
     "import-settings",
   ])
     $(id).disabled = furnitureSaving;
-  for (const button of $("furniture-tools").children)
-    button.disabled = furnitureSaving;
+  for (const button of $("furniture-tools").children) {
+    const reward = PROP_REWARDS[button.dataset.kind],
+      locked = reward && !haveUnlock(reward);
+    button.disabled = furnitureSaving || !!locked;
+    let note = button.querySelector("small");
+    if (reward && !note) {
+      note = document.createElement("small");
+      button.append(note);
+    }
+    if (note) {
+      const badge = progress?.catalog?.find((item) => item.id === reward);
+      note.textContent = locked
+        ? badge?.hint || "Unlock through recorded activity"
+        : "Unlocked";
+    }
+  }
   $("c").setAttribute("aria-busy", String(furnitureSaving));
   $("arrange-furniture").setAttribute(
     "aria-pressed",
@@ -82,6 +96,7 @@ function syncFurnitureControls() {
 }
 function startFurniture(kind) {
   if (furnitureSaving) return;
+  if (PROP_REWARDS[kind] && !haveUnlock(PROP_REWARDS[kind])) return;
   scene.edit = kind;
   scene.movingIndex = null;
   scene.pointer = null;

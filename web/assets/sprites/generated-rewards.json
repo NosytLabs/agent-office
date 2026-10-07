@@ -1,0 +1,70 @@
+{
+  "created": "2026-10-07",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/rewards-atlas.png",
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "810b15a93dd45ea8d855dab7ab3b974cba31dbaeff29e316164a4eb376a7d074",
+  "layout": "2x2 row-major; equal 627x627 cells; alpha > 32 trimmed at runtime",
+  "cells": [
+    "arcade",
+    "recordplayer",
+    "robot",
+    "terrarium"
+  ],
+  "prompt": "Create a BRAND NEW transparent RGBA sprite atlas for a cozy 2D pixel-art agent office game, using the attached furniture atlas only as a style reference. Exactly FOUR isolated objects in a perfectly regular 2 by 2 grid, one centered object per quadrant, all with generous transparent padding, no overlap across quadrants, no labels, no typography, no logos, no background and no ground plane. Row-major order: TOP LEFT a compact navy and sage green retro arcade cabinet with cream side panels, one tiny amber joystick and a dark screen with a simple glowing mint paddle-and-ball graphic. TOP RIGHT a warm walnut record player console with a cream turntable, one black vinyl record clearly visible on top, sage front grille and four short feet. BOTTOM LEFT a friendly small cream-and-navy desktop helper robot standing upright, a square dark face with two tiny mint glowing eyes, small rounded rectangular hands and feet, a tiny amber antenna, holding a plain pale folder. BOTTOM RIGHT a lush small terrarium in a squat glass dome on a warm walnut base, two rich sage plants, a few amber pebbles, subtle opaque pixel highlights defining the dome while leaving the surroundings transparent. Match the reference's slightly elevated front three-quarter camera, clean chunky pixel clusters, dark navy outlines, limited cream/walnut/sage/mint/amber palette, warm upper-left lighting and restrained shading. The sprites must remain distinct and readable after downscaling to 20-34 logical pixels tall with nearest-neighbor sampling. Use crisp deliberately pixelated shapes, no painterly texture, no blurring, no disconnected dust pixels or floating decorative particles, no cast shadow outside each object's footprint. All four objects should share the same scale and angle and be fully visible.",
+  "reference": "The project's generated workshop-atlas.png was supplied only to match visual style.",
+  "normalization": "Source PNG preserved unmodified. The runtime trims each quadrant at alpha > 32 and resamples once with nearest-neighbor interpolation; collision geometry uses logical sizes.",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_preserved_unmodified": true,
+    "source_file_bytes": 840853,
+    "content_bounds_relative_alpha_gt_32": [
+      [
+        145,
+        110,
+        536,
+        623
+      ],
+      [
+        57,
+        248,
+        537,
+        616
+      ],
+      [
+        180,
+        58,
+        488,
+        544
+      ],
+      [
+        107,
+        102,
+        490,
+        536
+      ]
+    ],
+    "visual_review": "Four coherent navy/cream/sage/walnut objects, transparent surrounding pixels, no cut silhouettes. Arcade has a narrow four-pixel lower margin but remains fully inside its cell."
+  },
+  "logical_sizes": {
+    "arcade": [
+      24,
+      34
+    ],
+    "recordplayer": [
+      28,
+      22
+    ],
+    "robot": [
+      18,
+      28
+    ],
+    "terrarium": [
+      24,
+      28
+    ]
+  }
+}

@@ -331,8 +331,13 @@ class StateModel:
                 continue
             agent = copy.deepcopy(durable)
             if agent["status"] in ("working", "thinking") and age > 300 and not waiting:
-                agent.update(status="idle", tool="", activity="", detail="")
-            agent["duration_s"] = max(0, int(now - float(agent.get("first_received_at", agent.get("first_seen")) or now)))
+                agent.update(status="idle", tool="", activity="", detail="",
+                             quiet=True, recorded_status=durable["status"],
+                             last_tool=durable.get("tool", ""))
+            # Exit animation time is not additional observed session duration.
+            end = (float(durable.get("observed_at", durable.get("updated_at")) or now)
+                   if durable["status"] in ("done", "gone") else now)
+            agent["duration_s"] = max(0, int(end - float(agent.get("first_received_at", agent.get("first_seen")) or end)))
             agent["idle_s"] = max(0, int(age))
             visible.append(agent)
         visible.sort(key=lambda a: (a["kind"] != "main", a.get("first_seen", 0)))

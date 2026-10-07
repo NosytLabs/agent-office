@@ -52,59 +52,78 @@ class OfficeScene {
     load("cat", "pets/claudio.png");
     load("blackcat", "pets/gitcat.png");
     load("sleepcat", "pets/sleep_cat.png");
+    load("jukebox-source", "furniture/jukebox.png", (im) => {
+      this.normalizeProp(im, "jukebox", [0, 0, im.width, im.height]);
+      this.canvas.dispatchEvent(new Event("spritesready"));
+    });
     for (const [atlas, cells] of [
       ["studio", ["sofa", "server", "shelf", "monstera"]],
       ["utilities", ["coffee", "cooler", "lamp", "clock"]],
       ["decor", ["roundtable", "stool", "succulent", "planter"]],
       ["workshop", ["whiteboard", "printer", "cart", "coatrack"]],
+      ["rewards", ["arcade", "recordplayer", "robot", "terrarium"]],
     ])
       load(atlas, "furniture/" + atlas + "-atlas.png", (im) => {
-        // Extract each atlas quadrant once, trim transparent padding, then normalize
-        // to logical pixel dimensions. Generated imagery never drives collision math.
+        // Normalize once; source image pixels never drive collision geometry.
         for (const [i, key] of cells.entries()) {
           const w = Math.floor(im.width / 2),
-            h = Math.floor(im.height / 2),
-            c = document.createElement("canvas");
-          c.width = w;
-          c.height = h;
-          const g = c.getContext("2d", { willReadFrequently: true });
-          g.drawImage(im, (i % 2) * w, Math.floor(i / 2) * h, w, h, 0, 0, w, h);
-          const d = g.getImageData(0, 0, w, h).data;
-          let x0 = w,
-            y0 = h,
-            x1 = 0,
-            y1 = 0;
-          for (let y = 0; y < h; y++)
-            for (let x = 0; x < w; x++)
-              if (d[(y * w + x) * 4 + 3] > 32) {
-                x0 = Math.min(x0, x);
-                x1 = Math.max(x1, x);
-                y0 = Math.min(y0, y);
-                y1 = Math.max(y1, y);
-              }
-          if (x0 > x1) {
-            this.assetErrors.push("Empty atlas cell: " + key);
-            continue;
-          }
-          const normalized = document.createElement("canvas");
-          [normalized.width, normalized.height] = PROP_SIZES[key] || [10, 10];
-          const ng = normalized.getContext("2d");
-          ng.imageSmoothingEnabled = false;
-          ng.drawImage(
-            c,
-            x0,
-            y0,
-            x1 - x0 + 1,
-            y1 - y0 + 1,
-            0,
-            0,
-            normalized.width,
-            normalized.height,
-          );
-          this.sprites[key] = normalized;
+            h = Math.floor(im.height / 2);
+          this.normalizeProp(im, key, [
+            (i % 2) * w,
+            Math.floor(i / 2) * h,
+            w,
+            h,
+          ]);
         }
         this.canvas.dispatchEvent(new Event("spritesready"));
       });
+  }
+  normalizeProp(image, key, region) {
+    const [sx, sy, width, height] = region,
+      sample = document.createElement("canvas");
+    sample.width = width;
+    sample.height = height;
+    const source = sample.getContext("2d", { willReadFrequently: true });
+    source.drawImage(image, sx, sy, width, height, 0, 0, width, height);
+    const rgba = source.getImageData(0, 0, width, height).data;
+    let left = width,
+      top = height,
+      right = -1,
+      bottom = -1;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        if (rgba[(y * width + x) * 4 + 3] <= 32) continue;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    if (right < left) {
+      this.assetErrors.push("Empty prop: " + key);
+      return;
+    }
+    const normalized = document.createElement("canvas");
+    // The wall clock is built-in scenery, not an editable furniture item.
+    const size = PROP_SIZES[key] || (key === "clock" ? [10, 10] : null);
+    if (!size) {
+      this.assetErrors.push("Unknown prop dimensions: " + key);
+      return;
+    }
+    [normalized.width, normalized.height] = size;
+    const target = normalized.getContext("2d");
+    target.imageSmoothingEnabled = false;
+    target.drawImage(
+      sample,
+      left,
+      top,
+      right - left + 1,
+      bottom - top + 1,
+      0,
+      0,
+      normalized.width,
+      normalized.height,
+    );
+    this.sprites[key] = normalized;
   }
   update(agents, settings, progress, focus, filter) {
     // Bootstrap observed sessions at their stations. Subsequent arrivals may
@@ -119,6 +138,7 @@ class OfficeScene {
     this.cosmetics = progress?.cosmetics || [];
     this.focus = focus;
     this.filter = filter;
+    this.stateAtTime = this.time;
   }
   list() {
     return this.agents.filter(
@@ -175,6 +195,74 @@ class OfficeScene {
   shadow(x, y, w) {
     this.rect(x + 2, y, w - 4, 2, "#10182745");
   }
+  prop(kind, x, y, w, h) {
+    this.image(kind, x, y, w, h);
+    if (
+      [
+        "FISH_TANK",
+        "jukebox",
+        "whiteboard",
+        "server",
+        "printer",
+        "arcade",
+        "recordplayer",
+        "robot",
+        "terrarium",
+        "coffee",
+      ].includes(kind)
+    )
+      this.propHits.push({ kind, x, y, w, h });
+    const r = this.rect.bind(this),
+      pulse = Math.floor(this.time * 3) % 2;
+    if (kind === "server") {
+      r(x + w * 0.26, y + h * 0.34, 2, 1, pulse ? "#b1d5b5" : "#729e98");
+    } else if (kind === "arcade" && this.cosmetics.includes("arcade_glow")) {
+      r(x + w * 0.36, y + h * 0.27, 2, 1, "#94d4c2");
+      r(
+        x + w * (0.38 + Math.sin(this.time * 1.4) * 0.13),
+        y + h * 0.2,
+        1,
+        1,
+        "#eed6a0",
+      );
+    } else if (
+      (kind === "jukebox" ||
+        (kind === "recordplayer" && this.cosmetics.includes("vinyl_spin"))) &&
+      this.musicPlaying
+    ) {
+      for (let i = 0; i < 3; i++)
+        r(
+          x + w * 0.4 + i * 2,
+          y + h * 0.58 - ((pulse + i) % 3),
+          1,
+          2 + ((pulse + i) % 3),
+          "#bad7af",
+        );
+    } else if (kind === "robot" && this.cosmetics.includes("robot_wave")) {
+      r(x + w * 0.34, y + h * 0.24, 2, pulse ? 1 : 2, "#b1e1cc");
+      r(x + w * 0.55, y + h * 0.24, 2, pulse ? 1 : 2, "#b1e1cc");
+      r(x + w * 0.84, y + h * 0.5 - pulse * 3, 2, 3, "#ecdec3");
+    } else if (
+      kind === "terrarium" &&
+      this.cosmetics.includes("terrarium_glow")
+    ) {
+      r(
+        x + w * 0.55 + Math.sin(this.time) * 3,
+        y + h * 0.35 + Math.cos(this.time * 0.8) * 3,
+        1,
+        1,
+        "#f0d899",
+      );
+    } else if (kind === "FISH_TANK") {
+      r(
+        x + 5 + ((this.time * 2) % Math.max(1, w - 10)),
+        y + 7,
+        2,
+        1,
+        "#f2c18c",
+      );
+    }
+  }
   room(g) {
     const { w, h } = g,
       t = THEMES.find((x) => x.id === this.settings.theme) || THEMES[0],
@@ -210,7 +298,14 @@ class OfficeScene {
       }
     }
     r(w / 2 - 20, 7, 40, 14, "#26313a");
-    this.text("AGENT OFFICE", w / 2, 16, "#e9d4a4", 4, "center");
+    this.text(
+      (this.settings.room_name || "AGENT OFFICE").slice(0, 18),
+      w / 2,
+      16,
+      "#e9d4a4",
+      4,
+      "center",
+    );
     r(4, h - 8, w - 8, 4, t.trim);
     r(4, 28, 2, h - 36, t.trim);
     r(w - 6, 28, 2, h - 36, t.trim);
@@ -221,7 +316,7 @@ class OfficeScene {
       r(21, by - 7, 79, 1, t.accent);
       r(21, by + 28, 79, 1, t.accent);
       for (const p of defaultDecor(g, this.cosmetics))
-        this.image(p.kind, p.x, p.y, p.w, p.h);
+        this.prop(p.kind, p.x, p.y, p.w, p.h);
       this.pet(58, h - 20);
       if (this.cosmetics.includes("office_cat"))
         this.image("sleepcat", 34, h - 36, 18, 12);
@@ -232,7 +327,7 @@ class OfficeScene {
     for (const item of this.resolvedFurniture || []) {
       const b = item.bounds;
       if (!b) continue;
-      this.image(item.kind, b.x, b.y, b.w, b.h);
+      this.prop(item.kind, b.x, b.y, b.w, b.h);
       if (item.index === this.movingIndex) {
         this.ctx.strokeStyle = "#e9ca8e";
         this.ctx.lineWidth = 1;
@@ -250,8 +345,20 @@ class OfficeScene {
     const active = this.petActive === key && this.petUntil > this.time;
     const bounce = active ? Math.sin(this.time * 16) * 2 : 0;
     this.ctx.drawImage(sheet, 0, 0, 16, 32, x, y - 18 + bounce, 10, 20);
-    if (active) this.text("♥", x + 4, y - 19, "#ecad98", 6, "center");
+    if (active) {
+      this.text("♥", x + 4, y - 19, "#ecad98", 6, "center");
+      const name =
+        this.settings.pet_names?.[black ? "cat2" : "cat1"] ||
+        (black ? "Gitcat" : "Claudio");
+      this.text(name.slice(0, 16), x + 5, y + 8, "#f0ddbe", 4, "center");
+    }
     this.petHits.push({ key, x: x - 3, y: y - 17, w: 17, h: 24 });
+  }
+  petCat(key) {
+    if (key === "blackcat" && !this.cosmetics.includes("gitcat")) return;
+    this.petActive = key;
+    this.petUntil = this.time + 1.5;
+    this.onPet?.(key);
   }
   desk(s) {
     const { x, y, a } = s,
@@ -408,7 +515,18 @@ class OfficeScene {
     const f = characterFrame(a, c, this.time);
     const g = this.ctx;
     g.save();
-    g.globalAlpha = a.status === "gone" ? 0.4 : 1;
+    const age = Math.max(
+      0,
+      (Number(a.idle_s) || 0) + this.time - (this.stateAtTime || 0),
+    );
+    g.globalAlpha =
+      a.status === "gone"
+        ? Math.max(0.15, 0.7 * (1 - age / 20))
+        : a.status === "done"
+          ? Math.max(0.2, Math.min(1, (120 - age) / 10))
+          : 1;
+    if (a.status === "done" && age < 1.5 && !this.paused)
+      y -= Math.abs(Math.sin(age * Math.PI * 2)) * 2;
     if (c.moving && c.dir === "left") {
       g.translate(Math.round(x + 16), Math.round(y));
       g.scale(-1, 1);
@@ -497,6 +615,7 @@ class OfficeScene {
     this.dt = dt;
     this.hitBoxes = [];
     this.petHits = [];
+    this.propHits = [];
     this.walking = [];
     this.routeBudget = 2;
     const scale =
@@ -719,9 +838,17 @@ class OfficeScene {
         (h) => p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
       );
       if (h) {
-        this.petActive = h.key;
-        this.petUntil = this.time + 1.5;
+        this.petCat(h.key);
+        return;
       }
+      const prop = this.propHits.findLast(
+        (hit) =>
+          p.x >= hit.x &&
+          p.x <= hit.x + hit.w &&
+          p.y >= hit.y &&
+          p.y <= hit.y + hit.h,
+      );
+      if (prop) this.onProp?.(prop.kind);
     });
     cv.addEventListener("pointercancel", (e) => {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;

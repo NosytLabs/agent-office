@@ -63,7 +63,7 @@ vm.runInContext(
       );
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(scene.assetErrors.length, 0);
-    assert.equal(scene.loadedAssets, 15);
+    assert.equal(scene.loadedAssets, 17);
     const agents = Array.from({ length: 6 }, (_, i) => ({
       id: "session-" + i,
       label: ["Build", "Review", "Research", "Docs", "Notes", "Tests"][i],
@@ -219,6 +219,6 @@ vm.runInContext(
     await sheet.toBuffer("png"),
   );
   console.log(
-    "Actual scene rendered at desktop/mobile/night; 15 assets loaded; agents seated; decor cells visible. This is CPU canvas verification, not browser DOM QA.",
+    "Actual scene rendered at desktop/mobile/night; 17 assets loaded; agents seated; decor cells visible. This is CPU canvas verification, not browser DOM QA.",
   );
 })();

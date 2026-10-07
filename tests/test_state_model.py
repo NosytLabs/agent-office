@@ -16,6 +16,41 @@ def restored(model):
     return StateModel(json.loads(json.dumps(model.dump(), sort_keys=True)))
 
 
+def test_quiet_activity_exposes_the_last_observation_without_claiming_a_stuck_process():
+    model = StateModel()
+    model.apply([event("tool_start", call_id="long", tool_name="Read")], 1000)
+    quiet = model.visible(1301)[0]
+    assert quiet["status"] == "idle"
+    assert quiet["quiet"] is True
+    assert quiet["recorded_status"] == "working"
+    assert quiet["last_tool"] == "Read"
+    assert model.agents["a"]["status"] == "working"
+    model.apply([event("tool_end", 1302, call_id="long", tool_name="Read")], 1302)
+    assert not model.visible(1302)[0].get("quiet")
+
+
+@pytest.mark.parametrize("ending", ["session_idle", "session_end", "subagent_stop"])
+@pytest.mark.parametrize("inbox", [False, True])
+def test_terminal_duration_freezes_across_polls_metadata_and_checkpoint(ending, inbox):
+    model = StateModel()
+    start = 5000 if inbox else 1000
+    model.apply([event("subagent_start", child_session_id="a", parent_session_id="parent")],
+                start, received_at=start if inbox else None)
+    model.apply([event(ending, 1010, child_session_id="a")],
+                start + 10, received_at=start + 10 if inbox else None)
+    assert model.visible(start + 10)[0]["duration_s"] == 10
+    assert model.visible(start + 15)[0]["duration_s"] == 10
+    model = restored(model)
+    model.apply([
+        event("session_update", 1012, title="Completed task"),
+        event(ending, 1013, child_session_id="a"),
+        event("tool_end", 1014, call_id="late", tool_name="Read"),
+    ], start + 14, received_at=start + 14 if inbox else None)
+    view = model.visible(start + 15)[0]
+    assert view["duration_s"] == 10
+    assert view["idle_s"] == 5
+
+
 def test_incremental_checkpoints_match_a_complete_arrival_order_fold():
     records = [
         event("session_start", title="Main", platform="opencode"),

@@ -1,0 +1,2842 @@
+{
+  "base_time": 1791374400.0,
+  "description": "Fictional public sample generated in an isolated temporary EventStore. No real agents, token usage, or charges.",
+  "empty_state": {
+    "agents": [],
+    "events": [],
+    "mode": "demo",
+    "progress": {
+      "catalog": [
+        {
+          "have": false,
+          "hint": "clock in once",
+          "id": "first_shift",
+          "name": "First day",
+          "progress": 0,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": false,
+          "hint": "an OpenCode session walks in",
+          "id": "open_floor",
+          "name": "Open floor",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "observe a Telegram session",
+          "id": "telegram_desk",
+          "name": "Telegram desk",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "observe a Claude Code session",
+          "id": "claude_desk",
+          "name": "Claude Code desk",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "observe Hermes and OpenCode activity",
+          "id": "two_houses",
+          "name": "Two runtimes",
+          "progress": 0,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": false,
+          "hint": "observe Hermes, OpenCode and Claude Code activity",
+          "id": "three_houses",
+          "name": "Three runtimes",
+          "progress": 0,
+          "reward": null,
+          "xp": 60
+        },
+        {
+          "have": false,
+          "hint": "observe 3 distinct runtimes",
+          "id": "polyglot",
+          "name": "Multiple runtimes",
+          "progress": 0,
+          "reward": null,
+          "xp": 35
+        },
+        {
+          "have": false,
+          "hint": "2 agents at once",
+          "id": "pair_programming",
+          "name": "Pair desk",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "5 agents on the floor",
+          "id": "full_floor",
+          "name": "Full floor",
+          "progress": 0,
+          "reward": null,
+          "xp": 30
+        },
+        {
+          "have": false,
+          "hint": "observe a subagent starting",
+          "id": "gold_collar",
+          "name": "First subagent",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "10 subagents lifetime",
+          "id": "swarm",
+          "name": "Swarm",
+          "progress": 0,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": false,
+          "hint": "50 tools fired",
+          "id": "coffee_break",
+          "name": "Coffee break",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "100 tools",
+          "id": "centurion",
+          "name": "Centurion",
+          "progress": 0,
+          "reward": null,
+          "xp": 30
+        },
+        {
+          "have": false,
+          "hint": "1000 tools",
+          "id": "thousand_cuts",
+          "name": "Thousand cuts",
+          "progress": 0,
+          "reward": null,
+          "xp": 80
+        },
+        {
+          "have": false,
+          "hint": "5000 tools",
+          "id": "five_k",
+          "name": "Five thousand",
+          "progress": 0,
+          "reward": null,
+          "xp": 120
+        },
+        {
+          "have": false,
+          "hint": "25 read/search tools",
+          "id": "reader",
+          "name": "Librarian",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "25 write/edit tools",
+          "id": "typer",
+          "name": "File editor",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "15 browse tools",
+          "id": "browser_tab",
+          "name": "Web browsing",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "25 terminal/bash tools",
+          "id": "shell_jockey",
+          "name": "Shell jockey",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "10 distinct tools used",
+          "id": "toolkit",
+          "name": "Toolkit",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "one tool 50 times",
+          "id": "specialist",
+          "name": "Specialist",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "10 tool errors",
+          "id": "oops",
+          "name": "Oops",
+          "progress": 0,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": false,
+          "hint": "an approval pops",
+          "id": "red_alert",
+          "name": "Red alert",
+          "progress": 0,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": false,
+          "hint": "start a session between 00:00\u201305:00",
+          "id": "night_owl",
+          "name": "Night owl",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "start a session between 05:00\u201308:00",
+          "id": "early_bird",
+          "name": "Early bird",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "reach staff rank",
+          "id": "fashion",
+          "name": "Coffee mugs",
+          "progress": 0,
+          "reward": "Coffee mugs on desks",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "hit principal rank",
+          "id": "corner_office",
+          "name": "Corner office",
+          "progress": 0,
+          "reward": "Gold monitor trim",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "10 sessions ever",
+          "id": "layout_bullpen",
+          "name": "Bullpen layout",
+          "progress": 0,
+          "reward": "Bullpen layout",
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "50 sessions",
+          "id": "pet_cat",
+          "name": "Office cat",
+          "progress": 0,
+          "reward": "Sleeping cat on the sofa",
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "first session",
+          "id": "pet_plant",
+          "name": "Office fern",
+          "progress": 0,
+          "reward": "Desk ferns",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "100 sessions + 50 tools",
+          "id": "pet_dog",
+          "name": "Midnight cat",
+          "progress": 0,
+          "reward": "A second interactive cat",
+          "xp": 30
+        },
+        {
+          "have": false,
+          "hint": "25 browse tools",
+          "id": "pet_fish",
+          "name": "Office fish",
+          "progress": 0,
+          "reward": "Lounge aquarium",
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "5 tool errors lifetime",
+          "id": "weather_storm",
+          "name": "Warm lamp",
+          "progress": 0,
+          "reward": "Warm lounge lamp accent",
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "100 sessions",
+          "id": "weather_sun",
+          "name": "Hundred sessions",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "500 tools",
+          "id": "workhorse",
+          "name": "Workhorse",
+          "progress": 0,
+          "reward": null,
+          "xp": 50
+        },
+        {
+          "have": false,
+          "hint": "50 sessions",
+          "id": "deep_work",
+          "name": "Deep work",
+          "progress": 0,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": false,
+          "hint": "switch theme 5 times",
+          "id": "theme_designer",
+          "name": "Theme designer",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "10k tools",
+          "id": "marathon",
+          "name": "Marathon",
+          "progress": 0,
+          "reward": null,
+          "xp": 80
+        },
+        {
+          "have": false,
+          "hint": "observe a Codex session",
+          "id": "codex_desk",
+          "name": "Codex desk",
+          "progress": 0,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "100 observed tool calls",
+          "id": "arcade_break",
+          "name": "Arcade cabinet",
+          "progress": 0,
+          "reward": "Animated arcade screen",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "5 recorded sessions",
+          "id": "listening_room",
+          "name": "Record player",
+          "progress": 0,
+          "reward": "Record-player visualizer",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "observe a subagent starting",
+          "id": "helping_hand",
+          "name": "Desk robot",
+          "progress": 0,
+          "reward": "Desk robot wave",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "25 read or search tool calls",
+          "id": "green_thumb",
+          "name": "Terrarium",
+          "progress": 0,
+          "reward": "Terrarium fireflies",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "receive a runtime usage report",
+          "id": "measured_work",
+          "name": "Usage tracking",
+          "progress": 0,
+          "reward": null,
+          "xp": 10
+        }
+      ],
+      "cosmetics": [],
+      "next": {
+        "need": 40,
+        "rank": "junior"
+      },
+      "rank": "intern",
+      "recent": [],
+      "stats": {
+        "approvals": 0,
+        "browses": 0,
+        "by_platform": {},
+        "by_tool": {},
+        "errors": 0,
+        "max_concurrent": 0,
+        "platforms": [],
+        "reads": 0,
+        "sessions": 0,
+        "shells": 0,
+        "subagents": 0,
+        "tools": 0,
+        "usage_reports": 0,
+        "writes": 0
+      },
+      "unlocks": [],
+      "xp": 0
+    },
+    "synthetic": true,
+    "tracking": {
+      "backlog": 0,
+      "invalid_records": 0,
+      "legacy_log": false,
+      "received": 0,
+      "retained": 0,
+      "retained_bytes": 0,
+      "storage": "browser-demo"
+    },
+    "ts": 1791374400.0,
+    "usage": {
+      "by_model": [],
+      "by_platform": [],
+      "by_session": [],
+      "cost_basis": "runtime_estimate",
+      "currency": "USD",
+      "session_scope": "visible_agents",
+      "synthetic": true,
+      "totals": {
+        "cache_write_tokens": null,
+        "cached_input_tokens": null,
+        "cost_sources": [],
+        "cost_usd": null,
+        "coverage": {
+          "cache_write_tokens": 0,
+          "cached_input_tokens": 0,
+          "cost_usd": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0
+        },
+        "input_tokens": null,
+        "output_tokens": null,
+        "reasoning_output_tokens": null,
+        "reports": 0,
+        "total_tokens": null
+      }
+    }
+  },
+  "history": [
+    {
+      "command": "Demo request: run the sample test suite?",
+      "event": "approval_request",
+      "id": 91,
+      "platform": "claude",
+      "received_at": 1791374384.0,
+      "request_id": "demo-approval",
+      "session_id": "demo-claude",
+      "synthetic": true,
+      "tool_name": "Bash",
+      "ts": 1791374384.0
+    },
+    {
+      "event": "session_busy",
+      "id": 90,
+      "platform": "codex",
+      "received_at": 1791374380.0,
+      "session_id": "demo-codex",
+      "synthetic": true,
+      "ts": 1791374380.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-plan",
+      "event": "tool_start",
+      "id": 89,
+      "platform": "hermes",
+      "preview": "sample/release-checklist.md",
+      "received_at": 1791374376.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374376.0
+    },
+    {
+      "activity": "writing",
+      "call_id": "demo-edit",
+      "event": "tool_start",
+      "id": 88,
+      "platform": "opencode",
+      "preview": "sample/WelcomeCard.tsx",
+      "received_at": 1791374372.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "tool_name": "edit",
+      "ts": 1791374372.0
+    },
+    {
+      "child_session_id": "demo-review",
+      "event": "subagent_stop",
+      "id": 87,
+      "parent_session_id": "demo-opencode",
+      "platform": "opencode",
+      "received_at": 1791374368.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "ts": 1791374368.0
+    },
+    {
+      "event": "usage",
+      "id": 86,
+      "model": "Demo model \u00b7 reviewer",
+      "output_tokens": 1100,
+      "platform": "codex",
+      "provider": "synthetic-example",
+      "received_at": 1791374362.0,
+      "session_id": "demo-codex",
+      "synthetic": true,
+      "ts": 1791374362.0,
+      "usage_id": "demo-test-turn"
+    },
+    {
+      "cached_input_tokens": 3200,
+      "event": "usage",
+      "id": 85,
+      "input_tokens": 9600,
+      "model": "Demo model \u00b7 planner",
+      "output_tokens": 1900,
+      "platform": "hermes",
+      "provider": "synthetic-example",
+      "reasoning_output_tokens": 400,
+      "received_at": 1791374358.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "total_tokens": 11500,
+      "ts": 1791374358.0,
+      "usage_id": "demo-plan-request"
+    },
+    {
+      "cached_input_tokens": 8000,
+      "cost_source": "Synthetic preview example \u2014 not a real charge",
+      "cost_usd": 0.0184,
+      "event": "usage",
+      "id": 84,
+      "input_tokens": 12400,
+      "model": "Demo model \u00b7 interface",
+      "output_tokens": 2800,
+      "platform": "opencode",
+      "provider": "synthetic-example",
+      "reasoning_output_tokens": 600,
+      "received_at": 1791374348.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "total_tokens": 15200,
+      "ts": 1791374348.0,
+      "usage_id": "demo-ui-message"
+    },
+    {
+      "call_id": "demo-child-read",
+      "event": "tool_end",
+      "id": 83,
+      "parent_session_id": "demo-opencode",
+      "platform": "opencode",
+      "received_at": 1791374340.0,
+      "session_id": "demo-review",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "read",
+      "ts": 1791374340.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-child-read",
+      "event": "tool_start",
+      "id": 82,
+      "parent_session_id": "demo-opencode",
+      "platform": "opencode",
+      "preview": "sample/Button.tsx",
+      "received_at": 1791374330.0,
+      "session_id": "demo-review",
+      "synthetic": true,
+      "tool_name": "read",
+      "ts": 1791374330.0
+    },
+    {
+      "child_goal": "Demo \u00b7 Review accessibility",
+      "child_session_id": "demo-review",
+      "event": "subagent_start",
+      "id": 81,
+      "parent_session_id": "demo-opencode",
+      "platform": "opencode",
+      "received_at": 1791374324.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "ts": 1791374324.0
+    },
+    {
+      "call_id": "demo-read-27",
+      "event": "tool_end",
+      "id": 80,
+      "platform": "hermes",
+      "received_at": 1791374312.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374312.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-27",
+      "event": "tool_start",
+      "id": 79,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-28.md",
+      "received_at": 1791374311.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374311.0
+    },
+    {
+      "call_id": "demo-read-26",
+      "event": "tool_end",
+      "id": 78,
+      "platform": "hermes",
+      "received_at": 1791374309.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374309.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-26",
+      "event": "tool_start",
+      "id": 77,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-27.md",
+      "received_at": 1791374308.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374308.0
+    },
+    {
+      "call_id": "demo-read-25",
+      "event": "tool_end",
+      "id": 76,
+      "platform": "hermes",
+      "received_at": 1791374306.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374306.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-25",
+      "event": "tool_start",
+      "id": 75,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-26.md",
+      "received_at": 1791374305.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374305.0
+    },
+    {
+      "call_id": "demo-read-24",
+      "event": "tool_end",
+      "id": 74,
+      "platform": "hermes",
+      "received_at": 1791374303.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374303.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-24",
+      "event": "tool_start",
+      "id": 73,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-25.md",
+      "received_at": 1791374302.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374302.0
+    },
+    {
+      "call_id": "demo-read-23",
+      "event": "tool_end",
+      "id": 72,
+      "platform": "hermes",
+      "received_at": 1791374300.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374300.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-23",
+      "event": "tool_start",
+      "id": 71,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-24.md",
+      "received_at": 1791374299.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374299.0
+    },
+    {
+      "call_id": "demo-read-22",
+      "event": "tool_end",
+      "id": 70,
+      "platform": "hermes",
+      "received_at": 1791374297.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374297.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-22",
+      "event": "tool_start",
+      "id": 69,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-23.md",
+      "received_at": 1791374296.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374296.0
+    },
+    {
+      "call_id": "demo-read-21",
+      "event": "tool_end",
+      "id": 68,
+      "platform": "hermes",
+      "received_at": 1791374294.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374294.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-21",
+      "event": "tool_start",
+      "id": 67,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-22.md",
+      "received_at": 1791374293.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374293.0
+    },
+    {
+      "call_id": "demo-read-20",
+      "event": "tool_end",
+      "id": 66,
+      "platform": "hermes",
+      "received_at": 1791374291.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374291.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-20",
+      "event": "tool_start",
+      "id": 65,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-21.md",
+      "received_at": 1791374290.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374290.0
+    },
+    {
+      "call_id": "demo-read-19",
+      "event": "tool_end",
+      "id": 64,
+      "platform": "hermes",
+      "received_at": 1791374288.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374288.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-19",
+      "event": "tool_start",
+      "id": 63,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-20.md",
+      "received_at": 1791374287.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374287.0
+    },
+    {
+      "call_id": "demo-read-18",
+      "event": "tool_end",
+      "id": 62,
+      "platform": "hermes",
+      "received_at": 1791374285.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374285.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-18",
+      "event": "tool_start",
+      "id": 61,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-19.md",
+      "received_at": 1791374284.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374284.0
+    },
+    {
+      "call_id": "demo-read-17",
+      "event": "tool_end",
+      "id": 60,
+      "platform": "hermes",
+      "received_at": 1791374282.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374282.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-17",
+      "event": "tool_start",
+      "id": 59,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-18.md",
+      "received_at": 1791374281.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374281.0
+    },
+    {
+      "call_id": "demo-read-16",
+      "event": "tool_end",
+      "id": 58,
+      "platform": "hermes",
+      "received_at": 1791374279.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374279.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-16",
+      "event": "tool_start",
+      "id": 57,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-17.md",
+      "received_at": 1791374278.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374278.0
+    },
+    {
+      "call_id": "demo-read-15",
+      "event": "tool_end",
+      "id": 56,
+      "platform": "hermes",
+      "received_at": 1791374276.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374276.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-15",
+      "event": "tool_start",
+      "id": 55,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-16.md",
+      "received_at": 1791374275.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374275.0
+    },
+    {
+      "call_id": "demo-read-14",
+      "event": "tool_end",
+      "id": 54,
+      "platform": "hermes",
+      "received_at": 1791374273.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374273.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-14",
+      "event": "tool_start",
+      "id": 53,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-15.md",
+      "received_at": 1791374272.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374272.0
+    },
+    {
+      "call_id": "demo-read-13",
+      "event": "tool_end",
+      "id": 52,
+      "platform": "hermes",
+      "received_at": 1791374270.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374270.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-13",
+      "event": "tool_start",
+      "id": 51,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-14.md",
+      "received_at": 1791374269.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374269.0
+    },
+    {
+      "call_id": "demo-read-12",
+      "event": "tool_end",
+      "id": 50,
+      "platform": "hermes",
+      "received_at": 1791374267.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374267.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-12",
+      "event": "tool_start",
+      "id": 49,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-13.md",
+      "received_at": 1791374266.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374266.0
+    },
+    {
+      "call_id": "demo-read-11",
+      "event": "tool_end",
+      "id": 48,
+      "platform": "hermes",
+      "received_at": 1791374264.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374264.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-11",
+      "event": "tool_start",
+      "id": 47,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-12.md",
+      "received_at": 1791374263.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374263.0
+    },
+    {
+      "call_id": "demo-read-10",
+      "event": "tool_end",
+      "id": 46,
+      "platform": "hermes",
+      "received_at": 1791374261.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374261.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-10",
+      "event": "tool_start",
+      "id": 45,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-11.md",
+      "received_at": 1791374260.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374260.0
+    },
+    {
+      "call_id": "demo-read-9",
+      "event": "tool_end",
+      "id": 44,
+      "platform": "hermes",
+      "received_at": 1791374258.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374258.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-9",
+      "event": "tool_start",
+      "id": 43,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-10.md",
+      "received_at": 1791374257.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374257.0
+    },
+    {
+      "call_id": "demo-read-8",
+      "event": "tool_end",
+      "id": 42,
+      "platform": "hermes",
+      "received_at": 1791374255.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374255.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-8",
+      "event": "tool_start",
+      "id": 41,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-9.md",
+      "received_at": 1791374254.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374254.0
+    },
+    {
+      "call_id": "demo-read-7",
+      "event": "tool_end",
+      "id": 40,
+      "platform": "hermes",
+      "received_at": 1791374252.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374252.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-7",
+      "event": "tool_start",
+      "id": 39,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-8.md",
+      "received_at": 1791374251.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374251.0
+    },
+    {
+      "call_id": "demo-read-6",
+      "event": "tool_end",
+      "id": 38,
+      "platform": "hermes",
+      "received_at": 1791374249.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374249.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-6",
+      "event": "tool_start",
+      "id": 37,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-7.md",
+      "received_at": 1791374248.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374248.0
+    },
+    {
+      "call_id": "demo-read-5",
+      "event": "tool_end",
+      "id": 36,
+      "platform": "hermes",
+      "received_at": 1791374246.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374246.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-5",
+      "event": "tool_start",
+      "id": 35,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-6.md",
+      "received_at": 1791374245.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374245.0
+    },
+    {
+      "call_id": "demo-read-4",
+      "event": "tool_end",
+      "id": 34,
+      "platform": "hermes",
+      "received_at": 1791374243.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374243.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-4",
+      "event": "tool_start",
+      "id": 33,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-5.md",
+      "received_at": 1791374242.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374242.0
+    },
+    {
+      "call_id": "demo-read-3",
+      "event": "tool_end",
+      "id": 32,
+      "platform": "hermes",
+      "received_at": 1791374240.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374240.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-3",
+      "event": "tool_start",
+      "id": 31,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-4.md",
+      "received_at": 1791374239.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374239.0
+    },
+    {
+      "call_id": "demo-read-2",
+      "event": "tool_end",
+      "id": 30,
+      "platform": "hermes",
+      "received_at": 1791374237.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374237.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-2",
+      "event": "tool_start",
+      "id": 29,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-3.md",
+      "received_at": 1791374236.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374236.0
+    },
+    {
+      "call_id": "demo-read-1",
+      "event": "tool_end",
+      "id": 28,
+      "platform": "hermes",
+      "received_at": 1791374234.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374234.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-1",
+      "event": "tool_start",
+      "id": 27,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-2.md",
+      "received_at": 1791374233.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374233.0
+    },
+    {
+      "call_id": "demo-read-0",
+      "event": "tool_end",
+      "id": 26,
+      "platform": "hermes",
+      "received_at": 1791374231.0,
+      "session_id": "demo-hermes",
+      "status": "ok",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374231.0
+    },
+    {
+      "activity": "reading",
+      "call_id": "demo-read-0",
+      "event": "tool_start",
+      "id": 25,
+      "platform": "hermes",
+      "preview": "sample/docs/chapter-1.md",
+      "received_at": 1791374230.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "tool_name": "Read",
+      "ts": 1791374230.0
+    },
+    {
+      "event": "session_start",
+      "id": 24,
+      "platform": "codex",
+      "received_at": 1791374220.0,
+      "session_id": "demo-codex",
+      "synthetic": true,
+      "title": "Demo \u00b7 Check the tests",
+      "ts": 1791374220.0
+    },
+    {
+      "event": "session_start",
+      "id": 23,
+      "platform": "opencode",
+      "received_at": 1791374200.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "title": "Demo \u00b7 Build the interface",
+      "ts": 1791374200.0
+    },
+    {
+      "event": "session_start",
+      "id": 22,
+      "platform": "claude",
+      "received_at": 1791374180.0,
+      "session_id": "demo-claude",
+      "synthetic": true,
+      "title": "Demo \u00b7 Review the API",
+      "ts": 1791374180.0
+    },
+    {
+      "event": "session_start",
+      "id": 21,
+      "platform": "hermes",
+      "received_at": 1791374160.0,
+      "session_id": "demo-hermes",
+      "synthetic": true,
+      "title": "Demo \u00b7 Plan the release",
+      "ts": 1791374160.0
+    },
+    {
+      "event": "session_end",
+      "id": 20,
+      "platform": "hermes",
+      "received_at": 1791371180.0,
+      "session_id": "demo-earlier-10",
+      "synthetic": true,
+      "ts": 1791371180.0
+    },
+    {
+      "event": "session_start",
+      "id": 19,
+      "platform": "hermes",
+      "received_at": 1791371160.0,
+      "session_id": "demo-earlier-10",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791371160.0
+    },
+    {
+      "event": "session_end",
+      "id": 18,
+      "platform": "hermes",
+      "received_at": 1791371140.0,
+      "session_id": "demo-earlier-09",
+      "synthetic": true,
+      "ts": 1791371140.0
+    },
+    {
+      "event": "session_start",
+      "id": 17,
+      "platform": "hermes",
+      "received_at": 1791371120.0,
+      "session_id": "demo-earlier-09",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791371120.0
+    },
+    {
+      "event": "session_end",
+      "id": 16,
+      "platform": "hermes",
+      "received_at": 1791371100.0,
+      "session_id": "demo-earlier-08",
+      "synthetic": true,
+      "ts": 1791371100.0
+    },
+    {
+      "event": "session_start",
+      "id": 15,
+      "platform": "hermes",
+      "received_at": 1791371080.0,
+      "session_id": "demo-earlier-08",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791371080.0
+    },
+    {
+      "event": "session_end",
+      "id": 14,
+      "platform": "hermes",
+      "received_at": 1791371060.0,
+      "session_id": "demo-earlier-07",
+      "synthetic": true,
+      "ts": 1791371060.0
+    },
+    {
+      "event": "session_start",
+      "id": 13,
+      "platform": "hermes",
+      "received_at": 1791371040.0,
+      "session_id": "demo-earlier-07",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791371040.0
+    },
+    {
+      "event": "session_end",
+      "id": 12,
+      "platform": "hermes",
+      "received_at": 1791371020.0,
+      "session_id": "demo-earlier-06",
+      "synthetic": true,
+      "ts": 1791371020.0
+    },
+    {
+      "event": "session_start",
+      "id": 11,
+      "platform": "hermes",
+      "received_at": 1791371000.0,
+      "session_id": "demo-earlier-06",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791371000.0
+    },
+    {
+      "event": "session_end",
+      "id": 10,
+      "platform": "hermes",
+      "received_at": 1791370980.0,
+      "session_id": "demo-earlier-05",
+      "synthetic": true,
+      "ts": 1791370980.0
+    },
+    {
+      "event": "session_start",
+      "id": 9,
+      "platform": "hermes",
+      "received_at": 1791370960.0,
+      "session_id": "demo-earlier-05",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791370960.0
+    },
+    {
+      "event": "session_end",
+      "id": 8,
+      "platform": "hermes",
+      "received_at": 1791370940.0,
+      "session_id": "demo-earlier-04",
+      "synthetic": true,
+      "ts": 1791370940.0
+    },
+    {
+      "event": "session_start",
+      "id": 7,
+      "platform": "hermes",
+      "received_at": 1791370920.0,
+      "session_id": "demo-earlier-04",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791370920.0
+    },
+    {
+      "event": "session_end",
+      "id": 6,
+      "platform": "hermes",
+      "received_at": 1791370900.0,
+      "session_id": "demo-earlier-03",
+      "synthetic": true,
+      "ts": 1791370900.0
+    },
+    {
+      "event": "session_start",
+      "id": 5,
+      "platform": "hermes",
+      "received_at": 1791370880.0,
+      "session_id": "demo-earlier-03",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791370880.0
+    },
+    {
+      "event": "session_end",
+      "id": 4,
+      "platform": "hermes",
+      "received_at": 1791370860.0,
+      "session_id": "demo-earlier-02",
+      "synthetic": true,
+      "ts": 1791370860.0
+    },
+    {
+      "event": "session_start",
+      "id": 3,
+      "platform": "hermes",
+      "received_at": 1791370840.0,
+      "session_id": "demo-earlier-02",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791370840.0
+    },
+    {
+      "event": "session_end",
+      "id": 2,
+      "platform": "hermes",
+      "received_at": 1791370820.0,
+      "session_id": "demo-earlier-01",
+      "synthetic": true,
+      "ts": 1791370820.0
+    },
+    {
+      "event": "session_start",
+      "id": 1,
+      "platform": "hermes",
+      "received_at": 1791370800.0,
+      "session_id": "demo-earlier-01",
+      "synthetic": true,
+      "title": "Demo \u00b7 Earlier sample session",
+      "ts": 1791370800.0
+    }
+  ],
+  "product_version": "0.5.0",
+  "settings": {
+    "aquarium_species": [
+      "ember",
+      "mint",
+      "violet",
+      "pearl"
+    ],
+    "max_chars": 6,
+    "room_name": "The demo studio"
+  },
+  "state": {
+    "agents": [
+      {
+        "activity": "reading",
+        "detail": "sample/release-checklist.md",
+        "duration_s": 240,
+        "first_received_at": 1791374160.0,
+        "first_seen": 1791374160.0,
+        "id": "demo-hermes",
+        "idle_s": 24,
+        "kind": "main",
+        "label": "Demo \u00b7 Plan the release",
+        "observed_at": 1791374376.0,
+        "observed_label": "Demo \u00b7 Plan the release",
+        "platform": "hermes",
+        "status": "working",
+        "tool": "Read",
+        "updated_at": 1791374376.0
+      },
+      {
+        "activity": "",
+        "detail": "Demo request: run the sample test suite?",
+        "duration_s": 220,
+        "first_received_at": 1791374180.0,
+        "first_seen": 1791374180.0,
+        "id": "demo-claude",
+        "idle_s": 16,
+        "kind": "main",
+        "label": "Demo \u00b7 Review the API",
+        "observed_at": 1791374384.0,
+        "observed_label": "Demo \u00b7 Review the API",
+        "platform": "claude",
+        "status": "waiting",
+        "tool": "",
+        "updated_at": 1791374384.0
+      },
+      {
+        "activity": "writing",
+        "detail": "sample/WelcomeCard.tsx",
+        "duration_s": 200,
+        "first_received_at": 1791374200.0,
+        "first_seen": 1791374200.0,
+        "id": "demo-opencode",
+        "idle_s": 28,
+        "kind": "main",
+        "label": "Demo \u00b7 Build the interface",
+        "observed_at": 1791374372.0,
+        "observed_label": "Demo \u00b7 Build the interface",
+        "platform": "opencode",
+        "status": "working",
+        "tool": "edit",
+        "updated_at": 1791374372.0
+      },
+      {
+        "activity": "",
+        "detail": "",
+        "duration_s": 180,
+        "first_received_at": 1791374220.0,
+        "first_seen": 1791374220.0,
+        "id": "demo-codex",
+        "idle_s": 20,
+        "kind": "main",
+        "label": "Demo \u00b7 Check the tests",
+        "observed_at": 1791374380.0,
+        "observed_label": "Demo \u00b7 Check the tests",
+        "platform": "codex",
+        "status": "thinking",
+        "tool": "",
+        "updated_at": 1791374380.0
+      },
+      {
+        "activity": "",
+        "detail": "",
+        "duration_s": 44,
+        "first_received_at": 1791374324.0,
+        "first_seen": 1791374324.0,
+        "id": "demo-review",
+        "idle_s": 32,
+        "kind": "subagent",
+        "label": "Demo \u00b7 Review accessibili\u2026",
+        "observed_at": 1791374368.0,
+        "observed_label": "Demo \u00b7 Review accessibili\u2026",
+        "parent": "demo-opencode",
+        "platform": "opencode",
+        "status": "done",
+        "tool": "",
+        "updated_at": 1791374368.0
+      }
+    ],
+    "events": [
+      {
+        "call_id": "demo-read-18",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374285.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-19",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-20.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374287.0
+      },
+      {
+        "call_id": "demo-read-19",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374288.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-20",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-21.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374290.0
+      },
+      {
+        "call_id": "demo-read-20",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374291.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-21",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-22.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374293.0
+      },
+      {
+        "call_id": "demo-read-21",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374294.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-22",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-23.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374296.0
+      },
+      {
+        "call_id": "demo-read-22",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374297.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-23",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-24.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374299.0
+      },
+      {
+        "call_id": "demo-read-23",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374300.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-24",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-25.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374302.0
+      },
+      {
+        "call_id": "demo-read-24",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374303.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-25",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-26.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374305.0
+      },
+      {
+        "call_id": "demo-read-25",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374306.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-26",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-27.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374308.0
+      },
+      {
+        "call_id": "demo-read-26",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374309.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-read-27",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/docs/chapter-28.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374311.0
+      },
+      {
+        "call_id": "demo-read-27",
+        "event": "tool_end",
+        "platform": "hermes",
+        "session_id": "demo-hermes",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374312.0
+      },
+      {
+        "child_goal": "Demo \u00b7 Review accessibility",
+        "child_session_id": "demo-review",
+        "event": "subagent_start",
+        "parent_session_id": "demo-opencode",
+        "platform": "opencode",
+        "session_id": "demo-opencode",
+        "synthetic": true,
+        "ts": 1791374324.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-child-read",
+        "event": "tool_start",
+        "parent_session_id": "demo-opencode",
+        "platform": "opencode",
+        "preview": "sample/Button.tsx",
+        "session_id": "demo-review",
+        "synthetic": true,
+        "tool_name": "read",
+        "ts": 1791374330.0
+      },
+      {
+        "call_id": "demo-child-read",
+        "event": "tool_end",
+        "parent_session_id": "demo-opencode",
+        "platform": "opencode",
+        "session_id": "demo-review",
+        "status": "ok",
+        "synthetic": true,
+        "tool_name": "read",
+        "ts": 1791374340.0
+      },
+      {
+        "cached_input_tokens": 8000,
+        "cost_source": "Synthetic preview example \u2014 not a real charge",
+        "cost_usd": 0.0184,
+        "event": "usage",
+        "input_tokens": 12400,
+        "model": "Demo model \u00b7 interface",
+        "output_tokens": 2800,
+        "platform": "opencode",
+        "provider": "synthetic-example",
+        "reasoning_output_tokens": 600,
+        "session_id": "demo-opencode",
+        "synthetic": true,
+        "total_tokens": 15200,
+        "ts": 1791374348.0,
+        "usage_id": "demo-ui-message"
+      },
+      {
+        "cached_input_tokens": 3200,
+        "event": "usage",
+        "input_tokens": 9600,
+        "model": "Demo model \u00b7 planner",
+        "output_tokens": 1900,
+        "platform": "hermes",
+        "provider": "synthetic-example",
+        "reasoning_output_tokens": 400,
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "total_tokens": 11500,
+        "ts": 1791374358.0,
+        "usage_id": "demo-plan-request"
+      },
+      {
+        "event": "usage",
+        "model": "Demo model \u00b7 reviewer",
+        "output_tokens": 1100,
+        "platform": "codex",
+        "provider": "synthetic-example",
+        "session_id": "demo-codex",
+        "synthetic": true,
+        "ts": 1791374362.0,
+        "usage_id": "demo-test-turn"
+      },
+      {
+        "child_session_id": "demo-review",
+        "event": "subagent_stop",
+        "parent_session_id": "demo-opencode",
+        "platform": "opencode",
+        "session_id": "demo-opencode",
+        "synthetic": true,
+        "ts": 1791374368.0
+      },
+      {
+        "activity": "writing",
+        "call_id": "demo-edit",
+        "event": "tool_start",
+        "platform": "opencode",
+        "preview": "sample/WelcomeCard.tsx",
+        "session_id": "demo-opencode",
+        "synthetic": true,
+        "tool_name": "edit",
+        "ts": 1791374372.0
+      },
+      {
+        "activity": "reading",
+        "call_id": "demo-plan",
+        "event": "tool_start",
+        "platform": "hermes",
+        "preview": "sample/release-checklist.md",
+        "session_id": "demo-hermes",
+        "synthetic": true,
+        "tool_name": "Read",
+        "ts": 1791374376.0
+      },
+      {
+        "event": "session_busy",
+        "platform": "codex",
+        "session_id": "demo-codex",
+        "synthetic": true,
+        "ts": 1791374380.0
+      },
+      {
+        "command": "Demo request: run the sample test suite?",
+        "event": "approval_request",
+        "platform": "claude",
+        "request_id": "demo-approval",
+        "session_id": "demo-claude",
+        "synthetic": true,
+        "tool_name": "Bash",
+        "ts": 1791374384.0
+      }
+    ],
+    "mode": "demo",
+    "progress": {
+      "catalog": [
+        {
+          "have": true,
+          "hint": "clock in once",
+          "id": "first_shift",
+          "name": "First day",
+          "progress": 100,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": true,
+          "hint": "an OpenCode session walks in",
+          "id": "open_floor",
+          "name": "Open floor",
+          "progress": 100,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "observe a Telegram session",
+          "id": "telegram_desk",
+          "name": "Telegram desk",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": true,
+          "hint": "observe a Claude Code session",
+          "id": "claude_desk",
+          "name": "Claude Code desk",
+          "progress": 100,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": true,
+          "hint": "observe Hermes and OpenCode activity",
+          "id": "two_houses",
+          "name": "Two runtimes",
+          "progress": 100,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": true,
+          "hint": "observe Hermes, OpenCode and Claude Code activity",
+          "id": "three_houses",
+          "name": "Three runtimes",
+          "progress": 100,
+          "reward": null,
+          "xp": 60
+        },
+        {
+          "have": true,
+          "hint": "observe 3 distinct runtimes",
+          "id": "polyglot",
+          "name": "Multiple runtimes",
+          "progress": 100,
+          "reward": null,
+          "xp": 35
+        },
+        {
+          "have": true,
+          "hint": "2 agents at once",
+          "id": "pair_programming",
+          "name": "Pair desk",
+          "progress": 100,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": true,
+          "hint": "5 agents on the floor",
+          "id": "full_floor",
+          "name": "Full floor",
+          "progress": 100,
+          "reward": null,
+          "xp": 30
+        },
+        {
+          "have": true,
+          "hint": "observe a subagent starting",
+          "id": "gold_collar",
+          "name": "First subagent",
+          "progress": 100,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "10 subagents lifetime",
+          "id": "swarm",
+          "name": "Swarm",
+          "progress": 10,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": false,
+          "hint": "50 tools fired",
+          "id": "coffee_break",
+          "name": "Coffee break",
+          "progress": 62,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "100 tools",
+          "id": "centurion",
+          "name": "Centurion",
+          "progress": 31,
+          "reward": null,
+          "xp": 30
+        },
+        {
+          "have": false,
+          "hint": "1000 tools",
+          "id": "thousand_cuts",
+          "name": "Thousand cuts",
+          "progress": 3,
+          "reward": null,
+          "xp": 80
+        },
+        {
+          "have": false,
+          "hint": "5000 tools",
+          "id": "five_k",
+          "name": "Five thousand",
+          "progress": 1,
+          "reward": null,
+          "xp": 120
+        },
+        {
+          "have": true,
+          "hint": "25 read/search tools",
+          "id": "reader",
+          "name": "Librarian",
+          "progress": 100,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "25 write/edit tools",
+          "id": "typer",
+          "name": "File editor",
+          "progress": 4,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "15 browse tools",
+          "id": "browser_tab",
+          "name": "Web browsing",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "25 terminal/bash tools",
+          "id": "shell_jockey",
+          "name": "Shell jockey",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "10 distinct tools used",
+          "id": "toolkit",
+          "name": "Toolkit",
+          "progress": 30,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "one tool 50 times",
+          "id": "specialist",
+          "name": "Specialist",
+          "progress": 58,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "10 tool errors",
+          "id": "oops",
+          "name": "Oops",
+          "progress": 0,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": true,
+          "hint": "an approval pops",
+          "id": "red_alert",
+          "name": "Red alert",
+          "progress": 100,
+          "reward": null,
+          "xp": 10
+        },
+        {
+          "have": false,
+          "hint": "start a session between 00:00\u201305:00",
+          "id": "night_owl",
+          "name": "Night owl",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "start a session between 05:00\u201308:00",
+          "id": "early_bird",
+          "name": "Early bird",
+          "progress": 0,
+          "reward": null,
+          "xp": 15
+        },
+        {
+          "have": true,
+          "hint": "reach staff rank",
+          "id": "fashion",
+          "name": "Coffee mugs",
+          "progress": 100,
+          "reward": "Coffee mugs on desks",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "hit principal rank",
+          "id": "corner_office",
+          "name": "Corner office",
+          "progress": 100,
+          "reward": "Gold monitor trim",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "10 sessions ever",
+          "id": "layout_bullpen",
+          "name": "Bullpen layout",
+          "progress": 100,
+          "reward": "Bullpen layout",
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "50 sessions",
+          "id": "pet_cat",
+          "name": "Office cat",
+          "progress": 28,
+          "reward": "Sleeping cat on the sofa",
+          "xp": 15
+        },
+        {
+          "have": true,
+          "hint": "first session",
+          "id": "pet_plant",
+          "name": "Office fern",
+          "progress": 100,
+          "reward": "Desk ferns",
+          "xp": 0
+        },
+        {
+          "have": false,
+          "hint": "100 sessions + 50 tools",
+          "id": "pet_dog",
+          "name": "Midnight cat",
+          "progress": 14,
+          "reward": "A second interactive cat",
+          "xp": 30
+        },
+        {
+          "have": false,
+          "hint": "25 browse tools",
+          "id": "pet_fish",
+          "name": "Office fish",
+          "progress": 0,
+          "reward": "Lounge aquarium",
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "5 tool errors lifetime",
+          "id": "weather_storm",
+          "name": "Warm lamp",
+          "progress": 0,
+          "reward": "Warm lounge lamp accent",
+          "xp": 15
+        },
+        {
+          "have": false,
+          "hint": "100 sessions",
+          "id": "weather_sun",
+          "name": "Hundred sessions",
+          "progress": 14,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "500 tools",
+          "id": "workhorse",
+          "name": "Workhorse",
+          "progress": 6,
+          "reward": null,
+          "xp": 50
+        },
+        {
+          "have": false,
+          "hint": "50 sessions",
+          "id": "deep_work",
+          "name": "Deep work",
+          "progress": 28,
+          "reward": null,
+          "xp": 40
+        },
+        {
+          "have": false,
+          "hint": "switch theme 5 times",
+          "id": "theme_designer",
+          "name": "Theme designer",
+          "progress": 0,
+          "reward": null,
+          "xp": 20
+        },
+        {
+          "have": false,
+          "hint": "10k tools",
+          "id": "marathon",
+          "name": "Marathon",
+          "progress": 0,
+          "reward": null,
+          "xp": 80
+        },
+        {
+          "have": true,
+          "hint": "observe a Codex session",
+          "id": "codex_desk",
+          "name": "Codex desk",
+          "progress": 100,
+          "reward": null,
+          "xp": 25
+        },
+        {
+          "have": false,
+          "hint": "100 observed tool calls",
+          "id": "arcade_break",
+          "name": "Arcade cabinet",
+          "progress": 31,
+          "reward": "Animated arcade screen",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "5 recorded sessions",
+          "id": "listening_room",
+          "name": "Record player",
+          "progress": 100,
+          "reward": "Record-player visualizer",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "observe a subagent starting",
+          "id": "helping_hand",
+          "name": "Desk robot",
+          "progress": 100,
+          "reward": "Desk robot wave",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "25 read or search tool calls",
+          "id": "green_thumb",
+          "name": "Terrarium",
+          "progress": 100,
+          "reward": "Terrarium fireflies",
+          "xp": 0
+        },
+        {
+          "have": true,
+          "hint": "receive a runtime usage report",
+          "id": "measured_work",
+          "name": "Usage tracking",
+          "progress": 100,
+          "reward": null,
+          "xp": 10
+        }
+      ],
+      "cosmetics": [
+        "mug",
+        "gold_monitor",
+        "fern",
+        "vinyl_spin",
+        "robot_wave",
+        "terrarium_glow"
+      ],
+      "next": {
+        "need": 1200,
+        "rank": "distinguished"
+      },
+      "rank": "principal",
+      "recent": [
+        {
+          "at": 1791374400.0,
+          "hint": "25 read/search tools",
+          "id": "reader",
+          "name": "Librarian"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "25 read or search tool calls",
+          "id": "green_thumb",
+          "name": "Terrarium"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "observe a subagent starting",
+          "id": "gold_collar",
+          "name": "First subagent"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "hit principal rank",
+          "id": "corner_office",
+          "name": "Corner office"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "observe a subagent starting",
+          "id": "helping_hand",
+          "name": "Desk robot"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "5 agents on the floor",
+          "id": "full_floor",
+          "name": "Full floor"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "receive a runtime usage report",
+          "id": "measured_work",
+          "name": "Usage tracking"
+        },
+        {
+          "at": 1791374400.0,
+          "hint": "an approval pops",
+          "id": "red_alert",
+          "name": "Red alert"
+        }
+      ],
+      "stats": {
+        "approvals": 1,
+        "browses": 0,
+        "by_platform": {
+          "claude": 2,
+          "codex": 3,
+          "hermes": 79,
+          "opencode": 7
+        },
+        "by_tool": {
+          "Read": 29,
+          "edit": 1,
+          "read": 1
+        },
+        "errors": 0,
+        "max_concurrent": 5,
+        "platforms": [
+          "claude",
+          "codex",
+          "hermes",
+          "opencode"
+        ],
+        "reads": 30,
+        "sessions": 14,
+        "shells": 0,
+        "subagents": 1,
+        "tools": 31,
+        "usage_reports": 3,
+        "writes": 1
+      },
+      "unlocks": [
+        {
+          "at": 1791374400.0,
+          "id": "first_shift",
+          "name": "First day"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "pet_plant",
+          "name": "Office fern"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "listening_room",
+          "name": "Record player"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "layout_bullpen",
+          "name": "Bullpen layout"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "claude_desk",
+          "name": "Claude Code desk"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "pair_programming",
+          "name": "Pair desk"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "open_floor",
+          "name": "Open floor"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "two_houses",
+          "name": "Two runtimes"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "three_houses",
+          "name": "Three runtimes"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "polyglot",
+          "name": "Multiple runtimes"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "fashion",
+          "name": "Coffee mugs"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "codex_desk",
+          "name": "Codex desk"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "reader",
+          "name": "Librarian"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "green_thumb",
+          "name": "Terrarium"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "gold_collar",
+          "name": "First subagent"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "corner_office",
+          "name": "Corner office"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "helping_hand",
+          "name": "Desk robot"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "full_floor",
+          "name": "Full floor"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "measured_work",
+          "name": "Usage tracking"
+        },
+        {
+          "at": 1791374400.0,
+          "id": "red_alert",
+          "name": "Red alert"
+        }
+      ],
+      "xp": 457
+    },
+    "synthetic": true,
+    "tracking": {
+      "backlog": 0,
+      "invalid_records": 0,
+      "legacy_log": false,
+      "received": 91,
+      "retained": 91,
+      "retained_bytes": 15920,
+      "storage": "browser-demo"
+    },
+    "ts": 1791374400.0,
+    "usage": {
+      "by_model": [
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": null,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 0,
+            "cost_usd": 0,
+            "input_tokens": 0,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 0
+          },
+          "input_tokens": null,
+          "model": "Demo model \u00b7 reviewer",
+          "output_tokens": 1100,
+          "platform": "codex",
+          "provider": "synthetic-example",
+          "reasoning_output_tokens": null,
+          "reports": 1,
+          "total_tokens": null
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 3200,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 0,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 9600,
+          "model": "Demo model \u00b7 planner",
+          "output_tokens": 1900,
+          "platform": "hermes",
+          "provider": "synthetic-example",
+          "reasoning_output_tokens": 400,
+          "reports": 1,
+          "total_tokens": 11500
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 8000,
+          "cost_sources": [
+            {
+              "cost_usd": 0.0184,
+              "reports": 1,
+              "source": "Synthetic preview example \u2014 not a real charge"
+            }
+          ],
+          "cost_usd": 0.0184,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 12400,
+          "model": "Demo model \u00b7 interface",
+          "output_tokens": 2800,
+          "platform": "opencode",
+          "provider": "synthetic-example",
+          "reasoning_output_tokens": 600,
+          "reports": 1,
+          "total_tokens": 15200
+        }
+      ],
+      "by_platform": [
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": null,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 0,
+            "cost_usd": 0,
+            "input_tokens": 0,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 0
+          },
+          "input_tokens": null,
+          "output_tokens": 1100,
+          "platform": "codex",
+          "reasoning_output_tokens": null,
+          "reports": 1,
+          "total_tokens": null
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 3200,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 0,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 9600,
+          "output_tokens": 1900,
+          "platform": "hermes",
+          "reasoning_output_tokens": 400,
+          "reports": 1,
+          "total_tokens": 11500
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 8000,
+          "cost_sources": [
+            {
+              "cost_usd": 0.0184,
+              "reports": 1,
+              "source": "Synthetic preview example \u2014 not a real charge"
+            }
+          ],
+          "cost_usd": 0.0184,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 12400,
+          "output_tokens": 2800,
+          "platform": "opencode",
+          "reasoning_output_tokens": 600,
+          "reports": 1,
+          "total_tokens": 15200
+        }
+      ],
+      "by_session": [
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": null,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 0,
+            "cost_usd": 0,
+            "input_tokens": 0,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 0,
+            "total_tokens": 0
+          },
+          "input_tokens": null,
+          "output_tokens": 1100,
+          "platform": "codex",
+          "reasoning_output_tokens": null,
+          "reports": 1,
+          "session_id": "demo-codex",
+          "total_tokens": null
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 3200,
+          "cost_sources": [],
+          "cost_usd": null,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 0,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 9600,
+          "output_tokens": 1900,
+          "platform": "hermes",
+          "reasoning_output_tokens": 400,
+          "reports": 1,
+          "session_id": "demo-hermes",
+          "total_tokens": 11500
+        },
+        {
+          "cache_write_tokens": null,
+          "cached_input_tokens": 8000,
+          "cost_sources": [
+            {
+              "cost_usd": 0.0184,
+              "reports": 1,
+              "source": "Synthetic preview example \u2014 not a real charge"
+            }
+          ],
+          "cost_usd": 0.0184,
+          "coverage": {
+            "cache_write_tokens": 0,
+            "cached_input_tokens": 1,
+            "cost_usd": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "reasoning_output_tokens": 1,
+            "total_tokens": 1
+          },
+          "input_tokens": 12400,
+          "output_tokens": 2800,
+          "platform": "opencode",
+          "reasoning_output_tokens": 600,
+          "reports": 1,
+          "session_id": "demo-opencode",
+          "total_tokens": 15200
+        }
+      ],
+      "cost_basis": "runtime_estimate",
+      "currency": "USD",
+      "session_scope": "visible_agents",
+      "synthetic": true,
+      "totals": {
+        "cache_write_tokens": null,
+        "cached_input_tokens": 11200,
+        "cost_sources": [
+          {
+            "cost_usd": 0.0184,
+            "reports": 1,
+            "source": "Synthetic preview example \u2014 not a real charge"
+          }
+        ],
+        "cost_usd": 0.0184,
+        "coverage": {
+          "cache_write_tokens": 0,
+          "cached_input_tokens": 2,
+          "cost_usd": 1,
+          "input_tokens": 2,
+          "output_tokens": 3,
+          "reasoning_output_tokens": 2,
+          "total_tokens": 2
+        },
+        "input_tokens": 22000,
+        "output_tokens": 5800,
+        "reasoning_output_tokens": 1000,
+        "reports": 3,
+        "total_tokens": 26700
+      }
+    }
+  },
+  "synthetic": true,
+  "version": 1
+}

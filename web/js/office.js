@@ -29,11 +29,76 @@ let pendingSaves = 0,
   settingsSignature = "";
 const confirmedSettings = structuredClone(settings),
   queuedSettings = [];
+let eventMode = "latest",
+  eventRuntime = "every",
+  eventSession = null,
+  historyEvents = [],
+  historyLoaded = false,
+  historyLoading = false,
+  historyError = "",
+  historyRequest = 0,
+  historyLastLoaded = 0,
+  historyReceived = -1,
+  eventPageSize = 100,
+  attentionNotice = null;
+const seenAttention = new Set();
 const seenUnlocks = new Set();
+const settingsDrafts = new Set();
+for (const id of [
+  "room-name-input",
+  "pet-cat1-name",
+  "pet-cat2-name",
+  "budget-input",
+  "agent-name-input",
+])
+  $(id).addEventListener("input", () => settingsDrafts.add(id));
+function acknowledgeDrafts(submitted) {
+  for (const [id, value] of Object.entries(submitted))
+    if ($(id).value === value) settingsDrafts.delete(id);
+}
 const scene = new OfficeScene($("c"), selectAgent, (p, grid) =>
   placeFurniture(p, grid),
 );
 window.officeScene = scene;
+const roomActions = [
+  ["Aquarium", () => window.openAquarium?.()],
+  ["Jukebox", () => window.officeJukebox?.open()],
+  ["Pet the orange cat", () => scene.petCat("cat")],
+  ["Pet the black cat", () => scene.petCat("blackcat")],
+];
+for (const [label, action] of roomActions) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  button.textContent = label;
+  button.dataset.activity = label;
+  button.onclick = action;
+  $("room-actions").append(button);
+}
+scene.onProp = (kind) => {
+  if (kind === "FISH_TANK" || kind === "terrarium") window.openAquarium?.();
+  else if (kind === "jukebox" || kind === "recordplayer")
+    window.officeJukebox?.open();
+  else if (kind === "whiteboard") openSheet("sheet-tasks");
+  else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
+  else if (kind === "printer") openSheet("sheet-events");
+  else if (kind === "arcade")
+    toast("You found the break room. No tickets required.");
+  else if (kind === "coffee") toast("Coffee break.");
+};
+scene.onPet = (key) => {
+  const name =
+    settings.pet_names?.[key === "blackcat" ? "cat2" : "cat1"] ||
+    (key === "blackcat" ? "Gitcat" : "Claudio");
+  toast(name + " purrs.");
+};
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) audioContext?.suspend().catch(() => {});
+});
+window.addEventListener("pagehide", () => {
+  audioContext?.close().catch(() => {});
+  audioContext = null;
+});
 function duration(seconds) {
   const s = Math.max(0, Math.floor(seconds || 0));
   return s < 60
@@ -45,6 +110,47 @@ function duration(seconds) {
 function haveUnlock(id) {
   return !!progress?.catalog?.find((c) => c.id === id && c.have);
 }
+function runtimeName(a) {
+  if (
+    String(a.platform || "")
+      .toLowerCase()
+      .includes("codex")
+  )
+    return "Codex";
+  if (a.platform === "vscode") return "VS Code";
+  return (
+    {
+      hermes: "Hermes",
+      claude: "Claude Code",
+      opencode: "OpenCode",
+      telegram: "Telegram",
+      cli: "CLI",
+    }[platOf(a)] ||
+    a.platform ||
+    "Runtime"
+  );
+}
+function runtimeBadge(a) {
+  const badge = document.createElement("span");
+  badge.className = "runtime-badge";
+  const runtime = String(a.platform || "").toLowerCase();
+  const mark = runtime.includes("claude")
+    ? "claude"
+    : runtime.includes("codex")
+      ? "codex"
+      : ["opencode", "telegram"].includes(runtime)
+        ? runtime
+        : null;
+  if (mark) {
+    const image = document.createElement("img");
+    image.src = `assets/brands/${mark}.svg`;
+    image.alt = "";
+    image.width = image.height = 18;
+    badge.append(image);
+  }
+  badge.append(document.createTextNode(runtimeName(a)));
+  return badge;
+}
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob),
     a = document.createElement("a");
@@ -54,17 +160,24 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function toast(message) {
-  const el = document.createElement("div");
+  const el = document.createElement("div"),
+    container = $("toast");
   el.className = "toast";
   el.textContent = message;
-  $("toast").append(el);
+  while (container.children.length >= 3) container.firstElementChild.remove();
+  container.append(el);
   setTimeout(() => el.remove(), 4500);
 }
 function chime() {
-  if (!settings.sound) return;
+  if (
+    !settings.sound ||
+    document.hidden ||
+    !navigator.userActivation?.hasBeenActive
+  )
+    return;
   try {
     audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
-    audioContext.resume();
+    audioContext.resume().catch(() => {});
     const o = audioContext.createOscillator(),
       g = audioContext.createGain();
     o.type = "sine";
@@ -73,6 +186,10 @@ function chime() {
     g.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
     o.connect(g);
     g.connect(audioContext.destination);
+    o.onended = () => {
+      o.disconnect();
+      g.disconnect();
+    };
     o.start();
     o.stop(audioContext.currentTime + 0.2);
   } catch {}
@@ -85,7 +202,9 @@ function applyTheme() {
     THEMES.find((t) => t.id === settings.theme)?.name || "Plum",
   );
   $("room-name").textContent =
-    LAYOUTS.find((l) => l.id === settings.layout)?.name || "The studio";
+    settings.room_name ||
+    LAYOUTS.find((l) => l.id === settings.layout)?.name ||
+    "The studio";
   labelButton(
     $("sound"),
     settings.sound ? "volume-2" : "volume-x",
@@ -96,9 +215,29 @@ function applyTheme() {
     "aria-label",
     settings.sound ? "Sound on" : "Sound off",
   );
+  if (!settings.sound) audioContext?.suspend().catch(() => {});
+  window.officeJukebox?.sync();
 }
 function updateScene() {
+  for (const agent of agents) {
+    agent.observed_label ??= agent.label || agent.id;
+    agent.label = settings.agent_names?.[agent.id] || agent.observed_label;
+  }
   scene.update(agents, settings, progress, focusedId, platFilter);
+  for (const button of $("room-actions").children) {
+    const black = button.dataset.activity === "Pet the black cat";
+    if (black || button.dataset.activity === "Pet the orange cat") {
+      button.disabled =
+        !settings.decorations ||
+        (black && !progress?.cosmetics?.includes("gitcat"));
+      button.title = !settings.decorations
+        ? "Show room decorations to visit your pets"
+        : black && button.disabled
+          ? "Unlock the second cat after 100 sessions and 50 tools"
+          : "Pet your office cat";
+    }
+  }
+  window.officeAquarium?.refresh();
 }
 function kv(rows) {
   return rows
@@ -168,13 +307,18 @@ function refreshPanel() {
     fillStats();
   }
   if (opened === "sheet-tasks") fillTasks();
-  if (opened === "sheet-events") fillEvents();
+  if (opened === "sheet-events") {
+    fillEvents();
+    if (eventMode === "history") loadHistory();
+  }
   if (opened === "sheet-inspector") fillInspector();
   if (opened === "sheet-unlocks") fillBadges();
   if (opened === "sheet-settings") fillSettings();
 }
 function fillSetup() {
   const runtime = $("setup-runtime").value;
+  $("setup-brand").replaceChildren(runtimeBadge({ platform: runtime }));
+  $("setup-codex-usage").hidden = runtime !== "codex";
   const details = {
     hermes:
       "The installer enables the pixel-office Hermes plugin. Restart Hermes and start a CLI session. If enable failed, run: hermes plugins enable pixel-office.",
@@ -184,6 +328,8 @@ function fillSetup() {
       "The installer adds the local bridge file URL to ~/.config/opencode/opencode.json and creates missing JSON settings. For an existing opencode.jsonc, follow the manual plugin entry printed by the installer; comments are preserved. Restart OpenCode and keep run.py running.",
     claude:
       "The installer adds observer hooks to ~/.claude/settings.json and creates missing settings. Rerun it after upgrading to add session, prompt, completion, and permission hooks. Existing unrelated hooks are preserved. Restart Claude Code and keep run.py running.",
+    codex:
+      "The installer detects an existing Codex installation and adds local observer commands to hooks.json in CODEX_HOME or ~/.codex. Restart Codex, then open /hooks to review and trust the new definitions. Keep run.py running. These synchronous hooks have a three-second timeout and report lifecycle activity; token usage is optional below.",
     vscode:
       "The installer copies the local extension. Reload VS Code and run Agent Office: Open Floor. Keep the observer running; if using a different port, update hermesPixelOffice.stateUrl to its /state URL.",
   };
@@ -208,9 +354,10 @@ $("setup-done").onclick = closeSheets;
 for (const button of document.querySelectorAll("[data-copy-command]")) {
   button.onclick = async () => {
     const command = $(button.dataset.copyCommand);
+    const commandText = command.textContent.trim().replace(/\s+/g, " ");
     try {
-      await navigator.clipboard.writeText(command.textContent);
-      $("setup-copy-status").textContent = "Copied: " + command.textContent;
+      await navigator.clipboard.writeText(commandText);
+      $("setup-copy-status").textContent = "Copied: " + commandText;
     } catch {
       const range = document.createRange();
       range.selectNodeContents(command);
@@ -267,6 +414,11 @@ function agentCard(a, existing) {
     button.querySelector(".agent-copy") || document.createElement("div");
   body.className = "agent-copy";
   body.innerHTML = `<strong>${escapeHTML(a.label || a.id)}</strong><small>${escapeHTML(platOf(a))} · ${escapeHTML(a.tool || a.detail || "Between tasks")}</small><small>${escapeHTML(duration(a.duration_s))}${a.parent ? " · subagent" : ""}</small>`;
+  const runtime = body.querySelector("small");
+  runtime.replaceChildren(
+    runtimeBadge(a),
+    document.createTextNode(" · " + (a.tool || a.detail || "Between tasks")),
+  );
   const status =
     button.querySelector(".status") || document.createElement("span");
   status.className =
@@ -391,9 +543,85 @@ function fillTasks() {
     box.closest(".sheet").querySelector(".close"),
   );
 }
+function usageValue(metrics, field) {
+  if (metrics?.overflow?.[field]) return "Amount too large";
+  const value = metrics?.[field];
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return "Not reported";
+  if (field !== "cost_usd") return value.toLocaleString();
+  if (value > 0 && value < 0.000001) return "<$0.000001";
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: value < 0.01 ? 6 : 4,
+  }).format(value);
+}
+function usageCoverage(metrics, field) {
+  const reports = Number(metrics?.reports) || 0,
+    known = Number(metrics?.coverage?.[field]) || 0;
+  if (!reports) return "No usage reports";
+  return known < reports
+    ? `${known.toLocaleString()} of ${reports.toLocaleString()} reports · partial coverage`
+    : `${reports.toLocaleString()} report${reports === 1 ? "" : "s"}`;
+}
+function usageSummary(metrics) {
+  const fields = [
+    ["input_tokens", "Input tokens"],
+    ["output_tokens", "Output tokens"],
+    ["total_tokens", "Total tokens"],
+    ["cost_usd", "Runtime cost estimate · USD"],
+  ];
+  const cards = fields
+    .map(
+      ([field, label]) =>
+        `<div class="usage-card"><span>${escapeHTML(label)}</span><strong>${escapeHTML(usageValue(metrics, field))}</strong><small>${escapeHTML(usageCoverage(metrics, field))}</small></div>`,
+    )
+    .join("");
+  const note = !metrics?.reports
+    ? "No usage reports yet. Tokens and cost appear only when your runtime reports them."
+    : "Amounts come from runtime usage reports. Partial coverage includes only reports that supplied that field; cost estimates may differ from billing.";
+  return `<div class="usage-grid">${cards}</div><p class="h usage-note">${escapeHTML(note)}</p>`;
+}
+function usageTable(rows, dimension) {
+  if (!rows?.length)
+    return `<p class="h">No ${dimension} usage reported yet.</p>`;
+  return `<div class="table-scroll"><table class="usage-table"><caption>By ${dimension}</caption><thead><tr><th scope="col">${dimension === "model" ? "Model / runtime" : "Runtime"}</th><th scope="col">Total tokens</th><th scope="col">Estimate · USD</th></tr></thead><tbody>${rows
+    .map((row) => {
+      const label =
+        dimension === "model"
+          ? `${row.model || "Model not reported"}${row.provider ? " · " + row.provider : ""} · ${row.platform || "Runtime not reported"}`
+          : row.platform || "Runtime not reported";
+      return `<tr><th scope="row">${escapeHTML(label)}</th><td>${escapeHTML(usageValue(row, "total_tokens"))}<small>${escapeHTML(usageCoverage(row, "total_tokens"))}</small></td><td>${escapeHTML(usageValue(row, "cost_usd"))}<small>${escapeHTML(usageCoverage(row, "cost_usd"))}</small></td></tr>`;
+    })
+    .join("")}</tbody></table></div>`;
+}
 function fillStats() {
   const s = progress?.stats || {},
     tools = s.tools || 0;
+  const usage = window._state?.usage || {};
+  syncBudget();
+  $("usagebox").innerHTML = usageSummary(usage.totals);
+  $("usage-breakdown").innerHTML =
+    usageTable(usage.by_model, "model") +
+    usageTable(usage.by_platform, "runtime") +
+    kv(
+      [
+        ["cached_input_tokens", "Cached input tokens"],
+        ["cache_write_tokens", "Cache write tokens"],
+        ["reasoning_output_tokens", "Reasoning output tokens"],
+      ].map(([field, label]) => [
+        label,
+        `${usageValue(usage.totals, field)} · ${usageCoverage(usage.totals, field)}`,
+      ]),
+    ) +
+    '<p class="h">Cache counts are included in input tokens; reasoning counts are included in output tokens.</p>';
+  for (const source of usage.totals?.cost_sources || []) {
+    const line = document.createElement("p");
+    line.className = "h";
+    line.textContent = `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} USD from ${Number(source.reports).toLocaleString()} reports.`;
+    $("usage-breakdown").append(line);
+  }
   const top =
     Object.entries(s.by_tool || {})
       .sort((a, b) => b[1] - a[1])
@@ -401,8 +629,8 @@ function fillStats() {
       .map(([k, v]) => k + " ×" + v)
       .join(", ") || "None yet";
   $("statbox").innerHTML = kv([
-    ["Sessions", s.sessions || 0],
-    ["Tool calls", tools],
+    ["Sessions observed", s.sessions || 0],
+    ["Tool starts", tools],
     ["Subagents", s.subagents || 0],
     ["Approvals", s.approvals || 0],
     [
@@ -420,9 +648,26 @@ function fillInspector() {
   const a = agents.find((a) => a.id === focusedId);
   const box = $("inspectorbox");
   if (!a) {
+    $("agent-name-form").hidden = true;
+    $("inspect-history").hidden = true;
     box.innerHTML = '<p class="h">This session has left the office.</p>';
     return;
   }
+  $("agent-name-form").hidden = false;
+  $("inspect-history").hidden = false;
+  const nameInput = $("agent-name-input");
+  const changedAgent = nameInput.dataset.agent !== a.id;
+  if (changedAgent) settingsDrafts.delete("agent-name-input");
+  if (
+    changedAgent ||
+    (!settingsDrafts.has("agent-name-input") &&
+      document.activeElement !== nameInput)
+  )
+    nameInput.value = settings.agent_names?.[a.id] || "";
+  if (changedAgent) $("agent-name-status").textContent = "";
+  nameInput.dataset.agent = a.id;
+  nameInput.placeholder = a.observed_label || a.id;
+  $("agent-name-reset").disabled = !settings.agent_names?.[a.id];
   box.innerHTML = kv([
     ["Agent", a.label || a.id],
     ["Runtime", platOf(a)],
@@ -434,6 +679,41 @@ function fillInspector() {
     ["Elapsed", duration(a.duration_s)],
     ["Since event", duration(a.idle_s)],
   ]);
+  box.prepend(runtimeBadge(a));
+  if (a.quiet) {
+    const note = document.createElement("p");
+    note.className = "waiting-note";
+    note.textContent =
+      "No new observation for " +
+      duration(a.idle_s) +
+      ". Last reported " +
+      (a.recorded_status || "activity") +
+      (a.last_tool ? " · " + a.last_tool : "") +
+      ". Check the original runtime; silence does not prove that the process is stuck or finished.";
+    box.append(note);
+  }
+  if (a.status === "waiting") {
+    const waiting = document.createElement("p");
+    waiting.className = "waiting-note";
+    waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}.`;
+    box.append(waiting);
+  }
+  const usageHeading = document.createElement("h3");
+  usageHeading.textContent = "This session’s reported usage";
+  const usageBox = document.createElement("div");
+  const usageRows = window._state?.usage?.by_session || [];
+  const platform = String(a.platform || "").toLowerCase();
+  const sessionUsage =
+    usageRows.find(
+      (row) => row.session_id === a.id && (row.platform || "") === platform,
+    ) ||
+    (["hermes", "telegram", "cli", "gateway", ""].includes(platform)
+      ? usageRows.find(
+          (row) => row.session_id === a.id && row.platform === "hermes",
+        )
+      : undefined);
+  usageBox.innerHTML = usageSummary(sessionUsage);
+  box.append(usageHeading, usageBox);
   const heading = document.createElement("h3");
   heading.textContent = "Recent session events";
   box.append(heading);
@@ -446,9 +726,62 @@ function fillInspector() {
     const p = document.createElement("p");
     p.className = "h";
     p.textContent =
-      "No events for this session in the current 30-event window.";
+      "No events for this session in the live window. Check saved activity for earlier events.";
     box.append(p);
   }
+}
+$("agent-name-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const id = focusedId;
+  if (!agents.some((a) => a.id === id)) return;
+  const submitted = { "agent-name-input": $("agent-name-input").value };
+  const names = { ...settings.agent_names },
+    name = submitted["agent-name-input"].trim();
+  if (name) names[id] = name;
+  else delete names[id];
+  if (Object.keys(names).length > 128) {
+    $("agent-name-status").textContent =
+      "This office already has 128 local names. Restore an existing name before adding another.";
+    return;
+  }
+  $("agent-name-save").disabled = true;
+  const saved = await updateSetting("agent_names", names);
+  $("agent-name-save").disabled = false;
+  if (focusedId === id) {
+    if (saved) acknowledgeDrafts(submitted);
+    $("agent-name-status").textContent = saved
+      ? name
+        ? "Local name saved."
+        : "Runtime name restored."
+      : "Name was not saved. Try again.";
+    fillInspector();
+  }
+};
+$("agent-name-reset").onclick = () => {
+  $("agent-name-input").value = "";
+  settingsDrafts.add("agent-name-input");
+  $("agent-name-form").requestSubmit();
+};
+$("inspect-history").onclick = () => {
+  const agent = agents.find((a) => a.id === focusedId);
+  if (!agent) return;
+  eventMode = "history";
+  eventSession = {
+    id: agent.id,
+    platform: canonicalRuntime(agent.platform),
+    label: agent.label || agent.id,
+  };
+  eventQuery = "";
+  eventRuntime = "every";
+  $("eventSearch").value = eventQuery;
+  $("event-runtime").value = eventRuntime;
+  openSheet("sheet-events");
+};
+function canonicalRuntime(platform) {
+  const runtime = String(platform || "").toLowerCase();
+  return ["hermes", "telegram", "cli", "gateway", ""].includes(runtime)
+    ? "hermes"
+    : runtime;
 }
 function eventText(e) {
   return [
@@ -473,29 +806,144 @@ function eventRow(e) {
   const row = document.createElement("div");
   row.className = "event";
   const when = new Date(Number(e.ts) * 1000);
-  row.innerHTML = `<header><strong>${escapeHTML(EVENT_NAMES[e.event] || String(e.event || "event").replaceAll("_", " "))}</strong><time>${escapeHTML(Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
+  const validTime = Number.isFinite(when.getTime());
+  row.innerHTML = `<header><strong>${escapeHTML(EVENT_NAMES[e.event] || String(e.event || "event").replaceAll("_", " "))}</strong><time${validTime ? ` datetime="${when.toISOString()}" title="${escapeHTML(when.toLocaleString())}"` : ""}>${escapeHTML(validTime ? (eventMode === "history" ? when.toLocaleDateString([], { month: "short", day: "numeric" }) + " · " : "") + when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "")}</time></header><p>${escapeHTML(eventText(e))}</p>`;
+  const identity = document.createElement("small");
+  identity.className = "event-identity";
+  identity.textContent = [e.platform, e.session_id || e.child_session_id]
+    .filter(Boolean)
+    .join(" · ");
+  if (identity.textContent) row.append(identity);
   return row;
+}
+async function loadHistory(force = false) {
+  if (historyLoading) return false;
+  if (!force && historyLoaded && Date.now() - historyLastLoaded < 5000)
+    return true;
+  const request = ++historyRequest;
+  const receivedAtRequest = Number(window._state?.tracking?.received) || 0;
+  historyLoading = true;
+  historyError = "";
+  fillEvents();
+  try {
+    const response = await fetch(`history?limit=${settings.history_limit}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error("History unavailable");
+    const data = await response.json();
+    if (!Array.isArray(data.events)) throw new Error("Invalid history");
+    if (request !== historyRequest) return false;
+    historyEvents = data.events;
+    historyLoaded = true;
+    historyLastLoaded = Date.now();
+    historyReceived = receivedAtRequest;
+    return true;
+  } catch {
+    if (request === historyRequest)
+      historyError = historyLoaded
+        ? "Could not refresh saved history. The last loaded events are still available."
+        : "Could not load saved history. Check the observer connection and try again.";
+    return false;
+  } finally {
+    if (request === historyRequest) {
+      historyLoading = false;
+      if (opened === "sheet-events") fillEvents();
+    }
+  }
 }
 function fillEvents() {
   const box = $("eventbox");
   box.replaceChildren();
   const q = eventQuery.trim().toLowerCase();
-  const events = (window._state?.events || [])
-    .filter((e) =>
+  const source =
+    eventMode === "history"
+      ? historyEvents
+      : (window._state?.events || []).slice().reverse();
+  const events = source.filter(
+    (e) =>
+      (!eventSession ||
+        ((e.session_id === eventSession.id ||
+          e.child_session_id === eventSession.id) &&
+          canonicalRuntime(e.platform) === eventSession.platform)) &&
+      (eventRuntime === "every" || platOf(e) === eventRuntime) &&
       [JSON.stringify(e), EVENT_NAMES[e.event], eventText(e)]
         .join(" ")
         .toLowerCase()
         .includes(q),
-    )
-    .slice()
-    .reverse();
-  for (const e of events) box.append(eventRow(e));
+  );
+  for (const e of events.slice(0, eventPageSize)) box.append(eventRow(e));
+  for (const button of $("event-tabs").children)
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.eventView === eventMode),
+    );
+  $("history-more").hidden = events.length <= eventPageSize;
+  $("clear-session-filter").hidden = !eventSession;
+  if (eventSession)
+    $("clear-session-filter").textContent =
+      `Session: ${eventSession.label} · Show all activity`;
+  $("refresh-history").disabled = historyLoading;
+  $("export-history").disabled = historyLoading;
+  $("history-status").textContent =
+    historyError && eventMode === "history"
+      ? historyError
+      : eventMode === "history"
+        ? `${historyLoading ? "Refreshing… " : ""}Showing ${Math.min(events.length, eventPageSize).toLocaleString()} of ${events.length.toLocaleString()} matching saved events. ${source.length.toLocaleString()} loaded; newest received first.`
+        : `${events.length} of ${source.length} recent events. Live activity updates automatically.`;
   if (!events.length)
-    box.innerHTML = '<p class="empty">No matching activity yet.</p>';
+    box.innerHTML = `<p class="empty">${eventMode === "history" && historyLoading ? "Loading saved activity…" : "No matching activity yet."}</p>`;
 }
 $("eventSearch").oninput = (e) => {
   eventQuery = e.target.value;
+  eventPageSize = 100;
   fillEvents();
+};
+$("event-runtime").onchange = (e) => {
+  eventRuntime = e.target.value;
+  eventSession = null;
+  eventPageSize = 100;
+  fillEvents();
+};
+$("clear-session-filter").onclick = () => {
+  eventSession = null;
+  eventPageSize = 100;
+  fillEvents();
+};
+for (const button of $("event-tabs").children)
+  button.onclick = () => {
+    eventMode = button.dataset.eventView;
+    eventPageSize = 100;
+    fillEvents();
+    if (eventMode === "history") loadHistory();
+  };
+$("refresh-history").onclick = () => {
+  eventMode = "history";
+  loadHistory(true);
+};
+$("history-more").onclick = () => {
+  eventPageSize += 100;
+  fillEvents();
+};
+$("export-history").onclick = async () => {
+  if (await loadHistory(true))
+    downloadBlob(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              version: 1,
+              exported_at: new Date().toISOString(),
+              events: historyEvents,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json" },
+      ),
+      "agent-office-history.json",
+    );
 };
 function fillBadges() {
   const catalog = progress?.catalog || [],
@@ -562,12 +1010,80 @@ for (const b of $("badge-tabs").querySelectorAll("button"))
       x.setAttribute("aria-pressed", String(x === b));
     fillBadges();
   };
+function syncAttention() {
+  const agent = agents.find((a) => a.id === attentionNotice?.id);
+  if (
+    !agent ||
+    (attentionNotice?.kind === "waiting" && agent.status !== "waiting")
+  )
+    attentionNotice = null;
+  $("attention").hidden = offline || !attentionNotice;
+  if (!attentionNotice) return;
+  $("attention-title").textContent =
+    `${window._state?.mode === "demo" ? "Demo · " : ""}${agent.label || agent.id}${attentionNotice.kind === "waiting" ? " needs input" : " reported an error"}`;
+  $("attention-detail").textContent =
+    attentionNotice.kind === "waiting"
+      ? `${agent.detail || "A response is waiting"} · Respond in ${runtimeName(agent)}.`
+      : attentionNotice.detail;
+}
+function updateAttention(state, previousState) {
+  const events = state.events || [],
+    received = state.tracking?.received,
+    previousReceived = previousState?.tracking?.received;
+  let fresh = [],
+    notify = false;
+  if (initialized) {
+    if (Number.isFinite(received) && Number.isFinite(previousReceived)) {
+      const count = received - previousReceived;
+      if (count > 0) fresh = events.slice(-Math.min(count, events.length));
+    } else
+      fresh = events.filter(
+        (event) =>
+          !seenAttention.has(JSON.stringify(event)) &&
+          Number(event.ts) >= Number(previousState?.ts || 0),
+      );
+  }
+  for (const event of events) seenAttention.add(JSON.stringify(event));
+  while (seenAttention.size > 256)
+    seenAttention.delete(seenAttention.values().next().value);
+  for (const event of fresh) {
+    const id = String(event.session_id || event.child_session_id || ""),
+      agent = agents.find((a) => a.id === id);
+    if (!agent) continue;
+    if (
+      ["approval_request", "input_request"].includes(event.event) &&
+      agent.status === "waiting"
+    )
+      attentionNotice = { id, kind: "waiting" };
+    else if (
+      event.event === "session_error" ||
+      (event.event === "tool_end" && event.status === "error")
+    )
+      attentionNotice = {
+        id,
+        kind: "error",
+        detail:
+          event.error_message || "Inspect the recorded event for details.",
+      };
+    else continue;
+    notify = true;
+  }
+  if (notify) chime();
+  syncAttention();
+}
+$("attention-dismiss").onclick = () => {
+  attentionNotice = null;
+  syncAttention();
+};
+$("attention-inspect").onclick = () => {
+  if (attentionNotice) selectAgent(attentionNotice.id);
+};
 function applyState(state, pollRevision = settingsRevision) {
   if (!state || !Array.isArray(state.agents) || !Array.isArray(state.events))
     throw new Error("Invalid office state");
+  const previousState = window._state;
   window._state = state;
   offline = false;
-  const previous = new Map(agents.map((a) => [a.id, a.status]));
   agents = state.agents;
   progress = state.progress || null;
   if (state.settings && !pendingSaves && pollRevision === settingsRevision) {
@@ -577,6 +1093,7 @@ function applyState(state, pollRevision = settingsRevision) {
   applyTheme();
   updateScene();
   if (typeof reconcileFurniture === "function") reconcileFurniture();
+  if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   document.body.classList.remove("offline");
   $("connection").textContent = "Connected";
   $("mode").hidden = state.mode !== "demo";
@@ -591,6 +1108,7 @@ function applyState(state, pollRevision = settingsRevision) {
   $("waiting-count").hidden = !w;
   if (opened === "sheet-setup") fillSetup();
   syncEmptyState();
+  syncHealth();
   const xp = progress?.xp || 0,
     rank = progress?.rank || "intern";
   $("rank").textContent = rank + " · " + xp + " XP";
@@ -604,26 +1122,23 @@ function applyState(state, pollRevision = settingsRevision) {
       ? 100
       : 0;
   $("xpfill").style.width = pct + "%";
+  const newUnlocks = [];
   for (const u of progress?.recent || []) {
     if (!seenUnlocks.has(u.id)) {
       seenUnlocks.add(u.id);
-      if (initialized) {
-        toast("Achievement earned: " + u.name);
-        chime();
-      }
+      if (initialized) newUnlocks.push(u);
     }
   }
-  const newlyWaiting = agents.filter(
-    (a) => a.status === "waiting" && previous.get(a.id) !== "waiting",
-  );
-  if (initialized && newlyWaiting.length) {
-    chime();
+  if (newUnlocks.length) {
     toast(
-      newlyWaiting.length === 1
-        ? `${newlyWaiting[0].label || newlyWaiting[0].id} needs input. Use the button above the floor; respond in the original runtime.`
-        : `${newlyWaiting.length} agents need input. Use the button above the floor; respond in their original runtimes.`,
+      newUnlocks.length === 1
+        ? "Achievement earned: " + newUnlocks[0].name
+        : newUnlocks.length +
+            " achievements earned. Open Achievements to see your rewards.",
     );
+    chime();
   }
+  updateAttention(state, previousState);
   const last = state.events.at(-1);
   $("latest-event").textContent = last
     ? eventText(last)
@@ -636,8 +1151,14 @@ function applyState(state, pollRevision = settingsRevision) {
   if (opened === "sheet-floor") {
     fillRoster();
     fillStats();
-  } else if (opened === "sheet-events") fillEvents();
-  else if (opened === "sheet-inspector") fillInspector();
+  } else if (opened === "sheet-events") {
+    fillEvents();
+    if (
+      eventMode === "history" &&
+      (!historyLoaded || Number(state.tracking?.received) !== historyReceived)
+    )
+      loadHistory();
+  } else if (opened === "sheet-inspector") fillInspector();
   else if (opened === "sheet-tasks") fillTasks();
   else if (opened === "sheet-unlocks") fillBadges();
   const signature = JSON.stringify(settings) + haveUnlock("layout_bullpen");
@@ -646,6 +1167,8 @@ function applyState(state, pollRevision = settingsRevision) {
     fillSettings();
   }
   initialized = true;
+  fillTrackingStatus();
+  syncBudget();
 }
 async function poll() {
   const revision = settingsRevision;
@@ -658,6 +1181,8 @@ async function poll() {
     applyState(await r.json(), revision);
   } catch {
     offline = true;
+    syncAttention();
+    syncHealth();
     if (opened === "sheet-setup") fillSetup();
     document.body.classList.add("offline");
     $("connection").textContent = "Reconnecting";
@@ -741,7 +1266,186 @@ function segmented(label, key, options) {
   row.append(title, seg);
   return row;
 }
+function fillTrackingStatus() {
+  const tracking = window._state?.tracking;
+  if (!tracking) {
+    $("tracking-status").textContent =
+      "Connect the observer to view stored activity.";
+    return;
+  }
+  const sizes = [];
+  for (const [key, label] of [
+    ["retained_bytes", "event history"],
+    ["database_bytes", "database file"],
+  ]) {
+    const bytes = tracking[key];
+    if (typeof bytes !== "number" || !Number.isFinite(bytes)) continue;
+    const size =
+      bytes >= 1048576
+        ? `${(bytes / 1048576).toFixed(1)} MiB`
+        : bytes >= 1024
+          ? `${(bytes / 1024).toFixed(1)} KiB`
+          : `${bytes.toLocaleString()} B`;
+    sizes.push(`${size} ${label}`);
+  }
+  $("tracking-status").textContent =
+    `${Number(tracking.retained || 0).toLocaleString()} saved events${sizes.length ? " · " + sizes.join(" · ") : ""}. ${Number(tracking.received || 0).toLocaleString()} received in total.${tracking.backlog ? " " + Number(tracking.backlog).toLocaleString() + " events are waiting to be processed." : ""}${tracking.invalid_records ? " " + Number(tracking.invalid_records).toLocaleString() + " unreadable records were skipped." : ""}`;
+}
+function syncHealth() {
+  const quiet = agents.find((agent) => agent.quiet),
+    tracking = window._state?.tracking || {};
+  const storage =
+    tracking.backlog > 0 ||
+    tracking.invalid_records > 0 ||
+    tracking.retained_bytes >= settings.history_max_bytes * 0.9;
+  const button = $("health-alert");
+  button.hidden = offline || (!quiet && !storage);
+  button.textContent = quiet ? "Check quiet agent" : "Check event storage";
+  button.title = quiet
+    ? (quiet.label || quiet.id) +
+      " has not reported for " +
+      duration(quiet.idle_s)
+    : "Inspect backlog, unreadable records and history retention in Customize";
+  button.onclick = quiet
+    ? () => selectAgent(quiet.id)
+    : () => openSheet("sheet-settings");
+}
+function syncBudget() {
+  const totals = window._state?.usage?.totals,
+    budget = Number(settings.budget_usd),
+    cost = totals?.cost_usd,
+    reached =
+      budget > 0 &&
+      typeof cost === "number" &&
+      Number.isFinite(cost) &&
+      cost >= budget;
+  $("budget-alert").hidden = !reached;
+  $("budget-warning").hidden = !reached;
+  if (!reached) return;
+  const message = `Reported runtime cost ${usageValue(totals, "cost_usd")} has reached your ${usageValue({ cost_usd: budget }, "cost_usd")} USD alert threshold. ${usageCoverage(totals, "cost_usd")}. Runtime estimates may differ from billing.`;
+  $("budget-warning").textContent = message;
+  $("budget-alert").title = message;
+  $("budget-alert").textContent =
+    "Usage alert · " + usageValue(totals, "cost_usd");
+}
+$("budget-alert").onclick = () => openSheet("sheet-floor");
+$("budget-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const submitted = { "budget-input": $("budget-input").value };
+  const amount = Number(submitted["budget-input"]);
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1000000000) return;
+  const saved = await updateSetting("budget_usd", amount);
+  if (saved) acknowledgeDrafts(submitted);
+  fillSettings();
+  syncBudget();
+  if (saved) toast(amount ? "Usage alert saved." : "Usage alert turned off.");
+};
+$("pet-name-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const submitted = {
+    "pet-cat1-name": $("pet-cat1-name").value,
+    "pet-cat2-name": $("pet-cat2-name").value,
+  };
+  const names = Object.fromEntries(
+    [
+      ["cat1", submitted["pet-cat1-name"].trim()],
+      ["cat2", submitted["pet-cat2-name"].trim()],
+    ].filter(([, name]) => name),
+  );
+  if (await updateSetting("pet_names", names)) {
+    acknowledgeDrafts(submitted);
+    fillSettings();
+    toast("Pet names saved.");
+  }
+};
+$("room-name-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const submitted = { "room-name-input": $("room-name-input").value };
+  $("room-name-save").disabled = true;
+  const saved = await updateSetting("room_name", submitted["room-name-input"]);
+  $("room-name-save").disabled = false;
+  if (saved) {
+    acknowledgeDrafts(submitted);
+    fillSettings();
+    toast(settings.room_name ? "Office name saved." : "Layout name restored.");
+  }
+};
+$("clear-history").onclick = async () => {
+  if (
+    !confirm(
+      "Clear saved event history? XP, reported usage, current agents and unanswered requests will stay.",
+    )
+  )
+    return;
+  $("clear-history").disabled = true;
+  try {
+    const response = await fetch("history", {
+      method: "DELETE",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error("Clear failed");
+    historyRequest++;
+    historyLoading = false;
+    historyLoaded = true;
+    historyEvents = [];
+    historyError = "";
+    if (window._state) {
+      window._state.events = [];
+      if (window._state.tracking) {
+        window._state.tracking.retained = 0;
+        window._state.tracking.retained_bytes = 0;
+      }
+    }
+    $("storage-status").textContent =
+      "Saved history cleared. XP, usage totals and current sessions are intact.";
+    $("latest-event").textContent =
+      "History cleared. Waiting for new activity…";
+    fillTrackingStatus();
+    fillEvents();
+  } catch {
+    $("storage-status").textContent =
+      "Could not clear history. Check the observer connection and try again.";
+  } finally {
+    $("clear-history").disabled = false;
+  }
+};
 function fillSettings() {
+  for (const [id, value] of [
+    ["pet-cat1-name", settings.pet_names?.cat1 || ""],
+    ["pet-cat2-name", settings.pet_names?.cat2 || ""],
+    ["budget-input", settings.budget_usd || 0],
+    ["room-name-input", settings.room_name || ""],
+  ])
+    if (!settingsDrafts.has(id) && document.activeElement !== $(id))
+      $(id).value = value;
+  const retention = $("history-settings");
+  if (!retention.children.length)
+    retention.append(
+      segmented("Maximum events", "history_limit", [
+        [250, "250"],
+        [1000, "1,000"],
+        [5000, "5,000"],
+      ]),
+      segmented("Maximum age", "history_days", [
+        [1, "1 day"],
+        [7, "7 days"],
+        [30, "30 days"],
+      ]),
+      segmented("Maximum history size", "history_max_bytes", [
+        [1048576, "1 MiB"],
+        [5242880, "5 MiB"],
+        [20971520, "20 MiB"],
+      ]),
+    );
+  for (const button of retention.querySelectorAll("[data-setting]"))
+    button.setAttribute(
+      "aria-pressed",
+      String(
+        settings[button.dataset.setting] === JSON.parse(button.dataset.value),
+      ),
+    );
+  fillTrackingStatus();
+  syncBudget();
   const layout = $("layoutbox");
   if (!layout.children.length)
     for (const l of LAYOUTS) {
@@ -837,7 +1541,7 @@ $("exportTrack").onclick = () => {
 $("resetbtn").onclick = async () => {
   if (
     !confirm(
-      "Reset all XP, achievements and event history? This cannot be undone. Your room settings will stay.",
+      "Reset all XP, achievements, reported usage and event history? This cannot be undone. Your room settings will stay.",
     )
   )
     return;
@@ -884,6 +1588,7 @@ function syncPause() {
     scene.paused ? "Resume motion" : "Pause motion",
   );
   $("pausebtn").setAttribute("aria-pressed", String(scene.paused));
+  window.officeJukebox?.sync();
 }
 $("capturebtn").onclick = () => scene.snapshot();
 $("legendbox").innerHTML = kv([
@@ -968,6 +1673,10 @@ for (const [id, name] of Object.entries({
   "delete-furniture": "trash-2",
   "catalog-furniture": "plus",
   "finish-furniture": "check",
+  "export-history": "download",
+  "refresh-history": "redo-2",
+  "inspect-history": "activity",
+  "clear-history": "trash-2",
 }))
   $(id).prepend(icon(name));
 labelButton($("helpbtn"), "circle-help", "Help");
