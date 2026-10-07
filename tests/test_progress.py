@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import progress
+
 from progress import (  # noqa: E402
     apply_live,
     ingest,
@@ -20,6 +23,50 @@ from progress import (  # noqa: E402
     save,
     snapshot,
 )
+
+
+def test_new_batch_does_not_serialize_or_retain_event_bodies(monkeypatch):
+    data = progress._empty()
+    data["last_ts"] = 200
+    data["last_ts_counts"] = {"old event body": 99}
+    def unexpected_serialization(*args, **kwargs):
+        raise AssertionError("receipt ingestion must not serialize an event identity")
+    monkeypatch.setattr(progress.json, "dumps", unexpected_serialization)
+    progress.ingest(data, [
+        {"event": "tool_start", "ts": 100, "tool_name": "Read", "preview": "x" * 200000},
+        {"event": "tool_start", "ts": 201, "tool_name": "Read", "preview": "x" * 200000},
+    ], new_batch=True)
+    assert data["stats"]["tools"] == 2
+    assert data["last_ts"] == 201
+    assert data["last_ts_counts"] == {}
+
+
+def test_empty_new_batch_clears_obsolete_boundary_bodies_without_changing_totals():
+    data = progress._empty()
+    data["last_ts"] = 200
+    data["last_ts_counts"] = {"old event body": 99}
+    progress.ingest(data, [], new_batch=True)
+    assert data["stats"]["tools"] == 0 and data["xp"] == 0
+    assert data["last_ts"] == 200 and data["last_ts_counts"] == {}
+
+
+def test_unrepresentable_source_clock_counts_work_without_clock_based_badges():
+    data = progress._empty()
+    progress.ingest(data, [
+        {"event": "session_start", "ts": 1e300, "session_id": "bad-clock"},
+        {"event": "tool_start", "ts": 1000, "session_id": "healthy", "tool_name": "Read"},
+    ], new_batch=True)
+    assert data["stats"]["sessions"] == 1 and data["stats"]["tools"] == 1
+    assert "first_shift" in data["unlocks"]
+    assert "night_owl" not in data["unlocks"] and "early_bird" not in data["unlocks"]
+
+
+def test_malformed_source_timestamps_do_not_poison_following_progress_events():
+    data = progress._empty()
+    events = [{"event": "session_start", "ts": value} for value in (float("nan"), float("inf"), 10 ** 400, "invalid")]
+    events.append({"event": "tool_start", "ts": 1000, "tool_name": "Read"})
+    progress.ingest(data, events, new_batch=True)
+    assert data["stats"]["sessions"] == 0 and data["stats"]["tools"] == 1
 
 
 def test_rank_ladder():
@@ -99,8 +146,132 @@ def test_snapshot_catalog_flags():
 
 def test_catalog_exposes_xp_and_only_real_room_rewards():
     catalog = snapshot(load(Path("/nope")))["catalog"]
-    assert sum(bool(c["reward"]) for c in catalog) == 8
+    assert sum(bool(c["reward"]) for c in catalog) == 12
     fish = next(c for c in catalog if c["id"] == "pet_fish")
     assert fish["reward"] == "Lounge aquarium"
     assert fish["xp"] == 20
     assert all(isinstance(c["xp"], int) and c["xp"] >= 0 for c in catalog)
+
+
+def test_normalize_achievements_preserves_current_rewards_and_earned_totals():
+    data = progress._empty()
+    data.update(xp=80, last_ts=14, last_ts_counts=None)
+    data["stats"].update(tools=3, custom_counter=12)
+    data["unlocks"] = {
+        "architect": {"at": 1, "name": "Architect"},
+        "future_or_removed_badge": {"at": 2, "name": "Old badge"},
+        **{badge["id"]: {"at": 3, "name": "Old label", "unused": True}
+           for badge in progress.CATALOG},
+    }
+    data["recent"] = [
+        {"id": "architect", "at": 1, "name": "Architect"},
+        {"id": "future_or_removed_badge", "at": 2},
+        {"id": "codex_desk", "at": 3, "name": "Old label", "hint": "Old hint", "unused": True},
+    ]
+    expected_stats = deepcopy(data["stats"])
+    assert progress.normalize_achievements(data) is True
+    assert set(data["unlocks"]) == {badge["id"] for badge in progress.CATALOG}
+    codex = next(badge for badge in progress.CATALOG if badge["id"] == "codex_desk")
+    assert data["unlocks"]["codex_desk"] == {"at": 3, "name": codex["name"]}
+    assert data["recent"] == [{"id": "codex_desk", "at": 3,
+                              "name": codex["name"], "hint": codex["hint"]}]
+    assert data["xp"] == 80 and data["stats"] == expected_stats
+    assert data["last_ts"] == 14 and data["last_ts_counts"] is None
+    assert progress.normalize_achievements(data) is False
+
+
+def test_save_and_snapshot_filter_retired_records_without_mutating_the_input(tmp_path):
+    data = progress._empty()
+    data["xp"] = 80
+    data["unlocks"] = {"architect": {"at": 1, "name": "Architect"}}
+    data["recent"] = [{"id": "architect", "at": 1, "name": "Architect"}]
+    original = deepcopy(data)
+    snap = snapshot(data)
+    assert snap["unlocks"] == [] and snap["recent"] == []
+    assert snap["xp"] == 80
+    path = tmp_path / "progress.json"
+    save(path, data)
+    saved = json.loads(path.read_text())
+    assert saved["xp"] == 80
+    assert saved["unlocks"] == {} and saved["recent"] == []
+    assert data == original
+
+
+def test_malformed_and_duplicate_recent_records_do_not_invent_or_erase_unlocks():
+    data = progress._empty()
+    data["xp"] = 80
+    data["unlocks"] = {"first_shift": {"at": 1}, "pet_fish": None}
+    data["recent"] = [None, "old", {"id": ["invalid"]},
+                      {"id": "architect"}, {"id": "reader"},
+                      {"id": "first_shift", "at": 1},
+                      {"id": "first_shift", "at": 1},
+                      {"id": "pet_fish", "at": None}]
+    progress.normalize_achievements(data)
+    assert data["xp"] == 80
+    assert set(data["unlocks"]) == {"first_shift", "pet_fish"}
+    assert data["unlocks"]["pet_fish"]["at"] is None
+    assert [item["id"] for item in data["recent"]] == ["first_shift", "pet_fish"]
+    assert "fish_tank" in snapshot(data)["cosmetics"]
+
+
+@pytest.mark.parametrize("platforms", [
+    ["cli", "telegram", "gateway", "hermes"],
+    ["claude", "claude-code", "claude_code", "Claude Code"],
+    ["codex", "codex-cli", "codex_cli", "Codex CLI"],
+])
+def test_runtime_aliases_count_as_one_runtime_without_changing_platform_statistics(platforms):
+    data = progress._empty()
+    ingest(data, [{"event": "session_start", "platform": platform, "ts": 1}
+                  for platform in platforms], new_batch=True)
+    assert "polyglot" not in data["unlocks"]
+    polyglot = next(item for item in snapshot(data)["catalog"] if item["id"] == "polyglot")
+    assert polyglot["progress"] == 33
+    assert data["stats"]["platforms"] == sorted(platforms)
+    assert data["stats"]["by_platform"] == {platform: 1 for platform in platforms}
+
+
+def test_runtime_achievement_aliases_match_their_displayed_progress():
+    data = progress._empty()
+    ingest(data, [{"event": "session_start", "platform": platform, "ts": 1}
+                  for platform in ("gateway", "opencode", "Claude Code", "Codex CLI")],
+           new_batch=True)
+    badges = {"two_houses", "three_houses", "polyglot", "claude_desk", "codex_desk"}
+    assert badges <= data["unlocks"].keys()
+    assert all(item["progress"] == 100 and item["have"]
+               for item in snapshot(data)["catalog"] if item["id"] in badges)
+
+
+def test_runtime_alias_fix_preserves_an_already_earned_badge_and_xp():
+    data = progress._empty()
+    data["xp"] = 80
+    data["stats"]["platforms"] = ["cli", "gateway", "telegram"]
+    data["unlocks"]["polyglot"] = {"at": 5, "name": "Polyglot"}
+    ingest(data, [], new_batch=True)
+    assert data["xp"] == 80
+    assert data["unlocks"]["polyglot"]["at"] == 5
+
+
+def test_every_declared_achievement_has_a_reachable_condition():
+    data = progress._empty()
+    night = time.mktime((2026, 1, 15, 1, 0, 0, 0, 0, -1))
+    morning = time.mktime((2026, 1, 15, 6, 0, 0, 0, 0, -1))
+    platforms = ("cli", "opencode", "claude", "codex", "telegram")
+    tools = ("read_file", "search_files", "Read", "write_file", "Edit",
+             "web_search", "WebFetch", "terminal", "Bash", "custom")
+    events = [{"event": "session_start", "platform": platforms[i % len(platforms)],
+               "ts": night if i % 2 else morning} for i in range(100)]
+    events.extend({"event": "tool_start", "tool_name": tools[i % len(tools)], "ts": morning}
+                  for i in range(10000))
+    events.extend({"event": "subagent_start", "ts": morning} for _ in range(10))
+    events.extend({"event": "tool_end", "status": "error", "ts": morning} for _ in range(10))
+    events.append({"event": "approval_request", "ts": morning})
+    # EventStore supplies the deduplicated ledger count, checked separately in
+    # test_usage_duplicate_correction_prune_and_reset_share_event_transaction.
+    data["stats"]["usage_reports"] = 1
+    ingest(data, events, new_batch=True)
+    apply_live(data, 5)
+    for _ in range(5):
+        progress.record_theme_switch_data(data)
+    assert set(data["unlocks"]) == {badge["id"] for badge in progress.CATALOG}
+    assert all(badge["have"] and badge["progress"] == 100
+               for badge in snapshot(data)["catalog"])

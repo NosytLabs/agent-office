@@ -50,3 +50,19 @@ def test_identical_timestamp_events_append_once_beyond_a_large_history(tmp_path,
     assert second["progress"]["stats"]["tools"] == first["progress"]["stats"]["tools"] + 1
     assert second["progress"]["stats"]["tools"] == 7001
     assert plugin.build_state()["progress"]["xp"] == second["progress"]["xp"]
+
+
+def test_late_timestamp_append_counts_once_across_polls_and_restart(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
+    monkeypatch.setattr(plugin.time, "time", lambda: 1000.0)
+    path = tmp_path / "events.jsonl"
+    first = {"ts": 990.2, "event": "tool_start", "session_id": "a", "tool_name": "Read"}
+    late = {"ts": 990.1, "event": "tool_start", "session_id": "b", "tool_name": "Write"}
+    path.write_text(json.dumps(first) + "\n")
+    assert plugin.build_state()["progress"]["stats"]["tools"] == 1
+    with path.open("a") as handle:
+        handle.write(json.dumps(late) + "\n")
+    second = plugin.build_state()
+    assert second["progress"]["stats"]["tools"] == 2
+    monkeypatch.setattr(plugin, "_event_cache", None)
+    assert plugin.build_state()["progress"]["xp"] == second["progress"]["xp"]

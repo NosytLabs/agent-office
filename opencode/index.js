@@ -1,9 +1,19 @@
 /**
  * Observer-only: map OpenCode session/tool events onto Hermes Pixel Office
- * (~/.hermes/pixel-office/events.jsonl). Same format the office folds.
+ * (~/.hermes/pixel-office/inbox). Each complete event is published atomically.
  * Never throws into the OpenCode loop.
  */
-import { appendFileSync, mkdirSync } from "node:fs";
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -11,7 +21,10 @@ const OFFICE_DIR = join(
   process.env.HERMES_HOME || join(homedir(), ".hermes"),
   "pixel-office",
 );
-const EVENTS = join(OFFICE_DIR, "events.jsonl");
+const INBOX = join(OFFICE_DIR, "inbox");
+const WRITER_ID = randomUUID().replaceAll("-", "");
+let sequence = 0;
+let lastCreatedNs = 0n;
 const ACTIVITY = {
   bash: "running",
   terminal: "running",
@@ -30,17 +43,75 @@ const ACTIVITY = {
 };
 
 function publish(event) {
+  let descriptor;
+  let temporary;
   try {
-    mkdirSync(OFFICE_DIR, { recursive: true });
-    const line = JSON.stringify({
+    mkdirSync(INBOX, { recursive: true });
+    let epoch;
+    try {
+      epoch =
+        readFileSync(join(OFFICE_DIR, "event-epoch"), "utf8").trim() ||
+        "initial";
+      if (epoch.startsWith("{")) {
+        const intent = JSON.parse(epoch);
+        if (
+          intent.version !== 1 ||
+          intent.reset !== true ||
+          typeof intent.epoch !== "string" ||
+          !intent.epoch
+        )
+          throw new Error("Invalid office reset intent");
+        epoch = intent.epoch;
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      epoch = "initial";
+    }
+    const nowNs = BigInt(Date.now()) * 1000000n;
+    const createdNs = nowNs > lastCreatedNs ? nowNs : lastCreatedNs + 1n;
+    lastCreatedNs = createdNs;
+    sequence += 1;
+    const filename = `${createdNs.toString().padStart(20, "0")}-${WRITER_ID}-${String(sequence).padStart(12, "0")}.json`;
+    const payload = {
       ts: Date.now() / 1000,
       pid: process.pid,
       platform: "opencode",
       ...event,
-    });
-    appendFileSync(EVENTS, line + "\n", "utf8");
+    };
+    const line =
+      JSON.stringify({
+        version: 1,
+        epoch,
+        created_ns: createdNs.toString(),
+        writer_id: WRITER_ID,
+        sequence,
+        event: payload,
+      }) + "\n";
+    temporary = join(INBOX, "." + filename + ".tmp");
+    descriptor = openSync(temporary, "wx", 0o600);
+    writeFileSync(descriptor, line, "utf8");
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    renameSync(temporary, join(INBOX, filename));
+    temporary = undefined;
   } catch {
     /* never break opencode */
+  } finally {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        /* best effort */
+      }
+    }
+    if (temporary) {
+      try {
+        unlinkSync(temporary);
+      } catch {
+        /* only unpublished temporary data */
+      }
+    }
   }
 }
 
@@ -60,6 +131,41 @@ function preview(args) {
     if (args[k]) return String(args[k]).replace(/\n/g, " ").slice(0, 60);
   }
   return "";
+}
+
+function usageSnapshot(info) {
+  const tokens = info.tokens || {};
+  const count = (value) => Number.isSafeInteger(value) && value >= 0;
+  const sum = (...values) =>
+    values.every(count) && count(values.reduce((a, b) => a + b, 0))
+      ? values.reduce((a, b) => a + b, 0)
+      : undefined;
+  const fields = {
+    // OpenCode's buckets are disjoint; the office totals are inclusive.
+    input_tokens: sum(tokens.input, tokens.cache?.read, tokens.cache?.write),
+    output_tokens: sum(tokens.output, tokens.reasoning),
+    cached_input_tokens: tokens.cache?.read,
+    cache_write_tokens: tokens.cache?.write,
+    reasoning_output_tokens: tokens.reasoning,
+  };
+  fields.total_tokens = count(tokens.total)
+    ? tokens.total
+    : sum(fields.input_tokens, fields.output_tokens);
+  const event = {
+    event: "usage",
+    session_id: info.sessionID,
+    usage_id: info.id,
+    usage_scope: "assistant_message",
+    model: info.modelID,
+    provider: info.providerID,
+  };
+  for (const [name, value] of Object.entries(fields))
+    if (count(value)) event[name] = value;
+  if (Number.isFinite(info.cost) && info.cost >= 0) {
+    event.cost_usd = info.cost;
+    event.cost_source = "opencode_runtime_estimate";
+  }
+  return event;
 }
 
 export const PixelOfficeBridge = async () => {
@@ -103,6 +209,7 @@ export const PixelOfficeBridge = async () => {
           data.sessionID ||
           data.sessionId ||
           data.part?.sessionID ||
+          data.info?.sessionID ||
           data.info?.id ||
           (type.startsWith("session.") ? data.id : "") ||
           "";
@@ -151,6 +258,20 @@ export const PixelOfficeBridge = async () => {
                 "session error",
             ).slice(0, 80),
           });
+        } else if (type === "message.updated") {
+          const info = data.info;
+          if (
+            info?.role === "assistant" &&
+            typeof info.id === "string" &&
+            info.id &&
+            typeof info.sessionID === "string" &&
+            info.sessionID &&
+            Number.isFinite(info.time?.completed)
+          ) {
+            // Each update replaces this message's usage in the durable ledger.
+            // Step-finish parts are deliberately not a second accounting source.
+            publish(usageSnapshot(info));
+          }
         } else if (type === "message.part.updated") {
           const part = data.part;
           if (

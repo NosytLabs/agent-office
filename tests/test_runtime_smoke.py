@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
@@ -46,6 +47,17 @@ def test_standalone_tracks_hook_lifecycle_and_serves_new_props(tmp_path):
         else:
             raise AssertionError("standalone server did not start")
         hook("SessionStart")
+        # Observe the database without asking HTTP /state to trigger ingestion.
+        # The standalone server must drain an inbox even with no open browser.
+        deadline = time.monotonic() + 4
+        while time.monotonic() < deadline:
+            with sqlite3.connect(tmp_path / "pixel-office" / "office.sqlite3") as db:
+                received = db.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+            if received == 1:
+                break
+            time.sleep(0.05)
+        else:
+            raise AssertionError("server did not drain background inbox")
         hook("PreToolUse", tool_name="Write", tool_use_id="write", tool_input={"file_path": "app.py"})
         assert state()["agents"][0]["activity"] == "typing"
         hook("PermissionRequest", tool_name="Write", tool_use_id="write", tool_input={"file_path": "app.py"})

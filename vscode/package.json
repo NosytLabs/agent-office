@@ -1,8 +1,8 @@
 {
   "name": "agent-office",
   "displayName": "Agent Office",
-  "description": "Pixel floor for Hermes, OpenCode, Claude Code, and Telegram — one office, real usage stats, badges.",
-  "version": "0.3.0",
+  "description": "Observe Hermes, OpenCode, Claude Code, Codex, and Telegram in a local pixel office with real usage and earned rewards.",
+  "version": "0.5.0",
   "publisher": "nosytlabs",
   "license": "MIT",
   "repository": {
@@ -17,6 +17,22 @@
     "Other"
   ],
   "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "scripts": {
+    "package": "npx --yes @vscode/vsce@4.0.0 package --no-dependencies"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Observes the configured server without running workspace code. Workspace-specific connection and startup settings require trust.",
+      "restrictedConfigurations": [
+        "hermesPixelOffice.stateUrl",
+        "hermesPixelOffice.openOnStartup"
+      ]
+    }
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -25,6 +41,18 @@
       {
         "command": "hermesPixelOffice.open",
         "title": "Agent Office: Open Floor"
+      },
+      {
+        "command": "hermesPixelOffice.reload",
+        "title": "Agent Office: Reload Connection"
+      },
+      {
+        "command": "hermesPixelOffice.openInBrowser",
+        "title": "Agent Office: Open in Browser"
+      },
+      {
+        "command": "hermesPixelOffice.settings",
+        "title": "Agent Office: Connection Settings"
       }
     ],
     "configuration": {
@@ -33,12 +61,17 @@
         "hermesPixelOffice.stateUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8113/state",
-          "description": "URL of the Agent Office /state endpoint."
+          "description": "HTTP(S) URL of the Agent Office /state endpoint, reachable from this extension host. SSH/WSL/container users should run the observer in that environment. Embedded usernames/passwords are not supported."
         },
         "hermesPixelOffice.openOnStartup": {
           "type": "boolean",
           "default": false,
-          "description": "Open the floor when VS Code starts."
+          "description": "Open the floor when VS Code starts. Enabling this setting also opens it now."
+        },
+        "hermesPixelOffice.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Agent Office shortcut in the status bar."
         }
       }
     }
@@ -47,6 +80,7 @@
     "hermes",
     "opencode",
     "claude",
+    "codex",
     "agents",
     "pixel art",
     "office"

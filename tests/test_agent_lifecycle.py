@@ -225,7 +225,7 @@ def test_rejected_question_clears_its_blocked_tool(folded):
     assert (agent["status"], agent["tool"], agent["activity"]) == ("thinking", "", "")
 
 
-@pytest.mark.parametrize("ending,status", [("session_idle", "idle"), ("session_end", "gone"), ("subagent_stop", "done")])
+@pytest.mark.parametrize("ending,status", [("session_idle", "done"), ("session_end", "gone"), ("subagent_stop", "done")])
 def test_delayed_tool_completion_cannot_resurrect_an_inactive_agent(folded, ending, status):
     agent = folded(
         {"event": "subagent_start", "child_session_id": "a", "child_goal": "Review"},

@@ -2,6 +2,8 @@
 import json
 import time
 import shlex
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -91,9 +93,22 @@ def test_claude_hook_command_handles_spaces(tmp_path, monkeypatch):
 def test_vscode_install_keeps_the_iframe_wrapper(tmp_path, monkeypatch):
     monkeypatch.setattr(install, 'HOME', tmp_path)
     install.enable_vscode()
-    installed = next((tmp_path / '.vscode/extensions').glob('*/media/office.html')).read_text()
-    assert '<iframe' in installed
-    assert 'css/style.css' not in installed
+    node = shutil.which('node')
+    if node is None:
+        pytest.skip('Node is required to execute the installed VS Code renderer')
+    installed = next((tmp_path / '.vscode/extensions').glob('*/media/office.html')).parent.parent
+    rendered = subprocess.run([
+        node, '-e', """
+const fs = require('node:fs');
+const root = process.argv[1];
+const { renderPanel } = require(root + '/panel.js');
+process.stdout.write(renderPanel(fs.readFileSync(root + '/media/office.html', 'utf8'), 'http://127.0.0.1:8125/'));
+""", str(installed),
+    ], check=True, capture_output=True, text=True).stdout
+    assert '<iframe src="http://127.0.0.1:8125/"' in rendered
+    assert 'frame-src http://127.0.0.1:8125' in rendered
+    assert '{{' not in rendered
+    assert 'css/style.css' not in rendered
 
 
 def test_incremental_events_with_same_timestamp_are_counted_once(tmp_path):

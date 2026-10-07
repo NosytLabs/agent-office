@@ -1,19 +1,33 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  existsSync,
+  rmSync,
+  readdirSync,
+  mkdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
 const bridgeUrl = new URL("../opencode/index.js", import.meta.url).href;
 
-function recordEvents(events, customHome = false) {
+function recordEvents(events, customHome = false, options = {}) {
   const home = mkdtempSync(join(tmpdir(), "agent-office-bridge-"));
   const hermesHome = customHome
     ? join(home, "custom-hermes")
     : join(home, ".hermes");
   const script = `
     import bridgeFactory from ${JSON.stringify(bridgeUrl)};
+    if (${Boolean(options.freezeClock)}) Date.now = () => 1000;
+    if (${Boolean(options.failRename)}) {
+      const fs = await import('node:fs');
+      fs.default.renameSync = () => { throw new Error('simulated rename failure'); };
+      (await import('node:module')).syncBuiltinESMExports();
+    }
     const bridge = await bridgeFactory();
     for (const item of JSON.parse(process.argv[1])) {
       if (item.hook) await bridge[item.hook](item.input, Object.hasOwn(item, "output") ? item.output : {});
@@ -21,6 +35,13 @@ function recordEvents(events, customHome = false) {
     }
   `;
   try {
+    if (options.epoch) {
+      mkdirSync(join(hermesHome, "pixel-office"), { recursive: true });
+      writeFileSync(
+        join(hermesHome, "pixel-office", "event-epoch"),
+        options.epoch + "\n",
+      );
+    }
     const env = { ...process.env, HOME: home };
     delete env.HERMES_HOME;
     if (customHome) env.HERMES_HOME = hermesHome;
@@ -30,17 +51,188 @@ function recordEvents(events, customHome = false) {
       { env, encoding: "utf8" },
     );
     assert.equal(result.status, 0, result.stderr);
-    const path = join(hermesHome, "pixel-office", "events.jsonl");
-    return existsSync(path)
-      ? readFileSync(path, "utf8")
-          .trim()
-          .split("\n")
-          .map((line) => JSON.parse(line))
-      : [];
+    assert.equal(result.stdout, "");
+    const path = join(hermesHome, "pixel-office", "inbox");
+    assert.equal(
+      existsSync(join(hermesHome, "pixel-office", "events.jsonl")),
+      false,
+    );
+    const names = existsSync(path) ? readdirSync(path).sort() : [];
+    assert.ok(
+      names.every((name) => name.endsWith(".json")),
+      "no partial temporary files remain",
+    );
+    const records = names.map((name) => ({
+      filename: name,
+      ...JSON.parse(readFileSync(join(path, name), "utf8")),
+    }));
+    return options.raw ? records : records.map((record) => record.event);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
 }
+
+test("OpenCode identical equal-clock events get distinct ordered receipts in the current epoch", () => {
+  const event = { type: "session.created", data: { id: "same-session" } };
+  const records = recordEvents([event, event, event], true, {
+    raw: true,
+    freezeClock: true,
+    epoch: "reset-two",
+  });
+  assert.equal(records.length, 3);
+  assert.equal(new Set(records.map((record) => record.filename)).size, 3);
+  assert.deepEqual(
+    records.map((record) => record.event),
+    [records[0].event, records[0].event, records[0].event],
+  );
+  assert.deepEqual(
+    records.map((record) => record.created_ns),
+    ["1000000000", "1000000001", "1000000002"],
+  );
+  assert.deepEqual(
+    records.map((record) => record.sequence),
+    [1, 2, 3],
+  );
+  assert.ok(
+    records.every(
+      (record) => record.version === 1 && record.epoch === "reset-two",
+    ),
+  );
+});
+
+test("OpenCode reads the published JSON reset intent before the observer recovers", () => {
+  const records = recordEvents(
+    [{ type: "session.created", data: { id: "new-epoch" } }],
+    true,
+    {
+      raw: true,
+      epoch: JSON.stringify({
+        version: 1,
+        reset: true,
+        epoch: "after-reset",
+        legacy: { signature: null, count: 0, digest: "" },
+      }),
+    },
+  );
+  assert.equal(records.length, 1);
+  assert.equal(records[0].epoch, "after-reset");
+});
+
+test("OpenCode failed atomic publication stays silent and exposes no ready event", () => {
+  assert.deepEqual(
+    recordEvents([{ type: "session.created", data: { id: "s" } }], true, {
+      failRename: true,
+    }),
+    [],
+  );
+});
+
+test("OpenCode completed assistant usage is normalized by message identity without double-counted subsets", () => {
+  const info = {
+    id: "message",
+    sessionID: "session",
+    role: "assistant",
+    modelID: "model",
+    providerID: "provider",
+    time: { created: 1, completed: 2 },
+    cost: 0.02,
+    tokens: {
+      input: 10,
+      output: 7,
+      reasoning: 3,
+      cache: { read: 20, write: 5 },
+      total: 47,
+    },
+  };
+  const events = recordEvents([
+    {
+      type: "message.updated",
+      properties: { info: { ...info, time: { created: 1 } } },
+    },
+    {
+      type: "message.updated",
+      properties: { info: { ...info, role: "user" } },
+    },
+    { type: "message.updated", properties: { info } },
+    { type: "message.updated", properties: { info } },
+    {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          type: "step-finish",
+          sessionID: "session",
+          tokens: info.tokens,
+          cost: info.cost,
+        },
+      },
+    },
+  ]);
+  assert.equal(events.length, 2);
+  assert.deepEqual(
+    events.map(({ ts, ...event }) => event),
+    [events[0], events[0]].map(({ ts, ...event }) => event),
+  );
+  assert.equal(events[0].session_id, "session");
+  assert.equal(events[0].usage_id, "message");
+  assert.equal(events[0].input_tokens, 35);
+  assert.equal(events[0].output_tokens, 10);
+  assert.equal(events[0].cached_input_tokens, 20);
+  assert.equal(events[0].cache_write_tokens, 5);
+  assert.equal(events[0].reasoning_output_tokens, 3);
+  assert.equal(events[0].total_tokens, 47);
+  assert.equal(events[0].model, "model");
+  assert.equal(events[0].provider, "provider");
+  assert.equal(events[0].cost_source, "opencode_runtime_estimate");
+});
+
+test("OpenCode usage preserves reported zero and unknown invalid counters", () => {
+  const base = {
+    id: "message",
+    sessionID: "session",
+    role: "assistant",
+    time: { completed: 2 },
+  };
+  const events = recordEvents([
+    {
+      type: "message.updated",
+      properties: {
+        info: {
+          ...base,
+          cost: 0,
+          tokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+        },
+      },
+    },
+    {
+      type: "message.updated",
+      properties: {
+        info: {
+          ...base,
+          cost: -1,
+          tokens: {
+            input: -1,
+            output: "3",
+            reasoning: null,
+            cache: { read: 0 },
+          },
+        },
+      },
+    },
+  ]);
+  assert.equal(events[0].input_tokens, 0);
+  assert.equal(events[0].output_tokens, 0);
+  assert.equal(events[0].total_tokens, 0);
+  assert.equal(events[0].cost_usd, 0);
+  assert.equal(events[1].input_tokens, undefined);
+  assert.equal(events[1].output_tokens, undefined);
+  assert.equal(events[1].total_tokens, undefined);
+  assert.equal(events[1].cost_usd, undefined);
+});
 
 test("OpenCode writes events to the configured HERMES_HOME", () => {
   const events = recordEvents(

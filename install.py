@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import stat
@@ -17,10 +18,16 @@ HOME = Path.home()
 CLAUDE_EVENTS = ("SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure",
                  "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest",
                  "PermissionDenied", "SubagentStart", "SubagentStop")
+CODEX_EVENTS = ("SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "Interrupt",
+                "PreToolUse", "PostToolUse", "PermissionRequest", "SubagentStart", "SubagentStop")
 
 
 def hermes_home() -> Path:
     return Path(os.environ.get("HERMES_HOME") or HOME / ".hermes").expanduser()
+
+
+def codex_home() -> Path:
+    return Path(os.environ.get("CODEX_HOME") or HOME / ".codex").expanduser()
 
 
 def have(cmd: str) -> bool:
@@ -67,9 +74,24 @@ def detect() -> dict:
             for name in ("opencode.json", "opencode.jsonc")
         ),
         "claude": have("claude") or (HOME / ".claude/settings.json").exists(),
+        "codex": have("codex") or any((codex_home() / name).is_file() for name in ("config.toml", "hooks.json")),
         "vscode": (Path("/Applications/Visual Studio Code.app").exists()
                    or have("code")),
     }
+
+
+def _refresh_hermes_copy(dest: Path) -> None:
+    """Refresh source-owned runtime files, retaining unrelated local settings."""
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("__init__.py", "event_inbox.py", "event_store.py", "state_model.py",
+                 "progress.py", "usage.py", "tasks.py", "plugin.yaml", "LICENSE", "README.md"):
+        if (HERE / name).is_file():
+            shutil.copy2(HERE / name, dest / name)
+    ignore = shutil.ignore_patterns("node_modules", "reports", ".git", "__pycache__",
+                                   ".pytest_cache", "test-results", "playwright-report", "*.pyc")
+    for name in ("web", "claude", "opencode", "codex"):
+        if (HERE / name).is_dir():
+            shutil.copytree(HERE / name, dest / name, dirs_exist_ok=True, ignore=ignore)
 
 
 def enable_hermes() -> str:
@@ -82,7 +104,9 @@ def enable_hermes() -> str:
             try:
                 dest.symlink_to(HERE)
             except OSError:
-                shutil.copytree(HERE, dest, dirs_exist_ok=True)
+                _refresh_hermes_copy(dest)
+        else:
+            _refresh_hermes_copy(dest)
     try:
         r = subprocess.run(["hermes", "plugins", "enable", "pixel-office"],
                            capture_output=True, text=True, timeout=30)
@@ -127,23 +151,22 @@ def enable_opencode() -> str:
     return "opencode already wired"
 
 
-def enable_claude() -> str:
-    settings = HOME / ".claude/settings.json"
-    hook = str(HERE / "claude/hook.py")
-    if not (HERE / "claude/hook.py").is_file():
-        return "skip claude (no bridge in this tree)"
+def _enable_command_hooks(runtime: str, settings: Path, events: tuple, options: dict | None = None) -> str:
+    hook = str(HERE / runtime / "hook.py")
+    if not Path(hook).is_file():
+        return f"skip {runtime} (no bridge in this tree)"
     cmd = shlex.join([sys.executable, hook])
     try:
         data = load_json_config(settings)
     except OSError:
-        return "skip claude (cannot read settings.json)"
+        return f"skip {runtime} (cannot read {settings.name})"
     except ValueError:
-        return "skip claude (invalid JSON object in settings.json; fix it and rerun)"
+        return f"skip {runtime} (invalid JSON object in {settings.name}; fix it and rerun)"
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
-        return "skip claude (hooks setting is not a JSON object)"
+        return f"skip {runtime} (hooks setting is not a JSON object)"
     # Validate all observed event buckets before changing anything on disk.
-    for ev in CLAUDE_EVENTS:
+    for ev in events:
         bucket = hooks.get(ev, [])
         if not isinstance(bucket, list) or any(
             not isinstance(item, dict)
@@ -151,9 +174,9 @@ def enable_claude() -> str:
             or any(not isinstance(h, dict) for h in item.get("hooks", []))
             for item in bucket
         ):
-            return f"skip claude (invalid {ev} hooks; fix settings.json and rerun)"
+            return f"skip {runtime} (invalid {ev} hooks; fix {settings.name} and rerun)"
     added = 0
-    for ev in CLAUDE_EVENTS:
+    for ev in events:
         bucket = hooks.setdefault(ev, [])
         already = False
         for item in bucket:
@@ -168,17 +191,38 @@ def enable_claude() -> str:
                     already = True
         if already:
             continue
-        bucket.append({"hooks": [{"type": "command", "command": cmd}]})
+        bucket.append({"hooks": [{"type": "command", "command": cmd, **(options or {})}]})
         added += 1
     save_json_config(settings, data)
-    return f"claude hooks appended ({added} events)" if added else "claude already wired"
+    return f"{runtime} hooks appended ({added} events)" if added else f"{runtime} already wired"
+
+
+def enable_claude() -> str:
+    return _enable_command_hooks("claude", HOME / ".claude/settings.json", CLAUDE_EVENTS)
+
+
+def enable_codex() -> str:
+    # Synchronous, short local writes preserve event order and SessionEnd delivery.
+    # Codex itself owns review/trust; never write trust state or bypass its check.
+    result = _enable_command_hooks("codex", codex_home() / "hooks.json", CODEX_EVENTS, {"timeout": 3})
+    if result.startswith("skip"):
+        return result
+    return result + " — open Codex /hooks to review and trust the observer definitions before they run"
 
 
 def enable_vscode() -> str:
-    ext = HOME / ".vscode/extensions/nosytlabs.agent-office-0.3.0"
     src = HERE / "vscode"
     if not (src / "extension.js").exists():
         return "skip vscode (no vscode/ in tree)"
+    try:
+        manifest = load_json_config(src / "package.json")
+    except (OSError, ValueError):
+        return "skip vscode (cannot read a valid extension package.json)"
+    publisher, name, version = (manifest.get(key, "") for key in ("publisher", "name", "version"))
+    if not all(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value)
+               for value in (publisher, name, version)):
+        return "skip vscode (invalid extension identity in package.json)"
+    ext = HOME / ".vscode/extensions" / f"{publisher}.{name}-{version}"
     ext.mkdir(parents=True, exist_ok=True)
     for name in ("extension.js", "panel.js", "package.json", "LICENSE", "README.md"):
         if (src / name).exists():
@@ -198,8 +242,8 @@ def main() -> int:
     print()
     failed = False
     for name, enable in (("hermes", enable_hermes), ("opencode", enable_opencode),
-                         ("claude", enable_claude), ("vscode", enable_vscode)):
-        if not found[name]:
+                         ("claude", enable_claude), ("codex", enable_codex), ("vscode", enable_vscode)):
+        if not found.get(name):
             print(f"• skip {name} (not installed)")
             continue
         try:
