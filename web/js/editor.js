@@ -2,7 +2,8 @@
 "use strict";
 const furnitureHistory = [],
   furnitureFuture = [];
-let furnitureSignature = JSON.stringify(settings.furniture);
+let furnitureSignature = JSON.stringify(settings.furniture),
+  furnitureSaving = false;
 scene.onFurnitureResolution = ({ relocated, unplaced }) => {
   const status = $("furniture-status");
   status.hidden = !relocated && !unplaced;
@@ -60,15 +61,27 @@ $("c").addEventListener("spritesready", renderFurniturePreviews);
 renderFurniturePreviews();
 
 function syncFurnitureControls() {
-  $("undo-furniture").disabled = !furnitureHistory.length;
-  $("redo-furniture").disabled = !furnitureFuture.length;
-  $("delete-furniture").disabled = scene.movingIndex === null;
+  $("undo-furniture").disabled = furnitureSaving || !furnitureHistory.length;
+  $("redo-furniture").disabled = furnitureSaving || !furnitureFuture.length;
+  $("delete-furniture").disabled =
+    furnitureSaving || scene.movingIndex === null;
+  for (const id of [
+    "arrange-furniture",
+    "edit-furniture",
+    "clear-furniture",
+    "import-settings",
+  ])
+    $(id).disabled = furnitureSaving;
+  for (const button of $("furniture-tools").children)
+    button.disabled = furnitureSaving;
+  $("c").setAttribute("aria-busy", String(furnitureSaving));
   $("arrange-furniture").setAttribute(
     "aria-pressed",
     String(scene.edit === "move"),
   );
 }
 function startFurniture(kind) {
+  if (furnitureSaving) return;
   scene.edit = kind;
   scene.movingIndex = null;
   scene.pointer = null;
@@ -89,7 +102,7 @@ function startFurniture(kind) {
   scene.draw(0);
 }
 function pickFurniture(index) {
-  if (!settings.furniture[index]) return;
+  if (furnitureSaving || !settings.furniture[index]) return;
   scene.movingIndex = index;
   const b =
     scene.furnitureBounds(index) ||
@@ -104,7 +117,7 @@ function pickFurniture(index) {
 }
 scene.onPick = pickFurniture;
 scene.onRemove = () => {
-  if (scene.movingIndex === null) return;
+  if (furnitureSaving || scene.movingIndex === null) return;
   const items = settings.furniture.filter((_, i) => i !== scene.movingIndex);
   resetSelection();
   saveFurniture(items);
@@ -116,19 +129,48 @@ function resetSelection() {
   syncFurnitureControls();
 }
 function saveFurniture(items) {
-  furnitureHistory.push(structuredClone(settings.furniture));
-  if (furnitureHistory.length > 20) furnitureHistory.shift();
-  furnitureFuture.length = 0;
   return persistFurniture(items);
 }
-function persistFurniture(items) {
-  furnitureSignature = JSON.stringify(items);
-  const saved = updateSetting("furniture", items);
+async function persistFurniture(
+  items,
+  action = "edit",
+  patch = { furniture: items },
+) {
+  if (furnitureSaving) return false;
+  const previous = structuredClone(settings.furniture),
+    expected = JSON.stringify(items);
+  furnitureSaving = true;
+  furnitureSignature = expected;
+  resetSelection();
+  const saved = await saveSettings(patch);
+  const actual = JSON.stringify(settings.furniture);
+  if (saved && actual === expected) {
+    if (action === "undo") {
+      furnitureFuture.push(previous);
+      furnitureHistory.pop();
+    } else if (action === "redo") {
+      furnitureHistory.push(previous);
+      furnitureFuture.pop();
+    } else if (action === "import") {
+      furnitureHistory.length = furnitureFuture.length = 0;
+    } else {
+      furnitureHistory.push(previous);
+      if (furnitureHistory.length > 20) furnitureHistory.shift();
+      furnitureFuture.length = 0;
+    }
+  } else if (actual !== JSON.stringify(previous)) {
+    // A different tab may have replaced this room while the request was queued.
+    // Index-based history is safe only while it still describes this furniture.
+    furnitureHistory.length = furnitureFuture.length = 0;
+  }
+  furnitureSignature = actual;
+  furnitureSaving = false;
   syncFurnitureControls();
   return saved;
 }
 // A layout imported or edited in another tab invalidates index-based selection/history.
 function reconcileFurniture() {
+  if (furnitureSaving) return;
   const signature = JSON.stringify(settings.furniture);
   if (signature !== furnitureSignature) {
     furnitureSignature = signature;
@@ -159,18 +201,18 @@ $("delete-furniture").onclick = () => {
   $("c").focus();
 };
 $("undo-furniture").onclick = () => {
-  if (!furnitureHistory.length) return;
-  furnitureFuture.push(structuredClone(settings.furniture));
-  resetSelection();
-  persistFurniture(furnitureHistory.pop());
+  if (!furnitureHistory.length || furnitureSaving) return;
+  persistFurniture(furnitureHistory.at(-1), "undo");
 };
 $("redo-furniture").onclick = () => {
-  if (!furnitureFuture.length) return;
-  furnitureHistory.push(structuredClone(settings.furniture));
-  resetSelection();
-  persistFurniture(furnitureFuture.pop());
+  if (!furnitureFuture.length || furnitureSaving) return;
+  persistFurniture(furnitureFuture.at(-1), "redo");
 };
 function placeFurniture(p) {
+  if (furnitureSaving) {
+    toast("Wait for the current furniture change to save.");
+    return;
+  }
   const items = settings.furniture || [];
   if (scene.edit === "move" && scene.movingIndex === null) {
     const at = scene.propAt(p);
@@ -242,10 +284,11 @@ $("import-settings").onchange = async (e) => {
       throw new Error("This layout contains invalid or unsupported settings.");
     if (imported.layout === "bullpen" && !haveUnlock("layout_bullpen"))
       imported.layout = "open";
-    await saveSettings(imported);
-    furnitureHistory.length = furnitureFuture.length = 0;
-    furnitureSignature = JSON.stringify(settings.furniture);
-    resetSelection();
+    await persistFurniture(
+      imported.furniture || settings.furniture,
+      "import",
+      imported,
+    );
   } catch (err) {
     toast(err.message || "Could not import this layout.");
   }

@@ -69,6 +69,10 @@ test("imported edge furniture stays inside the floor after viewport changes", ()
       "stool",
       "succulent",
       "planter",
+      "whiteboard",
+      "printer",
+      "cart",
+      "coatrack",
     ])
       for (const position of [0, 1]) {
         const b = model.propBounds({ kind, x: position, y: position }, grid);
@@ -269,6 +273,7 @@ test("nameplate status lines and edges select their session", () => {
   const scene = Object.create(model.Scene.prototype);
   Object.assign(scene, {
     canvas: {
+      style: {},
       clientWidth: 1100,
       clientHeight: 650,
       width: 1100,

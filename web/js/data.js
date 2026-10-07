@@ -105,6 +105,10 @@ const PROP_SIZES = {
   stool: [16, 18],
   succulent: [12, 16],
   planter: [32, 18],
+  whiteboard: [34, 32],
+  printer: [24, 24],
+  cart: [28, 25],
+  coatrack: [16, 34],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -118,6 +122,10 @@ const PROP_NAMES = {
   stool: "Sage stool",
   succulent: "Succulent",
   planter: "Planter box",
+  whiteboard: "Planning board",
+  printer: "Printer cabinet",
+  cart: "Supply cart",
+  coatrack: "Coat rack",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];

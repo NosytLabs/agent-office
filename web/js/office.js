@@ -27,6 +27,8 @@ let pendingSaves = 0,
   saveQueue = Promise.resolve(),
   audioContext = null,
   settingsSignature = "";
+const confirmedSettings = structuredClone(settings),
+  queuedSettings = [];
 const seenUnlocks = new Set();
 const scene = new OfficeScene($("c"), selectAgent, (p, grid) =>
   placeFurniture(p, grid),
@@ -569,7 +571,8 @@ function applyState(state, pollRevision = settingsRevision) {
   agents = state.agents;
   progress = state.progress || null;
   if (state.settings && !pendingSaves && pollRevision === settingsRevision) {
-    Object.assign(settings, normalizeSettings(state.settings));
+    Object.assign(confirmedSettings, normalizeSettings(state.settings));
+    Object.assign(settings, confirmedSettings);
   }
   applyTheme();
   updateScene();
@@ -669,6 +672,7 @@ function updateSetting(key, value) {
 }
 function saveSettings(patch) {
   patch = normalizeSettings(patch);
+  queuedSettings.push(patch);
   Object.assign(settings, patch);
   pendingSaves++;
   settingsRevision++;
@@ -676,34 +680,42 @@ function saveSettings(patch) {
   updateScene();
   fillSettings();
   $("save-status").textContent = "Saving…";
-  const task = saveQueue.then(async () => {
-    const r = await fetch("settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!r.ok) throw new Error("Save failed");
-    const saved = await r.json();
-    if (pendingSaves === 1) {
-      Object.assign(settings, saved);
-      reconcileFurniture();
-    }
-    $("save-status").textContent = "Saved on this computer.";
-  });
-  saveQueue = task
-    .catch(() => {
+  saveQueue = saveQueue.then(async () => {
+    let saved = false;
+    try {
+      const r = await fetch("settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!r.ok) throw new Error("Save failed");
+      Object.assign(confirmedSettings, normalizeSettings(await r.json()));
+      saved = true;
+    } catch {
       toast("Could not save settings. Reconnect and try again.");
-      $("save-status").textContent = "Not saved. Server unavailable.";
-    })
-    .finally(() => {
+    } finally {
+      queuedSettings.shift();
       pendingSaves--;
+      // Start from acknowledged server values, then preserve newer optimistic
+      // edits. A failed request must never become the rollback base of another.
+      Object.assign(settings, confirmedSettings, ...queuedSettings);
       // Also invalidate polls started while the write was in flight.
       settingsRevision++;
+      reconcileFurniture();
       applyTheme();
       updateScene();
       fillSettings();
-    });
+      $("save-status").textContent = !saved
+        ? "Not saved. Server unavailable."
+        : pendingSaves
+          ? "Saving…"
+          : "Saved on this computer.";
+    }
+    return saved;
+  });
+  // Button handlers can ignore this promise; transactional callers receive the
+  // outcome of their own write, after rollback/reconciliation has completed.
   return saveQueue;
 }
 function segmented(label, key, options) {

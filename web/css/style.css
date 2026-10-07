@@ -256,7 +256,7 @@ h2 {
   width: 100%;
   height: 100%;
   outline-offset: -4px;
-  touch-action: none;
+  touch-action: pan-y;
 }
 #empty-state {
   position: absolute;

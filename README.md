@@ -56,11 +56,11 @@ For a custom data directory, set the same `HERMES_HOME` for the server and each 
 - **Agent inspection:** runtime, current tool, recent events, elapsed time, and parent session. Focused cards keep updating as sessions work or leave; search matches the readable status names.
 - **Task overview:** sessions grouped by current status. This is an observed-work board, not a task dispatch engine.
 - **Activity stream:** searchable recent events, with timestamps. Usage and CSV export report the events this observer has recorded.
-- **A furnished scene:** corrected walk/read/type animations, paths around desks and props, matching object scale, low-contrast floors, and three matching generated furniture atlases. Existing sessions, crowded rooms above 16 sessions, and enclosed desks use seated arrivals to keep the view responsive.
+- **A furnished scene:** corrected walk/read/type animations, paths around desks and props, matching object scale, low-contrast floors, and four matching generated furniture atlases. Existing sessions, crowded rooms above 16 sessions, and enclosed desks use seated arrivals to keep the view responsive.
 - **Readable controls:** locally hosted Geist text, consistent Lucide icons, clear agent nameplates, and touch-friendly menus.
 - **Customization:** Plum, Midnight, and Amber palettes; automatic/day/night lighting; labels and decoration toggles; desk density.
-- **Furniture placement:** preview eleven props: sofas, server racks, bookcases, monsteras, coffee carts, coolers, lamps, cafe tables, stools, succulents and planter boxes. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
-- **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. Reduced-motion preferences start the scene paused.
+- **Furniture placement:** preview fifteen props: sofas, server racks, bookcases, monsteras, coffee carts, coolers, lamps, cafe tables, stools, succulents, planter boxes, planning boards, printer cabinets, supply carts and coat racks. Occupied spaces are blocked; move props by dragging or keyboard, and undo/redo your edits. Export and import your settings as JSON.
+- **Camera controls:** zoom, drag when zoomed, reset to fit, pause motion, and download a scene snapshot. On mobile, swipes at Fit scroll the page; zooming and furniture editing reserve gestures for the canvas. Reduced-motion preferences start the scene paused.
 - **38 achievements:** searchable earned/up-next views, XP values, room-reward descriptions, and real progress bars. Old retired achievements remain in saved history without losing XP.
 
 ### Unlocks
@@ -89,6 +89,8 @@ Click an agent or choose one in **Agents**. Open **Customize → Place furniture
 
 To rearrange existing props, choose **Customize → Arrange custom furniture** or **Move** on the editor toolbar. Drag a prop, or select it and click a new position. With the canvas focused, Space cycles custom props, arrow keys move the preview, Enter commits, and Delete removes the selected prop. Escape cancels an uncommitted move. The original prop stays saved until the new position is valid. Custom props keep their saved relative positions. When a viewport or desk layout would overlap them, the scene finds nearby free floor for that view. A notice reports shifted props or props with no available space; saved/exported positions stay unchanged. Unplaced props remain selectable with Space and removable with Delete in Arrange mode.
 
+Edits enter undo/redo history after the server confirms the save. If a save fails, the last confirmed room returns and the operation remains retryable. Failed imports keep the current room and history. Furniture controls briefly disable while an edit is saving.
+
 | Shortcut | Action |
 |---|---|
 | R / U | Agents and usage |
@@ -103,7 +105,7 @@ To rearrange existing props, choose **Customize → Arrange custom furniture** o
 
 By default, files live in `~/.hermes/pixel-office/`: `events.jsonl`, `progress.json`, and `settings.json`. Events can contain command or file-path previews. The web app loads local assets and makes no analytics or model-provider requests. There is no hosted backend.
 
-The server reads a bounded recent event log and returns the last 30 events. Quiet working/thinking sessions become idle after five minutes; sessions expire from the scene after 30 minutes. Ended sessions leave after 20 seconds and completed subagents after two minutes. The UI reconnects automatically; on disconnection it retains the last scene and labels it disconnected.
+The server folds the full retained event log and returns the last 30 events. It reuses parsed history while the file is unchanged; appends, rewrites and rotation trigger a fresh read. Hermes trims its publisher log, while standalone Claude/OpenCode logs can grow until managed separately. Quiet working/thinking sessions become idle after five minutes; sessions expire from the scene after 30 minutes. Ended sessions leave after 20 seconds and completed subagents after two minutes. The UI reconnects automatically; on disconnection it retains the last scene and labels it disconnected.
 
 **Reset progress** requires confirmation and deletes recorded events, XP, and achievements. Room settings remain. Previously recorded data may be recreated as connected runtimes continue emitting events.
 

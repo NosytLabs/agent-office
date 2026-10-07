@@ -36,6 +36,7 @@ Nothing here touches the conversation, the prompt cache, or tool results.
 from __future__ import annotations
 
 import json
+import copy
 import contextvars
 import logging
 import math
@@ -65,6 +66,7 @@ _MAX_LOG_BYTES = 512 * 1024
 _STALE_SECONDS = 30 * 60
 
 _lock = threading.RLock()
+_event_cache: Optional[tuple[tuple, List[Dict[str, Any]]]] = None
 _server_started = False
 _port: int = DEFAULT_PORT
 # Current Hermes versions provide session/tool ids on approvals. Keep a
@@ -121,7 +123,10 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         elif key == "furniture" and isinstance(value, list):
             items = []
             for item in value[:24]:
-                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp", "roundtable", "stool", "succulent", "planter")
+                if (isinstance(item, dict) and item.get("kind") in (
+                    "sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp",
+                    "roundtable", "stool", "succulent", "planter", "whiteboard",
+                    "printer", "cart", "coatrack")
                     and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
                     items.append({k: item[k] for k in ("kind", "x", "y")})
             out[key] = items
@@ -228,12 +233,32 @@ def _maybe_trim(path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def _read_events() -> List[Dict[str, Any]]:
-    path = _events_path()
-    if not path.exists():
-        return []
+    """Return independent events for callers that may modify their result."""
+    with _lock:
+        return copy.deepcopy(_read_event_snapshot())
+
+
+def _event_signature(path: Path, stat: os.stat_result) -> tuple:
+    return (str(path), stat.st_dev, stat.st_ino, stat.st_size,
+            stat.st_mtime_ns, stat.st_ctime_ns)
+
+
+def _read_event_snapshot() -> List[Dict[str, Any]]:
+    """Internal read-only snapshot; callers hold _lock while using it.
+
+    Keep one stable parsed log. Any file change forces a full read so quiet
+    waiting sessions and repeated same-timestamp events remain in the fold.
+    """
+    global _event_cache
+    path = _events_path().resolve()
     out: List[Dict[str, Any]] = []
     try:
+        before = _event_signature(path, path.stat())
+        if _event_cache is not None and _event_cache[0] == before:
+            return _event_cache[1]
+        _event_cache = None
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            opened = _event_signature(path, os.fstat(fh.fileno()))
             for line in fh:
                 line = line.strip()
                 if not line:
@@ -251,7 +276,14 @@ def _read_events() -> List[Dict[str, Any]]:
                     out.append(event)
                 except Exception:
                     continue
+            finished = _event_signature(path, os.fstat(fh.fileno()))
+        after = _event_signature(path, path.stat())
+        if before == opened == finished == after:
+            _event_cache = (after, out)
+    except FileNotFoundError:
+        _event_cache = None
     except Exception:
+        _event_cache = None
         logger.debug("pixel-office read failed", exc_info=True)
     return out
 
@@ -342,7 +374,7 @@ def _build_state_locked() -> Dict[str, Any]:
             a["status"] = "thinking"
             a["detail"] = detail
 
-    events = _read_events()
+    events = _read_event_snapshot()
     for ev in events:
         kind = ev.get("event")
         key = _agent_key(ev)
@@ -533,7 +565,8 @@ def _build_state_locked() -> Dict[str, Any]:
     except Exception:
         logger.debug("pixel-office progress fold failed", exc_info=True)
     return {"agents": visible, "ts": now, "progress": progress, "settings": settings,
-            "events": events[-30:], "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
+            "events": copy.deepcopy(events[-30:]),
+            "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
 
 
 # ---------------------------------------------------------------------------

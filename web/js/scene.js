@@ -56,6 +56,7 @@ class OfficeScene {
       ["studio", ["sofa", "server", "shelf", "monstera"]],
       ["utilities", ["coffee", "cooler", "lamp", "clock"]],
       ["decor", ["roundtable", "stool", "succulent", "planter"]],
+      ["workshop", ["whiteboard", "printer", "cart", "coatrack"]],
     ])
       load(atlas, "furniture/" + atlas + "-atlas.png", (im) => {
         // Extract each atlas quadrant once, trim transparent padding, then normalize
@@ -437,6 +438,9 @@ class OfficeScene {
       g = this.ctx,
       W = cv.clientWidth,
       H = cv.clientHeight;
+    // At Fit, a swipe should reach controls below the mobile floor. Reserve
+    // gestures for the canvas only when panning or arranging furniture.
+    cv.style.touchAction = this.zoom > 1 || this.edit ? "none" : "pan-y";
     if (!W || !H) return;
     const dpr = Math.min(devicePixelRatio || 1, 2);
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
