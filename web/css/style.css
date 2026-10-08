@@ -1593,3 +1593,34 @@ button:disabled {
 #agent-preference-form > .cluster {
   margin-top: 14px;
 }
+
+/* Drafts share the existing Tasks sheet, never a competing overlay. */
+.task-draft .txt {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.task-draft textarea {
+  min-height: 16rem;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.6;
+}
+.task-draft-actions {
+  flex-wrap: wrap;
+  margin-block: 0.75rem;
+}
+.task-draft-actions .btn {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.task-draft-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-block: 1rem;
+  cursor: pointer;
+}
+.task-draft-remember input {
+  flex: 0 0 auto;
+}

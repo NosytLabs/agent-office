@@ -294,9 +294,74 @@
         <button data-task-view="reported" aria-pressed="false">
           Reported tasks
         </button>
+        <button data-task-view="draft" aria-pressed="false">
+          Draft prompt
+        </button>
       </div>
       <div id="taskboard"></div>
       <div id="reported-taskboard" hidden></div>
+      <section
+        id="task-draft"
+        class="task-draft"
+        aria-labelledby="task-draft-heading"
+        hidden
+      >
+        <h3 id="task-draft-heading">Prepare the next handoff</h3>
+        <p class="h">
+          Write a task brief here, then copy it into your chosen agent. This
+          panel does not run commands, submit prompts, or grant approvals.
+        </p>
+        <label for="task-draft-runtime" class="setting-label"
+          >Draft destination</label
+        >
+        <select id="task-draft-runtime" class="txt">
+          <option value="opencode">OpenCode</option>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex</option>
+          <option value="hermes">Hermes</option>
+          <option value="gemini">Gemini CLI</option>
+          <option value="openclaw">OpenClaw</option>
+          <option value="other">another runtime</option>
+        </select>
+        <p id="task-draft-destination" class="h"></p>
+        <label for="task-draft-text" class="setting-label">Task brief</label>
+        <textarea
+          id="task-draft-text"
+          class="txt"
+          rows="12"
+          maxlength="8192"
+          spellcheck="true"
+          placeholder="Describe the goal, constraints, and how the result should be verified."
+          aria-describedby="task-draft-count task-draft-privacy"
+        ></textarea>
+        <p id="task-draft-count" class="h"></p>
+        <div class="cluster task-draft-actions">
+          <button type="button" id="task-draft-template" class="btn">
+            Append task template
+          </button>
+          <button type="button" id="task-draft-copy" class="btn" disabled>
+            Copy for OpenCode
+          </button>
+          <button type="button" id="task-draft-export" class="btn" disabled>
+            Export text
+          </button>
+        </div>
+        <label class="task-draft-remember"
+          ><input type="checkbox" id="task-draft-remember" /> Remember this
+          draft in this tab</label
+        >
+        <p id="task-draft-privacy" class="h">
+          Off by default. Remembered text stays in this tab's browser storage,
+          separate from XP, usage and event history. Do not put secrets in a
+          task brief.
+        </p>
+        <p
+          id="task-draft-status"
+          class="h"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </section>
     </section>
     <section
       class="sheet"
@@ -982,6 +1047,7 @@
     <script src="js/view-state.js"></script>
     <script src="js/tasks-view.js"></script>
     <script src="js/office.js"></script>
+    <script src="js/task-desk.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/aquarium.js"></script>
     <script src="js/jukebox.js"></script>

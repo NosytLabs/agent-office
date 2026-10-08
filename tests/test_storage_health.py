@@ -141,13 +141,13 @@ def test_failed_entry_stat_reports_unknown_instead_of_a_partial_total(tmp_path, 
     inbox.mkdir()
     temporary = inbox / ".incomplete.tmp"
     temporary.write_bytes(b"pending")
-    original = Path.stat
+    original = Path.lstat
     def stat(path, *args, **kwargs):
         if path == temporary:
             raise PermissionError("injected entry stat denial")
         return original(path, *args, **kwargs)
     with monkeypatch.context() as failure:
-        failure.setattr(Path, "stat", stat)
+        failure.setattr(Path, "lstat", stat)
         tracking = consume(tmp_path)["tracking"]
     assert tracking["inbox_files"] is None
     assert tracking["inbox_bytes"] is None
@@ -204,12 +204,12 @@ def test_directory_disappearing_mid_inventory_cannot_report_a_partial_total(tmp_
 def test_database_size_failure_does_not_report_zero_or_break_ingestion(tmp_path, monkeypatch):
     consume(tmp_path)
     ready = publish(tmp_path, 1)
-    original = Path.stat
+    original = Path.lstat
     def stat(path, *args, **kwargs):
         if path == tmp_path / "office.sqlite3":
             raise PermissionError("injected database stat denial")
         return original(path, *args, **kwargs)
-    monkeypatch.setattr(Path, "stat", stat)
+    monkeypatch.setattr(Path, "lstat", stat)
     after = consume(tmp_path)
     assert after["tracking"]["database_bytes"] is None
     assert "database" in after["tracking"]["measurement_errors"]
@@ -224,12 +224,18 @@ def test_legacy_stat_failure_preserves_cursor_while_other_inputs_are_consumed(tm
     before = EventStore(tmp_path).consume(read, 1000)
     publish(tmp_path, 1, session_id="new")
     original = Path.stat
+    original_lstat = Path.lstat
     def stat(path, *args, **kwargs):
         if path == legacy:
             raise PermissionError("injected legacy stat denial")
         return original(path, *args, **kwargs)
+    def lstat(path, *args, **kwargs):
+        if path == legacy:
+            raise PermissionError("injected legacy lstat denial")
+        return original_lstat(path, *args, **kwargs)
     with monkeypatch.context() as failure:
         failure.setattr(Path, "stat", stat)
+        failure.setattr(Path, "lstat", lstat)
         after = EventStore(tmp_path).consume(read, 1001)
     assert after["tracking"]["legacy_log_bytes"] is None
     assert after["tracking"]["legacy_log"] is None

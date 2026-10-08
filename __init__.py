@@ -63,9 +63,9 @@ if str(_PLUGIN_DIR) not in sys.path:
 logger = logging.getLogger(__name__)
 
 try:
-    from .settings_store import SettingsStore, SettingsConflict, SettingsUnavailable
+    from .settings_store import SettingsStore, SettingsConflict, SettingsUnavailable, parse_settings_json
 except ImportError:
-    from settings_store import SettingsStore, SettingsConflict, SettingsUnavailable
+    from settings_store import SettingsStore, SettingsConflict, SettingsUnavailable, parse_settings_json
 
 DEFAULT_PORT = 8113
 _lock = threading.RLock()
@@ -572,7 +572,7 @@ def _serve() -> None:
                     self.respond(413, {"error": "settings must be 1–65536 bytes"})
                     return
                 self.connection.settimeout(5)
-                payload = json.loads(self.rfile.read(length))
+                payload = parse_settings_json(self.rfile.read(length))
                 if not isinstance(payload, dict):
                     raise ValueError("object required")
             except (ValueError, UnicodeError, RecursionError):

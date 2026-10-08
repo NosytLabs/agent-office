@@ -308,3 +308,29 @@ The current catalog policy retires `oops`, `weather_storm`, `weather_sun`, `deep
 ## Tests to carry into implementation
 
 Test recorded source payloads from each supported schema, repeated usage snapshots, same-timestamp and older-timestamp delivery, a restart between report and cleanup, and missing or malformed usage. Verify cached/reasoning tokens are not counted twice, a model switch keeps separate attribution, and costs retain their provenance. For observed task lists, test a full replacement with removed and cancelled items. For furniture, test touch, mouse, keyboard, editor precedence, focus restoration, and reduced motion. These additions must retain the existing observer-only hook contract.
+
+
+## Task preparation follow-up — 8 October 2026
+
+BridgeMind's [product page](https://www.bridgemind.ai/product), read through a live
+Firecrawl fetch, describes separate Agent, Code, and Thread views with project
+folders, live terminals, and a composer. Termi's
+[August patch notes](https://termiprotocol.com/changelog) describe focus-stealing,
+clipped approvals, failed OpenCode handoffs, and misleading activity counters.
+These are publishers' descriptions; neither desktop product was executed during
+this review. No code or artwork from either product was copied.
+
+The compatible addition implemented here is an independent task-brief workspace
+inside the existing Tasks panel. Drafts are distinct from reported runtime tasks,
+remain unchanged by background observation, and support exact-text clipboard and
+file export. Browser retention is opt-in and limited to the current tab. A chosen
+destination is a label for the user's handoff, not a support or connection claim.
+
+[OpenCode's server documentation](https://opencode.ai/docs/server/) and Context7's
+`/anomalyco/opencode` SDK reference document `POST /session/:id/prompt_async` and
+HTTP Basic authentication. Direct submission was investigated but is not shipped:
+the attempted implementation was blocked by the execution tool's safety checks.
+There is no generic shell, scheduler, credential store, automatic approval, or
+new execution endpoint in this change. A future control layer needs independent
+review of opt-in activation, exact project/session verification, same-origin
+protection, bounded transport, and ambiguous-delivery handling before deployment.

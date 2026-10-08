@@ -61,7 +61,7 @@ class SettingsStore:
             if info.st_size > 1024 * 1024:
                 raise ValueError("settings file exceeds the supported size")
             raw = self.path.read_bytes()
-            data = json.loads(raw.decode("utf-8"))
+            data = parse_settings_json(raw)
             if not isinstance(data, dict):
                 raise ValueError("settings must be an object")
         except FileNotFoundError:
@@ -117,3 +117,35 @@ class SettingsStore:
                 finally:
                     temporary.unlink(missing_ok=True)
         return SettingsSnapshot(settings, hashlib.sha256(raw).hexdigest())
+
+
+MAX_SETTINGS_DEPTH = 128
+
+
+def parse_settings_json(raw: bytes) -> Dict[str, Any]:
+    """Bound JSON nesting before decoding, including on Python 3.14."""
+    text = raw.decode('utf-8')
+    depth = 0
+    quoted = escaped = False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == chr(92):
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+        elif char in '[{':
+            depth += 1
+            if depth > MAX_SETTINGS_DEPTH:
+                raise ValueError('settings nesting exceeds the supported limit')
+        elif char in ']}':
+            depth -= 1
+    def reject_constant(value):
+        raise ValueError('non-finite JSON number: ' + value)
+    data = json.loads(text, parse_constant=reject_constant)
+    if not isinstance(data, dict):
+        raise ValueError('settings must be an object')
+    return data

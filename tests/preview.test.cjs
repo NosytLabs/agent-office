@@ -67,6 +67,7 @@ async function withPage(run, options = {}) {
     insecureOrigin,
     storageBlocked,
     storageWriteBlocked,
+    clockStart,
     ...pageOptions
   } = options;
   const browser = await chromium.launch({
@@ -95,6 +96,11 @@ async function withPage(run, options = {}) {
         },
       );
     const p = await context.newPage();
+    if (clockStart !== undefined)
+      await p.addInitScript((now) => {
+        window.previewTestClock = now;
+        Date.now = () => window.previewTestClock;
+      }, clockStart);
     if (storageBlocked)
       await p.addInitScript(() => {
         Storage.prototype.getItem = Storage.prototype.setItem = () => {
@@ -870,47 +876,58 @@ test("preview quiet context and terminal durations match the live observer", () 
     );
   }));
 
-test("demo task snapshots age and become historical without completing unfinished work", () =>
-  withPage(async (p) => {
-    const initial = await p.evaluate(() => window._state);
-    assert.equal(initial.tasks.length, 3);
-    const after = await p.evaluate(async () => {
-      const seed = window.__AGENT_OFFICE_PREVIEW_SEED__,
-        realNow = Date.now();
-      seed.state.tasks.find(
+test("demo task snapshots age and become historical without completing unfinished work", () => {
+  const previewStartedAt = Date.UTC(2026, 9, 8, 12);
+  return withPage(
+    async (p) => {
+      const initial = await p.evaluate(() => window._state);
+      assert.equal(initial.tasks.length, 3);
+      const initialBoard = initial.tasks.find(
         (board) => board.session_id === "demo-opencode",
-      ).source_updated_at = seed.base_time - 40;
-      Date.now = () => realNow + 310000;
-      const quiet = await (await fetch("state")).json();
-      Date.now = () => realNow + 1900000;
-      const expired = await (await fetch("state")).json();
-      return { quiet, expired, realNow };
-    });
-    const quiet = after.quiet.tasks.find(
-      (board) => board.session_id === "demo-opencode",
-    );
-    assert.equal(quiet.session_status, "idle");
-    assert.equal(quiet.historical, false);
-    assert.ok(quiet.age_s >= 350);
-    assert.ok(
-      Math.abs(quiet.source_updated_at - (after.realNow / 1000 - 40)) < 2,
-    );
-    const ended = after.quiet.tasks.find(
-      (board) => board.session_id === "demo-review",
-    );
-    assert.equal(ended.historical, true);
-    assert.equal(ended.session_status, "done");
-    const expired = after.expired.tasks.find(
-      (board) => board.session_id === "demo-opencode",
-    );
-    assert.equal(expired.historical, true);
-    assert.deepEqual(
-      expired.tasks,
-      initial.tasks.find((board) => board.session_id === "demo-opencode").tasks,
-    );
-    assert.equal(
-      expired.session_status,
-      "working",
-      "expired views keep the last durable observation, not an invented completion",
-    );
-  }));
+      );
+      const after = await p.evaluate(async () => {
+        // Model time spent loading the page after preview.js established its epoch.
+        window.previewTestClock += 5000;
+        const seed = window.__AGENT_OFFICE_PREVIEW_SEED__,
+          loadedAt = Date.now();
+        seed.state.tasks.find(
+          (board) => board.session_id === "demo-opencode",
+        ).source_updated_at = seed.base_time - 40;
+        window.previewTestClock = loadedAt + 310000;
+        const quiet = await (await fetch("state")).json();
+        window.previewTestClock = loadedAt + 1900000;
+        const expired = await (await fetch("state")).json();
+        return { quiet, expired };
+      });
+      const quiet = after.quiet.tasks.find(
+        (board) => board.session_id === "demo-opencode",
+      );
+      assert.equal(quiet.session_status, "idle");
+      assert.equal(quiet.historical, false);
+      assert.equal(quiet.age_s, initialBoard.age_s + 315);
+      assert.equal(
+        quiet.source_updated_at,
+        previewStartedAt / 1000 - 40,
+        "source timestamps stay anchored to preview startup, not page-load completion",
+      );
+      const ended = after.quiet.tasks.find(
+        (board) => board.session_id === "demo-review",
+      );
+      assert.equal(ended.historical, true);
+      assert.equal(ended.session_status, "done");
+      const expired = after.expired.tasks.find(
+        (board) => board.session_id === "demo-opencode",
+      );
+      assert.equal(expired.historical, true);
+      assert.equal(expired.age_s, initialBoard.age_s + 1905);
+      assert.equal(expired.source_updated_at, quiet.source_updated_at);
+      assert.deepEqual(expired.tasks, initialBoard.tasks);
+      assert.equal(
+        expired.session_status,
+        "working",
+        "expired views keep the last durable observation, not an invented completion",
+      );
+    },
+    { clockStart: previewStartedAt },
+  );
+});

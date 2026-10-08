@@ -92,19 +92,29 @@ const launch = () =>
     args: ["--no-sandbox"],
   });
 async function withPage(fn, options = {}) {
+  const { beforeLoad, isolateState, ...pageOptions } = options;
   const browser = await launch();
   let page;
   const errors = [];
   try {
     page = await browser.newPage({
       viewport: { width: 1440, height: 900 },
-      ...options,
+      ...pageOptions,
     });
     page.on("pageerror", (e) => errors.push(e.message));
+    if (beforeLoad) await beforeLoad(page);
+    if (isolateState) {
+      let firstState = true;
+      // Install before navigation: a later abort route cannot cancel a poll
+      // that already owns a response when synthetic fixtures are applied.
+      await page.route("**/state", (route) => {
+        if (!firstState) return route.abort();
+        firstState = false;
+        return route.continue();
+      });
+    }
     await page.goto(baseURL);
-    await page.waitForFunction(() =>
-      document.querySelector("#count").textContent.includes("agent"),
-    );
+    await page.waitForFunction(() => initialized);
     await page.evaluate(() => document.fonts.ready);
     await fn(page);
     assert.deepEqual(errors, []);
@@ -221,54 +231,104 @@ test("setup commands copy with a selectable fallback and disclosures are keyboar
     );
   }));
 test("focused agent cards keep live status, group ordering and useful removal focus", () =>
-  withPage(async (p) => {
-    await p.route("**/state", (r) => r.abort());
-    for (const [trigger, box] of [
-      ["floorbtn", "roster"],
-      ["tasksbtn", "taskboard"],
-    ]) {
-      await p.evaluate(() =>
-        applyState({
-          ...window._state,
-          agents: [{ id: "alpha", label: "Alpha", status: "working" }],
+  withPage(
+    async (p) => {
+      await p.evaluate(() => {
+        window.cardFixturePoll = poll();
+      });
+      await p.waitForFunction(() => window.cardStateTransportSettled);
+      for (const [trigger, box] of [
+        ["floorbtn", "roster"],
+        ["tasksbtn", "taskboard"],
+      ]) {
+        await p.evaluate(() =>
+          applyState({
+            ...window._state,
+            agents: [{ id: "alpha", label: "Alpha", status: "working" }],
+          }),
+        );
+        await p.click("#" + trigger);
+        if (box === "roster") {
+          await p.evaluate(() => {
+            window.releaseCardStateResponse();
+            return window.cardFixturePoll;
+          });
+          assert.deepEqual(
+            await p
+              .locator("#roster .agent-card")
+              .evaluateAll((cards) => cards.map((card) => card.dataset.agent)),
+            ["alpha"],
+            "A previously dispatched observer response must not replace the synthetic card fixture",
+          );
+        }
+        await p.locator("#" + box + ' [data-agent="alpha"]').focus();
+        await p.evaluate((box) => {
+          window.focusedCard = document.activeElement;
+          applyState({
+            ...window._state,
+            agents: [
+              { id: "beta", label: "Beta", status: "waiting" },
+              {
+                id: "alpha",
+                label: "Alpha",
+                status: box === "roster" ? "waiting" : "done",
+              },
+            ],
+          });
+        }, box);
+        assert.equal(
+          await p.evaluate(() => document.activeElement === window.focusedCard),
+          true,
+        );
+        assert.equal(await p.locator("#" + box + " .agent-card").count(), 2);
+        assert.match(
+          await p.locator("#" + box + ' [data-agent="alpha"]').innerText(),
+          box === "roster" ? /Needs input/ : /Completed/,
+        );
+        await p.evaluate(() => applyState({ ...window._state, agents: [] }));
+        assert.equal(await p.locator("#" + box + " .agent-card").count(), 0);
+        assert.equal(
+          await p.evaluate(
+            () => document.activeElement.closest(".sheet") !== null,
+          ),
+          true,
+        );
+        await p.keyboard.press("Escape");
+      }
+    },
+    {
+      isolateState: true,
+      beforeLoad: (page) =>
+        page.addInitScript(() => {
+          // Hold the real later response until alpha is rendered. The initial
+          // hydration and response contents stay real; only delivery is gated.
+          const nativeFetch = window.fetch.bind(window);
+          let firstState = true;
+          const release = new Promise((resolve) => {
+            window.releaseCardStateResponse = resolve;
+          });
+          window.fetch = async (input, options) => {
+            const path = new URL(
+              input instanceof Request ? input.url : input,
+              location.href,
+            ).pathname;
+            if (path !== "/state") return nativeFetch(input, options);
+            if (firstState) {
+              firstState = false;
+              return nativeFetch(input, options);
+            }
+            let response;
+            try {
+              response = await nativeFetch(input, options);
+            } finally {
+              window.cardStateTransportSettled = true;
+            }
+            await release;
+            return response;
+          };
         }),
-      );
-      await p.click("#" + trigger);
-      await p.locator("#" + box + ' [data-agent="alpha"]').focus();
-      await p.evaluate((box) => {
-        window.focusedCard = document.activeElement;
-        applyState({
-          ...window._state,
-          agents: [
-            { id: "beta", label: "Beta", status: "waiting" },
-            {
-              id: "alpha",
-              label: "Alpha",
-              status: box === "roster" ? "waiting" : "done",
-            },
-          ],
-        });
-      }, box);
-      assert.equal(
-        await p.evaluate(() => document.activeElement === window.focusedCard),
-        true,
-      );
-      assert.equal(await p.locator("#" + box + " .agent-card").count(), 2);
-      assert.match(
-        await p.locator("#" + box + ' [data-agent="alpha"]').innerText(),
-        box === "roster" ? /Needs input/ : /Completed/,
-      );
-      await p.evaluate(() => applyState({ ...window._state, agents: [] }));
-      assert.equal(await p.locator("#" + box + " .agent-card").count(), 0);
-      assert.equal(
-        await p.evaluate(
-          () => document.activeElement.closest(".sheet") !== null,
-        ),
-        true,
-      );
-      await p.keyboard.press("Escape");
-    }
-  }));
+    },
+  ));
 test("search matches the status and event names shown to users", () =>
   withPage(async (p) => {
     await p.route("**/state", (r) => r.abort());

@@ -22,6 +22,21 @@ Open **[http://127.0.0.1:8113](http://127.0.0.1:8113)**. The server binds to loo
 
 For an isolated example, run `python3 demo_feed.py` and open **[http://127.0.0.1:8114](http://127.0.0.1:8114)**. Its **DEMO** label identifies synthetic activity. The demo always uses temporary data, even when your shell has a live `HERMES_HOME`. Ctrl+C stops it. The [preview guide](docs/preview.md) covers the shareable demonstration.
 
+## Prepare a task brief
+
+Open **Tasks → Draft prompt** to write a goal, constraints, and verification steps.
+Choose a destination, append the editable template, then copy the exact text or
+export a text file. Paste it into the intended runtime and review its project,
+session, and permissions there. Selecting OpenClaw or another destination is not
+an installed integration and does not establish a connection.
+
+Drafts are kept only in memory by default. **Remember this draft in this tab**
+opts into browser session storage, separate from event history and progression.
+Turning it off removes the stored draft without erasing the open text. Nothing
+in this panel sends prompts, runs commands, grants approvals, or creates XP.
+If the browser rejects a save or removal, the panel explains which draft is
+still stored and lets you retry without losing your open text.
+
 ## Connect an existing runtime
 
 In another terminal, run:
