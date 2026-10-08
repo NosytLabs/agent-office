@@ -811,6 +811,7 @@ $("trackSearch").oninput = (e) => {
 function fillTasks() {
   $("taskboard").hidden = taskMode !== "activity";
   $("reported-taskboard").hidden = taskMode !== "reported";
+  $("task-draft").hidden = taskMode !== "draft";
   for (const button of $("task-tabs").children)
     button.setAttribute(
       "aria-pressed",
@@ -820,6 +821,11 @@ function fillTasks() {
     taskMode === "reported"
       ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
       : "Observed session activity. Assign and approve work in your agent’s own terminal.";
+  if (taskMode === "draft") {
+    $("task-description").textContent =
+      "Prepare a task without changing live agent activity. Copy or export when you are ready.";
+    return;
+  }
   if (taskMode === "reported") {
     window.renderReportedTasks(
       $("reported-taskboard"),
@@ -867,7 +873,11 @@ function fillTasks() {
 }
 for (const button of $("task-tabs").children)
   button.onclick = () => {
-    taskMode = button.dataset.taskView === "reported" ? "reported" : "activity";
+    taskMode = ["activity", "reported", "draft"].includes(
+      button.dataset.taskView,
+    )
+      ? button.dataset.taskView
+      : "activity";
     fillTasks();
     persistView();
   };
