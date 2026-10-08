@@ -1,6 +1,6 @@
 # Reference review — 7–8 October 2026
 
-This review identifies concrete additions for Agent Office's local observer. It is a research and implementation recommendation, not a claim that the features below have shipped. Sources were read through GitHub, Firecrawl, and Context7; source code links are pinned where a revision was available. No third-party code or artwork was imported by this research step.
+This review separates implemented additions from remaining recommendations for Agent Office's local observer. Sources were read through GitHub, Firecrawl, and Context7; source code links are pinned where a revision was available. No third-party code or artwork was imported by this research step.
 
 ## Recommended implementation order
 
@@ -20,10 +20,13 @@ The furniture and reward choices above are proposed product decisions. They reus
 | Area | Current state |
 | --- | --- |
 | Runtime usage and Codex observation | Implemented with source-aware accounting, lifecycle hooks, and the optional captured Codex stream reader. [Runtime coverage](runtime-observers.md) distinguishes supported fields from unknown values and installation limits. |
-| Office interactions and earned content | Implemented furniture actions, aquarium feeding/species, original music, earned room props, and individual desk/appearance preferences. Rewards follow observed counters; animation does not create work records. |
+| Storage and settings correctness | Implemented separate history/inbox/cleanup/temporary/ledger measurements, unknown values for failed measurements, fair durable read retries, and legacy I/O preservation. Revisioned settings writes reject stale clients and preserve corrupt files; automatic retention suspends when the saved policy is unavailable or explicitly invalid. See [architecture contracts](architecture.md). |
+| Office interactions and earned content | Implemented 26 furniture choices, aquarium feeding/species, original music, earned room props, and individual desk/appearance preferences. New task terminals and attention beacons open existing task views; pet beds supply reserved rest targets and open pet settings; ferns are decoration. Rewards follow observed counters; animation does not create work records. |
 | Hootbu-inspired quality-of-life changes | Implemented per-agent usage summaries, safe view persistence, panel return context, stable desk choices, character selection, and roaming cats using this project's own state and assets. See the source-by-source decisions below. |
 | Product website | Implemented a separate allowlisted static site, accessible feature tour, setup commands, and credits. [Hosting instructions](preview.md) cover the public demo and the owner-controlled GitHub Pages activation step. |
-| Observed source TODO snapshots and current-context gauge | Still future work. The task panel shows observed session/tool activity; it does not claim to reconcile OpenCode/Codex task arrays or infer a model context limit. |
+| Observed source TODO snapshots | Implemented from OpenCode `todo.updated` and captured Codex `todo_list` events, with atomic replacement, runtime/session identity, explicit source-time coverage, bounded checkpoint persistence, and a read-only renderer. Unreported coverage, an explicitly empty list, and historical reports remain distinct. |
+| Follow-agent camera | Implemented an explicit inspector control with bounded pan and clean cancellation. Three native browser flows verified panel persistence, manual controls, accounting preservation, and real observer session-end/fade/despawn behavior using synthetic event fixtures. |
+| Current-context gauge | Still future work. Cumulative token usage is not a measurement of current context, and an unknown model limit is not inferred. |
 
 [Validation evidence](audit/README.md) records tested flows and the remaining installed-runtime and VS Code host checks. The sections below retain the checked source contracts and explain why some reference capabilities were deliberately kept outside the local observer.
 
@@ -37,7 +40,7 @@ Consume `properties.info` when `role` is `assistant` and `time.completed` is pre
 
 The [actual normalization and cost function](https://github.com/anomalyco/opencode/blob/a697115b203395c54a7496dc3d1863fe7b319c0c/packages/opencode/src/session/session.ts) subtracts cached tokens from `tokens.input` and reasoning tokens from `tokens.output`. Its buckets are therefore disjoint. Cost is calculated from runtime pricing/model metadata, with a zero fallback for missing prices. Label this **runtime cost estimate**, not an invoice or proof that a request was free.
 
-`todo.updated` supplies `properties.sessionID` and a complete `todos` array containing `content`, `status`, and `priority`. The inspected V2 `Todo` type has no item ID. Treat that array as one replaceable source snapshot instead of assigning identity by title alone. The statuses described in the schema include pending, in progress, completed, and cancelled.
+`todo.updated` supplies `properties.sessionID` and a complete `todos` array containing `content`, `status`, and `priority`. The inspected V2 `Todo` type has no row ID, and `EventTodoUpdated` has no source update timestamp. The implemented adapter preserves explicit pending, in-progress, completed, and cancelled states and reports source update time as unavailable. Array positions identify rows within one snapshot; they do not claim identity across edited plans. The event envelope's receipt timestamp is not substituted for a missing source timestamp.
 
 ### Hermes
 
@@ -53,7 +56,9 @@ The current official [hooks documentation](https://learn.chatgpt.com/docs/hooks)
 
 `PermissionRequest` does not document `tool_use_id`, unlike the pre/post tool hooks. Preserve available turn and tool information without inventing a call identity or an approval outcome. Keep observer output empty and successful; never emit prompt context, permission decisions, or result replacements. The documentation explicitly describes transcript format as unstable.
 
-For structured usage, [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) documents `codex exec --json` and `turn.completed.usage`. The official [event types](https://github.com/openai/codex/blob/main/sdk/typescript/src/events.ts) include input, cached input, output, reasoning output, and a newer cache-write field. The [item types](https://github.com/openai/codex/blob/main/sdk/typescript/src/items.ts) include command executions, file changes, MCP calls, web searches, and `todo_list`. This supports a stream observer without turning Agent Office into a CLI launcher. Select one lifecycle source when hooks and a stream describe the same run.
+For structured usage, [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) documents `codex exec --json` and `turn.completed.usage`. The official [event types](https://github.com/openai/codex/blob/624b45c4dcdc43a64da0307ce59c4508ef2206e9/sdk/typescript/src/events.ts) include input, cached input, output, reasoning output, and a newer cache-write field. The [item types](https://github.com/openai/codex/blob/624b45c4dcdc43a64da0307ce59c4508ef2206e9/sdk/typescript/src/items.ts) include command executions, file changes, MCP calls, web searches, and `todo_list`. This supports a stream observer without turning Agent Office into a CLI launcher. The implemented stream reader reports usage and task lists; lifecycle remains hook-owned.
+
+The inspected `TodoListItem` has a whole-list `id` and an `items` array of `{text, completed}` rows. `item.started`, `item.updated`, and `item.completed` all carry these items. Only each row's explicit boolean sets completion: a completed list event or turn does not complete unfinished rows. The source supplies neither a row ID, an in-progress row state, nor a source update timestamp. The adapter reports positional row IDs, pending/completed states, and an unavailable source time without parsing plans from message text.
 
 An optional interactive usage fallback can follow the narrow approach in [AgentSystemLabs' Codex reader](https://github.com/AgentSystemLabs/agent-office/blob/7f7211ea1050c8206afc6a354d56437da7654e2b/src/server/codex-usage.ts): read only an explicitly hooked transcript, validate its session header and location, use bounded reads, and extract cumulative counters. Treat it as version-tested compatibility, not a stable Codex API. It reports cost as unavailable and excludes subagents from its root-session totals.
 
@@ -79,6 +84,77 @@ Usage records should retain source identity, aggregation scope (message, API att
 | [Star Office UI](https://github.com/ringhyacinth/Star-Office-UI) | Previously cited setup and session-status direction. | [License separates MIT logic from noncommercial artwork](https://github.com/ringhyacinth/Star-Office-UI/blob/master/LICENSE). Keep any future code attribution separate; use this project's generated art. |
 
 ## Additional product references
+
+### Termi Protocol — 8 October follow-up
+
+The requested [product page](https://termiprotocol.com/) and its
+[August patch notes](https://termiprotocol.com/changelog) describe a desktop
+workspace with an agent overview, task boards, terminal sessions, checkpoints,
+project continuity, attention alerts, room editing, and pets. The
+[Chronicle](https://termiprotocol.com/news) adds useful failure scenarios: an
+alert repeatedly chiming, a new agent stealing typing focus, a long approval
+request being clipped, saved agents disappearing after room editing, and idle
+rendering or activity feeds consuming resources. These are the publisher's
+descriptions, not features exercised in a Termi installation during this audit.
+
+The official [public repository](https://github.com/ERCAAP/termi-protocol)
+was checked at
+[`9cc7ea4`](https://github.com/ERCAAP/termi-protocol/commit/9cc7ea4371432edb8935cc058ea47a6a5289c322).
+Its [README](https://github.com/ERCAAP/termi-protocol/blob/9cc7ea4371432edb8935cc058ea47a6a5289c322/README.md)
+explicitly identifies it as a product-discovery and feedback repository;
+application source is private, the examples are illustrative, and the media
+are visual references. The inspected tree has no `LICENSE` file. Its
+[Terms, section 9](https://termiprotocol.com/terms) reserve rights in the
+software, artwork, and designs and grant a limited right to use the service.
+No reusable application source or asset license was established. Independently
+implement the relevant interaction ideas using Agent Office's own code and
+assets; do not vendor Termi's screenshots, room models, branding, or examples.
+
+| Priority | Compatible addition | Decision and implementation state | Acceptance evidence |
+| --- | --- | --- | --- |
+| 1 | Observed task board | Implemented the documented OpenCode `todo.updated` and Codex `todo_list` arrays as replaceable snapshots, with runtime, exact session, source, and receipt-date labels. The existing Tasks panel has separate activity and reported-list views. | Focused state, real publisher/SQLite integration, and Chromium renderer tests pass. They cover full replacement, malformed input, explicit empty lists, Codex capture replay, parent/child isolation, and preserving unfinished source rows after lifecycle completion. |
+| 2 | Follow an agent | Implemented an explicit inspector control and bounded scene camera target. Following selects at least 1.75 zoom while preserving a higher existing zoom. | [Three native browser flows](../tests/follow-camera.test.cjs) passed: the actual actor comes into view and survives panel switches without changing accounting; manual pan, Fit, filtering, and editing cancel follow; a real observer end event retains the exit sprite briefly, then releases the target after the 20-second fade under reduced motion. |
+| 2 | Useful attention preferences | The current dashboard has one chime toggle. Expose separate approval, completion, and reward choices with a volume control, deduplication, and a cooldown. Keep long request details readable. | First load and replay are silent; repeated unresolved requests do not ring continuously; saved choices survive reload; notifications do not imply that the observer can approve runtime actions. |
+| 2 | A more complete agent overview | Extend the current inspector with reported model, current observed task, source freshness, usage coverage, and the existing history route. Avoid introducing a second competing inspector. | Fields remain unavailable when their source does not report them; changing the selected agent does not mix session data; slow updates preserve unfinished preference drafts. |
+| 3 | Project-scoped views | Termi describes shared rooms with project tabs; Pixel Agents has named areas mapped to workspace folders. Start with a source-backed workspace filter before a full area editor. | Switching views preserves agent identity, desk occupancy, and saved panel context; a hidden agent still owns its seat; absent workspace metadata is labelled rather than guessed. |
+
+The task-board addition is implemented and verified with synthetic source
+fixtures through the actual publishers, observer, and existing Tasks panel.
+Its activity/reported-list choice survives reload and Back navigation. Camera
+following passed its dedicated browser flows with actual EventStore-backed
+synthetic observations. Attention preferences, an expanded overview, and project-scoped views
+remain recommendations. Terminal hosting, automatic approvals, file locking,
+agent orchestration, checkpoint restoration, and cross-CLI prompt delivery
+require a different execution contract from this local observer. The product
+page's broad CLI list does not establish supported hooks or accurate usage
+for any particular runtime here. Likewise, a current-context gauge needs a
+reported snapshot and known capacity; it must not turn cumulative usage into
+an invented percentage.
+
+The Pixel Agents heads were rechecked and are unchanged from the earlier
+review: HQ
+[`3537e140`](https://github.com/pixel-agents-hq/pixel-agents/commit/3537e140c2094761beae748592aeb92ece8edfdd)
+and Hootbu
+[`a6c4d85`](https://github.com/hootbu/pixel-agents/commit/a6c4d85df1266ed43fa7d0ef70525475248fafc3).
+The HQ [camera implementation](https://github.com/pixel-agents-hq/pixel-agents/blob/3537e140c2094761beae748592aeb92ece8edfdd/webview-ui/src/office/components/OfficeCanvas.tsx)
+follows a selected character and cancels following on manual pan. Its
+[sound module](https://github.com/pixel-agents-hq/pixel-agents/blob/3537e140c2094761beae748592aeb92ece8edfdd/webview-ui/src/notificationSound.ts)
+has distinct completion and permission cues. Hootbu's
+[task panel](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/components/TaskPanel.tsx)
+actually nests subagents and derives activity from unfinished tools; it is
+not a reconciled source TODO board. Its
+[pixel-text editor](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/office/editor/PixelTextEditor.tsx)
+supplies an editable preview and bounded text. These are inspected source
+implementations, although this review did not run those upstream apps.
+
+Both Pixel Agents code licenses remain MIT; copied portions must retain the
+applicable notices described below. Their implementation details are examples
+to assess, not contracts to copy unquestioningly: the HQ context module uses
+an estimated fallback window, while this product's accounting policy keeps an
+unknown context limit unknown. Hootbu's build workflow runs a build;
+HQ's [CI definition](https://github.com/pixel-agents-hq/pixel-agents/blob/3537e140c2094761beae748592aeb92ece8edfdd/.github/workflows/ci.yml)
+also defines protocol-drift and package-contract checks. Workflow definitions
+are not evidence that our repository's disabled CI ran successfully.
 
 ### Hootbu's Pixel Agents
 
@@ -136,7 +212,7 @@ workflows. The inspected
 separates temporary animation cues from durable session/approval state before
 the scene consumes them. That separation is useful here: an animation may
 finish while an unanswered approval remains visible. A follow-selected-agent
-camera is another compatible addition. Keep these as independently
+camera is now independently implemented and covered by the native flows above. Keep these as independently
 implemented observer features; Claw3D's agent chat, task dispatch, session
 reset, and approval controls belong to its different runtime architecture.
 No Claw3D code or models were imported. Any later copied portions need MIT
@@ -183,11 +259,37 @@ coverage](runtime-observers.md) and [the architecture](architecture.md) for the
 contracts that shipped. The imported SVGL marks have exact source checksums;
 new furniture and fallback fish use original generated art.
 
-Source TODO snapshots, current-context gauges, follow-agent camera controls,
-and additional Gemini CLI, Aider, Cursor, and Copilot CLI adapters remain
-future work. The Tasks panel shows observed session activity; it does not claim
-to import a runtime's full task list. No new upstream repository was forked or
-rebundled during this implementation.
+The follow-up adds [reported task state](../tasks.py), source adapters, and a
+[read-only task renderer](../web/js/tasks-view.js). The checkpoint retains at
+most 128 recently reported runtime/session boards and 100 tasks per board;
+oversized or malformed snapshots are rejected in full. Task reports do not
+create sprites, refresh agent clocks, infer completion, or earn XP. A board
+without a currently visible matching session is labelled **Last reported**;
+this is not proof that the runtime process has stopped.
+
+[Publisher integration tests](../tests/test_tasks_integration.py) exercise
+synthetic OpenCode and Codex payloads through the actual subprocess adapters,
+atomic inbox, and SQLite state. They verify that task-only reports leave all
+progress counters unchanged, late child updates preserve parent and other
+runtime boards, terminal agents stay terminal, and raw-history pruning does
+not erase the bounded task checkpoint. [Renderer tests](../tests/tasks-view.test.cjs)
+use real Chromium to verify literal full text, unknown versus reported-empty
+states, safe runtime/session routing, and focus/text-selection retention.
+These are source-contract tests, not evidence of an installed provider run.
+
+Codex replay protection uses the caller's stable capture ID and the parsed
+record sequence. Each board remembers the maximum accepted sequence for its
+eight most recently accepted captures, including across observer restarts.
+Replaying remembered capture A after capture B cannot regress the board or
+refresh its receipt time; a previously unseen later record from A is still
+accepted. Older single-capture checkpoints migrate into this bounded memory.
+An evicted capture or board loses that replay protection. Unseen records from
+different captures still follow receipt order: their schemas supply no shared
+source clock, so the observer does not assert a globally ordered task history.
+OpenCode's source schema likewise supplies no source update clock.
+Current-context gauges and additional Gemini CLI, Aider,
+Cursor, and Copilot CLI adapters remain future work. No new upstream repository
+was forked or rebundled during this implementation.
 
 ## Repository inventory
 

@@ -53,7 +53,7 @@ An optional scene-only renderer uses a separately installed `skia-canvas` packag
 SCENE_CANVAS_MODULE=/absolute/path/to/skia-canvas node tests/render-scene.cjs
 ```
 
-This produces images under `reports/scene-render` and does not replace browser interaction tests or add a production dependency. The [CI workflow](.github/workflows/ci.yml) runs Python, Node, syntax, formatting, and browser checks; documentation-only changes are excluded from its automatic triggers.
+This produces images under `reports/scene-render` and does not replace browser interaction tests or add a production dependency. The [CI workflow](.github/workflows/ci.yml) defines Python, Node, syntax, formatting, and browser checks; documentation-only changes are excluded from its automatic triggers.
 
 Build the shareable demonstration with `npm run build:preview`. It packages the reviewed public fixture and assets into `dist/` and the product website into `dist/about/`. `npm run build:site` builds the website alone in `site-dist/`, suitable for GitHub Pages. These commands do not start a live observer or deploy a site. [The preview guide](docs/preview.md) explains fixture regeneration, local checks, and deployment settings.
 
@@ -69,15 +69,25 @@ Publish through the immutable inbox protocol. Do not append to or truncate `even
 
 [`event_store.py`](event_store.py) owns the SQLite writer transaction. Live state, progress, usage changes, and receipt acknowledgment commit together; file cleanup follows commit. Keep background ingestion working without a browser. A retention change must preserve unanswered prompts, aggregate counters, and later usage corrections. Test failures on both sides of a commit or reset boundary when changing that protocol.
 
+Keep unreadable inputs retryable without starving other publishers or overtaking earlier records from the same writer. A failed or partial legacy read must preserve its cursor and live state, including during reset preparation. Storage measurements distinguish pending input, acknowledged cleanup, temporary files, history bytes, and database size; a failed measurement is `null`, not zero or a partial sum. Automatic retention must suspend when preferences are unavailable or contain an unsupported retention value instead of applying destructive defaults.
+
 Usage events require a stable source `usage_id`, platform, and session. They are complete replacement snapshots. Input/output are inclusive; cached/reasoning values are subsets. Preserve source totals and missing values, report only observed cost with its source, and avoid counting both a component and a total containing it. Never add speculative model price tables or replace unavailable metrics with zero. The compact unit ledger remains necessary for replay/corrections even when raw history is pruned.
+
+Reported task lists are separate complete snapshots keyed by runtime/session. Reject malformed or oversized lists atomically; distinguish unreported from explicitly empty. Task reports must not create sessions, refresh agent clocks, infer completed work, or change any progression counter. Preserve the 128-board/100-task bounds and eight-capture replay watermarks, including legacy checkpoint migration. Test interrupted and interleaved capture replay as well as genuine later source records. The public response must not expose internal capture memory.
 
 The active achievement catalog has 37 entries. Add a reachable condition and meaningful coverage before declaring any new achievement. Preserve earned XP when retiring an ID; filter obsolete unlock/recent records through `normalize_achievements`. Display-only label changes must not revoke rewards. Runtime aliases should not create additional runtime families.
 
 ### Frontend and room interactions
 
-Keep one shared browser frontend for standalone use and VS Code. Render event text safely and preserve keyboard focus when reconciling cards. Settings saves must protect newer queued patches from earlier failures. Furniture operations enter undo history only after confirmation; external furniture changes invalidate stale history.
+Keep one shared browser frontend for standalone use and VS Code. Render event/task text literally and preserve focus, text selection, and panel context across unchanged polls. Furniture operations enter undo history only after confirmation; external furniture changes invalidate stale history.
+
+Settings reads carry a revision: use `/state`'s `settings_revision` or the quoted `ETag` from `GET /settings`, and send it in `If-Match` for every HTTP patch. Missing conditions return 428 and stale conditions return 409. A conflict requires reviewing the returned current state, not automatically overwriting another view's collections. Preserve newer queued patches across ordinary transport failure, but discard stale-generation writes after a conflict. Corrupt or unreadable files remain untouched; editing resumes only after a valid revision arrives. See the [settings contract](docs/architecture.md#settings-consistency) before adding a new writer.
 
 Test pointer and keyboard paths, mobile Fit scrolling, cancelled gestures, and reduced motion when modifying the canvas. Shared bounds should drive drawing, collision, selection, and reflow. Decorative interactions must not publish work events or award fabricated work XP. Music starts only after a user gesture and stops on mute, tab hiding, and page exit.
+
+The catalog has 26 prop types and permits 24 custom placements. Connect new useful props to the existing panels: the task terminal opens reported tasks, the attention beacon reflects observed waiting sessions, and the pet bed opens pet settings while supplying a reserved rest target. A decorative animation is not proof of activity or successful work. Cat bed routing must preserve obstacle clearance, exclusive occupancy, moved/removed target cleanup, and motion preferences; unreachable targets keep a safe local rest rather than teleporting a pet.
+
+Camera following remains an explicit view action. Manual pan, Fit, filtering out the target, editing, and actual despawn must release it. Panel switches must not lose it, and following an exit sprite must not prolong the lifecycle or change accounting. Use the [native follow tests](tests/follow-camera.test.cjs) as the behavioral contract.
 
 Agent preferences use canonical IDs and validated full-map replacement. An invalid or occupied desk destination must leave the previous assignment intact. Filtered agents still occupy their desks. Use the shared appearance resolver for floor sprites, roster portraits, and sprite-dependent ornaments. Preserve these relationships when changing layout or customization controls.
 

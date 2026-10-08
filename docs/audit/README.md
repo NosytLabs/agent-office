@@ -4,7 +4,7 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 
 ## Interface evidence
 
-![Office overview in Juniper with synthetic sessions](../screenshots/appearance.png)
+![Task terminal, status beacon, pet bed, and fern in an isolated test office](../screenshots/signals.png)
 
 | View | Screenshot |
 | --- | --- |
@@ -14,6 +14,8 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 | Personalization | [Individual desk and character preferences](../screenshots/personalization.png) |
 | Appearance | [Juniper, walnut desks, and a delegated robot](../screenshots/appearance.png) |
 | Product website | [Responsive product introduction](../screenshots/product-site.png) |
+| New interactive props | [Desktop](../screenshots/signals.png) and [320-pixel mobile reflow](../screenshots/signals-mobile.png) |
+| Pet bed | [Cat resting at the placed bed](../screenshots/pet-bed.png) |
 
 See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
 
@@ -22,10 +24,13 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Layer | What the tests exercise | Main evidence |
 | --- | --- | --- |
 | Event durability | Out-of-order source timestamps, identical event publications, competing consumers, failures before/after commit, receipt cleanup, and raw count/age/byte retention | [`test_event_store.py`](../../tests/test_event_store.py), [`test_event_inbox.py`](../../tests/test_event_inbox.py) |
+| Settings integrity | Required revisions, stale full-map conflicts, cooperating process concurrency, preserved malformed files, oversized numbers, repair, and suspension of pruning while retention settings are unavailable | [`test_settings_concurrency.py`](../../tests/test_settings_concurrency.py), [`settings-concurrency.test.cjs`](../../tests/settings-concurrency.test.cjs) |
+| Storage health | Fair durable retries, publisher ordering, acknowledged cleanup, temporary/legacy bytes, unavailable measurements, exact usage-record counts, and legacy I/O recovery | [`test_storage_health.py`](../../tests/test_storage_health.py), [`test_event_cache.py`](../../tests/test_event_cache.py) |
 | Reset recovery | Recovery after publishing a reset intent, post-commit cleanup failures, late old-epoch writes, pending reset reads, and concurrent legacy appends | [`test_reset_protocol.py`](../../tests/test_reset_protocol.py) |
 | Lifecycle | Parallel calls, independent unanswered prompts, real child-session IDs, duplicate terminal events, late orphan completions, quiet-state context, and session expiry | [`test_state_model.py`](../../tests/test_state_model.py), [`test_agent_lifecycle.py`](../../tests/test_agent_lifecycle.py) |
 | Usage | Stable identities, duplicate snapshots, corrections, missing/invalid fields, token subsets, cost coverage, overflow handling, and history/reset boundaries | [`test_usage.py`](../../tests/test_usage.py), [`test_event_store.py`](../../tests/test_event_store.py) |
 | Runtime adapters | Provider-shaped fixtures through actual local hook processes or the OpenCode plugin, immutable publication, and SQLite consumption | [`test_runtime_adapters.py`](../../tests/test_runtime_adapters.py), [`test_codex_hook.py`](../../tests/test_codex_hook.py), [`test_codex_stream.py`](../../tests/test_codex_stream.py), [`test_hermes_usage.py`](../../tests/test_hermes_usage.py), [`opencode-bridge.test.mjs`](../../tests/opencode-bridge.test.mjs) |
+| Reported task lists | Valid full snapshots, explicit clearing, atomic invalid-input rejection, stable source/receipt times, eight-capture replay memory, restart, source adapters, historical rows, and unchanged XP/lifecycle | [`test_tasks.py`](../../tests/test_tasks.py), [`test_tasks_integration.py`](../../tests/test_tasks_integration.py), [`tasks-view.test.cjs`](../../tests/tasks-view.test.cjs), [`settings-concurrency.test.cjs`](../../tests/settings-concurrency.test.cjs) |
 | Installation | Runtime detection, additive configuration, malformed configuration preservation, optional hooks, Codex trust boundaries, and extension file selection | [`test_install_config.py`](../../tests/test_install_config.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Achievements | All 37 catalog conditions are reachable; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Browser and scene | Real local HTTP routes, polling, disconnected states, furniture/editor persistence, failed queued saves, touch scrolling, focus, search, reset, assets, and downloads | [`browser.test.cjs`](../../tests/browser.test.cjs), [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`product-ui.test.cjs`](../../tests/product-ui.test.cjs) |
@@ -33,6 +38,8 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Personalization | Canonical-ID desk and character preferences, atomic validation, occupied-seat rejection, deterministic conflicts, stable automatic homes, native save/rollback, filtering and responsive layouts, persistence without fabricated activity | [`personalization.test.cjs`](../../tests/personalization.test.cjs), [`personalization-browser.test.cjs`](../../tests/personalization-browser.test.cjs), [`test_personalization.py`](../../tests/test_personalization.py) |
 | HUD | Visible close controls, preserved scroll and inspector return context, selected history text across polling, contained mobile scrolling, deduplicated notices, safe view persistence, and per-agent usage coverage | [`hud.test.cjs`](../../tests/hud.test.cjs) |
 | Pets | Bounded movement, collision clearance, idle approaches and active-work avoidance, sleep, click targets, reflow, pause, visibility, and reduced-motion behavior | [`pets.test.cjs`](../../tests/pets.test.cjs), [`pets-browser.test.cjs`](../../tests/pets-browser.test.cjs) |
+| Follow camera | Native follow/stop, panel retention, manual pan/Fit/filter/edit cancellation, and release after actual session-end ingestion and sprite fade | [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`follow-camera.test.cjs`](../../tests/follow-camera.test.cjs) |
+| Interactive props and beds | Native placement/actions/reload, exact sprite pixels, mobile collisions, connected waiting-only beacon, frozen overlays, normal pet motion, accelerated bed arrival, and moved/removed-bed release | [`signals-browser.test.cjs`](../../tests/signals-browser.test.cjs) |
 | Aquarium and music | Fish movement/feeding limits, unlocks, preferences, optional art validation, gesture-started audio, voice cleanup, and muted/hidden behavior | [`aquarium.test.cjs`](../../tests/aquarium.test.cjs), [`jukebox-model.test.cjs`](../../tests/jukebox-model.test.cjs), [`room-interactions.test.cjs`](../../tests/room-interactions.test.cjs), [`test_smallburg_import.py`](../../tests/test_smallburg_import.py) |
 | Public preview | Isolated fixture generation, static build boundaries, synthetic markers, reset/history/preferences, and exclusion of local data and optional commercial art | [`test_preview_build.py`](../../tests/test_preview_build.py), [`preview.test.cjs`](../../tests/preview.test.cjs) |
 | Product website | Allowlisted public build, safe regeneration, relative paths, real desktop/mobile browser flows, keyboard tabs, actual clipboard and denied-clipboard recovery, reduced motion and no-JavaScript content | [`test_site_build.py`](../../tests/test_site_build.py), [`site.test.cjs`](../../tests/site.test.cjs) |
@@ -40,82 +47,63 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
 
-### Verified 0.5.0 integrated build
+### Verified 0.5.0 task-reporting update
 
 The integrated local run on 8 October 2026 (UTC) used Python **3.12.14**, Node
 **24.19.0**, and Chromium **153.0.8010.0**. The configured CI Node version is 22;
-the local run is not evidence of that separate environment.
+local tests do not establish the result in that separate environment.
 
 | Command or flow | Result |
 | --- | --- |
-| `python -m pytest -q -o addopts=''` | 337 passed |
-| `npm test` | 88 passed |
-| `npm run test:browser` | 134 passed, 0 failed, 1 optional local-art check skipped |
-| Optional local-art browser check with the verified Smallburg pack | 1 passed; all four fish decoded their four native frames |
-| `npm run check` and `npm run format:check` | Passed |
-| `npm run build:preview` | Built 58 public demo files and 19 product-site files; no local runtime data or Smallburg sheets |
+| `python -m pytest -q -o addopts=''` | 441 passed |
+| `npm test` | 101 passed |
+| `npm run test:browser` | 160 passed, 0 failed, 1 optional local-art check skipped; 74.2 seconds |
+| Separate optional Smallburg browser check | 1 passed with the verified local pack; all four fish decoded all four native frames |
+| `npm run check` | Passed |
+| `npm run format:check` and `git diff --check` | Passed |
+| `npm run build:preview` | Built 61 public demo files and 19 product-site files; no local runtime data or Smallburg sheets |
 
-The music tests measured nonzero waveforms from a native `AnalyserNode` for
-all three tracks, then checked actual audio-context cleanup. The browser suite
-also covers settings failure/retry, queued writes, two-tab demo reset/history
-behavior, grouped unlock notices, quiet-agent inspection, and 320-pixel layouts.
-The screenshots above come from isolated public-fixture runs. Appearance tests
-observed actual canvas drawing, rather than substituting pixels or animation
-timing. They reproduced and then verified fixes for unreachable furniture hit
-areas, mismatched roster portraits, and crowns above the shorter robot.
+The new real-server browser flows exercise two-tab stale saves, queued
+replacement-map conflicts, corrupt settings and repair, unavailable storage
+measurements, task-list publication and historical state, a mobile inspector
+that leads with activity, and camera follow/stop behavior. They use the actual
+Python publisher, inbox, SQLite store, and HTTP routes with synthetic events.
+Provider executables are not invoked by these fixtures.
 
-The final integrated browser run completed in 71.5 seconds. It includes 27 HUD
-flows, two native desk-save flows, four real-floor pet flows, and eight
-product-site flows. Independent
-review also reproduced incorrect usage-alias selection, delayed-history scroll
-loss, focused-notice eviction, and preference draft races; their regressions
-passed in the integrated run. Notification layout originally resized the canvas
-and invalidated subsequent sprite clicks. Notices now leave the canvas position,
-backing dimensions, and fit scale unchanged on desktop and mobile, including
-when a panel closes. The original appearance pixel comparison and both native
-cat clicks passed without weakening their assertions.
+The new furniture suite verifies native placement, clicks, reload persistence,
+320-pixel reflow, actual amber/neutral beacon pixels, and paused overlays.
+It first observes pet movement under the ordinary browser animation loop.
+Bed arrival then uses explicitly accelerated scene frames: 614 and 615 steps
+at 1/30 second, approximately 20.47 and 20.50 **simulated** seconds. Both paths
+have zero detected collisions and reach the exact bed target. Native bed
+movement and removal release the reservation. These measurements do not claim
+wall-clock nap timing or provider activity.
 
-The latest branch review also reproduced delayed session-error callbacks
-reopening completed agents. The integrated fix preserves terminal status,
-duration, and expiry while retaining the late error in history. The four
-regressions in [`test_terminal_callbacks.py`](../../tests/test_terminal_callbacks.py)
-include a restart and the actual inbox/database path.
+Independent core review reproduced two additional failures before their
+fixes: unreadable settings could apply a shorter default history limit, and a
+parseable oversized integer could raise an exception during settings loading.
+The retention regressions preserve 1,001 existing rows, accept a new row, keep
+all 1,002 through repair, and prune only after an explicit shorter policy.
+They cover corrupt JSON, denied reads, and invalid count, age, or byte limits.
+Numeric and process-concurrency regressions also passed on independent review.
+Missing task coverage now remains distinct from a known empty collection.
 
-The post-deployment audit found two further correctness failures. Before the
-first state response, placing an ordinary stool could replace a saved furniture
-collection, and an untouched blank pet or aquarium name could erase the stored
-name. Settings now wait for initial hydration, with a shared write guard and
-disabled editing controls. Regressions hold the first HTTP response, attempt
-native and programmatic writes, release the response, and verify a normal retry
-preserves the existing data. A failed initial request remains guarded until a
-later successful response.
+Existing browser gates continue to cover actual audio waveforms and cleanup,
+aquarium feeding/unlocks, animation frames/facing, stable desk assignments,
+pre-hydration write guards, keyboard/focus/scroll behavior, and the product
+website. Their passing totals must come from the current integrated run,
+not from an earlier release. Optional commercial fish artwork is excluded
+from the public fixture and uses its separate local-art check.
 
-Moving an automatically seated actor also compacted its peers into different
-desks. The scene now retains automatic homes for the open view and uses the same
-full-roster allocation for rendering, choices, and occupied-seat validation.
-Native tests against the real observer confirm that successful and rejected
-saves keep all five actor identities, peer desks, XP, statistics, received-event
-counts, and usage unchanged. Model regressions additionally cover departures,
-new arrivals, reordered snapshots, filtering, imported conflicts, and reset.
-Explicit choices persist across reload; automatic homes are rebuilt for a new
-view. These two failures were reproduced before their fixes and independently
-reviewed after correction.
-
-The [hosted demo](../preview.md#hosted-review) also built successfully under
-Node **22.23.2** and passed the recorded deployed UI checks on 8 October 2026,
-including the merged build at the existing public production address.
-This confirms the static build on Node 22; it does not substitute for running
-the complete test suite on that version.
-
-At release review, the [GitHub CI workflow page](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml)
-reported **“This workflow was disabled manually.”** No hosted CI run exists
-for the reviewed commit. The separate [Product website run](https://github.com/NosytLabs/agent-office/actions/runs/37716331937)
-built merged commit `8d68a4f` successfully; Pages upload and deployment were
-skipped because the repository had Pages disabled. That website build is not
-the test suite. The local test results above and the Vercel build are separate
-evidence. Re-enable the existing CI workflow through repository settings
-to restore hosted checks; its disabled state was not bypassed by creating a
-replacement workflow.
+[The hosted-review guide](../preview.md#hosted-review) records the prior deployed
+build and explains how to inspect the source commit for a later release.
+A Vercel build confirms the static build environment; it is separate from
+Python, Node, and Chromium test execution. At this review, main had a successful
+Vercel status and no GitHub test check-runs. The CI workflow had previously been
+disabled manually; the connected tools cannot administer that setting.
+GitHub Pages remains disabled. Its separate site workflow can build while
+skipping Pages deployment. No replacement workflow or access-setting change
+was used to bypass either configuration.
 
 ## Integration limits
 
@@ -125,13 +113,17 @@ replacement workflow.
 
 **Usage is observed coverage.** Claude hooks supply no usage counters. Supported Hermes hooks cover main-loop API attempts, and Codex usage requires the documented captured-stream path. OpenCode's monetary field is a runtime estimate; reported zero can reflect missing runtime pricing. Missing metrics remain unknown. A differing old usage snapshot without a revision is indistinguishable from a correction.
 
-**Retention has explicit boundaries.** The default 1,000-event / seven-day / 5-MiB limit applies to raw activity. Live unresolved prompts and compact accounting survive pruning. Usage identities grow with unique observed units, offline inbox files wait for the server, and legacy JSONL files remain read-only. Arbitrary legacy rewrites lack the stable identity guarantees of new publishers. See [storage and reset design](../architecture.md).
+**Retention has explicit boundaries.** The default 1,000-event / seven-day / 5-MiB limit applies to raw activity. Live unresolved prompts and compact accounting survive pruning. Automatic pruning pauses when retention settings are unavailable. Usage identities grow with unique observed units, offline inbox files wait for the server, and legacy JSONL files remain read-only. Arbitrary legacy rewrites lack the stable identity guarantees of new publishers. See [storage and reset design](../architecture.md).
+
+**Task lists preserve source statements.** A completed session does not establish that every reported task finished. Recent known Codex capture replays are suppressed by bounded per-board memory; unseen or evicted captures have no shared source clock and follow receipt order. A board evicted from the 128-board collection loses that replay memory. OpenCode's inspected TODO payload has no source-update timestamp, so the UI labels receipt time separately.
+
+**Settings concurrency covers cooperating local servers.** Tests cover processes sharing the same local SQLite lock and injected I/O failures. They do not prove power-loss durability, network-filesystem locking, or atomicity against arbitrary external editors racing the final file replacement.
 
 **Optional commercial art is local.** The public aquarium uses original bundled artwork. The Smallburg importer validates an existing licensed Little Current checkout and installs outside this repository; it does not fetch, license, or publish the commercial source files. [The import guide](../aquarium-assets.md) records exact sources, hashes, frame selection, and license boundaries.
 
 ## Source and asset review
 
-[The reference review](../reference-review-2026-10-07.md) records inspected repositories, primary runtime documentation, and what can be adopted by a local observer. It covers Pixel Agents, Harish Kotra's AgentOffice, AgentSystemLabs, thepixeloffice.ai, Claw3D, the supplied LinkedIn prototype, and SVGL's AI marks.
+[The reference review](../reference-review-2026-10-07.md) records inspected repositories, primary runtime documentation, and what can be adopted by a local observer. It covers Pixel Agents and Hootbu's fork, Harish Kotra's AgentOffice, AgentSystemLabs, thepixeloffice.ai, Claw3D, Termi, the supplied LinkedIn prototype, and SVGL's AI marks.
 
 Provider normalization, readable status grouping, editable rooms, and separate temporary animation cues are compatible concepts. Autonomous dispatch, agent hiring, model execution, and permission decisions are outside this product. No feature claim is inherited merely because it appears in a reference project's README or marketing page.
 
