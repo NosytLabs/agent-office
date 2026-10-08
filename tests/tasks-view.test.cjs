@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { chromium } = require("playwright");
+const { observerFixture } = require("./observer-fixture.cjs");
 
 const script = path.resolve(__dirname, "../web/js/tasks-view.js");
 let browser;
@@ -18,8 +19,11 @@ after(async () => {
   await browser?.close();
 });
 
-async function withView(run) {
-  const page = await browser.newPage({ viewport: { width: 760, height: 700 } });
+async function withView(run, options = {}) {
+  const page = await browser.newPage({
+    viewport: { width: 760, height: 700 },
+    ...options,
+  });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.setDefaultTimeout(3000);
@@ -73,6 +77,77 @@ async function render(page, boards, agents = []) {
     { boards, agents },
   );
 }
+
+test("localized source and receipt dates retain their punctuation without adding a second period", () =>
+  withView(
+    async (page) => {
+      await render(page, [board({ source_updated_at: 1791453500 })]);
+      const text = await page.locator(".task-board-meta").innerText();
+      const expected = await page.evaluate(() => ({
+        received: new Date(1791453600 * 1000).toLocaleString(),
+        source: new Date(1791453500 * 1000).toLocaleString(),
+      }));
+      assert.match(expected.received, /[ap]\.m\.$/);
+      assert.ok(text.includes("Received " + expected.received));
+      assert.ok(text.includes("Source updated " + expected.source));
+      assert.doesNotMatch(text, /\.\./);
+    },
+    { locale: "en-CA", timezoneId: "America/Toronto" },
+  ));
+
+test("the native waiting inspector uses the localized observation date without double punctuation", async () => {
+  await observerFixture(
+    {
+      events: [
+        {
+          event: "session_start",
+          platform: "opencode",
+          session_id: "locale-audit",
+          title: "Synthetic date check",
+        },
+        {
+          event: "approval_request",
+          platform: "opencode",
+          session_id: "locale-audit",
+          request_id: "locale-approval",
+          command: "Synthetic approval",
+        },
+      ],
+    },
+    async ({ page, base }) => {
+      const localized = await page
+        .context()
+        .browser()
+        .newPage({
+          viewport: { width: 1440, height: 1000 },
+          locale: "en-CA",
+          timezoneId: "America/Toronto",
+        });
+      const errors = [];
+      localized.on("pageerror", (error) => errors.push(error.message));
+      try {
+        await localized.goto(base);
+        await localized.waitForFunction(() => initialized && settingsReady);
+        await localized.click("#waiting-count");
+        const note = await localized
+          .locator("#sheet-inspector .waiting-note")
+          .innerText();
+        const date = await localized.evaluate(() =>
+          new Date(
+            agents.find((agent) => agent.id === "locale-audit").observed_at *
+              1000,
+          ).toLocaleString(),
+        );
+        assert.match(date, /[ap]\.m\.$/);
+        assert.ok(note.includes(date));
+        assert.doesNotMatch(note, /\.\./);
+        assert.deepEqual(errors, []);
+      } finally {
+        await localized.close();
+      }
+    },
+  );
+});
 
 test("unreported task coverage is distinct from an explicitly empty source snapshot", async () =>
   withView(async (page) => {

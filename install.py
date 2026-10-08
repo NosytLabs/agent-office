@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import shlex
@@ -18,6 +19,7 @@ HOME = Path.home()
 CLAUDE_EVENTS = ("SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "StopFailure",
                  "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest",
                  "PermissionDenied", "SubagentStart", "SubagentStop")
+GEMINI_EVENTS = ("SessionStart", "BeforeAgent", "AfterAgent", "SessionEnd")
 CODEX_EVENTS = ("SessionStart", "SessionEnd", "UserPromptSubmit", "Stop", "Interrupt",
                 "PreToolUse", "PostToolUse", "PermissionRequest", "SubagentStart", "SubagentStop")
 
@@ -28,6 +30,11 @@ def hermes_home() -> Path:
 
 def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME") or HOME / ".codex").expanduser()
+
+
+def gemini_home() -> Path:
+    # Gemini CLI treats this override as a parent home, then adds .gemini.
+    return Path(os.environ.get("GEMINI_CLI_HOME") or HOME).expanduser() / ".gemini"
 
 
 def have(cmd: str) -> bool:
@@ -75,6 +82,7 @@ def detect() -> dict:
         ),
         "claude": have("claude") or (HOME / ".claude/settings.json").exists(),
         "codex": have("codex") or any((codex_home() / name).is_file() for name in ("config.toml", "hooks.json")),
+        "gemini": have("gemini") or (gemini_home() / "settings.json").is_file(),
         "vscode": (Path("/Applications/Visual Studio Code.app").exists()
                    or have("code")),
     }
@@ -83,13 +91,13 @@ def detect() -> dict:
 def _refresh_hermes_copy(dest: Path) -> None:
     """Refresh source-owned runtime files, retaining unrelated local settings."""
     dest.mkdir(parents=True, exist_ok=True)
-    for name in ("__init__.py", "event_inbox.py", "event_store.py", "state_model.py",
+    for name in ("__init__.py", "settings_store.py", "event_inbox.py", "event_store.py", "state_model.py",
                  "progress.py", "usage.py", "tasks.py", "plugin.yaml", "LICENSE", "README.md"):
         if (HERE / name).is_file():
             shutil.copy2(HERE / name, dest / name)
     ignore = shutil.ignore_patterns("node_modules", "reports", ".git", "__pycache__",
                                    ".pytest_cache", "test-results", "playwright-report", "*.pyc")
-    for name in ("web", "claude", "opencode", "codex"):
+    for name in ("web", "claude", "opencode", "codex", "gemini"):
         if (HERE / name).is_dir():
             shutil.copytree(HERE / name, dest / name, dirs_exist_ok=True, ignore=ignore)
 
@@ -151,7 +159,8 @@ def enable_opencode() -> str:
     return "opencode already wired"
 
 
-def _enable_command_hooks(runtime: str, settings: Path, events: tuple, options: dict | None = None) -> str:
+def _enable_command_hooks(runtime: str, settings: Path, events: tuple, options: dict | None = None,
+                          *, validate_group=None) -> str:
     hook = str(HERE / runtime / "hook.py")
     if not Path(hook).is_file():
         return f"skip {runtime} (no bridge in this tree)"
@@ -175,6 +184,8 @@ def _enable_command_hooks(runtime: str, settings: Path, events: tuple, options: 
             for item in bucket
         ):
             return f"skip {runtime} (invalid {ev} hooks; fix {settings.name} and rerun)"
+        if validate_group and any(not validate_group(item) for item in bucket):
+            return f"skip {runtime} (invalid {ev} hooks; repair {settings.name} manually and rerun)"
     added = 0
     for ev in events:
         bucket = hooks.setdefault(ev, [])
@@ -210,6 +221,50 @@ def enable_codex() -> str:
     return result + " — open Codex /hooks to review and trust the observer definitions before they run"
 
 
+
+def _valid_gemini_group(group: dict) -> bool:
+    """Validate the official JSON command-hook contract before a Gemini merge."""
+    if not isinstance(group.get("hooks"), list):
+        return False
+    if "matcher" in group and not isinstance(group["matcher"], str):
+        return False
+    if "sequential" in group and not isinstance(group["sequential"], bool):
+        return False
+    for hook in group["hooks"]:
+        # Runtime hooks require a JS function, so cannot be valid JSON config.
+        if (not isinstance(hook, dict) or hook.get("type") != "command"
+                or not isinstance(hook.get("command"), str) or "action" in hook):
+            return False
+        if any(key in hook and not isinstance(hook[key], str) for key in ("name", "description")):
+            return False
+        if "source" in hook and hook["source"] not in ("runtime", "project", "user", "system", "extensions"):
+            return False
+        if "timeout" in hook:
+            if type(hook["timeout"]) not in (int, float):
+                return False
+            try:
+                if not math.isfinite(hook["timeout"]):
+                    return False
+            except OverflowError:
+                return False
+        if "env" in hook and (not isinstance(hook["env"], dict)
+                or any(not isinstance(key, str) or not isinstance(value, str)
+                       for key, value in hook["env"].items())):
+            return False
+    return True
+
+
+def enable_gemini() -> str:
+    # Gemini timeouts use milliseconds. Do not enable hooks, change runtime
+    # trust/auth, or replace comment-bearing settings that need a manual merge.
+    result = _enable_command_hooks("gemini", gemini_home() / "settings.json", GEMINI_EVENTS,
+                                   {"timeout": 3000, "name": "agent-office-observer"},
+                                   validate_group=_valid_gemini_group)
+    if result.startswith("skip"):
+        return result
+    return result + " — session lifecycle only; existing hook disable and workspace trust settings remain in effect"
+
+
 def enable_vscode() -> str:
     src = HERE / "vscode"
     if not (src / "extension.js").exists():
@@ -242,7 +297,8 @@ def main() -> int:
     print()
     failed = False
     for name, enable in (("hermes", enable_hermes), ("opencode", enable_opencode),
-                         ("claude", enable_claude), ("codex", enable_codex), ("vscode", enable_vscode)):
+                         ("claude", enable_claude), ("codex", enable_codex),
+                         ("gemini", enable_gemini), ("vscode", enable_vscode)):
         if not found.get(name):
             print(f"• skip {name} (not installed)")
             continue

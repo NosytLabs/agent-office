@@ -38,11 +38,12 @@ The installer detects existing installations and adds observer definitions while
 | OpenCode | Sessions, tools, permissions, questions, child sessions; reported task lists and assistant-message usage | Adds a local plugin URL; existing JSONC receives manual instructions |
 | Claude Code | Session, prompt, tool, approval, question, and subagent hooks | Merges observer hooks into `~/.claude/settings.json` |
 | Codex | Session, prompt, tool, permission, subagent, stop, and interrupt hooks | Merges `hooks.json` in `CODEX_HOME` or `~/.codex`; review and trust it through Codex `/hooks` |
+| Gemini CLI | Session start/end and agent-loop busy/idle; no tool, subagent, usage, or cost reporting | Merges four observer hooks into `~/.gemini/settings.json`; preserves disabled hooks and workspace trust |
 | VS Code view | The same office interface beside your editor | Installs the local extension; reload VS Code and run **Agent Office: Open Floor** |
 
 Keep `run.py` running for standalone adapters. Hermes can also start the observer server from its plugin. Set the same `HERMES_HOME` for the server and runtime processes when using a custom data location.
 
-The in-app **Connection guide** provides setup and troubleshooting. A reachable office server does not establish that a runtime is delivering events. Adapter fixtures have exercised actual publication, SQLite ingestion, HTTP state, and browser flows; installed Hermes, Claude Code, Codex, and OpenCode CLI sessions were unavailable in the validation environment. See [coverage and remaining checks](docs/audit/README.md), including the separate VS Code extension-host limitation.
+The in-app **Connection guide** provides setup and troubleshooting. A reachable office server does not establish that a runtime is delivering events. Gemini CLI 0.63.0 delivered the installed observer's hooks in real CLI runs against a synthetic local provider, including a provider-error path. Hermes, Claude Code, Codex, and OpenCode are covered by adapter fixtures through actual publication, SQLite ingestion, HTTP state, and browser flows; their installed CLI sessions remain unverified here. See [coverage and remaining checks](docs/audit/README.md), including the separate VS Code extension-host limitation.
 
 ## Activity, usage, and room controls
 
@@ -55,7 +56,7 @@ The in-app **Connection guide** provides setup and troubleshooting. A reachable 
 
 Reported task lists come from OpenCode's `todo.updated` events or an imported Codex `exec --json` capture. Each list shows its source and observation time. Completed sessions keep their last reported list; ending a session does not mark unfinished rows complete. Missing reporting is distinct from a reported empty list. These snapshots do not award XP or keep a sprite alive. See the [source contracts and capture command](docs/runtime-observers.md).
 
-Claude hooks do not report token usage. Hermes reports supported main-loop API attempts. OpenCode reports assistant-message counters and runtime cost estimates. Codex usage can be imported from an already captured `codex exec --json` stream with a stable capture ID. See [exact usage semantics and commands](docs/runtime-observers.md); the office does not infer pricing or present these values as an invoice.
+Claude hooks and the Gemini lifecycle adapter do not report token usage. Hermes reports supported main-loop API attempts. OpenCode reports assistant-message counters and runtime cost estimates. Codex usage can be imported from an already captured `codex exec --json` stream with a stable capture ID. See [exact usage semantics and commands](docs/runtime-observers.md); the office does not infer pricing or present these values as an invoice.
 
 ### Earned room rewards
 
@@ -91,6 +92,8 @@ Raw activity is limited by **1,000 events, seven days, and 5 MiB by default**, k
 Settings saves check the revision the editor actually read. A stale tab receives a conflict notice instead of overwriting newer names or room choices. Unreadable settings remain untouched; editing and automatic history pruning pause until the file is repaired, while event ingestion continues. An explicitly invalid retention limit also requires repair before pruning resumes.
 
 The history limit is not a cap on the whole database. Compact per-usage identities remain for exact replay handling and corrections. An offline server leaves pending inbox files until it runs again. Old `events.jsonl` integrations remain readable, but their files are not rewritten or truncated. Storage diagnostics separate unprocessed events, acknowledged files awaiting cleanup, temporary files, legacy logs, and usage records. Failed measurements say they are unavailable. Storage notices surface retry or retention problems. [Architecture](docs/architecture.md) explains these boundaries, conditional settings writes, and reset recovery.
+
+For an explicit storage report, run `python3 tools/maintain.py`. To reclaim fragmented SQLite space, stop office servers and run `python3 tools/maintain.py --compact`. Add `--directory /path/to/pixel-office` for another data location. Compaction preserves retained observations, XP, accounting identities, pending input, and reset recovery state; it does not apply a shorter retention policy. It refuses unknown or damaged databases and reports busy connections instead of deleting their files. See [maintenance behavior and limits](docs/architecture.md#explicit-sqlite-maintenance).
 
 ## Help and development
 

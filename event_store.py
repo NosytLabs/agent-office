@@ -7,7 +7,7 @@ of that boundary cannot replay an event. No consumer rewrites a shared log.
 from __future__ import annotations
 
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import copy
 import hashlib
 import heapq
@@ -89,6 +89,143 @@ class EventStore:
         self.path = self.directory / "office.sqlite3"
         self.inbox = self.directory / "inbox"
         self.epoch_path = self.directory / "event-epoch"
+
+    @staticmethod
+    def _maintenance_timeout(timeout):
+        if type(timeout) not in (int, float) or not 0 <= timeout <= 5:
+            raise ValueError("Maintenance lock timeout must be between 0 and 5 seconds")
+        return float(timeout)
+
+    def _database_files(self):
+        """File-entry lengths, including SQLite-owned sidecars, without following links."""
+        values, errors = {}, []
+        exists = None
+        for suffix, category in (("", "database"), ("-wal", "wal"),
+                                 ("-shm", "shm"), ("-journal", "journal")):
+            try:
+                metadata = Path(str(self.path) + suffix).lstat()
+                if not suffix:
+                    exists = True
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise OSError("not a regular SQLite file")
+                values[category + "_bytes"] = metadata.st_size
+            except FileNotFoundError:
+                values[category + "_bytes"] = 0
+                if not suffix:
+                    exists = False
+            except OSError:
+                values[category + "_bytes"] = None
+                errors.append(category)
+        return {"directory": str(self.directory.absolute()), "database_exists": exists,
+                "files": values, "database_total_bytes": None if errors else sum(values.values()),
+                "sqlite": None, "measurement_errors": errors}
+
+    @staticmethod
+    def _database_pages(db):
+        values = {name: db.execute("PRAGMA " + name).fetchone()[0] for name in (
+            "page_size", "page_count", "freelist_count", "journal_mode", "auto_vacuum")}
+        values["auto_vacuum"] = {0: "none", 1: "full", 2: "incremental"}[values["auto_vacuum"]]
+        values["logical_bytes"] = values["page_size"] * values["page_count"]
+        # Whole free pages are reusable space, not a prediction of VACUUM's
+        # result: partially filled pages are absent from the freelist.
+        values["freelist_bytes"] = values["page_size"] * values["freelist_count"]
+        return values
+
+    def storage_report(self, *, timeout=1.0):
+        """Inspect existing storage without creating an office or consuming input.
+
+        This is a CLI diagnostic, not a second ingestion/retention path. SQLite
+        may recover or manage its own sidecars when a database is opened; no
+        application-owned files, policy, schema, or logical rows are written.
+        """
+        timeout = self._maintenance_timeout(timeout)
+        report = self._database_files()
+        if report["database_exists"] and not report["measurement_errors"]:
+            try:
+                with closing(sqlite3.connect(self.path.absolute().as_uri() + "?mode=ro",
+                                             uri=True, timeout=timeout, isolation_level=None)) as db:
+                    db.execute("BEGIN")
+                    report["sqlite"] = self._database_pages(db)
+                    db.rollback()
+            except sqlite3.Error as exc:
+                report["measurement_errors"].append("sqlite")
+                report["sqlite_error"] = str(exc)
+                report["sqlite_errorcode"] = getattr(exc, "sqlite_errorcode", None)
+        return report
+
+    @staticmethod
+    def _check_maintenance_schema(db):
+        # VACUUM can renumber implicit rowids. Office identities use these
+        # declared keys; refuse unrelated tables or unknown schema extensions.
+        expected = {
+            "checkpoint": (("id", "INTEGER", 1), ("data", "TEXT", 0)),
+            "receipts": (("name", "TEXT", 1),),
+            "inbox_retries": (("name", "TEXT", 1), ("next_attempt", "REAL", 0)),
+            "history": (("seq", "INTEGER", 1), ("received_at", "REAL", 0), ("event", "TEXT", 0)),
+            "legacy_counts": (("fingerprint", "TEXT", 1), ("n", "INTEGER", 0)),
+            "usage_units": (("platform", "TEXT", 1), ("session_id", "TEXT", 2),
+                            ("usage_id", "TEXT", 3), ("fingerprint", "TEXT", 0),
+                            ("data", "TEXT", 0), ("updated_at", "REAL", 0)),
+            "usage_totals": (("dimension", "TEXT", 1), ("bucket", "TEXT", 2), ("data", "TEXT", 0)),
+            "sqlite_sequence": (("name", "", 0), ("seq", "", 0)),
+        }
+        schema = db.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchmany(len(expected) + 1)
+        if {row[0] for row in schema} != set(expected):
+            raise ValueError("Unrecognized office database schema; no compaction performed")
+        if db.execute("SELECT 1 FROM sqlite_schema WHERE type IN ('view','trigger') LIMIT 1").fetchone():
+            raise ValueError("Unrecognized office database schema; no compaction performed")
+        for table, columns in expected.items():
+            # table_info omits generated/hidden columns, which must not turn
+            # an unknown schema extension into an apparently matching table.
+            actual = db.execute("PRAGMA table_xinfo(" + table + ")").fetchmany(len(columns) + 1)
+            if tuple((row[1], row[2].upper(), row[5], row[6]) for row in actual) != tuple(
+                    (*column, 0) for column in columns):
+                raise ValueError("Unrecognized office database schema; no compaction performed")
+        if db.execute("PRAGMA quick_check(1)").fetchone()[0] != "ok":
+            raise ValueError("Office database integrity check failed; no compaction performed")
+
+    def compact(self, *, timeout=1.0):
+        """Explicitly reclaim physical space while preserving all logical rows.
+
+        Never call from polling, pruning, or reset. Retained exclusive locking
+        serializes the entire check/rebuild/checkpoint operation with other
+        consumers, including WAL connections. Publishers can still create
+        immutable inbox files. Busy/IO failures propagate; SQLite owns rollback.
+        """
+        timeout = self._maintenance_timeout(timeout)
+        before = self._database_files()
+        if before["database_exists"] is False:
+            raise FileNotFoundError("No office database exists; nothing was created")
+        if before["measurement_errors"]:
+            raise OSError("SQLite files are unreadable or nonregular; no compaction performed")
+        with closing(sqlite3.connect(self.path.absolute().as_uri() + "?mode=rw", uri=True,
+                                     timeout=timeout, isolation_level=None)) as db:
+            db.execute("PRAGMA locking_mode=EXCLUSIVE")
+            db.execute("BEGIN EXCLUSIVE")
+            try:
+                self._check_maintenance_schema(db)
+                before["sqlite"] = self._database_pages(db)
+                db.commit()
+                # EXCLUSIVE locking_mode retains the file lock across COMMIT.
+                # VACUUM itself must run outside an explicit transaction.
+                db.execute("VACUUM")
+                if before["sqlite"]["journal_mode"] == "wal":
+                    checkpoint = db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                    if checkpoint[0]:
+                        raise sqlite3.OperationalError("WAL checkpoint is busy after compaction")
+                if db.execute("PRAGMA quick_check(1)").fetchone()[0] != "ok":
+                    raise ValueError("Could not verify database integrity after compaction")
+                pages = self._database_pages(db)
+            except BaseException:
+                db.rollback()
+                raise
+        # Measure after closing so SQLite's own journal cleanup is included.
+        # Concurrent activity may change these observed lengths after release.
+        after = self._database_files()
+        after["sqlite"] = pages
+        sizes = (before["database_total_bytes"], after["database_total_bytes"])
+        return {"status": "compacted", "before": before, "after": after,
+                "reclaimed_bytes": None if None in sizes else sizes[0] - sizes[1]}
 
     @contextmanager
     def _transaction(self):

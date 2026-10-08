@@ -73,9 +73,11 @@ To develop locally, open this repository in VS Code and launch an extension
 development host with `--extensionDevelopmentPath=/absolute/path/to/agent-office/vscode`.
 The repository's `node --test tests/vscode-panel.test.cjs` checks URL handling,
 real local HTTP checks, race cancellation, and command boundaries. These
-checks do not substitute for a real VS Code extension host. In the audit
-environment, `/usr/local/bin/code` was a launcher shim and reported that no
-VS Code/Code Insiders executable was installed; real host testing remains a
-user-environment integration check.
+checks do not substitute for a real VS Code extension host. On 8 October 2026,
+the official `@vscode/vsce` 4.0.0 command successfully packaged the extension
+with no runtime npm dependencies. The audit environment had no VS Code binary;
+the official test-host download timed out and its display prerequisite could
+not be installed. Actual host activation, installation, and remote forwarding
+remain user-environment integration checks.
 
 [Repository and setup guide](https://github.com/NosytLabs/agent-office)
