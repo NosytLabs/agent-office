@@ -148,10 +148,16 @@
         // Separate the ball from the contact surface before the next substep.
         // Otherwise a diagonal corner can damage the same brick twice.
         if (fromSide) {
-          ball.x = ball.vx > 0 ? brick.x - BALL_RADIUS : brick.x + brick.w + BALL_RADIUS;
+          ball.x =
+            ball.vx > 0
+              ? brick.x - BALL_RADIUS
+              : brick.x + brick.w + BALL_RADIUS;
           ball.vx *= -1;
         } else {
-          ball.y = ball.vy > 0 ? brick.y - BALL_RADIUS : brick.y + brick.h + BALL_RADIUS;
+          ball.y =
+            ball.vy > 0
+              ? brick.y - BALL_RADIUS
+              : brick.y + brick.h + BALL_RADIUS;
           ball.vy *= -1;
         }
         break;
@@ -202,7 +208,11 @@
     start() {
       const x = Math.floor(SNAKE_COLS / 2),
         y = Math.floor(SNAKE_ROWS / 2);
-      this.body = [{ x, y }, { x: x - 1, y }, { x: x - 2, y }];
+      this.body = [
+        { x, y },
+        { x: x - 1, y },
+        { x: x - 2, y },
+      ];
       this.direction = { x: 1, y: 0 };
       this.nextDirection = null;
       this.elapsed = 0;
@@ -225,8 +235,11 @@
         return;
       }
       const random = this.random(),
-        fraction = Number.isFinite(random) ? Math.max(0, Math.min(1, random)) : 0;
-      this.food = free[Math.min(free.length - 1, Math.floor(fraction * free.length))];
+        fraction = Number.isFinite(random)
+          ? Math.max(0, Math.min(1, random))
+          : 0;
+      this.food =
+        free[Math.min(free.length - 1, Math.floor(fraction * free.length))];
     }
     turn(x, y) {
       if (
@@ -237,7 +250,8 @@
         Math.abs(x) + Math.abs(y) !== 1 ||
         (x === -this.direction.x && y === -this.direction.y) ||
         (x === this.direction.x && y === this.direction.y)
-      ) return false;
+      )
+        return false;
       this.nextDirection = { x, y };
       return true;
     }
@@ -245,7 +259,8 @@
       this.nextDirection = null;
     }
     step(seconds) {
-      if (this.state !== "playing" || !Number.isFinite(seconds) || seconds <= 0) return;
+      if (this.state !== "playing" || !Number.isFinite(seconds) || seconds <= 0)
+        return;
       this.elapsed += Math.min(0.25, seconds);
       while (this.elapsed + 1e-9 >= this.speed && this.state === "playing") {
         this.elapsed = Math.max(0, this.elapsed - this.speed);
@@ -263,8 +278,10 @@
         eating = head.x === this.food?.x && head.y === this.food?.y,
         occupied = eating ? this.body : this.body.slice(0, -1);
       if (
-        head.x < 0 || head.x >= SNAKE_COLS ||
-        head.y < 0 || head.y >= SNAKE_ROWS ||
+        head.x < 0 ||
+        head.x >= SNAKE_COLS ||
+        head.y < 0 ||
+        head.y >= SNAKE_ROWS ||
         occupied.some((p) => p.x === head.x && p.y === head.y)
       ) {
         this.state = "lost";
@@ -291,7 +308,15 @@
   }
 
   if (typeof module !== "undefined" && module.exports)
-    module.exports = { BreakoutGame, SnakeGame, WIDTH, HEIGHT, PATTERNS, SNAKE_COLS, SNAKE_ROWS };
+    module.exports = {
+      BreakoutGame,
+      SnakeGame,
+      WIDTH,
+      HEIGHT,
+      PATTERNS,
+      SNAKE_COLS,
+      SNAKE_ROWS,
+    };
   if (typeof document === "undefined") return;
 
   const byId = (id) => document.getElementById(id),
@@ -476,13 +501,25 @@
         context.fillRect(x + 1, y + 1, SNAKE_CELL - 2, SNAKE_CELL - 2);
         if (i === 0) {
           context.fillStyle = "#121b25";
-          const dx = game.direction.x * 4, dy = game.direction.y * 4;
-          context.fillRect(x + 7 + dx - Math.abs(dy), y + 7 + dy - Math.abs(dx), 3, 3);
-          context.fillRect(x + 7 + dx + Math.abs(dy), y + 7 + dy + Math.abs(dx), 3, 3);
+          const dx = game.direction.x * 4,
+            dy = game.direction.y * 4;
+          context.fillRect(
+            x + 7 + dx - Math.abs(dy),
+            y + 7 + dy - Math.abs(dx),
+            3,
+            3,
+          );
+          context.fillRect(
+            x + 7 + dx + Math.abs(dy),
+            y + 7 + dy + Math.abs(dx),
+            3,
+            3,
+          );
         }
       }
       if (game.food) {
-        const x = game.food.x * SNAKE_CELL, y = game.food.y * SNAKE_CELL;
+        const x = game.food.x * SNAKE_CELL,
+          y = game.food.y * SNAKE_CELL;
         context.fillStyle = "#f3c779";
         context.fillRect(x + 5, y + 6, 11, 10);
         context.fillStyle = "#9ad6bf";
@@ -563,9 +600,10 @@
     unloadDuck();
     localMotionOptIn = true;
     userPaused = false;
-    status = selected === "snake"
-      ? "Snake running. Use arrows or WASD on the canvas, swipe, or use the direction buttons."
-      : "Breakout running. Drag the paddle or hold Left and Right while the canvas is focused.";
+    status =
+      selected === "snake"
+        ? "Snake running. Use arrows or WASD on the canvas, swipe, or use the direction buttons."
+        : "Breakout running. Drag the paddle or hold Left and Right while the canvas is focused.";
     canvas.focus({ preventScroll: true });
     drawNative();
     render();
@@ -579,15 +617,20 @@
     syncBestNamespace();
     userPaused = true;
     localMotionOptIn = false;
-    status =
-      nativeSelected()
-        ? `${gameTitle()} selected. Press Start when you are ready.`
-        : "Duck Hunt selected. Press Load & start; the game stays stopped until then.";
+    status = nativeSelected()
+      ? `${gameTitle()} selected. Press Start when you are ready.`
+      : "Duck Hunt selected. Press Load & start; the game stays stopped until then.";
     render();
     drawNative();
-    const control = byId(nativeSelected()
-      ? nativeGame().state === "playing" ? "arcade-pause" : "arcade-start"
-      : duckReady ? "arcade-pause" : "arcade-duck-start");
+    const control = byId(
+      nativeSelected()
+        ? nativeGame().state === "playing"
+          ? "arcade-pause"
+          : "arcade-start"
+        : duckReady
+          ? "arcade-pause"
+          : "arcade-duck-start",
+    );
     control.focus({ preventScroll: true });
   }
   function exitGame() {
@@ -628,12 +671,18 @@
     byId("arcade-start").hidden =
       !nativeSelected() || state.state === "playing";
     byId("arcade-start").textContent = `Start ${gameTitle()}`;
-    canvas.setAttribute("aria-label", selected === "snake"
-      ? "Snake playfield. Use arrows or WASD, swipe, or use the direction buttons."
-      : "Breakout playfield. Drag to move the paddle, or use Left and Right arrow keys.");
-    sheet.querySelector(".arcade-hud").setAttribute("aria-label", `${gameTitle()} score`);
+    canvas.setAttribute(
+      "aria-label",
+      selected === "snake"
+        ? "Snake playfield. Use arrows or WASD, swipe, or use the direction buttons."
+        : "Breakout playfield. Drag to move the paddle, or use Left and Right arrow keys.",
+    );
+    sheet
+      .querySelector(".arcade-hud")
+      .setAttribute("aria-label", `${gameTitle()} score`);
     for (const button of sheet.querySelectorAll("[data-snake-turn]"))
-      button.disabled = selected !== "snake" || userPaused || state.state !== "playing";
+      button.disabled =
+        selected !== "snake" || userPaused || state.state !== "playing";
     byId("arcade-duck-start").hidden = selected !== "duck-hunt" || duckReady;
     byId("arcade-duck-start").textContent = duckFrame
       ? duckFailed
@@ -673,7 +722,8 @@
   const snakeTitle = document.createElement("strong"),
     snakeDescription = document.createElement("span");
   snakeTitle.textContent = "Snake";
-  snakeDescription.textContent = "Growing snake · arrows, WASD, swipe, or touch buttons";
+  snakeDescription.textContent =
+    "Growing snake · arrows, WASD, swipe, or touch buttons";
   snakeChoice.append(snakeTitle, snakeDescription);
   sheet.querySelector(".arcade-picker").append(snakeChoice);
   sheet.querySelector(".arcade-intro").textContent =
@@ -685,7 +735,12 @@
   directions.id = "arcade-snake-controls";
   directions.setAttribute("role", "group");
   directions.setAttribute("aria-label", "Snake directions");
-  for (const [label, x, y] of [["Up", 0, -1], ["Left", -1, 0], ["Down", 0, 1], ["Right", 1, 0]]) {
+  for (const [label, x, y] of [
+    ["Up", 0, -1],
+    ["Left", -1, 0],
+    ["Down", 0, 1],
+    ["Right", 1, 0],
+  ]) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn";
@@ -723,7 +778,8 @@
   };
   byId("arcade-exit").onclick = exitGame;
   canvas.addEventListener("keydown", (event) => {
-    if (event.altKey || event.ctrlKey || event.metaKey || lifecycleBlocked()) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || lifecycleBlocked())
+      return;
     if (selected === "snake" && SNAKE_KEYS[event.key]) {
       event.preventDefault();
       if (!userPaused && !event.repeat) snake.turn(...SNAKE_KEYS[event.key]);
@@ -764,8 +820,15 @@
     breakout.setPaddle(((event.clientX - rect.left) / rect.width) * WIDTH);
   });
   canvas.addEventListener("pointerup", (event) => {
-    if (selected !== "snake" || userPaused || !swipe || swipe.id !== event.pointerId) return;
-    const dx = event.clientX - swipe.x, dy = event.clientY - swipe.y;
+    if (
+      selected !== "snake" ||
+      userPaused ||
+      !swipe ||
+      swipe.id !== event.pointerId
+    )
+      return;
+    const dx = event.clientX - swipe.x,
+      dy = event.clientY - swipe.y;
     swipe = null;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 12) return;
     if (Math.abs(dx) > Math.abs(dy)) snake.turn(Math.sign(dx), 0);
@@ -832,7 +895,11 @@
     attributeFilter: ["hidden"],
   });
   reducedMotion.addEventListener?.("change", () => {
-    if (reducedMotion.matches) pause("Reduced motion enabled. Press Resume to opt into game motion.", true);
+    if (reducedMotion.matches)
+      pause(
+        "Reduced motion enabled. Press Resume to opt into game motion.",
+        true,
+      );
     else sync();
   });
   drawNative();

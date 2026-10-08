@@ -1,7 +1,12 @@
 /* Deterministic arcade regressions; no DOM, server, assets, or dependencies. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { BreakoutGame, SnakeGame, SNAKE_COLS, SNAKE_ROWS } = require("../web/js/arcade.js");
+const {
+  BreakoutGame,
+  SnakeGame,
+  SNAKE_COLS,
+  SNAKE_ROWS,
+} = require("../web/js/arcade.js");
 
 test("a Breakout corner contact damages an armored brick only once", () => {
   const game = new BreakoutGame(() => 0.25);
@@ -68,7 +73,12 @@ test("Snake grows, scores ten per food, and levels up every five foods", () => {
 
 test("Snake can move into its vacating tail without a false collision", () => {
   const game = snake();
-  game.body = [{ x: 1, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }];
+  game.body = [
+    { x: 1, y: 1 },
+    { x: 1, y: 2 },
+    { x: 2, y: 2 },
+    { x: 2, y: 1 },
+  ];
   game.direction = { x: 0, y: -1 };
   game.food = { x: 10, y: 10 };
   assert.equal(game.turn(1, 0), true);
@@ -80,12 +90,21 @@ test("Snake can move into its vacating tail without a false collision", () => {
 
 test("Snake ends cleanly on a wall or occupied body", () => {
   const wall = snake();
-  wall.body = [{ x: SNAKE_COLS - 1, y: 1 }, { x: SNAKE_COLS - 2, y: 1 }];
+  wall.body = [
+    { x: SNAKE_COLS - 1, y: 1 },
+    { x: SNAKE_COLS - 2, y: 1 },
+  ];
   wall.advance();
   assert.equal(wall.state, "lost");
   assert.equal(wall.lives, 0);
   const body = snake();
-  body.body = [{ x: 1, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 1 }, { x: 3, y: 1 }];
+  body.body = [
+    { x: 1, y: 1 },
+    { x: 1, y: 2 },
+    { x: 2, y: 2 },
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+  ];
   body.advance();
   assert.equal(body.state, "lost");
 });
@@ -95,10 +114,12 @@ test("Snake fills the board without an infinite food-spawn loop", () => {
   const last = { x: SNAKE_COLS - 1, y: SNAKE_ROWS - 1 };
   const head = { x: last.x - 1, y: last.y };
   game.body = [head];
-  for (let y = 0; y < SNAKE_ROWS; y++) for (let x = 0; x < SNAKE_COLS; x++) {
-    if ((x === last.x && y === last.y) || (x === head.x && y === head.y)) continue;
-    game.body.push({ x, y });
-  }
+  for (let y = 0; y < SNAKE_ROWS; y++)
+    for (let x = 0; x < SNAKE_COLS; x++) {
+      if ((x === last.x && y === last.y) || (x === head.x && y === head.y))
+        continue;
+      game.body.push({ x, y });
+    }
   game.food = last;
   game.advance();
   assert.equal(game.state, "won");
@@ -107,7 +128,8 @@ test("Snake fills the board without an infinite food-spawn loop", () => {
 });
 
 test("Snake uses elapsed time rather than monitor frame rate", () => {
-  const sixty = snake(), fast = snake();
+  const sixty = snake(),
+    fast = snake();
   for (let i = 0; i < 60; i++) sixty.step(1 / 60);
   for (let i = 0; i < 144; i++) fast.step(1 / 144);
   assert.deepEqual(sixty.snapshot(), fast.snapshot());
@@ -124,7 +146,8 @@ test("Snake bounds a hidden-tab delta and ignores invalid time", () => {
 });
 
 test("Snake snapshots do not expose mutable model state", () => {
-  const game = snake(), state = game.snapshot();
+  const game = snake(),
+    state = game.snapshot();
   state.body[0].x = -100;
   state.food.x = -100;
   assert.notEqual(game.body[0].x, -100);

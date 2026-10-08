@@ -1,7 +1,7 @@
 # Arcade integration
 
-The break-room Arcade action opens two local games; placing the earned arcade
-cabinet provides the same entry point from the canvas. Both are optional
+The break-room Arcade action opens three local games; placing the earned arcade
+cabinet provides the same entry point from the canvas. All are optional
 recreation: they do not publish observer events, award XP, contact a model, or
 make external runtime network requests.
 
@@ -22,9 +22,40 @@ panel or page is hidden. Reduced-motion and the office pause control pause the
 game; an explicit Start or Resume opts into essential game motion without
 changing the office-wide preference.
 
+Brick contacts separate the ball from the struck surface before the next
+physics substep, preventing repeated damage from the same diagonal corner hit.
+A deterministic regression test covers the armored-brick reproduction.
+
 No upstream favicon is copied. The upstream favicon generator uses Twemoji
 graphics, which have their own CC BY 4.0 terms separate from the game's MIT
 code.
+
+## Snake
+
+Snake adapts the startup, turning, movement and scoring logic from the same
+pinned MIT-licensed repository's
+[`src/games/snake/index.njk`](https://github.com/mazipan/mini-games/blob/a9421318e6f4644c5f144df78576114db60de8a6/src/games/snake/index.njk).
+Its attribution shares the existing MIT notice. It does not copy the upstream
+site's global keyboard listeners, automatic AI attract mode, interval loop,
+favicon, or confetti dependency.
+
+The board uses 24 by 18 cells in the existing 480 by 360 canvas. Eating food
+adds ten points, increases length, and advances a level every five foods.
+Movement starts at 450 milliseconds per cell and speeds up by 25 milliseconds
+per level, bounded at 100 milliseconds. The shared arcade animation loop drives
+elapsed time; monitor refresh rate does not change the game's speed.
+
+Only one direction change can be queued per movement tick. Reversals and
+invalid directions are rejected. Moving into a departing tail cell is valid,
+while occupied body cells and walls end the game. Food is selected from the
+remaining free cells, and a full board wins instead of looping forever while
+searching for a spawn location. The model is exported for deterministic tests.
+
+The head's eyes face the movement direction, the body uses alternating pixel
+segments, and food is drawn with the office palette. Canvas arrows and WASD,
+swipes, and labeled 44-pixel-minimum direction buttons share the same model.
+Direction buttons do not implicitly resume a paused game. Selecting a game
+focuses its visible Start or Resume control and paints its own title immediately.
 
 ## Duck Hunt
 
@@ -64,16 +95,25 @@ sound preference.
 
 - **Breakout:** drag on the canvas or focus it and hold Left/Right. Start,
   Pause/Resume, Restart, and Choose another game are ordinary buttons.
+- **Snake:** focus the canvas for arrows or WASD, swipe across the canvas, or
+  use the labeled direction buttons. Start, Pause/Resume, Restart, and Choose
+  another game use the same shared controls as Breakout.
 - **Duck Hunt:** load the game explicitly, then click or tap its on-canvas Start
   Game item and the flying ducks. Keyboard users press Enter or Space to start,
   use arrows to move the visible sight, press T to target the visible duck, and
   press Space to fire. Escape pauses within the sandbox. The embedded game's own
   volume controls remain available; the host sound preference is the upper
   bound.
-- Breakout's best score uses separate `observer` and `preview` local-storage
-  keys. Storage failures fall back to a session-only score. Duck Hunt upstream
-  does not persist its best score.
+- Breakout and Snake have separate best-score keys, each namespaced for
+  `observer` or `preview`. Scores are saved when they increase, not only on game
+  over. Invalid stored values are ignored. With storage unavailable, the
+  currently selected game's best remains in memory. Duck Hunt upstream does not
+  persist its best score.
 
 All arcade actions are decorative. Tests must verify the main play controls,
 panel and tab lifecycle, input scoping, iframe sandbox and message boundary,
-and local asset delivery without external requests.
+and local asset delivery without external requests. The model and host tests
+run with `npm test`; the Snake desktop/mobile flows join `npm run test:browser`.
+Enabling reduced motion during active play pauses even after an earlier local
+motion opt-in. Start or Resume is required again and does not change the
+system or office-wide preference.
