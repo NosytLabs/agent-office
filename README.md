@@ -4,7 +4,7 @@ A local pixel office for watching your coding agents work. See current tools, fi
 
 **Version 0.5.0** · [Live demo](https://agent-office-preview-seven.vercel.app/) · [Preview guide](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
 
-![Agent Office with synthetic runtime activity](docs/screenshots/office.png)
+![Agent Office in Juniper with synthetic runtime activity](docs/screenshots/appearance.png)
 
 Agent Office observes existing runtimes. It does not launch agents, send prompts, execute their tools, or grant approvals. Respond to questions and permission requests in the original runtime.
 
@@ -49,14 +49,15 @@ The in-app **Connection guide** provides setup and troubleshooting. A reachable 
 - **Watch work:** tool activity, parallel calls, parent/child relationships, status filters, custom display names, and an observed task board. The needs-input control cycles through waiting sessions. A quiet-agent notice opens its last reported status and tool; silence alone does not establish that work is stuck or finished.
 - **Inspect history:** search retained events, focus on a session, inspect current activity, and export recorded data. The UI reconnects automatically and labels a retained scene when disconnected.
 - **Read reported usage:** token totals by runtime and model, plus usage for visible sessions. Missing values say **Not reported**; partial coverage remains visible. Dollar amounts are labeled runtime estimates, with their source. An optional cost threshold shows an alert without stopping a runtime.
-- **Arrange the room:** choose among **20 props**, move or remove custom furniture, undo/redo edits, and import/export preferences. Saves enter history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
-- **Use the camera:** zoom, drag while zoomed, return to Fit, pause animation, or save a scene image. At Fit, mobile swipes scroll the page. Reduced-motion preferences pause motion without stopping tracking.
+- **Arrange the room:** choose among **22 props**, move or remove custom furniture, undo/redo edits, and import/export preferences. Saves enter history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
+- **Make it yours:** choose a room theme, including Juniper, and classic, walnut, or slate desks. Give each agent a preferred desk and choose its default appearance, one of six people, or the animated studio robot. Assignments use session IDs, so renaming an agent does not lose its preference. Appearance settings do not create activity or change XP.
+- **Use the camera:** zoom, drag while zoomed, return to Fit, pause animation, or save a scene image. Safe view preferences are remembered separately in the local observer and public demo. At Fit, mobile swipes scroll the page. Reduced-motion preferences pause motion without stopping tracking.
 
 Claude hooks do not report token usage. Hermes reports supported main-loop API attempts. OpenCode reports assistant-message counters and runtime cost estimates. Codex usage can be imported from an already captured `codex exec --json` stream with a stable capture ID. See [exact usage semantics and commands](docs/runtime-observers.md); the office does not infer pricing or present these values as an invoice.
 
 ### Earned room rewards
 
-The catalog contains **44 reachable achievements**, with XP, progress, and visible reward descriptions. Four furniture choices unlock through observed activity:
+The catalog contains **37 reachable achievements**, with XP, progress, and visible reward descriptions. Six furniture choices unlock through observed activity:
 
 | Activity | Placeable reward |
 | --- | --- |
@@ -64,8 +65,10 @@ The catalog contains **44 reachable achievements**, with XP, progress, and visib
 | 5 sessions | Record player |
 | 1 subagent start | Desk robot |
 | 25 read/search tools | Terrarium |
+| 500 tool starts | Focus booth; opens the task board |
+| 10 distinct tools | Filing cabinet; opens saved history |
 
-Other milestones add ferns, cats, mugs, monitor trim, and room accents. XP records observed events and achievements; it does not measure code quality or task completion. Retired achievement entries are removed while their earned XP and statistics remain. Runtime aliases count as one runtime family for achievements.
+Other milestones add ferns, cats, mugs, monitor trim, and room accents. The warm lamp unlocks after 50 observed tool calls. XP records observed events and achievements; it does not measure code quality or task completion. Error events remain in statistics, while errors, theme changes, and session time of day do not award XP. Retired achievement entries are removed while earned XP, existing statistics, and previously earned lamp appearances remain. Runtime aliases count as one runtime family for achievements.
 
 ### Aquarium and jukebox
 
@@ -74,6 +77,8 @@ The aquarium has four selectable fish: one available immediately, with others un
 The public repository and preview include original fish art. An [optional offline importer](docs/aquarium-assets.md) can use the verified Smallburg Diving sheets from an existing, legitimately licensed Little Current checkout. Those commercial source assets are not distributed with Agent Office.
 
 The jukebox synthesizes three original Web Audio loops locally. Choose a track and press **Play music** to start it. Muting sound, hiding the tab, or leaving the page stops playback; returning does not autoplay.
+
+Cats can wander, approach idle agents, rest, and move away from active work. Customize controls pet visibility and movement, while names and earned cat rewards remain persistent. These are bounded animation behaviors, not model calls; pet interactions do not add work XP.
 
 ## Local data and retention
 
@@ -89,8 +94,10 @@ For an empty room, verify that the server is running, restart the configured run
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for Python, Node, formatting, and browser checks, and [validation evidence](docs/audit/README.md) for screenshots and integration limits.
 
+The product website lives in `site/`. Build it with `npm run build:site`; its relative assets work under a GitHub Pages project path. The [public website and demo guide](docs/preview.md) covers the Pages workflow, static output, and preview hosting.
+
 ## Sources and license
 
-Design references include [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office), [AgentSystemLabs](https://github.com/AgentSystemLabs/agent-office), [Claw3D](https://www.claw3d.ai/#features), and [thepixeloffice.ai](https://thepixeloffice.ai/). [The source review](docs/reference-review-2026-10-07.md) records inspected code paths, adopted concepts, and license boundaries. This project is independent of those products and the runtimes it observes.
+Design references include [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents), [Hootbu's Pixel Agents](https://github.com/hootbu/pixel-agents), [Harish Kotra's AgentOffice](https://github.com/harishkotra/agent-office), [AgentSystemLabs](https://github.com/AgentSystemLabs/agent-office), [Claw3D](https://www.claw3d.ai/#features), and [thepixeloffice.ai](https://thepixeloffice.ai/). [The source review](docs/reference-review-2026-10-07.md) records inspected code paths, adopted concepts, and license boundaries. This project is independent of those products and the runtimes it observes.
 
 Project code is [MIT licensed](LICENSE). Retain the applicable notices in [sprite provenance](web/assets/sprites/ATTRIBUTION.md) and [font, icon, and runtime mark credits](web/assets/ATTRIBUTION.md). Optional local commercial artwork remains subject to its own license.

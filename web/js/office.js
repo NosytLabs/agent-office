@@ -44,14 +44,33 @@ let eventMode = "latest",
 const seenAttention = new Set();
 const seenUnlocks = new Set();
 const settingsDrafts = new Set();
+const settingsDraftVersions = new Map();
+const panelViews = new Map(),
+  panelStack = [],
+  toastTimers = new WeakMap();
+const contentSignatures = new WeakMap(),
+  eventNodeCaches = new WeakMap();
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+let lockedPage = null,
+  viewRestored = false,
+  viewSaveTimer = null;
+let sessionUsageIndex = new Map();
+let preferenceWritePending = false,
+  preferenceCleanupPending = false;
+let pendingHistoryScroll = null;
 for (const id of [
   "room-name-input",
   "pet-cat1-name",
   "pet-cat2-name",
   "budget-input",
   "agent-name-input",
+  "agent-seat-select",
+  "agent-appearance-select",
 ])
-  $(id).addEventListener("input", () => settingsDrafts.add(id));
+  $(id).addEventListener("input", () => {
+    settingsDrafts.add(id);
+    settingsDraftVersions.set(id, (settingsDraftVersions.get(id) || 0) + 1);
+  });
 function acknowledgeDrafts(submitted) {
   for (const [id, value] of Object.entries(submitted))
     if ($(id).value === value) settingsDrafts.delete(id);
@@ -79,10 +98,16 @@ scene.onProp = (kind) => {
   if (kind === "FISH_TANK" || kind === "terrarium") window.openAquarium?.();
   else if (kind === "jukebox" || kind === "recordplayer")
     window.officeJukebox?.open();
-  else if (kind === "whiteboard") openSheet("sheet-tasks");
+  else if (kind === "whiteboard" || kind === "focusbooth")
+    openSheet("sheet-tasks");
   else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
   else if (kind === "printer") openSheet("sheet-events");
-  else if (kind === "arcade")
+  else if (kind === "filingcabinet") {
+    eventMode = "history";
+    eventSession = null;
+    eventPageSize = 100;
+    openSheet("sheet-events");
+  } else if (kind === "arcade")
     toast("You found the break room. No tickets required.");
   else if (kind === "coffee") toast("Coffee break.");
 };
@@ -160,13 +185,64 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function toast(message) {
-  const el = document.createElement("div"),
-    container = $("toast");
-  el.className = "toast";
-  el.textContent = message;
-  while (container.children.length >= 3) container.firstElementChild.remove();
-  container.append(el);
-  setTimeout(() => el.remove(), 4500);
+  const container = $("toast"),
+    text = String(message);
+  let el = [...container.children].find(
+    (notice) => notice.dataset.message === text,
+  );
+  if (el) {
+    clearTimeout(toastTimers.get(el));
+    el.dataset.count = String(Number(el.dataset.count || 1) + 1);
+    el.querySelector(".toast-repeat").textContent =
+      `Repeated ${el.dataset.count} times`;
+  } else {
+    el = document.createElement("div");
+    el.className = "toast";
+    el.dataset.message = text;
+    el.dataset.count = "1";
+    const copy = document.createElement("div"),
+      content = document.createElement("span"),
+      repeat = document.createElement("small");
+    copy.className = "toast-copy";
+    content.textContent = text;
+    repeat.className = "toast-repeat";
+    copy.append(content, repeat);
+    const dismiss = document.createElement("button");
+    dismiss.className = "btn toast-dismiss";
+    dismiss.type = "button";
+    dismiss.setAttribute("aria-label", "Dismiss notification");
+    dismiss.append(icon("x"));
+    dismiss.onclick = () => {
+      clearTimeout(toastTimers.get(el));
+      const next =
+        el.nextElementSibling?.querySelector("button") ||
+        el.previousElementSibling?.querySelector("button");
+      const focused = el.contains(document.activeElement);
+      el.remove();
+      if (focused)
+        (next || (opened ? $(opened).querySelector(".close") : $("c")))?.focus({
+          preventScroll: true,
+        });
+    };
+    el.append(copy, dismiss);
+    while (container.children.length >= 3) {
+      const oldest = [...container.children].find(
+        (notice) => !notice.contains(document.activeElement),
+      );
+      clearTimeout(toastTimers.get(oldest));
+      oldest.remove();
+    }
+    container.append(el);
+  }
+  positionNotices();
+  toastTimers.set(
+    el,
+    setTimeout(() => {
+      // Do not remove a notification while its keyboard action has focus.
+      if (el.contains(document.activeElement)) return;
+      el.remove();
+    }, 4500),
+  );
 }
 function chime() {
   if (
@@ -229,12 +305,15 @@ function updateScene() {
     if (black || button.dataset.activity === "Pet the orange cat") {
       button.disabled =
         !settings.decorations ||
+        settings.show_pets === false ||
         (black && !progress?.cosmetics?.includes("gitcat"));
       button.title = !settings.decorations
         ? "Show room decorations to visit your pets"
-        : black && button.disabled
-          ? "Unlock the second cat after 100 sessions and 50 tools"
-          : "Pet your office cat";
+        : settings.show_pets === false
+          ? "Show pets to visit your office cats"
+          : black && button.disabled
+            ? "Unlock the second cat after 100 sessions and 50 tools"
+            : "Pet your office cat";
     }
   }
   window.officeAquarium?.refresh();
@@ -253,51 +332,274 @@ function selectAgent(id) {
   fillInspector();
   openSheet("sheet-inspector");
 }
-function closeSheets() {
-  for (const s of document.querySelectorAll(".sheet")) s.hidden = true;
-  $("backdrop").hidden = true;
-  $("wrap").inert = false;
+function rememberPanel(id = opened) {
+  if (!id || $(id).hidden) return;
+  const view = panelViews.get(id) || {};
+  if (id !== "sheet-events" || pendingHistoryScroll === null)
+    view.scroll = $(id).scrollTop;
+  if ($(id).contains(document.activeElement))
+    view.focus = document.activeElement;
+  panelViews.set(id, view);
+}
+function positionNotices() {
+  const target = opened
+    ? $(opened).querySelector(".sheet-notices")
+    : $("notice-slot");
+  if (target && $("toast").parentElement !== target) target.append($("toast"));
+  positionNoticeSlot();
+}
+function positionNoticeSlot() {
+  if (opened || !$("toast").children.length) return;
+  const gap = 12,
+    bottom = innerHeight - gap;
+  const controls = document
+    .querySelector(".scene-controls")
+    .getBoundingClientRect();
+  let top = Math.max(
+    gap,
+    Math.min($("stage").getBoundingClientRect().top + gap, bottom - 120),
+  );
+  let end = bottom;
+  // Keep notices out of the camera controls even when the page is scrolled.
+  if (controls.bottom > top && controls.top < end) {
+    const above = controls.top - gap - top;
+    const below = bottom - controls.bottom - gap;
+    if (above >= 96 || above >= below) end = controls.top - gap;
+    else top = controls.bottom + gap;
+  }
+  $("notice-slot").style.top = top + "px";
+  $("notice-slot").style.maxHeight = Math.max(0, end - top) + "px";
+}
+window.addEventListener("resize", positionNoticeSlot);
+window.addEventListener("scroll", positionNoticeSlot, { passive: true });
+new ResizeObserver(positionNoticeSlot).observe($("stage"));
+function lockPage() {
+  if (lockedPage) return;
+  const style = document.body.style;
+  lockedPage = {
+    x: scrollX,
+    y: scrollY,
+    position: style.position,
+    top: style.top,
+    left: style.left,
+    width: style.width,
+  };
+  document.documentElement.classList.add("panel-open");
+  Object.assign(style, {
+    position: "fixed",
+    top: -lockedPage.y + "px",
+    left: -lockedPage.x + "px",
+    width: "100%",
+  });
+}
+function unlockPage() {
+  if (!lockedPage) return;
+  const { x, y, ...style } = lockedPage;
+  Object.assign(document.body.style, style);
+  document.documentElement.classList.remove("panel-open");
+  lockedPage = null;
+  scrollTo(x, y);
+}
+function syncPanelNavigation() {
   document
     .querySelectorAll("[data-sheet]")
-    .forEach((b) => b.setAttribute("aria-expanded", "false"));
+    .forEach((b) =>
+      b.setAttribute("aria-expanded", String(b.dataset.sheet === opened)),
+    );
+  const previous = panelStack.at(-1);
+  for (const panel of document.querySelectorAll(".sheet")) {
+    const back = panel.querySelector(".sheet-back");
+    back.hidden = panel.id !== opened || !previous;
+    if (previous)
+      back.setAttribute(
+        "aria-label",
+        "Back to " +
+          ($(previous).getAttribute("aria-label") || "previous panel"),
+      );
+  }
+}
+function displayPanel(id) {
+  for (const panel of document.querySelectorAll(".sheet"))
+    panel.hidden = panel.id !== id;
+  opened = id;
+  $("backdrop").hidden = false;
+  $("wrap").inert = true;
+  positionNotices();
+  syncPanelNavigation();
+  const panel = $(id),
+    view = panelViews.get(id);
+  if (id === "sheet-events" && eventMode === "history" && !historyLoaded)
+    pendingHistoryScroll = view?.scroll || 0;
+  refreshPanel();
+  const target =
+    view?.focus?.isConnected &&
+    panel.contains(view.focus) &&
+    !view.focus.disabled &&
+    view.focus.getClientRects().length
+      ? view.focus
+      : panel.querySelector(".close");
+  target?.focus({ preventScroll: true });
+  panel.scrollTop = view?.scroll || 0;
+  if (id === "sheet-events" && historyLoaded) pendingHistoryScroll = null;
+  persistView();
+}
+function closeSheets() {
+  rememberPanel();
+  for (const panel of document.querySelectorAll(".sheet")) panel.hidden = true;
+  $("backdrop").hidden = true;
+  $("wrap").inert = false;
   opened = null;
+  panelStack.length = 0;
+  syncPanelNavigation();
+  positionNotices();
+  unlockPage();
   if (
     returnFocus?.isConnected &&
     returnFocus.getClientRects().length &&
     !returnFocus.disabled
   )
-    returnFocus.focus();
-  else if (returnFocus) $("c").focus();
+    returnFocus.focus({ preventScroll: true });
+  else if (returnFocus) $("c").focus({ preventScroll: true });
   returnFocus = null;
+  persistView();
+}
+function backSheet() {
+  if (!panelStack.length) {
+    closeSheets();
+    return;
+  }
+  rememberPanel();
+  displayPanel(panelStack.pop());
 }
 function openSheet(id) {
+  if (!$(id)?.classList.contains("sheet")) return;
   if (opened === id) {
     closeSheets();
     return;
   }
-  const previous = returnFocus || document.activeElement;
-  closeSheets();
-  returnFocus = previous;
-  opened = id;
-  $(id).hidden = false;
-  $("backdrop").hidden = false;
-  $("wrap").inert = true;
-  document
-    .querySelectorAll(`[data-sheet="${id}"]`)
-    .forEach((b) => b.setAttribute("aria-expanded", "true"));
-  refreshPanel();
-  $(id).querySelector("input:not([type=file]),button")?.focus();
+  if (opened) {
+    rememberPanel();
+    const existing = panelStack.indexOf(id);
+    if (existing >= 0) panelStack.splice(existing);
+    else {
+      panelStack.push(opened);
+      if (panelStack.length > 8) panelStack.shift();
+    }
+  } else {
+    returnFocus =
+      document.activeElement === document.body
+        ? document.querySelector(`[data-sheet="${id}"]`) || $("c")
+        : document.activeElement;
+    lockPage();
+  }
+  displayPanel(id);
 }
 for (const panel of document.querySelectorAll(".sheet")) {
+  const header = document.createElement("div"),
+    row = document.createElement("div"),
+    body = document.createElement("div");
+  header.className = "sheet-header";
+  row.className = "sheet-title-row";
+  body.className = "sheet-body";
+  const back = document.createElement("button");
+  back.type = "button";
+  back.className = "btn sheet-back";
+  back.textContent = "Back";
+  back.hidden = true;
+  back.onclick = backSheet;
   const b = document.createElement("button");
   b.type = "button";
   b.className = "btn close";
   b.setAttribute("aria-label", "Close panel");
   b.append(icon("x"));
   b.onclick = closeSheets;
-  panel.prepend(b);
+  const heading = panel.querySelector("h2");
+  if (heading) row.append(heading);
+  row.append(b);
+  const notices = document.createElement("div");
+  notices.className = "sheet-notices";
+  header.append(back, row, notices);
+  while (panel.firstChild) body.append(panel.firstChild);
+  panel.append(header, body);
+  panel.addEventListener(
+    "scroll",
+    () => {
+      if (!panel.hidden) {
+        rememberPanel(panel.id);
+        queueViewSave();
+      }
+    },
+    { passive: true },
+  );
 }
-$("backdrop").onclick = closeSheets;
+let backdropStart = null;
+$("backdrop").onpointerdown = (event) => {
+  backdropStart = { x: event.clientX, y: event.clientY };
+};
+$("backdrop").onclick = (event) => {
+  if (
+    backdropStart &&
+    Math.hypot(
+      event.clientX - backdropStart.x,
+      event.clientY - backdropStart.y,
+    ) < 6
+  )
+    closeSheets();
+  backdropStart = null;
+};
+positionNotices();
+function persistView() {
+  if (!viewRestored || !window.officeViewState) return;
+  rememberPanel();
+  window.officeViewState.write({
+    version: 1,
+    zoom: scene.zoom,
+    runtime: platFilter,
+    paused: scene.paused,
+    panel: opened,
+    eventMode,
+    eventRuntime,
+    badgeFilter,
+    queries: { agents: trackQuery, events: eventQuery, badges: badgeQuery },
+    scroll: Object.fromEntries(
+      [...panelViews].map(([id, view]) => [id, view.scroll || 0]),
+    ),
+  });
+}
+function queueViewSave() {
+  clearTimeout(viewSaveTimer);
+  viewSaveTimer = setTimeout(persistView, 200);
+}
+function restoreViewState() {
+  viewRestored = true;
+  const view = window.officeViewState?.read();
+  if (!view) return null;
+  platFilter = view.runtime;
+  $("filterbtn").value = platFilter;
+  trackQuery = view.queries.agents;
+  eventQuery = view.queries.events;
+  badgeQuery = view.queries.badges;
+  $("trackSearch").value = trackQuery;
+  $("eventSearch").value = eventQuery;
+  $("badgeSearch").value = badgeQuery;
+  eventMode = view.eventMode;
+  eventRuntime = view.eventRuntime;
+  $("event-runtime").value = eventRuntime;
+  badgeFilter = view.badgeFilter;
+  for (const b of $("badge-tabs").children)
+    b.setAttribute("aria-pressed", String(b.dataset.filter === badgeFilter));
+  for (const [id, scroll] of Object.entries(view.scroll))
+    panelViews.set(id, { scroll });
+  return view;
+}
+window.addEventListener("pagehide", persistView);
+reducedMotion.addEventListener("change", (event) => {
+  if (event.matches) {
+    scene.paused = true;
+    syncPause();
+    persistView();
+  }
+});
 for (const b of document.querySelectorAll("[data-sheet]"))
   b.onclick = () => openSheet(b.dataset.sheet);
 function refreshPanel() {
@@ -407,18 +709,39 @@ function agentCard(a, existing) {
   portrait.height = 24;
   portrait.className = "portrait";
   portrait.setAttribute("aria-hidden", "true");
-  const image = scene.sprites["char" + (hash(a.id) % 6)];
+  const image =
+    scene.sprites[characterSpriteKey(a, settings, scene.sprites)] ||
+    scene.sprites["char" + (hash(a.id) % 6)];
   if (image)
     portrait.getContext("2d").drawImage(image, 0, 8, 16, 24, 0, 0, 16, 24);
   const body =
     button.querySelector(".agent-copy") || document.createElement("div");
   body.className = "agent-copy";
-  body.innerHTML = `<strong>${escapeHTML(a.label || a.id)}</strong><small>${escapeHTML(platOf(a))} · ${escapeHTML(a.tool || a.detail || "Between tasks")}</small><small>${escapeHTML(duration(a.duration_s))}${a.parent ? " · subagent" : ""}</small>`;
-  const runtime = body.querySelector("small");
-  runtime.replaceChildren(
-    runtimeBadge(a),
-    document.createTextNode(" · " + (a.tool || a.detail || "Between tasks")),
+  if (!body.children.length) {
+    const label = document.createElement("strong"),
+      runtime = document.createElement("small"),
+      elapsed = document.createElement("small"),
+      usage = document.createElement("div");
+    runtime.className = "agent-runtime";
+    elapsed.className = "agent-elapsed";
+    usage.className = "agent-usage";
+    body.append(label, runtime, elapsed, usage);
+  }
+  setText(body.querySelector("strong"), a.label || a.id);
+  const runtime = body.querySelector(".agent-runtime"),
+    runtimeSignature = JSON.stringify([a.platform, a.tool, a.detail]);
+  if (contentSignatures.get(runtime) !== runtimeSignature) {
+    runtime.replaceChildren(
+      runtimeBadge(a),
+      document.createTextNode(" · " + (a.tool || a.detail || "Between tasks")),
+    );
+    contentSignatures.set(runtime, runtimeSignature);
+  }
+  setText(
+    body.querySelector(".agent-elapsed"),
+    duration(a.duration_s) + (a.parent ? " · subagent" : ""),
   );
+  updateAgentUsage(body.querySelector(".agent-usage"), sessionUsageForAgent(a));
   const status =
     button.querySelector(".status") || document.createElement("span");
   status.className =
@@ -505,6 +828,7 @@ function fillRoster() {
 $("trackSearch").oninput = (e) => {
   trackQuery = e.target.value;
   fillRoster();
+  queueViewSave();
 };
 function fillTasks() {
   const box = $("taskboard");
@@ -557,6 +881,69 @@ function usageValue(metrics, field) {
     maximumFractionDigits: value < 0.01 ? 6 : 4,
   }).format(value);
 }
+function setText(element, value) {
+  const text = String(value ?? "");
+  if (element.textContent !== text) element.textContent = text;
+}
+function setHTMLIfChanged(element, html) {
+  if (contentSignatures.get(element) === html) return;
+  element.innerHTML = html;
+  contentSignatures.set(element, html);
+}
+function sessionUsageForAgent(agent) {
+  const runtime = String(agent.platform || "").toLowerCase(),
+    id = String(agent.id);
+  return (
+    sessionUsageIndex.get(JSON.stringify([runtime, id])) ||
+    sessionUsageIndex.get(JSON.stringify([canonicalRuntime(runtime), id]))
+  );
+}
+function updateAgentUsage(element, metrics) {
+  if (!metrics?.reports) {
+    setHTMLIfChanged(element, "<span>Usage not reported</span>");
+    element.title =
+      "Tokens and cost appear only when this session's runtime reports them.";
+    return;
+  }
+  const total = usageValue(metrics, "total_tokens"),
+    cost = usageValue(metrics, "cost_usd");
+  const totalKnown =
+    typeof metrics.total_tokens === "number" &&
+    Number.isFinite(metrics.total_tokens);
+  const costKnown =
+    typeof metrics.cost_usd === "number" && Number.isFinite(metrics.cost_usd);
+  const totalPartial = Number(metrics.coverage?.total_tokens) < metrics.reports;
+  const costPartial = Number(metrics.coverage?.cost_usd) < metrics.reports;
+  const sources = (metrics.cost_sources || [])
+    .map(
+      (source) =>
+        `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} from ${source.reports} report${source.reports === 1 ? "" : "s"}`,
+    )
+    .join("; ");
+  element.title = `Total: ${total}. ${usageCoverage(metrics, "total_tokens")}. Runtime cost estimate: ${cost}. ${usageCoverage(metrics, "cost_usd")}. ${sources || "Cost source not reported."} Estimates may differ from billing. Cached tokens are included in input; reasoning tokens are included in output.`;
+  const fields = ["input_tokens", "output_tokens", "total_tokens"];
+  const complete =
+    Number.isSafeInteger(metrics.reports) &&
+    metrics.reports > 0 &&
+    fields.every(
+      (field) =>
+        Number.isSafeInteger(metrics[field]) &&
+        metrics[field] >= 0 &&
+        metrics.coverage?.[field] === metrics.reports,
+    ) &&
+    Number.isSafeInteger(metrics.input_tokens + metrics.output_tokens) &&
+    metrics.total_tokens === metrics.input_tokens + metrics.output_tokens &&
+    metrics.total_tokens > 0;
+  let composition = "";
+  if (complete) {
+    const input = (metrics.input_tokens / metrics.total_tokens) * 100;
+    composition = `<div class="token-composition" role="img" aria-label="${escapeHTML(`Reported token composition: ${usageValue(metrics, "input_tokens")} input tokens and ${usageValue(metrics, "output_tokens")} output tokens. Cache is included in input; reasoning is included in output.`)}"><span class="token-input" style="width:${input}%"></span><span class="token-output" style="width:${100 - input}%"></span></div><small class="token-legend">Input ${escapeHTML(usageValue(metrics, "input_tokens"))} · Output ${escapeHTML(usageValue(metrics, "output_tokens"))}</small>`;
+  }
+  setHTMLIfChanged(
+    element,
+    `<span>${escapeHTML(totalKnown ? total + " tokens" : "Total " + total.toLowerCase())}${totalKnown && totalPartial ? " · partial" : ""}</span><span>${escapeHTML(costKnown ? cost + " runtime estimate" : "Cost " + cost.toLowerCase())}${costKnown && costPartial ? " · partial" : ""}</span>${composition}`,
+  );
+}
 function usageCoverage(metrics, field) {
   const reports = Number(metrics?.reports) || 0,
     known = Number(metrics?.coverage?.[field]) || 0;
@@ -601,7 +988,7 @@ function fillStats() {
     tools = s.tools || 0;
   const usage = window._state?.usage || {};
   syncBudget();
-  $("usagebox").innerHTML = usageSummary(usage.totals);
+  setHTMLIfChanged($("usagebox"), usageSummary(usage.totals));
   $("usage-breakdown").innerHTML =
     usageTable(usage.by_model, "model") +
     usageTable(usage.by_platform, "runtime") +
@@ -649,11 +1036,13 @@ function fillInspector() {
   const box = $("inspectorbox");
   if (!a) {
     $("agent-name-form").hidden = true;
+    $("agent-preference-form").hidden = true;
     $("inspect-history").hidden = true;
     box.innerHTML = '<p class="h">This session has left the office.</p>';
     return;
   }
   $("agent-name-form").hidden = false;
+  fillAgentPreferences(a);
   $("inspect-history").hidden = false;
   const nameInput = $("agent-name-input");
   const changedAgent = nameInput.dataset.agent !== a.id;
@@ -701,17 +1090,7 @@ function fillInspector() {
   const usageHeading = document.createElement("h3");
   usageHeading.textContent = "This session’s reported usage";
   const usageBox = document.createElement("div");
-  const usageRows = window._state?.usage?.by_session || [];
-  const platform = String(a.platform || "").toLowerCase();
-  const sessionUsage =
-    usageRows.find(
-      (row) => row.session_id === a.id && (row.platform || "") === platform,
-    ) ||
-    (["hermes", "telegram", "cli", "gateway", ""].includes(platform)
-      ? usageRows.find(
-          (row) => row.session_id === a.id && row.platform === "hermes",
-        )
-      : undefined);
+  const sessionUsage = sessionUsageForAgent(a);
   usageBox.innerHTML = usageSummary(sessionUsage);
   box.append(usageHeading, usageBox);
   const heading = document.createElement("h3");
@@ -730,6 +1109,151 @@ function fillInspector() {
     box.append(p);
   }
 }
+function fillAgentPreferences(agent) {
+  const form = $("agent-preference-form"),
+    seat = $("agent-seat-select"),
+    appearance = $("agent-appearance-select");
+  form.hidden = false;
+  const changed = form.dataset.agent !== agent.id;
+  if (changed) {
+    settingsDrafts.delete(seat.id);
+    settingsDrafts.delete(appearance.id);
+    $("agent-preference-status").textContent = "";
+  }
+  form.dataset.agent = agent.id;
+  const preference = agentPreference(agent.id, settings);
+  const wantedSeat =
+    !changed && settingsDrafts.has(seat.id)
+      ? seat.value
+      : String(preference.seat ?? "auto");
+  const wantedAppearance =
+    !changed && settingsDrafts.has(appearance.id)
+      ? appearance.value
+      : preference.appearance || "default";
+  const seats = scene.seatOptions();
+  // Keep a bounded unsaved choice when departures shrink the occupied range.
+  if (
+    /^\d+$/.test(wantedSeat) &&
+    Number(wantedSeat) <= 127 &&
+    !seats.some((choice) => choice.slot === Number(wantedSeat))
+  )
+    seats.push({ slot: Number(wantedSeat), agentId: null, label: "Available" });
+  const signature = JSON.stringify([agent.id, seats]);
+  if (seat.dataset.options !== signature) {
+    const automatic = new Option("Automatic", "auto");
+    seat.replaceChildren(
+      automatic,
+      ...seats.map((choice) => {
+        const option = new Option(
+          `Desk ${choice.slot + 1} · ${choice.label}`,
+          String(choice.slot),
+        );
+        option.disabled = !!choice.agentId && choice.agentId !== agent.id;
+        return option;
+      }),
+    );
+    seat.dataset.options = signature;
+  }
+  if (appearance.options.length !== CHARACTER_APPEARANCES.length)
+    appearance.replaceChildren(
+      ...CHARACTER_APPEARANCES.map(
+        (choice) => new Option(choice.name, choice.id),
+      ),
+    );
+  seat.value = wantedSeat;
+  appearance.value = wantedAppearance;
+  $("agent-preference-save").disabled = preferenceWritePending;
+  $("agent-preference-reset").disabled = preferenceWritePending;
+}
+async function saveAgentPreferences(reset = false) {
+  if (preferenceWritePending) return;
+  const id = focusedId;
+  const submitted = {
+    "agent-seat-select": reset ? "auto" : $("agent-seat-select").value,
+    "agent-appearance-select": reset
+      ? "default"
+      : $("agent-appearance-select").value,
+  };
+  const draftVersions = Object.fromEntries(
+    Object.keys(submitted).map((field) => [
+      field,
+      settingsDraftVersions.get(field) || 0,
+    ]),
+  );
+  const seatValue = submitted["agent-seat-select"];
+  if (
+    seatValue !== "auto" &&
+    (!/^\d+$/.test(seatValue) || Number(seatValue) > 127)
+  ) {
+    $("agent-preference-status").textContent =
+      "Choose an available desk or Automatic before saving.";
+    return;
+  }
+  const result = scene.agentPreferencePatch(id, {
+    seat:
+      submitted["agent-seat-select"] === "auto"
+        ? null
+        : Number(submitted["agent-seat-select"]),
+    appearance: submitted["agent-appearance-select"],
+  });
+  if (!result.ok) {
+    $("agent-preference-status").textContent = result.error;
+    return;
+  }
+  preferenceWritePending = true;
+  $("agent-preference-save").disabled = true;
+  $("agent-preference-reset").disabled = true;
+  const saved = await saveSettings(result.patch);
+  preferenceWritePending = false;
+  if (focusedId === id) {
+    if (saved) {
+      if (reset)
+        for (const [field, value] of Object.entries(submitted))
+          if ((settingsDraftVersions.get(field) || 0) === draftVersions[field])
+            $(field).value = value;
+      acknowledgeDrafts(submitted);
+    }
+    $("agent-preference-status").textContent = saved
+      ? reset
+        ? "Default desk and appearance restored."
+        : "Preferences saved."
+      : "Preferences were not saved. Your selections are ready to retry.";
+  }
+  if (opened === "sheet-inspector") fillInspector();
+}
+$("agent-preference-form").onsubmit = (event) => {
+  event.preventDefault();
+  saveAgentPreferences();
+};
+$("agent-preference-reset").onclick = () => saveAgentPreferences(true);
+function inactivePreferenceIds() {
+  const active = new Set(scene.agents.map((agent) => agent.id));
+  return Object.keys(settings.agent_preferences || {}).filter(
+    (id) => !active.has(id),
+  );
+}
+function fillInactivePreferences() {
+  const inactive = inactivePreferenceIds();
+  $("agent-preferences-count").textContent =
+    `${Object.keys(settings.agent_preferences || {}).length} saved · ${inactive.length} inactive · 128 session limit`;
+  $("clear-inactive-preferences").disabled =
+    preferenceCleanupPending || !inactive.length;
+}
+$("clear-inactive-preferences").onclick = async () => {
+  if (preferenceCleanupPending) return;
+  const inactive = inactivePreferenceIds();
+  if (!inactive.length) return;
+  const preferences = { ...settings.agent_preferences };
+  for (const id of inactive) delete preferences[id];
+  preferenceCleanupPending = true;
+  $("clear-inactive-preferences").disabled = true;
+  const saved = await saveSettings({ agent_preferences: preferences });
+  preferenceCleanupPending = false;
+  $("agent-preferences-reset-status").textContent = saved
+    ? `Cleared ${inactive.length} inactive session ${inactive.length === 1 ? "choice" : "choices"}. Active choices and local names were kept.`
+    : "Inactive choices were not cleared. Try again.";
+  fillSettings();
+};
 $("agent-name-form").onsubmit = async (e) => {
   e.preventDefault();
   const id = focusedId;
@@ -816,6 +1340,38 @@ function eventRow(e) {
   if (identity.textContent) row.append(identity);
   return row;
 }
+function reconcileEventRows(box, events, emptyText) {
+  const previous = eventNodeCaches.get(box) || new Map(),
+    next = new Map(),
+    occurrences = new Map();
+  let cursor = box.firstChild;
+  for (const event of events) {
+    const identity =
+      event.id == null ? JSON.stringify(event) : "event:" + event.id;
+    const occurrence = occurrences.get(identity) || 0;
+    occurrences.set(identity, occurrence + 1);
+    const key = identity + ":" + occurrence,
+      signature = JSON.stringify([eventMode, event]);
+    const cached = previous.get(key),
+      row = cached?.signature === signature ? cached.row : eventRow(event);
+    next.set(key, { row, signature });
+    if (row === cursor) cursor = cursor.nextSibling;
+    else box.insertBefore(row, cursor);
+  }
+  if (!events.length) {
+    const empty = box.querySelector(".empty") || document.createElement("p");
+    empty.className = "empty";
+    setText(empty, emptyText);
+    if (empty === cursor) cursor = cursor.nextSibling;
+    else box.insertBefore(empty, cursor);
+  }
+  while (cursor) {
+    const nextSibling = cursor.nextSibling;
+    cursor.remove();
+    cursor = nextSibling;
+  }
+  eventNodeCaches.set(box, next);
+}
 async function loadHistory(force = false) {
   if (historyLoading) return false;
   if (!force && historyLoaded && Date.now() - historyLastLoaded < 5000)
@@ -848,13 +1404,19 @@ async function loadHistory(force = false) {
   } finally {
     if (request === historyRequest) {
       historyLoading = false;
-      if (opened === "sheet-events") fillEvents();
+      if (opened === "sheet-events") {
+        fillEvents();
+        if (historyLoaded && pendingHistoryScroll !== null) {
+          $("sheet-events").scrollTop = pendingHistoryScroll;
+          pendingHistoryScroll = null;
+          persistView();
+        }
+      }
     }
   }
 }
 function fillEvents() {
   const box = $("eventbox");
-  box.replaceChildren();
   const q = eventQuery.trim().toLowerCase();
   const source =
     eventMode === "history"
@@ -872,7 +1434,13 @@ function fillEvents() {
         .toLowerCase()
         .includes(q),
   );
-  for (const e of events.slice(0, eventPageSize)) box.append(eventRow(e));
+  reconcileEventRows(
+    box,
+    events.slice(0, eventPageSize),
+    eventMode === "history" && historyLoading
+      ? "Loading saved activity…"
+      : "No matching activity yet.",
+  );
   for (const button of $("event-tabs").children)
     button.setAttribute(
       "aria-pressed",
@@ -891,19 +1459,19 @@ function fillEvents() {
       : eventMode === "history"
         ? `${historyLoading ? "Refreshing… " : ""}Showing ${Math.min(events.length, eventPageSize).toLocaleString()} of ${events.length.toLocaleString()} matching saved events. ${source.length.toLocaleString()} loaded; newest received first.`
         : `${events.length} of ${source.length} recent events. Live activity updates automatically.`;
-  if (!events.length)
-    box.innerHTML = `<p class="empty">${eventMode === "history" && historyLoading ? "Loading saved activity…" : "No matching activity yet."}</p>`;
 }
 $("eventSearch").oninput = (e) => {
   eventQuery = e.target.value;
   eventPageSize = 100;
   fillEvents();
+  queueViewSave();
 };
 $("event-runtime").onchange = (e) => {
   eventRuntime = e.target.value;
   eventSession = null;
   eventPageSize = 100;
   fillEvents();
+  persistView();
 };
 $("clear-session-filter").onclick = () => {
   eventSession = null;
@@ -913,9 +1481,11 @@ $("clear-session-filter").onclick = () => {
 for (const button of $("event-tabs").children)
   button.onclick = () => {
     eventMode = button.dataset.eventView;
+    pendingHistoryScroll = null;
     eventPageSize = 100;
     fillEvents();
     if (eventMode === "history") loadHistory();
+    persistView();
   };
 $("refresh-history").onclick = () => {
   eventMode = "history";
@@ -1002,6 +1572,7 @@ function fillBadges() {
 $("badgeSearch").oninput = (e) => {
   badgeQuery = e.target.value;
   fillBadges();
+  queueViewSave();
 };
 for (const b of $("badge-tabs").querySelectorAll("button"))
   b.onclick = () => {
@@ -1009,6 +1580,7 @@ for (const b of $("badge-tabs").querySelectorAll("button"))
     for (const x of $("badge-tabs").children)
       x.setAttribute("aria-pressed", String(x === b));
     fillBadges();
+    persistView();
   };
 function syncAttention() {
   const agent = agents.find((a) => a.id === attentionNotice?.id);
@@ -1086,12 +1658,27 @@ function applyState(state, pollRevision = settingsRevision) {
   offline = false;
   agents = state.agents;
   progress = state.progress || null;
+  sessionUsageIndex = new Map(
+    (state.usage?.by_session || []).map((row) => [
+      JSON.stringify([
+        String(row.platform || "").toLowerCase(),
+        String(row.session_id),
+      ]),
+      row,
+    ]),
+  );
+  const restoredView = !viewRestored ? restoreViewState() : null;
   if (state.settings && !pendingSaves && pollRevision === settingsRevision) {
     Object.assign(confirmedSettings, normalizeSettings(state.settings));
     Object.assign(settings, confirmedSettings);
   }
   applyTheme();
   updateScene();
+  if (restoredView) {
+    scene.paused = reducedMotion.matches || restoredView.paused;
+    scene.setZoom(restoredView.zoom);
+    syncPause();
+  }
   if (typeof reconcileFurniture === "function") reconcileFurniture();
   if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   document.body.classList.remove("offline");
@@ -1165,10 +1752,11 @@ function applyState(state, pollRevision = settingsRevision) {
   if (signature !== settingsSignature) {
     settingsSignature = signature;
     fillSettings();
-  }
+  } else if (opened === "sheet-settings") fillInactivePreferences();
   initialized = true;
   fillTrackingStatus();
   syncBudget();
+  if (restoredView?.panel) openSheet(restoredView.panel);
 }
 async function poll() {
   const revision = settingsRevision;
@@ -1410,6 +1998,7 @@ $("clear-history").onclick = async () => {
   }
 };
 function fillSettings() {
+  fillInactivePreferences();
   for (const [id, value] of [
     ["pet-cat1-name", settings.pet_names?.cat1 || ""],
     ["pet-cat2-name", settings.pet_names?.cat2 || ""],
@@ -1480,6 +2069,15 @@ function fillSettings() {
         "theme",
         THEMES.map((t) => [t.id, t.name]),
       ),
+      segmented(
+        "Desk finish",
+        "desk_style",
+        DESK_STYLES.map((style) => [style.id, style.name]),
+      ),
+      segmented("Delegated agents", "subagent_style", [
+        ["robot", "Studio robot"],
+        ["people", "People"],
+      ]),
       segmented("Lighting", "ambience", [
         ["auto", "Auto"],
         ["day", "Day"],
@@ -1492,6 +2090,14 @@ function fillSettings() {
       segmented("Room decorations", "decorations", [
         [true, "Show"],
         [false, "Hide"],
+      ]),
+      segmented("Pets", "show_pets", [
+        [true, "Show"],
+        [false, "Hide"],
+      ]),
+      segmented("Pet movement", "pets_roam", [
+        [true, "Roam"],
+        [false, "Rest"],
       ]),
     );
     const row = document.createElement("label");
@@ -1561,6 +2167,7 @@ $("filterbtn").onchange = (e) => {
   platFilter = e.target.value;
   updateScene();
   syncEmptyState();
+  persistView();
 };
 $("themeNextbtn").onclick = () =>
   updateSetting(
@@ -1577,9 +2184,12 @@ $("sound").onclick = () => {
 $("zoom-in").onclick = () => scene.setZoom(scene.zoom + 0.25);
 $("zoom-out").onclick = () => scene.setZoom(scene.zoom - 0.25);
 $("zoom-fit").onclick = () => scene.setZoom(1);
+for (const id of ["zoom-in", "zoom-out", "zoom-fit"])
+  $(id).addEventListener("click", persistView);
 $("pausebtn").onclick = () => {
   scene.paused = !scene.paused;
   syncPause();
+  persistView();
 };
 function syncPause() {
   labelButton(
@@ -1605,8 +2215,8 @@ $("legendbox").innerHTML = kv([
 ]);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    closeSheets();
-    finishFurniture();
+    if (opened) backSheet();
+    else finishFurniture();
     return;
   }
   if (opened && e.key === "Tab") {

@@ -17,7 +17,7 @@ def test_layout_unlocks_for_sessions(tmp_path):
     data["stats"]["sessions"] = 50
     data = ingest(data, [])
     assert "pet_cat" in data["unlocks"]
-    assert "deep_work" in data["unlocks"]
+    assert "deep_work" not in data["unlocks"]
 
 
 def test_tracking_badges(tmp_path):
@@ -27,11 +27,14 @@ def test_tracking_badges(tmp_path):
     assert "workhorse" in data["unlocks"]
 
 
-def test_weather_unlocks(tmp_path):
+def test_recorded_errors_do_not_unlock_the_warm_lamp(tmp_path):
     data = load(tmp_path / "progress.json")
     data["stats"]["errors"] = 5
     data = ingest(data, [])
-    assert "weather_storm" in data["unlocks"]
+    assert "weather_storm" not in data["unlocks"]
+    assert "storm_lamp" not in snapshot(data)["cosmetics"]
+    assert data["stats"]["errors"] == 5
+    assert data["xp"] == 0
 
 
 def test_claude_platform_unlocks(tmp_path):

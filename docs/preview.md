@@ -1,10 +1,70 @@
-# Agent Office 0.5.0 static preview
+# Agent Office 0.5.0 public website and demo
 
 The hosted preview demonstrates the same office UI with **fictional agents,
 activity, XP, token usage, and cost examples**. It does not connect to local
 coding tools. The page displays a persistent demo notice and labels the usage
 section as synthetic. Sample costs are illustrative values, not model prices
 or real charges.
+
+The product website in `site/` explains the local observer, its setup,
+capabilities, and limits. It uses actual app screenshots with synthetic
+sessions, bundled licensed fonts/icons, and original page design. It performs
+no analytics, model, or observer requests and writes no browser storage.
+Copy buttons and keyboard tabs enhance content that also works without
+JavaScript.
+
+## Product website and GitHub Pages
+
+![Product website with a real app screenshot using synthetic sessions](screenshots/product-site.png)
+
+Build the standalone website with:
+
+```sh
+npm run build:site
+python3 -m http.server 8080 --directory site-dist
+```
+
+Open `http://127.0.0.1:8080`. The generated `site-dist/` has 19 explicit public
+files plus its build manifest. Every resource and local page link is relative,
+so the same output works at `/agent-office/` on GitHub Pages or `/about/` on the
+existing Vercel demo. The build reads only its allowlisted source files and
+screenshots, rejects symlinked inputs/outputs, and refuses to replace unrelated
+directories. A failed input check preserves the previous generated output.
+
+The [Product website workflow](../.github/workflows/pages.yml) builds on relevant
+pushes to `main`, uploads only `site-dist/`, and deploys using the `github-pages`
+environment. It pins checked GitHub action revisions and retains the artifact
+for one day. It is a separate publishing workflow; it does not replace or
+enable the existing CI workflow.
+
+When repository metadata reports that Pages is disabled, the workflow builds
+the site but skips artifact upload and deployment, with a configuration note
+in its run summary. It does not repeatedly attempt an unconfigured deployment.
+
+Before the first Pages deployment, an owner must select **Settings → Pages →
+Build and deployment → Source: GitHub Actions**. GitHub repository metadata
+reported `has_pages: false` during this review. The connected repository tools
+do not expose Pages administration, so that setting could not be changed here.
+The workflow intentionally does not auto-enable Pages or
+change access settings. Use **Actions → Product website → Run workflow** after
+configuration if needed. A generated Pages URL is not considered live until
+its deployment succeeds and the URL is checked.
+
+Sources: [GitHub custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+and [configure-pages enablement requirements](https://github.com/actions/configure-pages/blob/45bfe0192ca1faeb007ade9deae92b16b8254a0d/action.yml).
+
+Focused checks:
+
+```sh
+python -m pytest -q tests/test_site_build.py
+CHROMIUM_PATH=/absolute/path/to/chrome node --test tests/site.test.cjs
+```
+
+The browser suite serves the website under `/agent-office/` on port 18125.
+It checks desktop, 320/390-pixel mobile and tablet layouts, keyboard tabs,
+mobile focus, actual clipboard copying and denied-clipboard recovery,
+reduced motion, no-JavaScript content, credits, and local-only asset requests.
+Screenshots are saved in `reports/site/` or `OFFICE_SITE_SCREENSHOTS`.
 
 ## Hosted review
 
@@ -29,12 +89,14 @@ separate browser-extension metadata errors were excluded.
 The public build has no npm package dependencies and needs Node.js 22 or later:
 
 ```sh
-node tools/build_preview.mjs
+npm run build:preview
 ```
 
-The output is `dist/`. An optional `--out /path/to/preview-directory` selects a
-separate directory outside the checkout. An existing generated preview can be
-rebuilt; an unrelated existing directory is never replaced.
+The output is the synthetic app in `dist/` and the product website in
+`dist/about/`. To build only the app, use `node tools/build_preview.mjs`; its
+optional `--out /path/to/preview-directory` selects a separate directory
+outside the checkout. An existing generated preview can be rebuilt; an
+unrelated existing directory is never replaced.
 
 Serve that directory with any static server. The focused browser test supplies
 its own Node static server on port **18120**:
@@ -106,8 +168,9 @@ leaves after its normal display window. The fixed example does not invent new
 runtime work while the page is open. Restore sample starts the fictional scene
 again with fresh relative times.
 
-Preferences use only the `agent-office:static-preview:v1` localStorage key.
-They do not alter a real office or another localStorage key. Clear demo history
+Room preferences use the `agent-office:static-preview:v1` localStorage key;
+validated browser view preferences use a separate demo-specific key. Neither
+alters a real office. Clear demo history
 removes the displayed history while preserving sample agents, XP, and usage.
 Reset demo progress clears the sample agents, achievements, usage, and history
 while preserving room preferences. Restore sample reinstates the original

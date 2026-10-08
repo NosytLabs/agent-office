@@ -154,6 +154,7 @@
           </button>
         </div>
       </aside>
+      <div id="notice-slot"></div>
       <main id="workspace">
         <div class="scene-heading">
           <div>
@@ -376,6 +377,19 @@
       <h3>Layout &amp; atmosphere</h3>
       <div id="layoutbox"></div>
       <div id="settingsbox"></div>
+      <section class="settings-section" aria-labelledby="saved-choices-heading">
+        <h3 id="saved-choices-heading">Saved desk &amp; character choices</h3>
+        <p class="h" id="agent-preferences-count"></p>
+        <p class="h">
+          Release choices for sessions that have left the office. Active
+          sessions keep their preferences, including sessions outside the
+          current runtime view.
+        </p>
+        <button class="btn" id="clear-inactive-preferences" type="button">
+          Clear inactive choices
+        </button>
+        <p class="h" id="agent-preferences-reset-status" role="status"></p>
+      </section>
       <h3>Place furniture</h3>
       <p class="h">
         Choose a prop, then click a free area on the floor. Up to 24 custom
@@ -496,6 +510,34 @@
           Use runtime name
         </button>
         <p class="h" id="agent-name-status" role="status"></p>
+      </form>
+      <form id="agent-preference-form" class="settings-section" hidden>
+        <h3>Desk &amp; appearance</h3>
+        <p class="h">
+          Preferences belong to this session. Other agents keep their desks,
+          including agents outside the current runtime view.
+        </p>
+        <label for="agent-seat-select" class="setting-label"
+          >Preferred desk</label
+        >
+        <select id="agent-seat-select" class="txt">
+          <option value="auto">Automatic</option>
+        </select>
+        <label for="agent-appearance-select" class="setting-label"
+          >Appearance</label
+        >
+        <select id="agent-appearance-select" class="txt">
+          <option value="default">Default</option>
+        </select>
+        <div class="cluster">
+          <button class="btn" id="agent-preference-save" type="submit">
+            Save preferences
+          </button>
+          <button class="btn" id="agent-preference-reset" type="button">
+            Use defaults
+          </button>
+        </div>
+        <p id="agent-preference-status" class="h" role="status"></p>
       </form>
       <div id="inspectorbox"></div>
       <button class="btn" id="inspect-history">View saved activity</button>
@@ -768,8 +810,10 @@
       </p>
     </section>
     <script src="js/data.js"></script>
+    <script src="js/pets.js"></script>
     <script src="js/icons.js"></script>
     <script src="js/scene.js"></script>
+    <script src="js/view-state.js"></script>
     <script src="js/office.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/aquarium.js"></script>

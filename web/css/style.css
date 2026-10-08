@@ -32,6 +32,13 @@
   --line: #554737;
   --gold: #eec58d;
 }
+[data-theme="juniper"] {
+  --bg: #14211d;
+  --panel: #1c2d27;
+  --panel2: #293e34;
+  --line: #456052;
+  --gold: #d0dab0;
+}
 * {
   box-sizing: border-box;
 }
@@ -332,25 +339,66 @@ footer {
   font-size: 12px;
 }
 #toast {
-  position: fixed;
-  right: 24px;
-  bottom: 52px;
-  z-index: 8;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: min(360px, 90vw);
-  pointer-events: none;
+  width: 100%;
+}
+#toast:empty {
+  display: none;
+}
+#notice-slot {
+  position: fixed;
+  z-index: 4;
+  top: 170px;
+  right: 16px;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#notice-slot:empty,
+#notice-slot:has(#toast:empty) {
+  display: none;
+}
+#notice-slot .toast {
+  padding: 6px 10px;
 }
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: var(--panel);
   border: 1px solid var(--gold);
   border-radius: 8px;
   box-shadow: 0 8px 24px var(--shadow);
-  padding: 14px 18px;
+  padding: 10px 12px;
   line-height: 1.5;
   font-size: 14px;
   animation: appear 0.2s ease-out;
+}
+.toast-copy {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast-repeat {
+  display: block;
+  color: var(--dim);
+}
+.toast-repeat:empty {
+  display: none;
+}
+.toast-dismiss {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+}
+html.panel-open {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 #backdrop {
   position: fixed;
@@ -360,6 +408,7 @@ footer {
   backdrop-filter: blur(2px);
 }
 .sheet {
+  --sheet-padding: 26px;
   position: fixed;
   z-index: 6;
   right: 18px;
@@ -369,10 +418,40 @@ footer {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 26px;
+  padding: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 24px 90px #0008;
   scrollbar-width: thin;
+}
+.sheet-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 18px var(--sheet-padding) 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.sheet-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sheet .sheet-header h2 {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.sheet-back {
+  margin-bottom: 12px;
+}
+.sheet-body {
+  padding: 0 var(--sheet-padding) var(--sheet-padding);
+}
+.sheet-notices:has(#toast:not(:empty)) {
+  margin-top: 14px;
 }
 .sheet h2 {
   padding-right: 38px;
@@ -470,11 +549,10 @@ footer {
   margin-top: 10px;
 }
 .sheet .close {
-  position: absolute;
-  right: 18px;
-  top: 18px;
-  width: 34px;
-  height: 34px;
+  position: static;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
   font-size: 20px;
   padding: 0;
 }
@@ -535,6 +613,35 @@ footer {
 }
 .agent-card:hover {
   border-color: var(--gold);
+}
+.agent-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.token-composition {
+  display: flex;
+  width: 100%;
+  max-width: 220px;
+  height: 5px;
+  margin-top: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--line);
+}
+.token-input {
+  background: var(--gold);
+}
+.token-output {
+  background: #8baeb3;
+}
+.agent-usage .token-legend {
+  font-size: 11px;
 }
 .portrait {
   width: 32px;
@@ -825,7 +932,7 @@ footer {
   .sheet {
     inset: 8px;
     width: auto;
-    padding: 18px;
+    --sheet-padding: 18px;
   }
   .sheet h2 {
     font-size: 21px;
@@ -847,8 +954,11 @@ footer {
     padding: 10px;
   }
   #toast {
+    font-size: 13px;
+  }
+  #notice-slot {
     right: 12px;
-    bottom: 50px;
+    width: calc(100vw - 24px);
   }
   .btn {
     min-height: 44px;
@@ -933,7 +1043,7 @@ button:disabled {
     padding: 12px;
   }
   .sheet {
-    padding: 16px;
+    --sheet-padding: 16px;
   }
 }
 @media (max-width: 600px) {
@@ -1299,4 +1409,17 @@ button:disabled {
   #jukebox-disc.is-playing {
     animation: none;
   }
+}
+
+#agent-preference-form > label {
+  display: block;
+  margin: 14px 0 6px;
+}
+#agent-preference-form > select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+#agent-preference-form > .cluster {
+  margin-top: 14px;
 }

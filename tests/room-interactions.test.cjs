@@ -174,8 +174,19 @@ async function withPage(run, options = {}) {
     await browser.close();
   }
 }
+async function closePanels(p) {
+  const panel = p.locator(".sheet:not([hidden])");
+  if (await panel.count())
+    await panel
+      .getByRole("button", { name: "Close panel", exact: true })
+      .click();
+  assert.equal(await p.evaluate(() => opened), null);
+  assert.equal(await panel.count(), 0, "no active modal remains");
+  assert.equal(await p.isVisible("#backdrop"), false);
+  assert.equal(await p.locator("#wrap").evaluate((el) => el.inert), false);
+}
 async function roomAction(p, name) {
-  if (await p.evaluate(() => opened)) await p.keyboard.press("Escape");
+  await closePanels(p);
   await p.click("#settingsbtn");
   const button = p
     .locator("#room-actions")
@@ -206,12 +217,12 @@ async function propPoint(p, kind) {
   }, kind);
 }
 async function clickProp(p, kind) {
-  if (await p.evaluate(() => opened)) await p.keyboard.press("Escape");
+  await closePanels(p);
   const point = await propPoint(p, kind);
   await p.mouse.click(point.x, point.y);
 }
 async function place(p, kind) {
-  if (await p.evaluate(() => opened)) await p.keyboard.press("Escape");
+  await closePanels(p);
   const before = await p.evaluate(() => settings.furniture.length);
   await p.click("#settingsbtn");
   await p.click(`#furniture-tools [data-kind="${kind}"]`);
@@ -473,7 +484,7 @@ test("header mute, page visibility and pagehide release actual audio contexts", 
     await roomAction(p, "Jukebox");
     await p.click("#jukebox-play");
     await p.waitForFunction(() => __measureMusic().rms > 0.0001);
-    await p.keyboard.press("Escape");
+    await closePanels(p);
     await p.click("#sound");
     await p.waitForFunction(
       () =>
@@ -530,7 +541,7 @@ test("canvas props open usage, tasks, history and the jukebox", () =>
     await p.click("#jukebox-play");
     await p.waitForFunction(() => __measureMusic().rms > 0.0001);
     await screenshot(p, "jukebox-playing");
-    await p.keyboard.press("Escape");
+    await closePanels(p);
     await screenshot(p, "office-interactions");
   }));
 test("four reward props unlock from recorded sessions, tools and subagent work", () =>
@@ -667,7 +678,7 @@ test("named cats, feeding and music leave recorded work and usage unchanged", ()
     assert.match(await p.textContent("#toast"), /Maple purrs/);
     await roomAction(p, "Pet the black cat");
     assert.match(await p.textContent("#toast"), /Mochi purrs/);
-    await p.keyboard.press("Escape");
+    await closePanels(p);
     const point = await p.evaluate(() => {
       const pet = officeScene.petHits.find((pet) => pet.key === "blackcat"),
         t = officeScene.transform,
@@ -734,7 +745,7 @@ test("an old unresolved tool observation opens a truthful quiet-agent inspector"
     await p.waitForFunction(() =>
       agents.some((agent) => agent.id === "quiet-room" && !agent.quiet),
     );
-    await p.keyboard.press("Escape");
+    await closePanels(p);
     assert.equal(await p.isVisible("#health-alert"), false);
   }));
 test("jukebox and room action controls fit on a 320 pixel screen", () =>
@@ -755,7 +766,7 @@ test("jukebox and room action controls fit on a 320 pixel screen", () =>
         false,
       );
       await screenshot(p, "mobile-jukebox");
-      await p.keyboard.press("Escape");
+      await closePanels(p);
       await p.click("#settingsbtn");
       await p.locator("#room-actions").scrollIntoViewIfNeeded();
       assert.equal(

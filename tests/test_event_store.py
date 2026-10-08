@@ -233,16 +233,25 @@ def test_competing_consumers_commit_each_receipt_only_once(tmp_path):
     assert json.loads((tmp_path / "progress.json").read_text())["stats"]["tools"] == 40
 
 
-def test_theme_switch_uses_the_authoritative_checkpoint(tmp_path):
+def test_theme_changes_leave_authoritative_progress_and_legacy_statistics_unchanged(tmp_path, monkeypatch):
+    import __init__ as plugin
+
+    monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
     publish(tmp_path, 1, event())
     consume(tmp_path)
-    store = EventStore(tmp_path)
-    for _ in range(5):
-        store.record_theme_switch()
-    state = consume(tmp_path)
-    assert state["progress"]["stats"]["tools"] == 1
-    assert state["progress"]["stats"]["theme_switches"] == 5
-    assert any(c["id"] == "theme_designer" and c["have"] for c in state["progress"]["catalog"])
+    with sqlite3.connect(tmp_path / "office.sqlite3") as db:
+        checkpoint = json.loads(db.execute("SELECT data FROM checkpoint WHERE id=1").fetchone()[0])
+        checkpoint["progress"]["stats"]["theme_switches"] = 3
+        checkpoint["progress"]["xp"] = 80
+        encoded = json.dumps(checkpoint)
+        db.execute("UPDATE checkpoint SET data=? WHERE id=1", (encoded,))
+    mirror = (tmp_path / "progress.json").read_bytes()
+    for theme in ("amber", "midnight", "default", "amber", "default"):
+        plugin._save_settings({"theme": theme})
+    assert plugin._load_settings()["theme"] == "default"
+    with sqlite3.connect(tmp_path / "office.sqlite3") as db:
+        assert db.execute("SELECT data FROM checkpoint WHERE id=1").fetchone()[0] == encoded
+    assert (tmp_path / "progress.json").read_bytes() == mirror
 
 
 def test_loading_retired_achievement_records_migrates_the_authoritative_checkpoint(tmp_path):
@@ -251,10 +260,13 @@ def test_loading_retired_achievement_records_migrates_the_authoritative_checkpoi
         checkpoint = json.loads(db.execute("SELECT data FROM checkpoint WHERE id=1").fetchone()[0])
         saved = checkpoint["progress"]
         saved["xp"] = 80
-        saved["stats"].update(tools=17, theme_switches=3, custom_counter=9)
+        saved["stats"].update(tools=17, errors=6, theme_switches=3, custom_counter=9)
         saved["unlocks"] = {"architect": {"at": 1, "name": "Architect"},
+                            "weather_storm": {"at": 1, "name": "Warm lamp"},
+                            "theme_designer": {"at": 1, "name": "Theme designer"},
                             "first_shift": {"at": 2, "name": "First day"}}
-        saved["recent"] = [{"id": "architect", "at": 1, "name": "Architect"}]
+        saved["recent"] = [{"id": "architect", "at": 1, "name": "Architect"},
+                           {"id": "weather_storm", "at": 1, "name": "Warm lamp"}]
         db.execute("UPDATE checkpoint SET data=? WHERE id=1", (json.dumps(checkpoint),))
     # The JSON mirror is deliberately unrelated: SQLite remains authoritative.
     (tmp_path / "progress.json").write_text('{"xp": 9999}', encoding="utf-8")
@@ -265,6 +277,34 @@ def test_loading_retired_achievement_records_migrates_the_authoritative_checkpoi
     assert restored["stats"] == saved["stats"]
     assert restored["unlocks"] == {"first_shift": {"at": 2, "name": "First day"}}
     assert restored["recent"] == []
+    assert restored["legacy_cosmetics"] == ["storm_lamp"]
+    state = consume(tmp_path)
+    assert state["progress"]["cosmetics"] == ["storm_lamp"]
+    assert state["progress"]["xp"] == 80 and state["progress"]["stats"] == saved["stats"]
+    assert not any(badge["have"] for badge in state["progress"]["catalog"]
+                   if badge["id"] == "coffee_break")
+    EventStore(tmp_path).prune_history()
+    assert consume(tmp_path)["progress"] == state["progress"]
+    EventStore(tmp_path).reset(lambda: [])
+    reset = consume(tmp_path)
+    assert reset["progress"]["xp"] == 0 and reset["progress"]["cosmetics"] == []
+    assert json.loads((tmp_path / "progress.json").read_text())["legacy_cosmetics"] == []
+
+
+def test_initial_legacy_json_import_keeps_lamp_without_restoring_retired_badges(tmp_path):
+    (tmp_path / "progress.json").write_text(json.dumps({
+        "xp": 80, "stats": {"errors": 6, "theme_switches": 8},
+        "unlocks": {"weather_storm": {"at": 1, "name": "Warm lamp"}},
+        "recent": [{"id": "weather_storm", "at": 1}],
+    }), encoding="utf-8")
+    state = consume(tmp_path)["progress"]
+    assert state["xp"] == 80
+    assert state["unlocks"] == [] and state["recent"] == []
+    assert state["cosmetics"] == ["storm_lamp"]
+    assert state["stats"]["errors"] == 6 and state["stats"]["theme_switches"] == 8
+    mirrored = json.loads((tmp_path / "progress.json").read_text())
+    assert mirrored["unlocks"] == {} and mirrored["legacy_cosmetics"] == ["storm_lamp"]
+    assert consume(tmp_path)["progress"] == state
 
 
 @pytest.mark.parametrize("completed_kind", ["main", "subagent"])

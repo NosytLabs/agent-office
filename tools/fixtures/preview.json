@@ -9,7 +9,7 @@
       "catalog": [
         {
           "have": false,
-          "hint": "clock in once",
+          "hint": "observe a session start",
           "id": "first_shift",
           "name": "First day",
           "progress": 0,
@@ -18,7 +18,7 @@
         },
         {
           "have": false,
-          "hint": "an OpenCode session walks in",
+          "hint": "observe an OpenCode session",
           "id": "open_floor",
           "name": "Open floor",
           "progress": 0,
@@ -108,11 +108,11 @@
         },
         {
           "have": false,
-          "hint": "50 tools fired",
+          "hint": "50 observed tool calls",
           "id": "coffee_break",
           "name": "Coffee break",
           "progress": 0,
-          "reward": null,
+          "reward": "Warm lounge lamp accent",
           "xp": 20
         },
         {
@@ -184,7 +184,7 @@
           "id": "toolkit",
           "name": "Toolkit",
           "progress": 0,
-          "reward": null,
+          "reward": "Filing cabinet with saved history",
           "xp": 25
         },
         {
@@ -198,39 +198,12 @@
         },
         {
           "have": false,
-          "hint": "10 tool errors",
-          "id": "oops",
-          "name": "Oops",
-          "progress": 0,
-          "reward": null,
-          "xp": 10
-        },
-        {
-          "have": false,
-          "hint": "an approval pops",
+          "hint": "observe an approval request",
           "id": "red_alert",
           "name": "Red alert",
           "progress": 0,
           "reward": null,
           "xp": 10
-        },
-        {
-          "have": false,
-          "hint": "start a session between 00:00\u201305:00",
-          "id": "night_owl",
-          "name": "Night owl",
-          "progress": 0,
-          "reward": null,
-          "xp": 20
-        },
-        {
-          "have": false,
-          "hint": "start a session between 05:00\u201308:00",
-          "id": "early_bird",
-          "name": "Early bird",
-          "progress": 0,
-          "reward": null,
-          "xp": 15
         },
         {
           "have": false,
@@ -297,48 +270,12 @@
         },
         {
           "have": false,
-          "hint": "5 tool errors lifetime",
-          "id": "weather_storm",
-          "name": "Warm lamp",
-          "progress": 0,
-          "reward": "Warm lounge lamp accent",
-          "xp": 15
-        },
-        {
-          "have": false,
-          "hint": "100 sessions",
-          "id": "weather_sun",
-          "name": "Hundred sessions",
-          "progress": 0,
-          "reward": null,
-          "xp": 25
-        },
-        {
-          "have": false,
           "hint": "500 tools",
           "id": "workhorse",
           "name": "Workhorse",
           "progress": 0,
-          "reward": null,
+          "reward": "Focus booth with task-board access",
           "xp": 50
-        },
-        {
-          "have": false,
-          "hint": "50 sessions",
-          "id": "deep_work",
-          "name": "Deep work",
-          "progress": 0,
-          "reward": null,
-          "xp": 40
-        },
-        {
-          "have": false,
-          "hint": "switch theme 5 times",
-          "id": "theme_designer",
-          "name": "Theme designer",
-          "progress": 0,
-          "reward": null,
-          "xp": 20
         },
         {
           "have": false,
@@ -1979,7 +1916,7 @@
       "catalog": [
         {
           "have": true,
-          "hint": "clock in once",
+          "hint": "observe a session start",
           "id": "first_shift",
           "name": "First day",
           "progress": 100,
@@ -1988,7 +1925,7 @@
         },
         {
           "have": true,
-          "hint": "an OpenCode session walks in",
+          "hint": "observe an OpenCode session",
           "id": "open_floor",
           "name": "Open floor",
           "progress": 100,
@@ -2078,11 +2015,11 @@
         },
         {
           "have": false,
-          "hint": "50 tools fired",
+          "hint": "50 observed tool calls",
           "id": "coffee_break",
           "name": "Coffee break",
           "progress": 62,
-          "reward": null,
+          "reward": "Warm lounge lamp accent",
           "xp": 20
         },
         {
@@ -2154,7 +2091,7 @@
           "id": "toolkit",
           "name": "Toolkit",
           "progress": 30,
-          "reward": null,
+          "reward": "Filing cabinet with saved history",
           "xp": 25
         },
         {
@@ -2167,40 +2104,13 @@
           "xp": 25
         },
         {
-          "have": false,
-          "hint": "10 tool errors",
-          "id": "oops",
-          "name": "Oops",
-          "progress": 0,
-          "reward": null,
-          "xp": 10
-        },
-        {
           "have": true,
-          "hint": "an approval pops",
+          "hint": "observe an approval request",
           "id": "red_alert",
           "name": "Red alert",
           "progress": 100,
           "reward": null,
           "xp": 10
-        },
-        {
-          "have": false,
-          "hint": "start a session between 00:00\u201305:00",
-          "id": "night_owl",
-          "name": "Night owl",
-          "progress": 0,
-          "reward": null,
-          "xp": 20
-        },
-        {
-          "have": false,
-          "hint": "start a session between 05:00\u201308:00",
-          "id": "early_bird",
-          "name": "Early bird",
-          "progress": 0,
-          "reward": null,
-          "xp": 15
         },
         {
           "have": true,
@@ -2267,48 +2177,12 @@
         },
         {
           "have": false,
-          "hint": "5 tool errors lifetime",
-          "id": "weather_storm",
-          "name": "Warm lamp",
-          "progress": 0,
-          "reward": "Warm lounge lamp accent",
-          "xp": 15
-        },
-        {
-          "have": false,
-          "hint": "100 sessions",
-          "id": "weather_sun",
-          "name": "Hundred sessions",
-          "progress": 14,
-          "reward": null,
-          "xp": 25
-        },
-        {
-          "have": false,
           "hint": "500 tools",
           "id": "workhorse",
           "name": "Workhorse",
           "progress": 6,
-          "reward": null,
+          "reward": "Focus booth with task-board access",
           "xp": 50
-        },
-        {
-          "have": false,
-          "hint": "50 sessions",
-          "id": "deep_work",
-          "name": "Deep work",
-          "progress": 28,
-          "reward": null,
-          "xp": 40
-        },
-        {
-          "have": false,
-          "hint": "switch theme 5 times",
-          "id": "theme_designer",
-          "name": "Theme designer",
-          "progress": 0,
-          "reward": null,
-          "xp": 20
         },
         {
           "have": false,
@@ -2432,7 +2306,7 @@
         },
         {
           "at": 1791374400.0,
-          "hint": "an approval pops",
+          "hint": "observe an approval request",
           "id": "red_alert",
           "name": "Red alert"
         }

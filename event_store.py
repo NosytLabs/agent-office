@@ -309,7 +309,7 @@ class EventStore:
     def _export_progress(self):
         # This backwards-compatible file is a mirror, never the ingestion
         # authority. Read a fresh transaction so a late drain cannot overwrite
-        # a more recent reset or theme switch with its old in-memory value.
+        # a more recent reset or event batch with its old in-memory value.
         with self._transaction() as db:
             data, _ = self._load(db)
             progress.save(self.directory / "progress.json", data["progress"])
@@ -378,13 +378,6 @@ class EventStore:
                          "backlog": backlog,
                          "legacy_log": (self.directory / "events.jsonl").exists()},
         }
-
-    def record_theme_switch(self):
-        with self._transaction() as db:
-            data, original = self._load(db)
-            progress.record_theme_switch_data(data["progress"])
-            self._save(db, data, original)
-        self._export_progress()
 
     def history(self, limit=1000):
         limit = max(1, min(int(limit), 5000))

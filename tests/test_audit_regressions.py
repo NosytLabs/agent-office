@@ -45,13 +45,13 @@ def test_settings_validate_values_and_keep_valid_prefs(tmp_path, monkeypatch):
     assert got['sound'] is False
 
 
-def test_theme_switches_count_in_standalone_server(tmp_path, monkeypatch):
+def test_theme_switches_do_not_create_work_progress(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, '_office_dir', lambda: tmp_path)
     for theme in ['amber', 'midnight', 'default', 'amber', 'default']:
         plugin._save_settings({'theme': theme})
-    data = progress.load(tmp_path / 'progress.json')
-    assert data['stats']['theme_switches'] == 5
-    assert 'theme_designer' in data['unlocks']
+    assert plugin._load_settings()['theme'] == 'default'
+    assert not (tmp_path / 'progress.json').exists()
+    assert not (tmp_path / 'office.sqlite3').exists()
 
 
 def test_fish_unlock_matches_displayed_threshold(tmp_path):
@@ -71,8 +71,8 @@ def test_empty_floor_does_not_unlock_first_session_plant(tmp_path):
 
 def test_earned_badges_show_complete_progress(tmp_path):
     data = progress.load(tmp_path / 'progress.json')
-    data['unlocks']['night_owl'] = {'name': 'Night owl', 'at': 1}
-    badge = next(c for c in progress.snapshot(data)['catalog'] if c['id'] == 'night_owl')
+    data['unlocks']['first_shift'] = {'name': 'First day', 'at': 1}
+    badge = next(c for c in progress.snapshot(data)['catalog'] if c['id'] == 'first_shift')
     assert badge['have'] and badge['progress'] == 100
 
 

@@ -60,7 +60,7 @@ Logical sizes are 20 × 26 (coffee), 12 × 26 (cooler), 12 × 30 (lamp), and
 10 × 10 (clock). The first three are placeable; the clock decorates the wall.
 See [generated-utilities.json](generated-utilities.json) for the prompt and
 contract, and [asset-checksums.json](asset-checksums.json) for source hashes.
-All twenty placeable props have previews made from the actual runtime sprite.
+All twenty-two placeable props have previews made from the actual runtime sprite.
 
 ## Matching cafe and plant atlas
 
@@ -132,3 +132,30 @@ The [local importer](../../../docs/aquarium-assets.md) preserves original
 bytes and the accompanying license outside this source tree. Its native
 four-frame animation has been tested separately. Public screenshots and
 the hosted demo use only the original generated fish.
+
+## Studio assistant and workstation finishes
+
+`characters/studio-assistant.png` is an original **1536 × 1024 RGBA**
+animation atlas generated on 2026-10-08 with the built-in ImageGen tool.
+It contains 21 poses in seven columns and three rows: down, up, and right;
+the renderer mirrors right-facing frames for left movement. Columns use the
+existing idle/walk, typing, and reading contract. The source bytes remain
+unchanged. At load time, the renderer trims each frame at alpha > 32, uses
+one shared scale for all poses, and anchors their feet at the bottom center
+of a 16 × 32 cell. This removes the raw sheet's uneven transparent padding
+without stretching individual poses. Delegated sessions use this character
+by default; the People setting selects the existing character sheets.
+
+`furniture/workstations-atlas.png` is an original **1254 × 1254 RGBA**
+atlas generated on the same date. Its four quadrants contain walnut and
+slate desk slabs (40 × 14 logical pixels), a focus booth (30 × 38), and a
+filing cabinet (22 × 26). The slabs replace the desktop surface while keeping
+the existing monitor, character, chair, and leg layering. The two placeable
+objects use the shared furniture collision and responsive layout rules.
+
+No third-party image was supplied for either atlas. A targeted ImageGen edit
+kept the booth fully inside its source quadrant; the corrected PNG is
+preserved without offline raster edits. Exact prompts, dimensions, hashes,
+per-cell alpha bounds, and normalization contracts are recorded in
+[generated-studio-assistant.json](generated-studio-assistant.json) and
+[generated-workstations.json](generated-workstations.json).

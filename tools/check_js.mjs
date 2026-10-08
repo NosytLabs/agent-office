@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 // Syntax check every shipped JS module, including newly added UI features.
-for (const directory of ["web/js", "vscode", "opencode", "tools"]) {
+for (const directory of ["web/js", "vscode", "opencode", "tools", "site"]) {
   for (const file of readdirSync(directory).filter((name) =>
     /\.(js|mjs|cjs)$/.test(name),
   )) {

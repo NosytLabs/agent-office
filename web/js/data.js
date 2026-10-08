@@ -34,6 +34,22 @@ const THEMES = [
     rug: "#53675c",
     accent: "#e6c489",
   },
+  {
+    id: "juniper",
+    name: "Juniper",
+    floor: "#4a675c",
+    plank: "#527263",
+    seam: "#385247",
+    wall: "#b5c1af",
+    trim: "#738a77",
+    rug: "#3c4c51",
+    accent: "#c8d7ab",
+  },
+];
+const DESK_STYLES = [
+  { id: "classic", name: "Classic" },
+  { id: "walnut", name: "Walnut" },
+  { id: "slate", name: "Slate" },
 ];
 const LAYOUTS = [
   { id: "open", name: "The studio", hint: "Open desks and a quiet corner." },
@@ -47,24 +63,38 @@ const LAYOUTS = [
 const DEFAULT_SETTINGS = Object.freeze({
   layout: "open",
   theme: "default",
+  desk_style: "walnut",
+  subagent_style: "robot",
   sound: false,
   music_track: "window-seat",
   music_volume: 0.12,
   max_chars: 4,
   ambience: "auto",
   show_labels: true,
+  show_pets: true,
+  pets_roam: true,
   decorations: true,
   furniture: [],
   room_name: "",
   aquarium_name: "",
   aquarium_species: ["ember"],
   agent_names: {},
+  agent_preferences: {},
   history_limit: 1000,
   history_days: 7,
   history_max_bytes: 5242880,
   pet_names: {},
   budget_usd: 0,
 });
+const CHARACTER_APPEARANCES = Object.freeze([
+  { id: "default", name: "Default" },
+  ...Array.from({ length: 6 }, (_, i) => ({
+    id: "char" + i,
+    name: "Person " + (i + 1),
+  })),
+  { id: "studio-assistant", name: "Studio robot" },
+]);
+const AGENT_PREFERENCE_LIMIT = 128;
 const RANKS = [
   ["intern", 0],
   ["junior", 40],
@@ -126,6 +156,8 @@ const PROP_SIZES = {
   robot: [18, 28],
   terrarium: [24, 28],
   jukebox: [24, 36],
+  focusbooth: [30, 38],
+  filingcabinet: [22, 26],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -148,12 +180,16 @@ const PROP_NAMES = {
   robot: "Desk robot",
   terrarium: "Terrarium",
   jukebox: "Jukebox",
+  focusbooth: "Focus booth",
+  filingcabinet: "Filing cabinet",
 };
 const PROP_REWARDS = {
   arcade: "arcade_break",
   recordplayer: "listening_room",
   robot: "helping_hand",
   terrarium: "green_thumb",
+  focusbooth: "workhorse",
+  filingcabinet: "toolkit",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
@@ -402,12 +438,111 @@ function characterFrame(agent, character, time) {
     /read|search|grep|glob|fetch|browse/i.test(agent.tool || "");
   return (reading ? 5 : 3) + (Math.floor(time * 3) % 2);
 }
+function validAgentPreferenceId(id) {
+  return (
+    typeof id === "string" &&
+    id.trim() &&
+    [...id].length <= 512 &&
+    !/[\u0000-\u001f\u007f-\u009f\ud800-\udfff]/u.test(id)
+  );
+}
+function normalizeAgentPreference(value) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).some((key) => !["seat", "appearance"].includes(key))
+  )
+    return null;
+  const clean = {};
+  if (Object.hasOwn(value, "seat") && value.seat !== null) {
+    if (
+      !Number.isInteger(value.seat) ||
+      value.seat < 0 ||
+      value.seat >= AGENT_PREFERENCE_LIMIT
+    )
+      return null;
+    clean.seat = value.seat;
+  }
+  if (Object.hasOwn(value, "appearance")) {
+    if (!CHARACTER_APPEARANCES.some((item) => item.id === value.appearance))
+      return null;
+    if (value.appearance !== "default") clean.appearance = value.appearance;
+  }
+  return clean;
+}
+function normalizeAgentPreferences(value) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length > AGENT_PREFERENCE_LIMIT
+  )
+    return null;
+  const entries = [];
+  for (const [id, preference] of Object.entries(value)) {
+    if (!validAgentPreferenceId(id)) return null;
+    const clean = normalizeAgentPreference(preference);
+    if (!clean) return null;
+    if (Object.keys(clean).length) entries.push([id, clean]);
+  }
+  return Object.fromEntries(entries);
+}
+function agentPreference(id, settings = {}) {
+  const preferences = settings.agent_preferences;
+  if (
+    !preferences ||
+    typeof preferences !== "object" ||
+    !Object.hasOwn(preferences, id)
+  )
+    return {};
+  return normalizeAgentPreference(preferences[id]) || {};
+}
+function resolveAgentSeats(agents, settings = {}) {
+  const assigned = new Map(),
+    occupied = new Set();
+  // Imported or concurrently saved conflicts have one deterministic winner.
+  // Absent agents retain their preference without reserving an empty station.
+  const preferred = agents
+    .map((a) => ({ a, slot: agentPreference(a.id, settings).seat }))
+    .filter(({ slot }) => Number.isInteger(slot))
+    .sort((one, two) =>
+      one.a.id < two.a.id ? -1 : one.a.id > two.a.id ? 1 : 0,
+    );
+  for (const { a, slot } of preferred) {
+    if (occupied.has(slot)) continue;
+    assigned.set(a.id, slot);
+    occupied.add(slot);
+  }
+  let next = 0;
+  for (const a of agents) {
+    if (assigned.has(a.id)) continue;
+    while (occupied.has(next)) next++;
+    assigned.set(a.id, next);
+    occupied.add(next);
+  }
+  return agents
+    .map((a) => ({ a, slot: assigned.get(a.id) }))
+    .sort((one, two) => one.slot - two.slot);
+}
+function characterSpriteKey(agent, settings = {}, sprites = null) {
+  const fallback = "char" + (hash(agent.id) % 6);
+  const style = settings.subagent_style || DEFAULT_SETTINGS.subagent_style;
+  const requested =
+    agentPreference(agent.id, settings).appearance ||
+    (style === "robot" && (agent.kind === "subagent" || agent.parent)
+      ? "studio-assistant"
+      : fallback);
+  return !sprites || sprites[requested] ? requested : fallback;
+}
 function normalizeSettings(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};
   const valid = {};
   const choices = {
     layout: ["open", "bullpen"],
     theme: THEMES.map((t) => t.id),
+    desk_style: DESK_STYLES.map((style) => style.id),
+    subagent_style: ["robot", "people"],
     ambience: ["auto", "day", "night"],
     music_track: ["window-seat", "night-shift", "rainy-break"],
   };
@@ -478,7 +613,7 @@ function normalizeSettings(data) {
       !Array.isArray(value) &&
       Object.keys(value).length <= 128 &&
       Object.entries(value).every(
-        ([id, name]) => id && id.length <= 200 && typeof name === "string",
+        ([id, name]) => validAgentPreferenceId(id) && typeof name === "string",
       )
     )
       valid[key] = Object.fromEntries(
@@ -489,8 +624,17 @@ function normalizeSettings(data) {
           ])
           .filter(([, name]) => name),
       );
-    else if (
-      ["sound", "show_labels", "decorations"].includes(key) &&
+    else if (key === "agent_preferences") {
+      const preferences = normalizeAgentPreferences(value);
+      if (preferences) valid[key] = preferences;
+    } else if (
+      [
+        "sound",
+        "show_labels",
+        "show_pets",
+        "pets_roam",
+        "decorations",
+      ].includes(key) &&
       typeof value === "boolean"
     )
       valid[key] = value;

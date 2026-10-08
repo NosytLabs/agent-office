@@ -9,6 +9,103 @@ vm.runInContext(
   fs.readFileSync("web/js/scene.js", "utf8") + ";globalThis.Scene=OfficeScene;",
   model,
 );
+test("appearance preferences accept only supported finishes and subagent styles", () => {
+  assert.deepEqual(
+    JSON.parse(
+      JSON.stringify(
+        model.normalizeSettings({
+          theme: "juniper",
+          desk_style: "slate",
+          subagent_style: "robot",
+        }),
+      ),
+    ),
+    { theme: "juniper", desk_style: "slate", subagent_style: "robot" },
+  );
+  assert.deepEqual(
+    JSON.parse(
+      JSON.stringify(
+        model.normalizeSettings({
+          desk_style: "remote-url",
+          subagent_style: ["robot"],
+        }),
+      ),
+    ),
+    {},
+  );
+});
+test("delegated sessions use the selected character style without changing parents", () => {
+  const parent = { id: "parent", kind: "agent" };
+  const child = { id: "child", kind: "subagent", parent: "parent" };
+  assert.match(
+    model.characterSpriteKey(parent, { subagent_style: "robot" }),
+    /^char[0-5]$/,
+  );
+  assert.equal(
+    model.characterSpriteKey(child, { subagent_style: "robot" }),
+    "studio-assistant",
+  );
+  assert.match(
+    model.characterSpriteKey(child, { subagent_style: "people" }),
+    /^char[0-5]$/,
+  );
+  assert.equal(model.characterSpriteKey(child, {}), "studio-assistant");
+});
+test("new workstation props retain finite collision bounds through responsive reflow", () => {
+  for (const grid of [
+    { w: 210, h: 238 },
+    { w: 344, h: 262 },
+  ]) {
+    const result = model.resolveFurniture(
+      [
+        { kind: "focusbooth", x: 0.5, y: 0.65 },
+        { kind: "filingcabinet", x: 0.5, y: 0.65 },
+      ],
+      grid,
+      [],
+    );
+    assert.equal(result.unplaced, 0);
+    assert.equal(result.props.length, 2);
+    const [a, b] = result.props.map((p) => p.bounds);
+    assert.equal(model.overlapsRect(a, b), false);
+    for (const bounds of [a, b]) {
+      assert.ok(Object.values(bounds).every(Number.isFinite));
+      assert.ok(bounds.x >= 7 && bounds.y >= 28);
+      assert.ok(bounds.x + bounds.w <= grid.w - 7);
+      assert.ok(bounds.y + bounds.h <= grid.h - 10);
+    }
+  }
+});
+test("crowns follow the resolved character's head and retain the human fallback", () => {
+  const scene = Object.create(model.Scene.prototype);
+  const rectangles = [];
+  Object.assign(scene, {
+    sprites: { "studio-assistant": {} },
+    spriteFrameTops: { "studio-assistant": Array(21).fill(10) },
+    settings: { subagent_style: "robot" },
+    cosmetics: ["crown"],
+    time: 0,
+    stateAtTime: 0,
+    paused: true,
+    ctx: { save() {}, restore() {}, drawImage() {} },
+    rect: (...args) => rectangles.push(args),
+  });
+  const child = { id: "child", kind: "subagent", status: "idle" };
+  const humanKey = model.characterSpriteKey(child, {
+    subagent_style: "people",
+  });
+  scene.sprites[humanKey] = {};
+  scene.character(child, 10, 20, { moving: false });
+  assert.equal(rectangles[0][1], 32, "crown follows the shorter robot's head");
+  rectangles.length = 0;
+  delete scene.sprites["studio-assistant"];
+  scene.character(child, 10, 20, { moving: false });
+  assert.equal(
+    rectangles[0][1],
+    24,
+    "missing robot art keeps the human crown anchor",
+  );
+});
 test("departed sessions release character state instead of leaking NPCs", () => {
   const scene = Object.create(model.Scene.prototype);
   scene.chars = new Map([
