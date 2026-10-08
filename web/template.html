@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/aquarium.css" />
     <link rel="stylesheet" href="css/arcade.css" />
+    <link rel="stylesheet" href="css/task-runner.css" />
     <link rel="icon" href="assets/office.svg" />
   </head>
   <body>
@@ -229,7 +230,7 @@
       <footer>
         <span class="live-label">● ACTIVITY</span
         ><span id="latest-event">Waiting for a session…</span
-        ><span class="footer-note">Local · Observer only</span>
+        ><span class="footer-note" id="footer-mode">Local · Observer only</span>
       </footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
@@ -297,6 +298,9 @@
         <button data-task-view="draft" aria-pressed="false">
           Draft prompt
         </button>
+        <button data-task-view="local-runs" aria-pressed="false">
+          Local runs
+        </button>
       </div>
       <div id="taskboard"></div>
       <div id="reported-taskboard" hidden></div>
@@ -345,6 +349,9 @@
           <button type="button" id="task-draft-export" class="btn" disabled>
             Export text
           </button>
+          <button type="button" id="task-draft-run" class="btn" disabled>
+            Use for local run
+          </button>
         </div>
         <label class="task-draft-remember"
           ><input type="checkbox" id="task-draft-remember" /> Remember this
@@ -361,6 +368,98 @@
           role="status"
           aria-live="polite"
         ></p>
+      </section>
+      <section
+        id="task-runs"
+        class="task-runner"
+        aria-labelledby="task-run-heading"
+        hidden
+      >
+        <h3 id="task-run-heading">Run a task in a local CLI</h3>
+        <p
+          id="task-run-capability"
+          class="h"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <div id="task-run-enable" class="task-run-enable" hidden>
+          <strong>Enable local runs when starting Agent Office</strong>
+          <code
+            >python3 run.py --enable-task-runner --workspace
+            /absolute/path/to/project</code
+          >
+        </div>
+        <div class="task-runner-grid">
+          <form id="task-run-form" class="task-run-form">
+            <label for="task-run-workspace" class="setting-label">Project</label
+            ><select id="task-run-workspace" class="txt"></select>
+            <label for="task-run-runtime" class="setting-label">CLI</label
+            ><select id="task-run-runtime" class="txt"></select>
+            <label for="task-run-mode" class="setting-label">Mode</label
+            ><select id="task-run-mode" class="txt"></select>
+            <label for="task-run-prompt" class="setting-label"
+              >Exact prompt</label
+            ><textarea
+              id="task-run-prompt"
+              class="txt"
+              rows="10"
+              spellcheck="true"
+              placeholder="Describe one concrete task and how the CLI should verify it."
+              aria-describedby="task-run-count task-run-disclosure task-run-form-status"
+            ></textarea>
+            <output
+              id="task-run-count"
+              class="h"
+              for="task-run-prompt"
+            ></output>
+            <button id="task-run-submit" class="btn" type="submit" disabled>
+              Run task
+            </button>
+            <p
+              id="task-run-form-status"
+              class="h"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </form>
+          <section
+            class="task-run-history"
+            aria-labelledby="task-run-history-heading"
+          >
+            <h3 id="task-run-history-heading">This server session</h3>
+            <p class="h">
+              Runs are held in memory and disappear when the server restarts.
+            </p>
+            <div id="task-run-list" class="task-run-list"></div>
+          </section>
+        </div>
+        <p id="task-run-disclosure" class="h">
+          Uses the selected CLI’s own account, configuration, and existing
+          permissions; requests needing new approval are denied. Agent Office
+          provides no models or APIs.
+        </p>
+        <section id="task-run-detail" class="task-run-detail" hidden>
+          <h3 id="task-run-detail-title">Run output</h3>
+          <p id="task-run-detail-meta" class="h"></p>
+          <pre id="task-run-output" class="task-run-output" tabindex="0"></pre>
+          <div class="cluster">
+            <button id="task-run-cancel" class="btn" type="button">
+              Cancel run
+            </button>
+            <button id="task-run-copy" class="btn" type="button">
+              Copy output
+            </button>
+            <button id="task-run-reuse" class="btn" type="button">
+              Reuse prompt
+            </button>
+          </div>
+          <p
+            id="task-run-detail-status"
+            class="h"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </section>
       </section>
     </section>
     <section
@@ -1046,6 +1145,7 @@
     <script src="js/scene.js"></script>
     <script src="js/view-state.js"></script>
     <script src="js/tasks-view.js"></script>
+    <script src="js/task-runner.js"></script>
     <script src="js/office.js"></script>
     <script src="js/task-desk.js"></script>
     <script src="js/editor.js"></script>

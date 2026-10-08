@@ -289,6 +289,297 @@ test("four signal props place through Customize, survive mobile reflow, and open
   });
 });
 
+test("task console uses real local-run states, gates routing, and keeps the observer fallback", async () => {
+  await observerFixture({ events, settings }, async ({ page, state }) => {
+    await place(page, "taskterminal");
+    const before = accounting(await state());
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        state: officeScene.taskTerminalState(),
+        sprite: officeScene.taskTerminalSpriteKey(),
+      })),
+      { state: null, sprite: "taskterminal" },
+      "an observer-only office keeps the original Reported tasks terminal",
+    );
+    await clickProp(page, "taskterminal");
+    await page.waitForFunction(
+      () => opened === "sheet-tasks" && taskMode === "reported",
+    );
+    await closePanel(page);
+    await page.evaluate(() => {
+      window.localRunOpens = 0;
+      window.officeTaskRunner.open = function () {
+        window.localRunOpens++;
+      };
+    });
+    const cases = [
+      [{ enabled: true, connected: true, runs: [] }, "idle"],
+      [
+        {
+          enabled: true,
+          connected: true,
+          runs: [{ id: "one", status: "running", finished_at: null }],
+        },
+        "running",
+      ],
+      [
+        {
+          enabled: true,
+          connected: true,
+          runs: [{ id: "one", status: "succeeded", finished_at: 1 }],
+        },
+        "finished",
+      ],
+      [{ enabled: true, connected: false, runs: [] }, "disconnected"],
+    ];
+    const sprites = [];
+    for (const [detail, expected] of cases) {
+      sprites.push(
+        await page.evaluate(
+          ({ detail, expected }) => {
+            window.dispatchEvent(
+              new CustomEvent("agent-office:task-runs", { detail }),
+            );
+            const key = officeScene.taskTerminalSpriteKey();
+            const sprite = officeScene.sprites[key];
+            const pixels = sprite
+              .getContext("2d")
+              .getImageData(0, 0, sprite.width, sprite.height).data;
+            let hash = 2166136261;
+            for (const byte of pixels)
+              hash = Math.imul(hash ^ byte, 16777619) >>> 0;
+            return {
+              state: officeScene.taskTerminalState(),
+              key,
+              size: [sprite.width, sprite.height],
+              visible: sprite
+                .getContext("2d")
+                .getImageData(0, 0, sprite.width, sprite.height)
+                .data.some((value, index) => index % 4 === 3 && value > 0),
+              hash,
+              expected,
+            };
+          },
+          { detail, expected },
+        ),
+      );
+      if (process.env.OFFICE_SCREENSHOTS) {
+        fs.mkdirSync(process.env.OFFICE_SCREENSHOTS, { recursive: true });
+        await page.locator("#c").screenshot({
+          path: path.join(
+            process.env.OFFICE_SCREENSHOTS,
+            `task-console-${expected}-desktop.png`,
+          ),
+        });
+      }
+    }
+    for (const sprite of sprites)
+      assert.deepEqual(sprite, {
+        state: sprite.expected,
+        key: "taskterminal-" + sprite.expected,
+        size: [24, 34],
+        visible: true,
+        hash: sprite.hash,
+        expected: sprite.expected,
+      });
+    assert.equal(
+      new Set(sprites.map((sprite) => sprite.hash)).size,
+      4,
+      "all four generated source cells normalize to distinct rendered states",
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("agent-office:task-runs", {
+          detail: {
+            enabled: true,
+            connected: true,
+            runs: [{ status: "running", created_at: 30 }],
+          },
+        }),
+      ),
+    );
+    const motionFrames = [];
+    for (let index = 0; index < 8; index++) {
+      motionFrames.push(await terminalPixels(page));
+      await page.waitForTimeout(130);
+    }
+    assert.equal(
+      new Set(motionFrames).size,
+      2,
+      "the running-only activity lamp uses two restrained frames",
+    );
+    await page.click("#pausebtn");
+    const pausedTerminal = await terminalPixels(page);
+    await page.waitForTimeout(800);
+    assert.equal(
+      await terminalPixels(page),
+      pausedTerminal,
+      "Pause freezes the running activity lamp",
+    );
+    await page.click("#pausebtn");
+    const terminalOutcomes = await page.evaluate(() => {
+      const emit = (runs) => {
+        window.dispatchEvent(
+          new CustomEvent("agent-office:task-runs", {
+            detail: { enabled: true, connected: true, runs },
+          }),
+        );
+        return {
+          state: officeScene.taskTerminalState(),
+          sprite: officeScene.taskTerminalSpriteKey(),
+        };
+      };
+      const oldSuccess = {
+        status: "succeeded",
+        created_at: 10,
+        finished_at: 11,
+        exit_code: 0,
+      };
+      return {
+        failure: emit([
+          oldSuccess,
+          {
+            status: "failed",
+            created_at: 20,
+            finished_at: 21,
+            exit_code: 1,
+          },
+        ]),
+        cancelled: emit([
+          {
+            status: "cancelled",
+            created_at: 20,
+            finished_at: 21,
+            exit_code: -15,
+          },
+          oldSuccess,
+        ]),
+        cancelling: emit([
+          oldSuccess,
+          {
+            status: "running",
+            created_at: 20,
+            finished_at: null,
+            exit_code: null,
+          },
+        ]),
+      };
+    });
+    assert.deepEqual(terminalOutcomes, {
+      failure: { state: "failed", sprite: "taskterminal-idle" },
+      cancelled: { state: "idle", sprite: "taskterminal-idle" },
+      cancelling: { state: "running", sprite: "taskterminal-running" },
+    });
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("agent-office:task-runs", {
+          detail: { enabled: true, connected: false, runs: [] },
+        }),
+      ),
+    );
+    if (process.env.OFFICE_SCREENSHOTS) {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.locator("#c").screenshot({
+        path: path.join(
+          process.env.OFFICE_SCREENSHOTS,
+          "task-console-disconnected-mobile.png",
+        ),
+      });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
+    await clickProp(page, "taskterminal");
+    assert.equal(await page.evaluate(() => window.localRunOpens), 1);
+    assert.equal(await page.evaluate(() => opened), null);
+    const roomButton = page.locator(
+      '#room-actions [data-activity="Open task terminal"]',
+    );
+    assert.equal(await roomButton.isDisabled(), false);
+    await page.click("#settingsbtn");
+    await roomButton.scrollIntoViewIfNeeded();
+    await roomButton.click();
+    assert.equal(await page.evaluate(() => window.localRunOpens), 2);
+    assert.equal(
+      await page.evaluate(() => {
+        window.savedDisconnectedSprite =
+          officeScene.sprites["taskterminal-disconnected"];
+        delete officeScene.sprites["taskterminal-disconnected"];
+        officeScene.draw(0);
+        return officeScene.taskTerminalSpriteKey();
+      }),
+      "taskterminal",
+    );
+    await clickProp(page, "taskterminal");
+    assert.equal(
+      await page.evaluate(() => window.localRunOpens),
+      3,
+      "missing state art still routes an enabled runner to Local runs",
+    );
+    await page.evaluate(() => {
+      officeScene.sprites["taskterminal-disconnected"] =
+        window.savedDisconnectedSprite;
+      delete window.savedDisconnectedSprite;
+    });
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("agent-office:task-runs", {
+          detail: { enabled: false, connected: false, runs: [] },
+        }),
+      ),
+    );
+    await clickProp(page, "taskterminal");
+    await page.waitForFunction(
+      () => opened === "sheet-tasks" && taskMode === "reported",
+    );
+    assert.deepEqual(accounting(await state()), before);
+  });
+});
+
+async function terminalPixels(page) {
+  return page.evaluate(() => {
+    const s = officeScene,
+      t = s.transform,
+      dpr = Math.min(devicePixelRatio, 2),
+      b = s.resolvedFurniture.find(
+        (item) => item.kind === "taskterminal",
+      ).bounds,
+      x = Math.floor((t.ox + b.x * t.scale) * dpr),
+      y = Math.floor((t.oy + b.y * t.scale) * dpr),
+      data = s.ctx.getImageData(
+        x,
+        y,
+        Math.ceil(b.w * t.scale * dpr),
+        Math.ceil(b.h * t.scale * dpr),
+      ).data;
+    let hash = 2166136261;
+    for (const byte of data) hash = Math.imul(hash ^ byte, 16777619) >>> 0;
+    return hash;
+  });
+}
+
+test("reduced motion keeps the running task console steady", async () => {
+  await observerFixture(
+    { events, settings, reducedMotion: "reduce" },
+    async ({ page }) => {
+      await place(page, "taskterminal");
+      await page.evaluate(() =>
+        window.dispatchEvent(
+          new CustomEvent("agent-office:task-runs", {
+            detail: {
+              enabled: true,
+              connected: true,
+              runs: [{ status: "running", created_at: 1 }],
+            },
+          }),
+        ),
+      );
+      assert.equal(await page.evaluate(() => officeScene.paused), true);
+      const frame = await terminalPixels(page);
+      await page.waitForTimeout(800);
+      assert.equal(await terminalPixels(page), frame);
+    },
+  );
+});
+
 async function pixels(page) {
   return page.evaluate(() => {
     const s = officeScene,

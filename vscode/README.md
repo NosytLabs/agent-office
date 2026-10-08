@@ -2,8 +2,10 @@
 
 Open your live local Agent Office beside your code. The extension embeds the
 same office frontend, including runtime activity, usage reports, layout
-editing, and earned rewards. It observes existing runtimes; it does not start
-agents, submit prompts, or approve their tools.
+editing, and earned rewards. It observes existing runtimes and does not
+approve their tools. Use the standalone loopback browser for the optional
+[local task runner](../docs/local-task-runner.md); embedded or forwarded
+views may not satisfy that feature's local request checks.
 
 1. From the repository, run `python3 install.py` with VS Code installed.
 2. Reload the VS Code window.

@@ -1,6 +1,6 @@
 # Contributing
 
-Agent Office is a local observer for work performed by existing agent runtimes. Contributions should improve observation, accounting, or the office interface while preserving that boundary. Runtime adapters must not send prompts, execute tools, decide approvals, or alter the work they observe.
+Agent Office observes existing agent runtimes and offers an explicitly enabled local task runner. Runtime adapters remain pure observers: they must not send prompts, execute tools, decide approvals, or alter the work they observe. New task execution belongs in the separate [local runner](docs/local-task-runner.md), enabled only by the standalone startup option and configured projects.
 
 ## Development setup
 
@@ -72,6 +72,20 @@ Build the shareable demonstration with `npm run build:preview`. It packages the 
 Start with the runtime's own documented payloads. Preserve actual session, tool-call, request, and child-session identities. Keep fixtures small and remove private commands, paths, prompts, tokens, and account data before adding them to Git. A fixture verifies the mapper; a live integration claim also requires a run with the actual supported runtime version.
 
 Publish through the immutable inbox protocol. Do not append to or truncate `events.jsonl`, invent successful outcomes, or reuse receipt filenames. Keep hooks fail-open for the runtime and publish no controlling output. Codex hook trust remains a user action; the installer must not alter trust records. See [runtime contracts](docs/runtime-observers.md).
+
+### Local task runner
+
+Keep the runner optional and independent of observation and accounting. HTTP
+requests select a configured project ID, a supported runtime, and its supported
+mode; they never select executables, arbitrary arguments, or directory paths.
+Pass prompts on stdin with `shell=False`. Do not add permission bypasses,
+automatic approval flags, credential handling, or simulated work events.
+
+Preserve same-origin token checks, bounded JSON/output/history, idempotent
+submission, and project admission limits. Process exit zero means the CLI
+finished, not that a requested task was verified. Test start failure,
+cancellation, shutdown, output overflow, and uncertain-response retries with
+temporary executable fixtures. Never use developer provider accounts in tests.
 
 ### Persistence and usage
 

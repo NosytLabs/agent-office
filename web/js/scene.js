@@ -89,6 +89,24 @@ class OfficeScene {
         }
         this.canvas.dispatchEvent(new Event("spritesready"));
       });
+    load("task-console-source", "furniture/task-console-atlas.png", (im) => {
+      for (const [i, state] of [
+        "idle",
+        "running",
+        "finished",
+        "disconnected",
+      ].entries()) {
+        const w = Math.floor(im.width / 2),
+          h = Math.floor(im.height / 2);
+        this.normalizeProp(im, "taskterminal-" + state, [
+          (i % 2) * w,
+          Math.floor(i / 2) * h,
+          w,
+          h,
+        ]);
+      }
+      this.canvas.dispatchEvent(new Event("spritesready"));
+    });
   }
   normalizeCharacter(image, key) {
     // Generated poses share one scale and a grounded bottom-center anchor.
@@ -184,13 +202,14 @@ class OfficeScene {
     }
     const normalized = document.createElement("canvas");
     // The wall clock is built-in scenery, not an editable furniture item.
-    const size =
-      PROP_SIZES[key] ||
-      (key === "clock"
-        ? [10, 10]
-        : key === "desk-walnut" || key === "desk-slate"
-          ? [40, 14]
-          : null);
+    const sizeKey = key.startsWith("taskterminal-") ? "taskterminal" : key,
+      size =
+        PROP_SIZES[sizeKey] ||
+        (key === "clock"
+          ? [10, 10]
+          : key === "desk-walnut" || key === "desk-slate"
+            ? [40, 14]
+            : null);
     if (!size) {
       this.assetErrors.push("Unknown prop dimensions: " + key);
       return;
@@ -417,6 +436,49 @@ class OfficeScene {
     this.ctx.drawImage(im, Math.round(x), Math.round(y), w, h);
     return true;
   }
+  setTaskRunnerState(detail) {
+    this.taskRunner =
+      detail && detail.enabled === true
+        ? {
+            enabled: true,
+            connected: detail.connected === true,
+            runs: Array.isArray(detail.runs)
+              ? detail.runs.map((run) => ({
+                  status: run?.status,
+                  finished_at: run?.finished_at,
+                  created_at: run?.created_at,
+                  exit_code: run?.exit_code,
+                }))
+              : [],
+          }
+        : null;
+    this.draw(0);
+  }
+  taskTerminalState() {
+    const runner = this.taskRunner;
+    if (!runner?.enabled) return null;
+    if (!runner.connected) return "disconnected";
+    const stillLive = (run) => run.status === "running";
+    if (runner.runs.some(stillLive)) return "running";
+    const latest = runner.runs
+      .filter((run) => !stillLive(run))
+      .sort(
+        (a, b) => (Number(b.created_at) || 0) - (Number(a.created_at) || 0),
+      )[0];
+    // A successful exit gets the steady check state. This records process
+    // exit only and does not claim that the resulting work was verified.
+    if (latest?.status === "succeeded") return "finished";
+    if (latest?.status === "failed") return "failed";
+    return "idle";
+  }
+  taskTerminalSpriteKey() {
+    const state = this.taskTerminalState(),
+      generated =
+        state && "taskterminal-" + (state === "failed" ? "idle" : state);
+    // The established signals atlas is a deterministic fallback if the
+    // optional four-state source is unavailable or the runner is disabled.
+    return generated && this.sprites[generated] ? generated : "taskterminal";
+  }
   shadow(x, y, w) {
     this.rect(x + 2, y, w - 4, 2, "#10182745");
   }
@@ -453,7 +515,13 @@ class OfficeScene {
         plant && reaction !== null
           ? Math.round(Math.sin(reaction * 5) * (1 - reaction / 4))
           : 0;
-    this.image(kind, x + sway, y, w, h);
+    this.image(
+      kind === "taskterminal" ? this.taskTerminalSpriteKey() : kind,
+      x + sway,
+      y,
+      w,
+      h,
+    );
     if (Object.hasOwn(PROP_HINTS, kind))
       this.propHits.push({ kind, x, y, w, h });
     const r = this.rect.bind(this),
@@ -473,9 +541,22 @@ class OfficeScene {
         3,
         waiting ? (pulse ? "#f3c17b" : "#d99d5c") : "#8c989b",
       );
-    } else if (kind === "taskterminal") {
+    } else if (kind === "taskterminal" && !this.taskTerminalState()) {
       // Cursor animation is decoration; actual task state lives in the panel.
       if (pulse) r(x + w * 0.29, y + h * 0.13, 2, 1, "#b1d5b5");
+    } else if (
+      kind === "taskterminal" &&
+      this.taskTerminalState() === "running"
+    ) {
+      // A two-frame activity lamp indicates a live process without claiming
+      // progress. Scene time freezes this with Pause and reduced motion.
+      r(x + w * 0.72, y + h * 0.12, 2, 2, pulse ? "#9fe0c5" : "#568d84");
+    } else if (
+      kind === "taskterminal" &&
+      this.taskTerminalState() === "failed"
+    ) {
+      // A failed exit stays on the neutral console with one steady error lamp.
+      r(x + w * 0.72, y + h * 0.12, 2, 2, "#d9826b");
     } else if (kind === "lamp") {
       if (this.settings.room_lights !== false) {
         r(x - 4, y + h * 0.23, w + 8, h * 0.55, "#f4cc7017");

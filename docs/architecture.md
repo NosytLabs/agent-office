@@ -1,6 +1,6 @@
 # Architecture
 
-Agent Office 0.5.0 is a local observer. Runtime adapters publish observations; a Python server commits their effects to SQLite; a browser renders the office. The VS Code extension embeds that same frontend. Python's standard library provides the server and database, and the production frontend has no bundler or npm dependency.
+Agent Office is a local observer with an optional standalone task runner. Runtime adapters publish observations; a Python server commits their effects to SQLite; a browser renders the office. The VS Code extension embeds that same frontend. Python's standard library provides the server, process management, and database, and the production frontend has no bundler or npm dependency.
 
 ## Data flow
 
@@ -15,7 +15,15 @@ flowchart TD
   H --> V["VS Code webview"]
 ```
 
-The observer does not execute tasks, supply prompts, decide permissions, or send messages. An approval or question remains an observed need for input; the user responds through its original runtime. Pets, music, and room interactions do not create agent sessions or work events.
+The observer adapters do not execute tasks, supply prompts, decide permissions, or send messages. An approval or question remains an observed need for input; the user responds through its original runtime. Pets, music, and room interactions do not create agent sessions or work events.
+
+The standalone `--enable-task-runner` option adds a separate execution path:
+**Local runs → same-origin HTTP → fixed CLI adapter → child process**. It
+requires allowlisted projects at startup, carries an exact prompt over stdin,
+and tracks process output and exit status in bounded server memory. It does
+not write synthetic observations or mark source task lists complete. The
+ordinary startup command, Hermes observer, and public static preview keep
+execution disabled. See [the runner contract](local-task-runner.md).
 
 ## Components
 
@@ -27,6 +35,7 @@ The observer does not execute tasks, supply prompts, decide permissions, or send
 | [`event_store.py`](../event_store.py) | SQLite transactions, receipt cleanup, legacy migration, retention, and reset recovery |
 | [`state_model.py`](../state_model.py) | Incremental sessions, concurrent tools, pending input, and lifecycle transitions |
 | [`tasks.py`](../tasks.py) | Bounded source task snapshots and capture replay memory, independent of lifecycle and XP |
+| [`task_runner.py`](../task_runner.py) | Optional fixed CLI adapters, validated project admission, process lifecycle, and bounded output |
 | [`settings_store.py`](../settings_store.py) | Revisioned settings reads, conditional atomic writes, and preservation of unavailable files |
 | [`progress.py`](../progress.py) | XP, the active achievement catalog, runtime aliases, and retired-record cleanup |
 | [`usage.py`](../usage.py) | Stable usage identities, replacement corrections, coverage, and materialized aggregates |
@@ -34,6 +43,7 @@ The observer does not execute tasks, supply prompts, decide permissions, or send
 | [`install.py`](../install.py) | Detection and additive configuration of existing runtimes and the VS Code view |
 | [`web/js/office.js`](../web/js/office.js), [`editor.js`](../web/js/editor.js) | Polling, panels, settings reconciliation, and transactional furniture editing |
 | [`web/js/tasks-view.js`](../web/js/tasks-view.js) | Read-only source task lists, provenance, and focus-preserving reconciliation |
+| [`web/js/task-runner.js`](../web/js/task-runner.js) | Local run form, idempotent submission, captured output, and cancellation |
 | [`web/js/data.js`](../web/js/data.js), [`scene.js`](../web/js/scene.js) | Shared geometry, assets, camera, movement, drawing, and hit testing |
 | [`web/js/aquarium.js`](../web/js/aquarium.js), [`jukebox.js`](../web/js/jukebox.js) | Optional fish simulation and gesture-started local music |
 | [`web/js/room.js`](../web/js/room.js), [`arcade.js`](../web/js/arcade.js) | Object actions, persistent light switches, and the arcade game lifecycle |

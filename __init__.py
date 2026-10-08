@@ -369,6 +369,10 @@ def _build_state_locked() -> Dict[str, Any]:
 # HTTP server
 # ---------------------------------------------------------------------------
 
+class TaskRunnerStartupError(RuntimeError):
+    """The explicitly requested task runner could not bind its local server."""
+
+
 def _resolve_port() -> int:
     if os.environ.get("AGENT_OFFICE_PORT"):
         return int(os.environ["AGENT_OFFICE_PORT"])
@@ -428,7 +432,7 @@ def _safe_web_file(web_dir: Path, url_path: str) -> Optional[Path]:
     return path if path.is_file() else None
 
 
-def _serve() -> None:
+def _serve(task_runner=None, on_ready=None) -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -443,6 +447,39 @@ def _serve() -> None:
         def do_GET(self) -> None:
             try:
                 route = self.path.split("?")[0]
+                if route == "/task-runs" or route.startswith("/task-runs/"):
+                    if not self._authorize_task_request(mutation=False):
+                        return
+                    if route == "/task-runs":
+                        if task_runner is None:
+                            self.respond(200, {
+                                "enabled": False,
+                                "token": None,
+                                "workspaces": [],
+                                "runtimes": [],
+                                "runs": [],
+                                "max_prompt_chars": 8192,
+                                "max_running": 2,
+                            })
+                        else:
+                            self.respond(200, task_runner.capabilities())
+                        return
+                    run_id = route[len("/task-runs/"):]
+                    if not run_id or "/" in run_id or task_runner is None:
+                        self.respond(404, {"error": "task run not found"})
+                        return
+                    try:
+                        self.respond(200, task_runner.detail(run_id))
+                    except Exception as exc:
+                        try:
+                            from .task_runner import TaskRunnerError
+                        except ImportError:
+                            from task_runner import TaskRunnerError
+                        if isinstance(exc, TaskRunnerError):
+                            self.respond(exc.status, {"error": exc.message})
+                        else:
+                            raise
+                    return
                 if route == "/":
                     body = html_path.read_bytes()
                     self.send_response(200)
@@ -539,6 +576,73 @@ def _serve() -> None:
             self.end_headers()
             self.wfile.write(body)
 
+        def _authorize_task_request(self, *, mutation: bool) -> bool:
+            """Enforce the task runner's loopback browser boundary."""
+            import hmac
+
+            expected_host = f"127.0.0.1:{self.server.server_port}"
+            hosts = self.headers.get_all("Host", failobj=[])
+            if hosts != [expected_host]:
+                self.respond(403, {"error": "task runner requires its exact loopback Host"})
+                return False
+            sites = self.headers.get_all("Sec-Fetch-Site", failobj=[])
+            if any(value.strip().lower() == "cross-site" for value in sites):
+                self.respond(403, {"error": "cross-site task runner requests are forbidden"})
+                return False
+            origins = self.headers.get_all("Origin", failobj=[])
+            if len(origins) > 1 or (origins and origins[0] != f"http://{expected_host}"):
+                self.respond(403, {"error": "task runner request origin is not allowed"})
+                return False
+            if mutation:
+                tokens = self.headers.get_all("X-Agent-Office-Token", failobj=[])
+                expected_token = task_runner.token if task_runner is not None else ""
+                supplied = tokens[0].encode("utf-8") if len(tokens) == 1 else b""
+                expected = expected_token.encode("utf-8")
+                if len(tokens) != 1 or not expected_token or not hmac.compare_digest(supplied, expected):
+                    self.respond(403, {"error": "task runner token is missing or invalid"})
+                    return False
+            return True
+
+        def _read_task_json(self):
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                self.respond(415, {"error": "use application/json"})
+                return None
+            if self.headers.get("Transfer-Encoding"):
+                self.respond(400, {"error": "chunked request bodies are not supported"})
+                return None
+            lengths = self.headers.get_all("Content-Length", failobj=[])
+            try:
+                length = int(lengths[0]) if len(lengths) == 1 else 0
+            except ValueError:
+                length = 0
+            if not 0 < length <= 65536:
+                self.respond(413, {"error": "task request must be 1–65536 bytes"})
+                return None
+            try:
+                self.connection.settimeout(5)
+                raw = self.rfile.read(length)
+                if len(raw) != length:
+                    raise ValueError("incomplete body")
+                def unique_object(pairs):
+                    value = {}
+                    for key, item in pairs:
+                        if key in value:
+                            raise ValueError("duplicate JSON property")
+                        value[key] = item
+                    return value
+
+                payload = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+                if payload is None:
+                    self.respond(400, {"error": "expected a JSON object"})
+                    return None
+                return payload
+            except OSError:
+                self.respond(408, {"error": "task request body timed out"})
+                return None
+            except (ValueError, UnicodeError, RecursionError):
+                self.respond(400, {"error": "expected a valid UTF-8 JSON value"})
+                return None
+
         def do_DELETE(self) -> None:
             global _event_cache
             route = self.path.split("?")[0]
@@ -560,7 +664,38 @@ def _serve() -> None:
                 self.respond(500, {"error": "could not reset state"})
 
         def do_POST(self) -> None:
-            if self.path.split("?")[0] != "/settings":
+            route = self.path.split("?")[0]
+            if route == "/task-runs" or (route.startswith("/task-runs/") and route.endswith("/cancel")):
+                if not self._authorize_task_request(mutation=True):
+                    return
+                payload = self._read_task_json()
+                if payload is None:
+                    return
+                if task_runner is None:
+                    self.respond(404, {"error": "task runner is disabled"})
+                    return
+                try:
+                    if route == "/task-runs":
+                        result, _created = task_runner.create(payload)
+                        self.respond(201, result)
+                    else:
+                        prefix = "/task-runs/"
+                        run_id = route[len(prefix):-len("/cancel")]
+                        if not run_id or "/" in run_id or payload != {}:
+                            self.respond(400, {"error": "cancel requires an empty JSON object"})
+                            return
+                        self.respond(200, task_runner.cancel(run_id))
+                except Exception as exc:
+                    try:
+                        from .task_runner import TaskRunnerError
+                    except ImportError:
+                        from task_runner import TaskRunnerError
+                    if isinstance(exc, TaskRunnerError):
+                        self.respond(exc.status, {"error": exc.message})
+                    else:
+                        raise
+                return
+            if route != "/settings":
                 self.respond(404, {"error": "not found"})
                 return
             if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
@@ -619,7 +754,14 @@ def _serve() -> None:
 
     try:
         srv = OfficeServer(("127.0.0.1", _port), Handler)
+        _port = srv.server_port
     except OSError as exc:
+        if task_runner is not None:
+            task_runner.shutdown()
+            raise TaskRunnerStartupError(
+                f"local task runner could not bind http://127.0.0.1:{_port}: {exc}. "
+                "Stop the existing Agent Office or other listener, or choose an unused --port."
+            ) from exc
         # Port already bound. Probe it: a healthy pixel-office answers /state
         # with JSON containing "agents". Anything else is a foreign squatter
         # (another app, or a ghost VS Code port-forward) — say so LOUDLY,
@@ -654,9 +796,15 @@ def _serve() -> None:
         return
     logger.info("pixel-office serving at http://127.0.0.1:%s", _port)
     try:
+        if on_ready is not None:
+            on_ready(_port)
         srv.serve_forever()
     except Exception:
         logger.debug("pixel-office server exited", exc_info=True)
+    finally:
+        srv.server_close()
+        if task_runner is not None:
+            task_runner.shutdown()
 
 
 def _probe_port(port: int) -> str:
