@@ -167,7 +167,7 @@ python tools/generate_preview_fixture.py
 The generator never opens the operator's configured office directory, event
 log, or database. The schema regression compares the checked-in fixture with a
 fresh isolated generation. The public Node build only reads this reviewed
-fixture and the `web/assets`, `web/css`, `web/js`, and template inputs.
+fixture and the `web/assets`, `web/arcade`, `web/css`, `web/js`, and template inputs.
 
 The build adds `preview.js` before the regular application script. It answers
 the UI's state, settings, and history requests inside the browser. Timestamps

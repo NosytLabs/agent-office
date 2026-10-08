@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duck Hunt</title>
+    <link rel="stylesheet" href="embed.css" />
+  </head>
+  <body>
+    <div class="loading visible">
+      <div class="content"><p>Loading</p></div>
+    </div>
+    <main class="container">
+      <canvas
+        id="canvas"
+        width="768"
+        height="720"
+        tabindex="0"
+        aria-label="Duck Hunt playfield. Click or tap Start Game, then select flying ducks. Keyboard: arrows move the sight, T targets the visible duck, Space fires, and Escape pauses."
+        >Duck Hunt needs a browser with canvas support.</canvas
+      >
+      <span class="sr-only" id="keyboard-game-status" aria-live="polite"
+        >Keyboard sight ready. Use arrows to aim, T to target a visible duck,
+        and Space to fire.</span
+      >
+      <span class="sr-only" id="keyboard-score">000000</span>
+      <div class="volume" aria-label="Duck Hunt volume controls">
+        <button
+          class="fa-volume-down"
+          type="button"
+          aria-label="Lower game volume"
+        >
+          −
+        </button>
+        <button
+          class="fa-volume-up"
+          type="button"
+          aria-label="Raise game volume"
+        >
+          +
+        </button>
+        <button
+          class="fa-volume-mute"
+          type="button"
+          aria-label="Mute or unmute game"
+        >
+          Mute
+        </button>
+      </div>
+    </main>
+    <p class="credit">Duck Hunt browser recreation by Adi52.</p>
+    <script src="lifecycle.js"></script>
+    <script src="js/game.js"></script>
+    <script>
+      window.duckHuntLifecycle.ready();
+    </script>
+  </body>
+</html>

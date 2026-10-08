@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "upstream": {
+    "repository": "https://github.com/Adi52/duck-hunt",
+    "commit": "a4502ff12a5f79853ed181fc93680863ddde0b4e",
+    "tree": "https://github.com/Adi52/duck-hunt/tree/a4502ff12a5f79853ed181fc93680863ddde0b4e",
+    "package_license_declaration": "ISC",
+    "standalone_license_file": false,
+    "asset_notice": "The upstream README says all sounds came from the original Duck Hunt game and provides no separate sprite, logo, background, or audio asset license."
+  },
+  "vendored_files": [
+    {
+      "path": "js/upstream.js",
+      "bytes": 21656,
+      "sha256": "a503f24c1124b5aa510a79555d4c55abd4bb159a3ebf43fada1fd3795f39ed42"
+    },
+    {
+      "path": "images/big_button.png",
+      "bytes": 2084,
+      "sha256": "1daf39dc7eb106aa7abf0575e39bfc4669bd82b16388733f37baca795962549b"
+    },
+    {
+      "path": "images/dog.png",
+      "bytes": 6208,
+      "sha256": "ea1f34564076a6e428419863e9d7af5df3aaf5ef9c0ab78698555d2a25a20075"
+    },
+    {
+      "path": "images/duck_fall.png",
+      "bytes": 3460,
+      "sha256": "3be4b644b4075d4f1b4b0858ddf17b68cf734864df573d7f6eee0f207d1abb44"
+    },
+    {
+      "path": "images/duck_fly_up.png",
+      "bytes": 3039,
+      "sha256": "23593433d4c6863e616659255acdeb90f5057f561c588955387de6897e18e779"
+    },
+    {
+      "path": "images/game_board.png",
+      "bytes": 8120,
+      "sha256": "88b26b4541bfc7ae6bec58891e756b0f9c79f5189b130b21bf68f47c063b8802"
+    },
+    {
+      "path": "images/game_board_grass.png",
+      "bytes": 9011,
+      "sha256": "b4e4ca4e94c28c75a6f207f25a57a254e67767010f64434dec61e14ba1ad9ee6"
+    },
+    {
+      "path": "images/logo.png",
+      "bytes": 13907,
+      "sha256": "bf339b386ddc431d4dca9f1af5663aaa9298b4e7cca8b33ea973b60c68cc3991"
+    },
+    {
+      "path": "images/shot.png",
+      "bytes": 1630,
+      "sha256": "2e675c71ba4ffb972fd54a7cbe898c376c8173ae6ffd23ba107d9841fb1e8c3a"
+    },
+    {
+      "path": "images/small_button.png",
+      "bytes": 2031,
+      "sha256": "c4065cd66a59d8106686626ef1e5e20cbdb3d9966c13d31761aac23b91ac6b3b"
+    },
+    {
+      "path": "images/subround_duck_red.png",
+      "bytes": 1647,
+      "sha256": "68c1af6ce78532f5a5e8353a7606805ce5b59ac047252cf73956b1893c514a90"
+    },
+    {
+      "path": "images/subround_duck_white.png",
+      "bytes": 1638,
+      "sha256": "13caf618d7207c570f3813b4f706456b4428e572441f23611f4fb0a7cdb5016a"
+    },
+    {
+      "path": "audio/dog-laughing.mp3",
+      "bytes": 35826,
+      "sha256": "3ac7a5bcdf25629a92557311f10e7b617df7f75ebf7ef508664ab161ac286af6"
+    },
+    {
+      "path": "audio/duck-caught.mp3",
+      "bytes": 25899,
+      "sha256": "5425af2d0e61b8c90299934a1695d273d893f2b182e411d844453b64bb52c022"
+    },
+    {
+      "path": "audio/duck-drop.mp3",
+      "bytes": 9181,
+      "sha256": "3229e0a820643139b2eea82c8caea43de3178735db384b914b6681febb66523a"
+    },
+    {
+      "path": "audio/duck-falling.mp3",
+      "bytes": 39483,
+      "sha256": "bfba7edb0f94e4e5a787645f02fff0e20b93a06609cf16ef91f0d1b051df0d4b"
+    },
+    {
+      "path": "audio/duck-flappingg.mp3",
+      "bytes": 19445,
+      "sha256": "5b1da24aadab65cc41709bda5cd8be639d04d468803f08fc454aa4549db165a6"
+    },
+    {
+      "path": "audio/game-over.mp3",
+      "bytes": 110014,
+      "sha256": "d9f41895e245ecc04d1a55301c380d449ee0b98374b53465469a956ee6e1ca93"
+    },
+    {
+      "path": "audio/gun-shot.mp3",
+      "bytes": 17018,
+      "sha256": "4b06a52e83b21aa1f4fea1c94e572fc7b84651ac08fc83757668e541319496a2"
+    },
+    {
+      "path": "audio/intro.mp3",
+      "bytes": 144495,
+      "sha256": "b4d7dcf681e886fc0cee3e030cdb1a655d179a98d772f46a6bde63e8db53c70b"
+    },
+    {
+      "path": "audio/perfect.mp3",
+      "bytes": 36348,
+      "sha256": "da9e177efff82ea3fba9cb327330949c5148cc9a070b77f0ad4b0cea5f5ffb6e"
+    },
+    {
+      "path": "audio/start.mp3",
+      "bytes": 82324,
+      "sha256": "2c4375a3eeb4af1f8beeb8ce287cba4efe007f02dcc46a69a494c0e23847bea8"
+    }
+  ],
+  "derived_files": [
+    {
+      "path": "js/game.js",
+      "bytes": 21659,
+      "sha256": "b710822626b7153fe60cbe5238c871137b15c7e1ea0623db457990ac8ba23a38",
+      "source": "js/upstream.js",
+      "source_sha256": "a503f24c1124b5aa510a79555d4c55abd4bb159a3ebf43fada1fd3795f39ed42",
+      "generator": "tools/patch_duck_hunt.mjs",
+      "substitutions": [
+        "this.position.x+=20/t -> this.position.x+=.072*t",
+        "this.position.x+=50/t -> this.position.x+=.18*t"
+      ]
+    }
+  ],
+  "local_files": [
+    "index.html",
+    "embed.css",
+    "lifecycle.js",
+    "UPSTREAM-NOTICE.md",
+    "upstream-package.json"
+  ]
+}

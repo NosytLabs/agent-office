@@ -640,7 +640,10 @@ test("inspector desk and appearance choices persist, render, and restore default
     const before = await ledger(p);
     await p.click("#floorbtn");
     await p.locator('#roster [data-agent="hud-0"]').click();
-    assert.equal(await p.locator("#agent-appearance-select option").count(), 8);
+    assert.equal(
+      await p.locator("#agent-appearance-select option").count(),
+      10,
+    );
     const free = await p
       .locator("#agent-seat-select option")
       .evaluateAll(

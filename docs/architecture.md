@@ -36,6 +36,7 @@ The observer does not execute tasks, supply prompts, decide permissions, or send
 | [`web/js/tasks-view.js`](../web/js/tasks-view.js) | Read-only source task lists, provenance, and focus-preserving reconciliation |
 | [`web/js/data.js`](../web/js/data.js), [`scene.js`](../web/js/scene.js) | Shared geometry, assets, camera, movement, drawing, and hit testing |
 | [`web/js/aquarium.js`](../web/js/aquarium.js), [`jukebox.js`](../web/js/jukebox.js) | Optional fish simulation and gesture-started local music |
+| [`web/js/room.js`](../web/js/room.js), [`arcade.js`](../web/js/arcade.js) | Object actions, persistent light switches, and the arcade game lifecycle |
 | [`vscode/extension.js`](../vscode/extension.js), [`panel.js`](../vscode/panel.js) | Extension commands, URL forwarding, bounded connection checks, and the webview shell |
 
 ## Publication and commit boundaries

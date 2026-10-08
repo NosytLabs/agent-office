@@ -4,7 +4,8 @@
   const WIDTH = 360,
     HEIGHT = 210,
     MAX_PELLETS = 12,
-    FEED_COOLDOWN = 1600;
+    FEED_COOLDOWN = 1600,
+    REACTION_DURATION = 0.72;
   const SPECIES = [
     {
       id: "ember",
@@ -64,11 +65,32 @@
               vy: index % 2 ? 2 : -2,
               snacks: 0,
               glow: 0,
+              reaction: 0,
             }
           );
         },
       );
       if (!this.fish.length) this.pellets = [];
+    }
+    fishAt(x, y) {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return (
+        [...this.fish].reverse().find((fish) => {
+          const species = SPECIES.find((item) => item.id === fish.id),
+            hitWidth = Math.max(18, species.size[0] / 2 + 7),
+            hitHeight = Math.max(14, species.size[1] / 2 + 6);
+          return (
+            Math.abs(x - fish.x) <= hitWidth &&
+            Math.abs(y - fish.y) <= hitHeight
+          );
+        }) || null
+      );
+    }
+    react(id, animate = true) {
+      const fish = this.fish.find((item) => item.id === id);
+      if (!fish) return false;
+      if (animate) fish.reaction = REACTION_DURATION;
+      return true;
     }
     feed(x, now, instant = false) {
       if (!this.fish.length) return "empty";
@@ -103,6 +125,8 @@
         (pellet) => pellet.age < 16 && pellet.y < HEIGHT - 28,
       );
       for (const fish of this.fish) {
+        const reacting = fish.reaction > 0,
+          swimSpeed = reacting ? 2.8 : 1;
         let target = null,
           distance = Infinity;
         for (const pellet of this.pellets) {
@@ -122,12 +146,12 @@
             const dx = target.x - fish.x,
               dy = target.y - fish.y;
             fish.vx = dx < 0 ? -12 : 12;
-            fish.x += (dx / distance) * dt * 25;
-            fish.y += (dy / distance) * dt * 25;
+            fish.x += (dx / distance) * dt * 25 * swimSpeed;
+            fish.y += (dy / distance) * dt * 25 * swimSpeed;
           }
         } else {
-          fish.x += fish.vx * dt;
-          fish.y += fish.vy * dt;
+          fish.x += fish.vx * dt * swimSpeed;
+          fish.y += fish.vy * dt * swimSpeed;
         }
         if (
           (fish.x <= 24 && fish.vx < 0) ||
@@ -144,6 +168,7 @@
         fish.x = clamp(fish.x, 24, WIDTH - 24);
         fish.y = clamp(fish.y, 36, HEIGHT - 38);
         fish.glow = Math.max(0, fish.glow - dt);
+        fish.reaction = Math.max(0, fish.reaction - dt);
       }
     }
     snapshot() {
@@ -184,6 +209,8 @@
     assetErrors = 0,
     artSource = "pixel",
     savingSpecies = false,
+    savingLight = false,
+    inspectedFish = "",
     nameDraft = false,
     nameRevision = 0;
   const active = () => !panel.hidden && !document.hidden;
@@ -221,10 +248,15 @@
   function drawFish(context, fish, x = fish.x, y = fish.y, scale = 1) {
     const species = SPECIES.find((item) => item.id === fish.id),
       frames = sprites.get(fish.id),
-      sprite = frames?.[Math.floor(habitat.time * 5) % frames.length];
+      sprite = frames?.[Math.floor(habitat.time * 5) % frames.length],
+      reacting = Number(fish.reaction) > 0,
+      bob = reacting ? Math.sin(habitat.time * 34) * 2 : 0;
     context.save();
-    context.translate(Math.round(x), Math.round(y));
-    context.scale(fish.vx < 0 ? -scale : scale, scale);
+    context.translate(Math.round(x), Math.round(y + bob));
+    context.scale(
+      fish.vx < 0 ? -scale : scale,
+      scale * (reacting ? 1 + Math.sin(habitat.time * 28) * 0.08 : 1),
+    );
     if (sprite)
       context.drawImage(
         sprite,
@@ -239,13 +271,14 @@
     paintedFrames++;
     ctx.imageSmoothingEnabled = false;
     const water = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-    water.addColorStop(0, "#28515d");
-    water.addColorStop(1, "#142d3c");
+    const light = prefs().aquarium_light !== false;
+    water.addColorStop(0, light ? "#28515d" : "#1b3643");
+    water.addColorStop(1, light ? "#142d3c" : "#0d202d");
     ctx.fillStyle = water;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     ctx.fillStyle = "#9cdcc633";
     ctx.fillRect(10, 18, WIDTH - 20, 2);
-    ctx.fillStyle = "#b5e5d008";
+    ctx.fillStyle = light ? "#b5e5d012" : "#b5e5d006";
     ctx.beginPath();
     ctx.moveTo(55, 20);
     ctx.lineTo(76, 20);
@@ -293,6 +326,15 @@
     }
     for (const fish of habitat.fish) {
       drawFish(ctx, fish);
+      if (fish.reaction > 0) {
+        const phase = (REACTION_DURATION - fish.reaction) * 24;
+        ctx.strokeStyle = "#d8f3e099";
+        for (let bubble = 0; bubble < 3; bubble++) {
+          const bx = Math.round(fish.x + 11 + bubble * 4),
+            by = Math.round(fish.y - 8 - ((phase + bubble * 5) % 15));
+          ctx.strokeRect(bx, by, 2 + (bubble % 2), 2 + (bubble % 2));
+        }
+      }
       if (fish.glow > 0) {
         ctx.fillStyle = "#f6c5af";
         ctx.fillRect(Math.round(fish.x) - 2, Math.round(fish.y) - 20, 2, 3);
@@ -319,6 +361,19 @@
   function normalizeSprite(image, asset, species) {
     if (image.naturalWidth > 2048 || image.naturalHeight > 2048)
       throw new Error("Fish sheet is too large");
+    if (!asset || typeof asset !== "object" || Array.isArray(asset))
+      throw new Error("Invalid fish artwork");
+    if (asset.facing !== undefined && !["left", "right"].includes(asset.facing))
+      throw new Error("Invalid fish facing");
+    if (asset.sheet_width !== undefined || asset.sheet_height !== undefined) {
+      if (
+        !Number.isInteger(asset.sheet_width) ||
+        !Number.isInteger(asset.sheet_height) ||
+        asset.sheet_width !== image.naturalWidth ||
+        asset.sheet_height !== image.naturalHeight
+      )
+        throw new Error("Fish sheet dimensions differ from its manifest");
+    }
     let regions;
     if (asset.frame_count !== undefined) {
       if (
@@ -450,7 +505,12 @@
           continue;
         }
         const manifest = await response.json();
-        if (manifest.version !== 1 || !manifest.fish)
+        if (
+          manifest.version !== 1 ||
+          !manifest.fish ||
+          typeof manifest.fish !== "object" ||
+          Array.isArray(manifest.fish)
+        )
           throw new Error("Unsupported fish manifest");
         const results = await Promise.allSettled(
           SPECIES.filter((species) => !nextSprites.has(species.id)).map(
@@ -514,6 +574,14 @@
         ? "Some optional local artwork could not load. Original fish fill in."
         : "";
     byId("aquarium-retry-art").hidden = assetErrors === 0 && !localIssue;
+    byId("aquarium-art-source").textContent =
+      "Artwork: " +
+      {
+        original: "Agent Office originals",
+        local: "local Smallburg pack",
+        mixed: "local Smallburg pack with original fallbacks",
+        pixel: "built-in pixel silhouettes",
+      }[artSource];
     paintPreviews();
     paint();
   }
@@ -610,7 +678,7 @@
         ? "Office motion is paused. Feeding still works."
         : localPause
           ? "Fish motion is paused. Feeding still works."
-          : "Tap the water to drop a small snack, or use Feed fish.";
+          : "Tap a fish to say hello, or tap open water to feed.";
     byId("aquarium-motion-note").textContent = pausedReason;
     byId("aquarium-motion").textContent = localPause
       ? "Resume fish"
@@ -618,6 +686,12 @@
     byId("aquarium-motion").setAttribute("aria-pressed", String(localPause));
     byId("aquarium-motion").disabled =
       reducedMotion.matches || !!window.officeScene?.paused;
+    const light = prefs().aquarium_light !== false;
+    byId("aquarium-light").textContent = light
+      ? "Tank light on"
+      : "Tank light off";
+    byId("aquarium-light").setAttribute("aria-pressed", String(light));
+    byId("aquarium-light").disabled = savingLight;
     updateFeeding();
   }
   function updateFeeding() {
@@ -643,6 +717,23 @@
       empty: "Choose a discovered fish for your tank first.",
     }[result];
     updateFeeding();
+    paint();
+  }
+  function inspectOrFeed(x, y) {
+    const fish = habitat.fishAt(x, y);
+    if (!fish) {
+      inspectedFish = "";
+      feed(x);
+      return;
+    }
+    inspectedFish = fish.id;
+    habitat.react(fish.id, moving());
+    const species = SPECIES.find((item) => item.id === fish.id),
+      snackCopy = fish.snacks
+        ? `${fish.snacks} snack${fish.snacks === 1 ? "" : "s"} enjoyed`
+        : "no snacks yet";
+    byId("aquarium-status").textContent =
+      `${species.name} · ${species.kind} · ${snackCopy}.`;
     paint();
   }
   function tick(now) {
@@ -683,7 +774,10 @@
   byId("aquarium-feed").onclick = () => feed(WIDTH / 2);
   canvas.onclick = (event) => {
     const rect = canvas.getBoundingClientRect();
-    feed(((event.clientX - rect.left) * WIDTH) / rect.width);
+    inspectOrFeed(
+      ((event.clientX - rect.left) * WIDTH) / rect.width,
+      ((event.clientY - rect.top) * HEIGHT) / rect.height,
+    );
   };
   canvas.onkeydown = (event) => {
     if ([" ", "Enter"].includes(event.key)) {
@@ -694,6 +788,20 @@
   };
   byId("aquarium-motion").onclick = () => {
     localPause = !localPause;
+    refresh();
+  };
+  byId("aquarium-light").onclick = async () => {
+    if (savingLight) return;
+    savingLight = true;
+    const saving = saveSettings({
+      aquarium_light: prefs().aquarium_light === false,
+    });
+    refresh();
+    const saved = await saving;
+    savingLight = false;
+    byId("aquarium-status").textContent = saved
+      ? "Tank lighting saved."
+      : "Tank lighting was not saved. Your previous light is restored.";
     refresh();
   };
   byId("aquarium-retry-art").onclick = () => loadSprites(true);
@@ -753,6 +861,8 @@
       ),
       assetErrors,
       artSource,
+      inspectedFish,
+      light: prefs().aquarium_light !== false,
       unlocked: { ...unlocks() },
     }),
   });

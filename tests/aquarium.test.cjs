@@ -188,6 +188,24 @@ test("feeding is capped and cooled down, and abandoned pellets expire", () => {
   assert.equal(tank.pellets.length, 0);
   assert.ok(tank.fish[0].snacks > 0);
 });
+test("tapping a fish identifies it and gives a bounded swimming reaction", () => {
+  const tank = new AquariumHabitat();
+  tank.select(["ember", "mint"]);
+  const ember = tank.fish.find((fish) => fish.id === "ember");
+  const start = ember.x;
+  assert.equal(tank.fishAt(ember.x + 5, ember.y - 4)?.id, "ember");
+  assert.equal(tank.fishAt(10, 20), null);
+  assert.equal(tank.react("ember"), true);
+  assert.ok(ember.reaction > 0);
+  tank.step(0.08);
+  assert.ok(
+    Math.abs(ember.x - start) > 12 * 0.08,
+    "a greeted fish briefly darts faster than its normal swim",
+  );
+  for (let frame = 0; frame < 20; frame++) tank.step(0.08);
+  assert.equal(ember.reaction, 0);
+  assert.equal(tank.react("missing"), false);
+});
 test("the aquarium starts with one free fish and honest locked species", () =>
   withPage(async (p) => {
     await open(p);
@@ -287,6 +305,90 @@ test("feeding by keyboard and repeated tank taps never change activity, usage or
     assert.deepEqual(afterState.usage, beforeState.usage);
     assert.equal(afterState.tracking.received, beforeState.tracking.received);
     await capture(p, "feeding");
+  }));
+test("fish taps inspect and animate while open water still feeds", () =>
+  withPage(async (p) => {
+    await open(p);
+    await p.evaluate(() => {
+      const fish = officeAquarium.snapshot().fish[0],
+        canvas = document.querySelector("#aquarium-canvas"),
+        rect = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(
+        new MouseEvent("click", {
+          clientX: rect.left + (fish.x / 360) * rect.width,
+          clientY: rect.top + (fish.y / 210) * rect.height,
+        }),
+      );
+    });
+    let snapshot = await p.evaluate(() => officeAquarium.snapshot());
+    assert.equal(snapshot.pellets.length, 0);
+    assert.equal(snapshot.inspectedFish, "ember");
+    assert.ok(snapshot.fish[0].reaction > 0);
+    assert.match(await p.textContent("#aquarium-status"), /Ember · Goldfish/);
+    await capture(p, "fish-greeting");
+    await p.evaluate(() => {
+      const canvas = document.querySelector("#aquarium-canvas"),
+        rect = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(
+        new MouseEvent("click", {
+          clientX: rect.left + (10 / 360) * rect.width,
+          clientY: rect.top + (20 / 210) * rect.height,
+        }),
+      );
+    });
+    snapshot = await p.evaluate(() => officeAquarium.snapshot());
+    assert.equal(snapshot.pellets.length, 3);
+    assert.match(
+      await p.getAttribute("#aquarium-canvas", "aria-label"),
+      /select a fish/i,
+    );
+  }));
+test("the tank light persists and rolls back after a failed save", () =>
+  withPage(async (p) => {
+    await open(p);
+    assert.equal(
+      await p.getAttribute("#aquarium-light", "aria-pressed"),
+      "true",
+    );
+    await p.click("#aquarium-light");
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      await p.getAttribute("#aquarium-light", "aria-pressed"),
+      "false",
+    );
+    assert.equal(
+      (await (await p.request.get(baseURL + "/settings")).json())
+        .aquarium_light,
+      false,
+    );
+    await p.reload();
+    await p.waitForFunction(() => initialized);
+    await open(p);
+    assert.equal(
+      await p.getAttribute("#aquarium-light", "aria-pressed"),
+      "false",
+    );
+    await p.route("**/settings", (route) =>
+      route.fulfill({ status: 503, body: "unavailable" }),
+    );
+    await p.click("#aquarium-light");
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      await p.getAttribute("#aquarium-light", "aria-pressed"),
+      "false",
+    );
+    assert.equal(
+      (await p.evaluate(() => officeAquarium.snapshot())).light,
+      false,
+    );
+    assert.match(await p.textContent("#aquarium-status"), /not saved/i);
+    await p.unroute("**/settings");
+    await p.click("#aquarium-light");
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      await p.getAttribute("#aquarium-light", "aria-pressed"),
+      "true",
+    );
   }));
 test("aquarium names preserve blurred drafts, queued newer edits and failed-save retries", () =>
   withPage(async (p) => {
@@ -394,6 +496,21 @@ test("reduced motion keeps keyboard feeding available without simulation", () =>
         (await p.evaluate(() => officeAquarium.snapshot())).running,
         false,
       );
+      await p.evaluate(() => {
+        const fish = officeAquarium.snapshot().fish[0],
+          canvas = document.querySelector("#aquarium-canvas"),
+          rect = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(
+          new MouseEvent("click", {
+            clientX: rect.left + (fish.x / 360) * rect.width,
+            clientY: rect.top + (fish.y / 210) * rect.height,
+          }),
+        );
+      });
+      const inspected = await p.evaluate(() => officeAquarium.snapshot());
+      assert.equal(inspected.inspectedFish, "ember");
+      assert.equal(inspected.fish[0].reaction, 0);
+      assert.equal(inspected.pellets.length, 0);
       await p.locator("#aquarium-canvas").focus();
       await p.keyboard.press("Space");
       const fed = await p.evaluate(() => officeAquarium.snapshot());
@@ -457,6 +574,48 @@ test("missing optional artwork is visible and leaves the fish playable", () =>
       (await p.evaluate(() => officeAquarium.snapshot())).pellets.length > 0,
     );
   }));
+test("a local manifest with false sheet geometry falls back to original art", () =>
+  withPage(async (p) => {
+    const atlas = fs.readFileSync(
+      path.join(root, "web/assets/sprites/aquarium/original-fish.png"),
+    );
+    const fish = Object.fromEntries(
+      ["ember", "mint", "violet", "pearl"].map((id) => [
+        id,
+        {
+          url: `/user/aquarium/${id}.png`,
+          region: [0, 0, 1254, 1254],
+          facing: "right",
+          sheet_width: 96,
+          sheet_height: 64,
+        },
+      ]),
+    );
+    await p.route("**/user/aquarium/manifest.json", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ version: 1, fish }),
+      }),
+    );
+    await p.route(
+      /\/user\/aquarium\/(ember|mint|violet|pearl)\.png$/,
+      (route) => route.fulfill({ contentType: "image/png", body: atlas }),
+    );
+    await open(p);
+    await p.waitForFunction(
+      () =>
+        officeAquarium.snapshot().sprites.length === 4 &&
+        officeAquarium.snapshot().artSource === "original",
+    );
+    assert.match(
+      await p.textContent("#aquarium-art-status"),
+      /optional local artwork could not load/i,
+    );
+    assert.equal(
+      await p.textContent("#aquarium-art-source"),
+      "Artwork: Agent Office originals",
+    );
+  }));
 test("original public fish load once without a local pack and keep correct species labels", () =>
   withPage(async (p) => {
     await p.route("**/user/aquarium/manifest.json", (route) =>
@@ -487,6 +646,10 @@ test("original public fish load once without a local pack and keep correct speci
     assert.match(await p.textContent("#aquarium-collection"), /Betta/);
     assert.match(await p.textContent("#aquarium-collection"), /Angelfish/);
     assert.equal(await p.isVisible("#aquarium-art-status"), false);
+    assert.equal(
+      await p.textContent("#aquarium-art-source"),
+      "Artwork: Agent Office originals",
+    );
     await p.fill("#aquarium-name-input", "The quiet cove");
     await p.click("#aquarium-name-save");
     await p.waitForFunction(() => pendingSaves === 0);

@@ -307,6 +307,7 @@ code {
   align-items: center;
   gap: 12px;
   padding: 13px 0;
+  flex-wrap: wrap;
 }
 .hint {
   color: var(--dim);

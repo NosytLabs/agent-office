@@ -64,6 +64,19 @@
 #aquarium-art-status {
   margin-bottom: 8px;
 }
+.aquarium-art-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin: 1px 0 10px;
+  padding: 3px 8px;
+  border: 1px solid #608d8266;
+  border-radius: 999px;
+  color: #b7cdc4;
+  background: #112a3280;
+  font-size: 11px;
+  line-height: 1.35;
+}
 #aquarium-collection {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

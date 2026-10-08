@@ -1,0 +1,150 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  background: #313942;
+  color: #f3ead7;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+body {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: hidden;
+}
+.container {
+  position: relative;
+  width: min(100%, 768px);
+}
+#canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid #121821;
+  background: #0d1117;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  touch-action: manipulation;
+}
+#canvas:focus-visible {
+  outline: 3px solid #f1c36c;
+  outline-offset: 2px;
+}
+#keyboard-aim {
+  position: absolute;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #f1c36c;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #121821aa;
+}
+#keyboard-aim::before,
+#keyboard-aim::after {
+  content: "";
+  position: absolute;
+  background: #f1c36c;
+}
+#keyboard-aim::before {
+  left: 9px;
+  top: -6px;
+  width: 2px;
+  height: 30px;
+}
+#keyboard-aim::after {
+  left: -6px;
+  top: 9px;
+  width: 30px;
+  height: 2px;
+}
+img,
+audio {
+  display: none;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.volume {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 6px;
+}
+.volume button {
+  min-height: 36px;
+  border: 1px solid #6d7783;
+  border-radius: 5px;
+  background: #202832;
+  color: #f3ead7;
+  font: inherit;
+  cursor: pointer;
+}
+.volume button:focus-visible {
+  outline: 2px solid #f1c36c;
+}
+.fa-volume-mute.active {
+  color: #f1c36c;
+}
+.credit {
+  margin: 0;
+  max-width: 768px;
+  color: #d1d7df;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
+.credit a {
+  color: #9dddc7;
+}
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: #202832;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.loading.visible {
+  visibility: visible;
+  opacity: 1;
+}
+.loading p {
+  color: #9dddc7;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+@media (max-width: 520px) {
+  body {
+    padding: 4px;
+  }
+  .credit {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading {
+    transition: none;
+  }
+}

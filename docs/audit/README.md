@@ -19,6 +19,9 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 | Gemini lifecycle | [Mobile inspector with a synthetic hook fixture and unreported usage](../screenshots/gemini-mobile.png) |
 | Narrow office heading | [A 48-character name at 320 pixels](../screenshots/long-office-name-mobile.png) |
 | Keyboard settings | [Visible focused control below the sticky header](../screenshots/keyboard-settings.png) |
+| Arcade | [Duck Hunt with a scored hit](../screenshots/arcade-duck-hunt.png) and [Breakout in play](../screenshots/arcade-breakout.png) |
+| Room toys and characters | [Moss engineer and Orbit courier in the office](../screenshots/office-toys.png) and [saved room lighting](../screenshots/room-lights.png) |
+| Aquarium interactions | [Public fish, tank lighting, and visible artwork source](../screenshots/aquarium-interactions.png) |
 
 See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
 
@@ -47,13 +50,71 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Follow camera | Native follow/stop, panel retention, manual pan/Fit/filter/edit cancellation, and release after actual session-end ingestion and sprite fade | [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`follow-camera.test.cjs`](../../tests/follow-camera.test.cjs) |
 | Interactive props and beds | Native placement/actions/reload, exact sprite pixels, mobile collisions, connected waiting-only beacon, frozen overlays, normal pet motion, accelerated bed arrival, and moved/removed-bed release | [`signals-browser.test.cjs`](../../tests/signals-browser.test.cjs) |
 | Aquarium and music | Fish movement/feeding limits, unlocks, preferences, optional art validation, gesture-started audio, voice cleanup, and muted/hidden behavior | [`aquarium.test.cjs`](../../tests/aquarium.test.cjs), [`jukebox-model.test.cjs`](../../tests/jukebox-model.test.cjs), [`room-interactions.test.cjs`](../../tests/room-interactions.test.cjs), [`test_smallburg_import.py`](../../tests/test_smallburg_import.py) |
+| Arcade and room toys | Actual Duck Hunt scoring with delayed frame delivery, deterministic upstream patching, sandbox/message boundaries, audio and input lifecycle, Breakout win/loss and bounded physics, light persistence, object reactions, new character poses, and mobile controls | [`arcade.test.cjs`](../../tests/arcade.test.cjs), [`object-actions.test.cjs`](../../tests/object-actions.test.cjs) |
 | Public preview | Isolated fixture generation, static build boundaries, synthetic markers, reset/history/preferences in secure and ordinary-HTTP browser contexts, exact-byte concurrency guards for legacy preferences, and exclusion of local data and optional commercial art | [`test_preview_build.py`](../../tests/test_preview_build.py), [`preview.test.cjs`](../../tests/preview.test.cjs) |
 | Product website | Allowlisted public build, safe regeneration, relative paths, real desktop/mobile browser flows, visible keyboard focus across viewport changes, menu dismissal on focus exit, actual clipboard and denied-clipboard recovery, reduced motion and no-JavaScript content | [`test_site_build.py`](../../tests/test_site_build.py), [`site.test.cjs`](../../tests/site.test.cjs) |
 | VS Code view | URL validation, actual local HTTP probes, cancellation/race handling, command boundaries, and panel lifecycle | [`vscode-panel.test.cjs`](../../tests/vscode-panel.test.cjs): 11 focused tests passed in this validation environment |
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
 
-### Verified 0.5.0 UI and reliability update
+### Verified arcade, aquarium, and room update
+
+The integrated local run on 8 October 2026 (UTC) used Python **3.12.14**,
+Node **24.19.0**, and Chromium **153.0.8010.0**. CI and Vercel remain configured
+for Node 22. The following results belong to this update:
+
+| Command or flow | Result |
+| --- | --- |
+| `GEMINI_TEST_CLI=... python -m pytest -q -o addopts=''` | **531 passed**, including both native CLI cases; 21.75 seconds |
+| `npm test` | **101 passed** |
+| `npm run test:browser` | **188 passed**, 0 failed, 1 optional local-art check skipped; 125.13 seconds |
+| `npm run check` | Passed |
+| `npm run format:check` and `git diff --check` | Passed |
+| `npm run build:preview` | Built 99 public demo files and 20 product-site files, including local arcade media and source notices; no local runtime data or private Smallburg sheets |
+| Built static preview playthrough | An actual mouse hit scored 1,000 in Duck Hunt; Breakout cleared a brick; both new appearances and room lights saved and survived reload; no page errors, failed requests, or external game requests |
+
+The browser command bounds independent test-file workers to four. Its complete
+189-test result includes one deliberate skip for the optional private Smallburg
+pack, which was unavailable in this environment. Original public fish, the
+missing-pack fallback, rejection of false manifest geometry, fish inspection,
+feeding, tank-light save/reload, and failed-save recovery were exercised. The
+existing importer separately retains pinned source-hash, 96-by-64 sheet,
+16-by-16 frame, path, and atomic-publication checks. This does not establish a
+runtime review of the absent private pack.
+
+Duck Hunt uses the actual pinned Adi52 game and runtime assets. The original
+bundle remains byte-identical. A reproducible two-expression correction makes
+the dog's intro movement proportional to elapsed time; a deliberately slow
+42-millisecond animation-frame wrapper exercises the real intro, aiming, and
+scoring path. Browser checks also exercise keyboard and touch input, restarted
+menus, pause/resume messages, delayed audio readiness, sandbox isolation, local
+HTTP MIME types, and the absence of an observer API CORS grant. Breakout model
+checks cover every brick pattern, score, lives, win/loss, and bounded movement;
+native browser controls cover starting, pausing, restarting, and closing.
+[Arcade documentation](../arcade.md) records source revisions, notices, controls,
+and the narrow compatibility patch.
+
+Room checks cover a real lamp click and rendered darkening, acknowledged light
+saves and reload, keyboard actions, a usable wall switch with decorations
+hidden, bounded coffee/water/plant reactions, and motion pause. Both generated
+characters have 21 nonempty grounded frames and persist as individual agent
+appearances. Interactions and games leave observer events, reported usage,
+progression, and XP unchanged. The narrowest UI checks run at 320 pixels.
+
+The full suite also retains backend event durability, settings concurrency,
+runtime adapters, native Gemini hook fixtures, task and usage reporting,
+furniture, pets, audio, focus, history, responsive product-site, and extension
+contract coverage. The codebase review covered these boundaries as well as the
+new interactions; it does not extend the native runtime or extension-host
+claims described below.
+
+The repository's GitHub CI workflow was observed to be manually disabled during
+release preparation. The test totals above are local results. A Vercel build
+and any Pages workflow have their own statuses and do not establish a hosted
+regression run. See the current pull request for the published commit and
+deployment evidence.
+
+### Earlier 0.5.0 UI and reliability verification
 
 The integrated local run on 8 October 2026 (UTC) used Python **3.12.14**,
 Node **24.19.0**, and Chromium **153.0.8010.0**. CI and Vercel are configured
@@ -146,4 +207,4 @@ commit and hosted review results.
 
 Provider normalization, readable status grouping, editable rooms, and separate temporary animation cues are compatible concepts. Autonomous dispatch, agent hiring, model execution, and permission decisions are outside this product. No feature claim is inherited merely because it appears in a reference project's README or marketing page.
 
-MIT code notices, separately licensed artwork, generated-art provenance, and trademark attribution are kept distinct. Noncommercial or restricted artwork is not included based solely on an open repository. Consult [sprite provenance](../../web/assets/sprites/ATTRIBUTION.md), [font, icon, and runtime mark credits](../../web/assets/ATTRIBUTION.md), and [optional aquarium art](../aquarium-assets.md) for the shipped assets.
+MIT code notices, separately licensed artwork, generated-art provenance, and trademark attribution are kept distinct. The bundled arcade sources retain their pinned upstream notices; Duck Hunt's package metadata is not represented as a separate artwork or audio license. Consult [arcade provenance](../arcade.md), [sprite provenance](../../web/assets/sprites/ATTRIBUTION.md), [font, icon, and runtime mark credits](../../web/assets/ATTRIBUTION.md), and [optional aquarium art](../aquarium-assets.md) for the shipped assets.

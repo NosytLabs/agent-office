@@ -2,3 +2,5 @@ node_modules/
 reports/
 web/assets/
 docs/audit/
+web/arcade/duck-hunt/js/upstream.js
+web/arcade/duck-hunt/js/game.js

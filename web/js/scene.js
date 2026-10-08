@@ -1,4 +1,4 @@
-/* Canvas scene. All agent activity comes from the observer state; props are decorative. */
+/* Canvas scene. Agent activity is observed; room toys have separate visual state. */
 "use strict";
 class OfficeScene {
   constructor(canvas, onSelect, onPlace) {
@@ -25,6 +25,7 @@ class OfficeScene {
     this.edit = null;
     this.movingIndex = null;
     this.hitBoxes = [];
+    this.propReactions = [];
     this.loadAssets();
     this.bindInput();
     this.resize = new ResizeObserver(() => {
@@ -50,9 +51,10 @@ class OfficeScene {
         if (im.width !== 112 || im.height !== 96)
           this.assetErrors.push("Invalid character dimensions: " + i);
       });
-    load("studio-assistant-source", "characters/studio-assistant.png", (im) => {
-      this.normalizeCharacter(im, "studio-assistant");
-    });
+    for (const key of ["studio-assistant", "moss-engineer", "orbit-courier"])
+      load(key + "-source", "characters/" + key + ".png", (im) => {
+        this.normalizeCharacter(im, key);
+      });
     for (const n of ["DOOR", "FISH_TANK"]) load(n, "furniture/" + n + ".png");
     load("cat", "pets/claudio.png");
     load("blackcat", "pets/gitcat.png");
@@ -418,27 +420,41 @@ class OfficeScene {
   shadow(x, y, w) {
     this.rect(x + 2, y, w - 4, 2, "#10182745");
   }
+  reactToProp(kind, target) {
+    const hit = target || this.propHits?.find((item) => item.kind === kind);
+    if (!hit) return false;
+    const key = kind + ":" + Math.round(hit.x) + ":" + Math.round(hit.y);
+    this.propReactions = (this.propReactions || []).filter(
+      (item) => item.key !== key && this.time - item.started < 4,
+    );
+    this.propReactions.push({
+      key,
+      kind,
+      x: hit.x,
+      y: hit.y,
+      started: this.time,
+    });
+    this.propReactions = this.propReactions.slice(-24);
+    this.draw(0);
+    return true;
+  }
+  propReaction(kind, x, y) {
+    const reaction = (this.propReactions || []).find(
+      (item) => item.kind === kind && item.x === x && item.y === y,
+    );
+    if (!reaction) return null;
+    const age = this.time - reaction.started;
+    return age >= 0 && age < 4 ? age : null;
+  }
   prop(kind, x, y, w, h) {
-    this.image(kind, x, y, w, h);
-    if (
-      [
-        "FISH_TANK",
-        "jukebox",
-        "whiteboard",
-        "server",
-        "printer",
-        "arcade",
-        "recordplayer",
-        "robot",
-        "terrarium",
-        "coffee",
-        "focusbooth",
-        "filingcabinet",
-        "taskterminal",
-        "statusbeacon",
-        "petbed",
-      ].includes(kind)
-    )
+    const reaction = this.propReaction(kind, x, y),
+      plant = ["monstera", "succulent", "planter", "fern"].includes(kind),
+      sway =
+        plant && reaction !== null
+          ? Math.round(Math.sin(reaction * 5) * (1 - reaction / 4))
+          : 0;
+    this.image(kind, x + sway, y, w, h);
+    if (Object.hasOwn(PROP_HINTS, kind))
       this.propHits.push({ kind, x, y, w, h });
     const r = this.rect.bind(this),
       pulse = Math.floor(this.time * 3) % 2;
@@ -460,7 +476,20 @@ class OfficeScene {
     } else if (kind === "taskterminal") {
       // Cursor animation is decoration; actual task state lives in the panel.
       if (pulse) r(x + w * 0.29, y + h * 0.13, 2, 1, "#b1d5b5");
-    } else if (kind === "arcade" && this.cosmetics.includes("arcade_glow")) {
+    } else if (kind === "lamp") {
+      if (this.settings.room_lights !== false) {
+        r(x - 4, y + h * 0.23, w + 8, h * 0.55, "#f4cc7017");
+        r(x + w * 0.33, y + h * 0.23, w * 0.38, 2, "#f9df9d");
+      } else r(x + w * 0.13, y + h * 0.05, w * 0.76, h * 0.35, "#15223680");
+    } else if (kind === "arcade") {
+      r(x + w * 0.27, y + h * 0.21, w * 0.5, h * 0.2, "#162b38");
+      r(
+        x + w * (0.31 + (Math.sin(this.time * 1.4) + 1) * 0.12),
+        y + h * 0.35,
+        5,
+        1,
+        "#94d4c2",
+      );
       r(x + w * 0.36, y + h * 0.27, 2, 1, "#94d4c2");
       r(
         x + w * (0.38 + Math.sin(this.time * 1.4) * 0.13),
@@ -482,13 +511,16 @@ class OfficeScene {
           2 + ((pulse + i) % 3),
           "#bad7af",
         );
-    } else if (kind === "robot" && this.cosmetics.includes("robot_wave")) {
+    } else if (
+      kind === "robot" &&
+      (reaction !== null || this.cosmetics.includes("robot_wave"))
+    ) {
       r(x + w * 0.34, y + h * 0.24, 2, pulse ? 1 : 2, "#b1e1cc");
       r(x + w * 0.55, y + h * 0.24, 2, pulse ? 1 : 2, "#b1e1cc");
       r(x + w * 0.84, y + h * 0.5 - pulse * 3, 2, 3, "#ecdec3");
     } else if (
       kind === "terrarium" &&
-      this.cosmetics.includes("terrarium_glow")
+      (reaction !== null || this.cosmetics.includes("terrarium_glow"))
     ) {
       r(
         x + w * 0.55 + Math.sin(this.time) * 3,
@@ -505,6 +537,60 @@ class OfficeScene {
         1,
         "#f2c18c",
       );
+    }
+    if (reaction !== null) {
+      const age = reaction;
+      if (kind === "coffee") {
+        r(x + w * 0.62, y + h * 0.5, 4, 4, "#efdec0");
+        r(x + w * 0.62 + 1, y + h * 0.5, 2, 1, "#624532");
+        for (let i = 0; i < 3; i++) {
+          const rise = (age * 5 + i * 3) % 10;
+          r(
+            x + w * 0.7 + Math.sin(age * 3 + i),
+            y + h * 0.44 - rise,
+            1,
+            2,
+            "#f4ecd6aa",
+          );
+        }
+      } else if (kind === "cooler") {
+        r(
+          x + w * 0.44,
+          y + h * 0.66,
+          1,
+          2 + (Math.floor(age * 10) % 4),
+          "#9ee1ef",
+        );
+        r(x + w * 0.3, y + h * 0.83, 4, 3, "#d6ecf0");
+      } else if (plant) {
+        for (let i = 0; i < 4; i++)
+          r(
+            x + w * 0.25 + i * w * 0.15,
+            y - 2 + ((age * 8 + i * 3) % 9),
+            1,
+            2,
+            "#9fdde9",
+          );
+      } else if (kind === "robot") {
+        this.text("hi!", x + w / 2, y - 3, "#d1e6c6", 5, "center");
+      } else if (kind === "sofa") {
+        this.text(
+          "z",
+          x + w * 0.68,
+          y + h * 0.1 - ((age * 2) % 6),
+          "#dfd9c8",
+          5,
+        );
+      } else if (kind === "terrarium") {
+        for (let i = 0; i < 4; i++)
+          r(
+            x + w * 0.5 + Math.sin(age * 2 + i * 1.7) * w * 0.25,
+            y + h * 0.48 + Math.cos(age + i * 2) * h * 0.22,
+            1,
+            1,
+            "#ffe3a1",
+          );
+      }
     }
   }
   room(g) {
@@ -527,6 +613,16 @@ class OfficeScene {
     r(3, 27, w - 6, 2, "#15182430");
     this.image("DOOR", 12, 5, 14, 23);
     this.image("clock", 34, 8, 10, 10);
+    // A visible wall switch also works when room decorations are hidden.
+    r(w - 17, 11, 7, 10, "#ded7c6");
+    r(
+      w - 15,
+      this.settings.room_lights === false ? 15 : 13,
+      3,
+      4,
+      this.settings.room_lights === false ? "#73828c" : "#f4d295",
+    );
+    this.propHits.push({ kind: "light_switch", x: w - 19, y: 9, w: 11, h: 14 });
     const windowWidth = w < 260 ? 32 : 40;
     for (const x of w < 260 ? [48, w - 59] : [w * 0.29, w * 0.69]) {
       r(x, 6, windowWidth, 17, t.trim);
@@ -561,7 +657,10 @@ class OfficeScene {
       r(21, by + 28, 79, 1, t.accent);
       for (const p of defaultDecor(g, this.cosmetics))
         this.prop(p.kind, p.x, p.y, p.w, p.h);
-      if (this.cosmetics.includes("storm_lamp"))
+      if (
+        this.settings.room_lights !== false &&
+        this.cosmetics.includes("storm_lamp")
+      )
         this.rect(68, h - 54, 4, 2, "#efb481");
     }
     for (const item of this.resolvedFurniture || []) {
@@ -987,6 +1086,11 @@ class OfficeScene {
     for (const s of room.seats) this.desk(s);
     for (const { a, c } of this.walking.sort((a, b) => a.c.y - b.c.y))
       this.character(a, c.x, c.y, c);
+    if (this.settings.room_lights === false)
+      this.rect(3, 3, room.w - 6, room.h - 6, "#0c19366e");
+    this.propReactions = (this.propReactions || []).filter(
+      (item) => this.time - item.started < 4,
+    );
     if (this.editKind() && this.pointer) {
       const p = this.placement(this.pointer),
         b = p.bounds;
@@ -1116,6 +1220,18 @@ class OfficeScene {
     cv.addEventListener("pointermove", (e) => {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.pointer = this.point(e);
+      if (!this.edit && !this.drag && this.pointer) {
+        const p = this.pointer,
+          prop = this.propHits.findLast(
+            (hit) =>
+              p.x >= hit.x &&
+              p.x <= hit.x + hit.w &&
+              p.y >= hit.y &&
+              p.y <= hit.y + hit.h,
+          );
+        cv.style.cursor = prop ? "pointer" : "default";
+        this.onHover?.(prop ? PROP_HINTS[prop.kind] : "");
+      }
       if (!this.drag || this.drag.id !== e.pointerId) return;
       const dx = e.clientX - this.drag.x,
         dy = e.clientY - this.drag.y;
@@ -1182,12 +1298,14 @@ class OfficeScene {
           p.y >= hit.y &&
           p.y <= hit.y + hit.h,
       );
-      if (prop) this.onProp?.(prop.kind);
+      if (prop) this.onProp?.(prop.kind, prop);
     });
     cv.addEventListener("pointercancel", (e) => {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.drag = null;
       this.pointer = null;
+      cv.style.cursor = "default";
+      this.onHover?.("");
     });
     cv.addEventListener("lostpointercapture", (e) => {
       if (this.drag?.id === e.pointerId) this.drag = null;
@@ -1195,6 +1313,8 @@ class OfficeScene {
     cv.addEventListener("pointerleave", (e) => {
       if (!e.isPrimary || this.drag) return;
       this.pointer = null;
+      cv.style.cursor = "default";
+      this.onHover?.("");
     });
     cv.addEventListener("keydown", (e) => {
       if (
