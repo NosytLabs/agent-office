@@ -70,6 +70,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   music_volume: 0.12,
   max_chars: 4,
   ambience: "auto",
+  room_lights: true,
   show_labels: true,
   show_pets: true,
   pets_roam: true,
@@ -77,6 +78,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   furniture: [],
   room_name: "",
   aquarium_name: "",
+  aquarium_light: true,
   aquarium_species: ["ember"],
   agent_names: {},
   agent_preferences: {},
@@ -93,6 +95,8 @@ const CHARACTER_APPEARANCES = Object.freeze([
     name: "Person " + (i + 1),
   })),
   { id: "studio-assistant", name: "Studio robot" },
+  { id: "moss-engineer", name: "Moss engineer" },
+  { id: "orbit-courier", name: "Orbit courier" },
 ]);
 const AGENT_PREFERENCE_LIMIT = 128;
 const RANKS = [
@@ -200,6 +204,31 @@ const PROP_REWARDS = {
   focusbooth: "workhorse",
   filingcabinet: "toolkit",
 };
+const PROP_HINTS = Object.freeze({
+  FISH_TANK: "Visit the aquarium",
+  jukebox: "Choose some music",
+  recordplayer: "Choose some music",
+  arcade: "Play the arcade",
+  lamp: "Switch the room lights",
+  light_switch: "Switch the room lights",
+  coffee: "Brew a coffee",
+  cooler: "Pour a glass of water",
+  monstera: "Water the monstera",
+  succulent: "Water the succulent",
+  planter: "Water the planter",
+  fern: "Water the fern",
+  terrarium: "Wake the fireflies",
+  robot: "Say hello to the desk robot",
+  sofa: "Take a quiet break",
+  whiteboard: "See agent activity",
+  focusbooth: "See agent activity",
+  statusbeacon: "See agents that need attention",
+  taskterminal: "See reported tasks",
+  printer: "See recent activity",
+  filingcabinet: "Browse activity history",
+  server: "See the connected agents",
+  petbed: "Customize your pets",
+});
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
   return {
@@ -665,6 +694,8 @@ function normalizeSettings(data) {
         "show_pets",
         "pets_roam",
         "decorations",
+        "room_lights",
+        "aquarium_light",
       ].includes(key) &&
       typeof value === "boolean"
     )

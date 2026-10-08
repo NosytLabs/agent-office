@@ -25,3 +25,12 @@ and does not claim endorsement. Hermes uses its name rather than an unverified
 logo. Collection licensing does not transfer trademark rights.
 
 Exact vendored bytes are recorded in [brands/provenance.json](brands/provenance.json).
+
+## Arcade sources
+
+The arcade integrates [Adi52/duck-hunt](https://github.com/Adi52/duck-hunt) and a
+Breakout adaptation from [mazipan/mini-games](https://github.com/mazipan/mini-games).
+Game code and media retain their separate upstream provenance. The project MIT
+license does not relabel third-party game media. See the [arcade source and
+integration notes](../../docs/arcade.md) for pinned revisions, notices, and local
+changes.

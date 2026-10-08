@@ -53,11 +53,16 @@ def test_build_contains_only_public_web_and_synthetic_seed(tmp_path):
     assert files
     for file in files:
         relative = file.relative_to(output)
-        assert relative.parts[0] in {"assets", "css", "js", "index.html", "preview-build.json"}
+        assert relative.parts[0] in {"assets", "css", "js", "arcade", "index.html", "preview-build.json"}
         assert file.suffix not in {".py", ".sqlite3", ".jsonl"}
         assert b"PRIVATE_" not in file.read_bytes()
-    for name in ("office.js", "scene.js", "editor.js", "aquarium.js", "data.js"):
+    for name in ("office.js", "scene.js", "editor.js", "aquarium.js", "data.js", "room.js", "arcade.js"):
         assert (output / "js" / name).read_bytes() == (ROOT / "web/js" / name).read_bytes()
+    for name in ("index.html", "lifecycle.js", "embed.css", "js/upstream.js", "js/game.js",
+                 "audio/gun-shot.mp3", "images/duck_fly_up.png", "UPSTREAM-NOTICE.md"):
+        relative = Path("arcade/duck-hunt") / name
+        assert (output / relative).read_bytes() == (ROOT / "web" / relative).read_bytes()
+    assert (output / "assets/arcade/LICENSE").read_bytes() == (ROOT / "web/assets/arcade/LICENSE").read_bytes()
     assert not (output / "user").exists()
     page = (output / "index.html").read_text()
     assert page.index('src="js/data.js"') < page.index('src="js/preview.js"') < page.index('src="js/office.js"')

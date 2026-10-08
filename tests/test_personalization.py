@@ -100,10 +100,10 @@ def test_personalization_saves_leave_history_usage_and_progress_unchanged(tmp_pa
         before = {table: db.execute(f"SELECT * FROM {table}").fetchall()
                   for table in ("checkpoint", "history", "usage_units", "usage_totals")}
     progress = (tmp_path / "progress.json").read_bytes()
-    for seat, appearance in ((0, "char0"), (5, "char5"), (1, "studio-assistant")):
+    for seat, appearance in ((0, "char0"), (5, "char5"), (1, "studio-assistant"), (2, "moss-engineer"), (3, "orbit-courier")):
         plugin._save_settings({"agent_preferences": {"alpha": {"seat": seat, "appearance": appearance}},
                                "show_pets": seat == 0, "pets_roam": seat == 1})
-    assert plugin._load_settings().get("agent_preferences") == {"alpha": {"seat": 1, "appearance": "studio-assistant"}}
+    assert plugin._load_settings().get("agent_preferences") == {"alpha": {"seat": 3, "appearance": "orbit-courier"}}
     with sqlite3.connect(tmp_path / "office.sqlite3") as db:
         after = {table: db.execute(f"SELECT * FROM {table}").fetchall()
                  for table in before}

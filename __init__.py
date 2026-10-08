@@ -107,6 +107,7 @@ _DEFAULTS = {
     "music_volume": 0.12,
     "max_chars": 4,
     "ambience": "auto",
+    "room_lights": True,
     "show_labels": True,
     "show_pets": True,
     "pets_roam": True,
@@ -121,6 +122,7 @@ _DEFAULTS = {
     "pet_names": {},
     "budget_usd": 0,
     "aquarium_name": "",
+    "aquarium_light": True,
     "aquarium_species": ["ember"],
 }
 
@@ -134,7 +136,7 @@ def _valid_agent_preferences(value: Any) -> Optional[Dict[str, Any]]:
     """Validate the whole replacement map; never truncate canonical identities."""
     if not isinstance(value, dict) or len(value) > 128:
         return None
-    appearances = {"default", "char0", "char1", "char2", "char3", "char4", "char5", "studio-assistant"}
+    appearances = {"default", "char0", "char1", "char2", "char3", "char4", "char5", "studio-assistant", "moss-engineer", "orbit-courier"}
     out = {}
     for agent_id, preference in value.items():
         if (not _valid_agent_preference_id(agent_id)
@@ -170,7 +172,7 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         if key in choices:
             if isinstance(value, str) and value in choices[key]:
                 out[key] = value
-        elif key in ("sound", "show_labels", "show_pets", "pets_roam", "decorations") and isinstance(value, bool):
+        elif key in ("sound", "show_labels", "show_pets", "pets_roam", "decorations", "room_lights", "aquarium_light") and isinstance(value, bool):
             out[key] = value
         elif key == "max_chars" and type(value) is int and 2 <= value <= 8:
             out[key] = value
@@ -410,6 +412,7 @@ _STATIC_TYPES = {
     ".png": "image/png",
     ".json": "application/json",
     ".woff2": "font/woff2",
+    ".mp3": "audio/mpeg",
 }
 
 

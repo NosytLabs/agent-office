@@ -1,0 +1,474 @@
+{
+  "created": "2026-10-08",
+  "tool": "Built-in ImageGen",
+  "source": "characters/orbit-courier.png",
+  "source_preserved_unmodified": true,
+  "prompt": "Use case: stylized-concept\nAsset type: production pixel-art character animation atlas for Agent Office\nPrimary request: Create one complete BRAND NEW transparent PNG animation sheet of ONE identical small friendly office courier robot. The sheet must be EXACTLY SEVEN columns by THREE rows, exactly 21 separate full-body frames, arranged on a perfectly regular equal-cell grid. Wide landscape canvas roughly 1536 by 1024. Every pose stays fully inside its cell. Every frame uses the same bottom-center feet anchor, body height, outline thickness, head size, body parts, colors, and scale.\nSubject: An original compact humanoid courier robot with a rounded-square cream enamel head and torso, warm burnt-orange face panel and shoulder accents, two small pale mint square eyes, a tiny navy mail-slot-like chest detail with no text, slim navy joints, two separate short legs, and cream-and-orange feet. Friendly and capable. No antenna, wheels, cables, logos, backpack, parcel, or handheld props. Keep the exact same robot design in every frame.\nStyle/medium: crisp deliberate pixel art, chunky hard-edged pixel clusters, limited burnt orange/cream/navy/mint palette that complements a sage, navy, walnut, and cream office, restrained flat shading, dark navy outline, legible when normalized to a 16 by 32 logical pixel frame. No painterly texture, blur, antialias-like softness, gradients, or photographic detail.\nGrid content: ROW 1 top, all seven frames face straight DOWN toward viewer, face panel and both eyes visible. ROW 2 middle, all seven face straight UP away from viewer, back of head and torso visible, no face or eyes. ROW 3 bottom, all seven face RIGHT in strict side profile, one eye and feet pointing right; this row will be mirrored by code for left.\nColumn order is identical in every row: COLUMN 1 idle standing; COLUMN 2 walk pose 1 with one short step and opposite arm; COLUMN 3 walk pose 2 with the other short step and opposite arm; COLUMN 4 typing pose A with both elbows bent and empty hands near waist; COLUMN 5 typing pose B with a slight alternate hand motion; COLUMN 6 reading pose A with empty hands near chest and head subtly lowered; COLUMN 7 reading pose B with a small alternate hand/head motion. Typing and reading must be communicated only by body/hand pose; no keyboard, laptop, book, paper, parcel, or other object.\nComposition/framing: exactly 7 by 3 equal slots, one complete robot centered in each slot with generous genuine transparent padding. Consistent scale and grounded feet across frames. Walk changes are slight, never lunges or jumps.\nConstraints: genuine alpha transparency across the background and all gaps; exactly 21 robots and no extras; one cohesive identity across all frames; all silhouettes isolated and contained; original artwork.\nAvoid: scenery, floor, shadows, glow, furniture, desks, monitors, chairs, keyboards, books, papers, boxes, mail, mugs, labels, text, captions, borders, grid lines, watermark, extra accessories, cropped limbs, merged cells, empty cells.",
+  "layout": {
+    "columns": 7,
+    "rows": 3,
+    "row_order": [
+      "down",
+      "up",
+      "right"
+    ],
+    "column_order": [
+      "idle",
+      "walk_left_step",
+      "walk_right_step",
+      "typing_a",
+      "typing_b",
+      "reading_a",
+      "reading_b"
+    ]
+  },
+  "logical_frame_size": [
+    16,
+    32
+  ],
+  "normalization": "Keep the source PNG unchanged. Split with Math.round boundaries into the 7 by 3 grid; trim at alpha > 32. Use one shared scale across all 21 frames and a bottom-center feet anchor in every 16 by 32 logical frame. Mirror the right-facing row at runtime for left movement. Do not use raw cell centers or independent per-frame stretching.",
+  "reference": "No third-party image was supplied to ImageGen. Existing local character atlases were inspected only to understand the game grid, directional rows, pose columns, and 16 by 32 logical frame contract.",
+  "visual_review": "All 21 cells inspected: one coherent original orange/cream courier robot, correct front/back/right directional rows, with alternating walk and distinct empty-hand typing/reading gestures. No parcels, props, text, grid, floor, or visible background. Every silhouette has comfortable cell-edge clearance. Row-local pose height and feet variation are small and suitable for one shared normalization scale.",
+  "source_dimensions": {
+    "width": 1536,
+    "height": 1024
+  },
+  "sha256": "204e0d18a3b2762e910cd66927abab1c3f0c8afd4681874d024832e8e5d08503",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_file_bytes": 1792261,
+    "alpha_extrema": [
+      0,
+      254
+    ],
+    "nonzero_alpha_pixels": 760885,
+    "fully_transparent_pixels": 811979,
+    "threshold": 32,
+    "cell_count": 21,
+    "all_cells_contain_pixels": true,
+    "all_silhouettes_within_cells": true,
+    "raw_bytes_equal_generated_source": true,
+    "cell_regions_and_bounds": [
+      {
+        "row": 0,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          35,
+          70,
+          165,
+          260
+        ],
+        "alpha_gt_32_bottom_center": [
+          117.0,
+          329
+        ]
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          31,
+          68,
+          166,
+          264
+        ],
+        "alpha_gt_32_bottom_center": [
+          113.5,
+          331
+        ]
+      },
+      {
+        "row": 0,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          26,
+          72,
+          163,
+          260
+        ],
+        "alpha_gt_32_bottom_center": [
+          107.0,
+          331
+        ]
+      },
+      {
+        "row": 0,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          24,
+          69,
+          166,
+          261
+        ],
+        "alpha_gt_32_bottom_center": [
+          106.5,
+          329
+        ]
+      },
+      {
+        "row": 0,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          20,
+          72,
+          165,
+          259
+        ],
+        "alpha_gt_32_bottom_center": [
+          102.0,
+          330
+        ]
+      },
+      {
+        "row": 0,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          17,
+          72,
+          164,
+          259
+        ],
+        "alpha_gt_32_bottom_center": [
+          98.5,
+          330
+        ]
+      },
+      {
+        "row": 0,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          21,
+          72,
+          164,
+          258
+        ],
+        "alpha_gt_32_bottom_center": [
+          102.5,
+          329
+        ]
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          35,
+          49,
+          165,
+          261
+        ],
+        "alpha_gt_32_bottom_center": [
+          117.0,
+          309
+        ]
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          34,
+          46,
+          163,
+          267
+        ],
+        "alpha_gt_32_bottom_center": [
+          115.0,
+          312
+        ]
+      },
+      {
+        "row": 1,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          26,
+          48,
+          163,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          107.0,
+          312
+        ]
+      },
+      {
+        "row": 1,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          23,
+          48,
+          165,
+          262
+        ],
+        "alpha_gt_32_bottom_center": [
+          105.0,
+          309
+        ]
+      },
+      {
+        "row": 1,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          20,
+          48,
+          165,
+          262
+        ],
+        "alpha_gt_32_bottom_center": [
+          102.0,
+          309
+        ]
+      },
+      {
+        "row": 1,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          16,
+          48,
+          165,
+          263
+        ],
+        "alpha_gt_32_bottom_center": [
+          98.0,
+          310
+        ]
+      },
+      {
+        "row": 1,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          16,
+          48,
+          164,
+          261
+        ],
+        "alpha_gt_32_bottom_center": [
+          97.5,
+          308
+        ]
+      },
+      {
+        "row": 2,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          47,
+          17,
+          137,
+          264
+        ],
+        "alpha_gt_32_bottom_center": [
+          115.0,
+          280
+        ]
+      },
+      {
+        "row": 2,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          37,
+          16,
+          134,
+          262
+        ],
+        "alpha_gt_32_bottom_center": [
+          103.5,
+          277
+        ]
+      },
+      {
+        "row": 2,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          29,
+          16,
+          137,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          97.0,
+          280
+        ]
+      },
+      {
+        "row": 2,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          27,
+          16,
+          137,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          95.0,
+          280
+        ]
+      },
+      {
+        "row": 2,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          29,
+          16,
+          139,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          98.0,
+          280
+        ]
+      },
+      {
+        "row": 2,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          30,
+          16,
+          144,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          101.5,
+          280
+        ]
+      },
+      {
+        "row": 2,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          32,
+          16,
+          142,
+          265
+        ],
+        "alpha_gt_32_bottom_center": [
+          102.5,
+          280
+        ]
+      }
+    ]
+  }
+}

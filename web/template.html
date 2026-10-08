@@ -26,6 +26,7 @@
     />
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/aquarium.css" />
+    <link rel="stylesheet" href="css/arcade.css" />
     <link rel="icon" href="assets/office.svg" />
   </head>
   <body>
@@ -212,6 +213,10 @@
             >Click an agent to see what’s happening.</span
           >
           <div class="cluster">
+            <button class="btn" id="arcade-open">Arcade</button>
+            <button class="btn" id="room-lights" aria-pressed="true">
+              Lights on
+            </button>
             <button class="btn" id="zoom-out" aria-label="Zoom out">−</button
             ><button class="btn" id="zoom-fit">Fit</button
             ><button class="btn" id="zoom-in" aria-label="Zoom in">+</button
@@ -765,7 +770,7 @@
           height="210"
           tabindex="0"
           role="button"
-          aria-label="Aquarium. Press Enter or Space to feed the fish. Use the collection below to choose residents."
+          aria-label="Aquarium. Tap or click to select a fish, or choose open water to feed. Press Enter or Space to feed the fish."
           >Use Feed fish and the collection below to interact with your
           aquarium.</canvas
         >
@@ -776,11 +781,16 @@
       <div class="aquarium-controls">
         <button class="btn" id="aquarium-feed">Feed fish</button
         ><button class="btn" id="aquarium-motion" aria-pressed="false">
-          Pause fish
+          Pause fish</button
+        ><button class="btn" id="aquarium-light" aria-pressed="true">
+          Tank light on
         </button>
       </div>
       <p id="aquarium-motion-note" class="h"></p>
       <p id="aquarium-status" role="status" aria-live="polite"></p>
+      <p id="aquarium-art-source" class="aquarium-art-source">
+        Artwork: loading…
+      </p>
       <p id="aquarium-art-status" class="h" role="status" hidden></p>
       <button class="btn" id="aquarium-retry-art" hidden>
         Retry fish artwork
@@ -813,6 +823,116 @@
         Feeding is just for fun: it earns no XP and never changes agent activity
         or usage. Snacks stay in this browser visit. Your fish need no care
         while you are away.
+      </p>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-arcade"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="arcade-heading"
+      data-game="picker"
+      hidden
+    >
+      <span class="eyebrow">THE BREAK ROOM</span>
+      <h2 id="arcade-heading">Arcade cabinet</h2>
+      <p class="h arcade-intro">
+        Pick a game for your next break. Your best Breakout score stays in this
+        browser.
+      </p>
+      <div class="arcade-picker" role="group" aria-label="Arcade games">
+        <button
+          class="arcade-choice"
+          id="arcade-game-breakout"
+          type="button"
+          data-arcade-game="breakout"
+          aria-pressed="false"
+        >
+          <strong>Breakout</strong>
+          <span>Five brick patterns · mouse, touch, or arrow keys</span>
+        </button>
+        <button
+          class="arcade-choice"
+          id="arcade-game-duck-hunt"
+          type="button"
+          data-arcade-game="duck-hunt"
+          aria-pressed="false"
+        >
+          <strong>Duck Hunt</strong>
+          <span>Adi52’s browser recreation · pointer, touch, or keyboard</span>
+        </button>
+      </div>
+      <div class="arcade-play">
+        <div class="arcade-hud" aria-label="Breakout score">
+          <div class="arcade-stat">
+            <small>Score</small><output id="arcade-score">0</output>
+          </div>
+          <div class="arcade-stat">
+            <small>Best</small><output id="arcade-best">0</output>
+          </div>
+          <div class="arcade-stat">
+            <small>Level</small><output id="arcade-level">1</output>
+          </div>
+          <div class="arcade-stat">
+            <small>Lives</small><output id="arcade-lives">●●●</output>
+          </div>
+        </div>
+        <div class="arcade-stage" id="arcade-breakout-stage">
+          <canvas
+            id="arcade-canvas"
+            width="480"
+            height="360"
+            tabindex="0"
+            aria-label="Breakout playfield. Drag to move the paddle, or focus the canvas and use Left and Right arrow keys."
+            >Use the controls below to play Breakout.</canvas
+          >
+        </div>
+        <div class="arcade-stage" id="arcade-duck-stage">
+          <p class="h">Press Load &amp; start Duck Hunt below.</p>
+        </div>
+      </div>
+      <div class="arcade-controls">
+        <button class="btn" id="arcade-start" type="button">
+          Start Breakout
+        </button>
+        <button class="btn" id="arcade-duck-start" type="button" hidden>
+          Load &amp; start Duck Hunt
+        </button>
+        <button class="btn" id="arcade-pause" type="button" disabled>
+          Resume
+        </button>
+        <button class="btn" id="arcade-restart" type="button" disabled>
+          Restart
+        </button>
+        <button class="btn" id="arcade-exit" type="button" disabled>
+          Choose another game
+        </button>
+      </div>
+      <p id="arcade-status" role="status" aria-live="polite">
+        Choose a game. Nothing starts automatically.
+      </p>
+      <p id="arcade-motion-note" class="h"></p>
+      <p class="h arcade-attribution">
+        Breakout by
+        <a
+          href="https://github.com/mazipan/mini-games/tree/a9421318e6f4644c5f144df78576114db60de8a6"
+          target="_blank"
+          rel="noreferrer"
+          >mazipan/mini-games</a
+        >
+        (MIT), adapted for Agent Office. Duck Hunt recreation by
+        <a
+          href="https://github.com/Adi52/duck-hunt/tree/a4502ff12a5f79853ed181fc93680863ddde0b4e"
+          target="_blank"
+          rel="noreferrer"
+          >Adi52/duck-hunt</a
+        >.
+        <a
+          href="https://github.com/NosytLabs/agent-office/blob/main/docs/arcade.md"
+          target="_blank"
+          rel="noreferrer"
+          >Game credits and controls ↗</a
+        >
       </p>
     </section>
     <section
@@ -865,5 +985,7 @@
     <script src="js/editor.js"></script>
     <script src="js/aquarium.js"></script>
     <script src="js/jukebox.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/room.js"></script>
   </body>
 </html>

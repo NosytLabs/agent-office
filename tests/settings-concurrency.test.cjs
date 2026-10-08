@@ -91,7 +91,7 @@ async function withViews(run) {
     for (const p of [a, b]) {
       await p.goto(base);
       await p.waitForFunction(
-        () => initialized && settingsReady && officeScene.loadedAssets === 20,
+        () => initialized && settingsReady && officeScene.loadedAssets === 22,
       );
     }
     // Two valid loaded views; simulate a background view whose next observation

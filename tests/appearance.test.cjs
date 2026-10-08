@@ -127,7 +127,7 @@ async function withOffice(run, options = {}) {
     await p.waitForFunction(() => initialized && agents.length === 3);
     await p.waitForFunction(
       (blocked) =>
-        officeScene.loadedAssets === (blocked ? 19 : 20) &&
+        officeScene.loadedAssets === (blocked ? 21 : 22) &&
         [
           "filingcabinet",
           "taskterminal",
@@ -482,7 +482,7 @@ test("keyboard appearance controls change rendered desks and persist without cre
     await capture(p, "juniper-slate-people");
     await p.reload();
     await p.waitForFunction(
-      () => initialized && officeScene.loadedAssets === 20,
+      () => initialized && officeScene.loadedAssets === 22,
     );
     await customize(p);
     for (const [group, name] of [
@@ -941,7 +941,7 @@ test("recorded progress gates booth and cabinet; their previews, placement, refl
     }
     await p.reload();
     await p.waitForFunction(
-      () => initialized && officeScene.loadedAssets === 20,
+      () => initialized && officeScene.loadedAssets === 22,
     );
     assert.deepEqual(await p.evaluate(() => settings.furniture), saved);
     assert.deepEqual(

@@ -1,0 +1,474 @@
+{
+  "created": "2026-10-08",
+  "tool": "Built-in ImageGen",
+  "source": "characters/moss-engineer.png",
+  "source_preserved_unmodified": true,
+  "prompt": "Use case: stylized-concept\nAsset type: production pixel-art character animation atlas for Agent Office\nPrimary request: Create one complete BRAND NEW transparent PNG animation sheet of ONE identical human office engineer character. The sheet must be EXACTLY SEVEN columns by THREE rows, exactly 21 separate full-body frames, arranged on a perfectly regular equal-cell grid. Wide landscape canvas roughly 1536 by 1024. Every pose stays fully inside its cell. Every frame uses the same bottom-center feet anchor, body height, outline thickness, head size, clothing, colors, and scale.\nSubject: A friendly adult human engineer with warm medium-brown skin, short dark curly hair, large navy over-ear headphones, a muted moss/sage green utility jacket over a cream shirt, walnut-brown trousers, and dark navy shoes. Compact and professional, distinctive but simple. No logos, no badge text, no handheld props. Small expressive pixel face. Keep the outfit and anatomy identical in every frame.\nStyle/medium: crisp deliberate pixel art, chunky hard-edged pixel clusters, limited sage/navy/walnut/cream palette, restrained flat shading, dark navy outline, legible when normalized to a 16 by 32 logical pixel frame. No painterly texture, blur, antialias-like softness, gradients, or photographic detail.\nGrid content: ROW 1 top, all seven frames face straight DOWN toward viewer, face visible. ROW 2 middle, all seven face straight UP away from viewer, back of head and jacket visible, no face. ROW 3 bottom, all seven face RIGHT in strict side profile, nose and one headphone earcup toward the right; this row will be mirrored by code for left.\nColumn order is identical in every row: COLUMN 1 idle standing; COLUMN 2 walk pose 1 with one short step and opposite arm; COLUMN 3 walk pose 2 with the other short step and opposite arm; COLUMN 4 typing pose A with both elbows bent and empty hands near waist; COLUMN 5 typing pose B with a slight alternate hand motion; COLUMN 6 reading pose A with empty hands near chest and head subtly lowered; COLUMN 7 reading pose B with a small alternate hand/head motion. Typing and reading must be communicated only by body/hand pose; no keyboard, laptop, book, paper, or other object.\nComposition/framing: exactly 7 by 3 equal slots, one complete character centered in each slot with generous genuine transparent padding. Consistent scale and grounded feet across frames. Walk changes are slight, never lunges or jumps.\nConstraints: genuine alpha transparency across the background and all gaps; exactly 21 characters and no extras; one cohesive identity across all frames; all silhouettes isolated and contained; original artwork.\nAvoid: scenery, floor, shadows, glow, furniture, desks, monitors, chairs, keyboards, books, papers, mugs, labels, text, captions, borders, grid lines, watermark, extra accessories, cropped limbs, merged cells, empty cells.",
+  "layout": {
+    "columns": 7,
+    "rows": 3,
+    "row_order": [
+      "down",
+      "up",
+      "right"
+    ],
+    "column_order": [
+      "idle",
+      "walk_left_step",
+      "walk_right_step",
+      "typing_a",
+      "typing_b",
+      "reading_a",
+      "reading_b"
+    ]
+  },
+  "logical_frame_size": [
+    16,
+    32
+  ],
+  "normalization": "Keep the source PNG unchanged. Split with Math.round boundaries into the 7 by 3 grid; trim at alpha > 32. Use one shared scale across all 21 frames and a bottom-center feet anchor in every 16 by 32 logical frame. Mirror the right-facing row at runtime for left movement. Do not use raw cell centers or independent per-frame stretching.",
+  "reference": "No third-party image was supplied to ImageGen. Existing local character atlases were inspected only to understand the game grid, directional rows, pose columns, and 16 by 32 logical frame contract.",
+  "visual_review": "All 21 cells inspected: one coherent original human engineer, correct front/back/right directional rows, with alternating walk and distinct empty-hand typing/reading gestures. No props, text, grid, floor, or visible background. The right-facing row begins only two source pixels below its cell top at alpha > 32, but every silhouette remains within its own cell. Row-local feet are closely aligned; normalizer grounding removes the source row offsets.",
+  "source_dimensions": {
+    "width": 1536,
+    "height": 1024
+  },
+  "sha256": "1343883e8870a5060c4ebf13c01201776060a87e98647f68922a4a69750dbae6",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_file_bytes": 1832336,
+    "alpha_extrema": [
+      0,
+      254
+    ],
+    "nonzero_alpha_pixels": 688185,
+    "fully_transparent_pixels": 884679,
+    "threshold": 32,
+    "cell_count": 21,
+    "all_cells_contain_pixels": true,
+    "all_silhouettes_within_cells": true,
+    "raw_bytes_equal_generated_source": true,
+    "cell_regions_and_bounds": [
+      {
+        "row": 0,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          61,
+          52,
+          130,
+          282
+        ],
+        "alpha_gt_32_bottom_center": [
+          125.5,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          49,
+          51,
+          134,
+          283
+        ],
+        "alpha_gt_32_bottom_center": [
+          115.5,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          38,
+          52,
+          134,
+          282
+        ],
+        "alpha_gt_32_bottom_center": [
+          104.5,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          42,
+          51,
+          131,
+          283
+        ],
+        "alpha_gt_32_bottom_center": [
+          107.0,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          34,
+          51,
+          131,
+          283
+        ],
+        "alpha_gt_32_bottom_center": [
+          99.0,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          0,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          34,
+          57,
+          132,
+          277
+        ],
+        "alpha_gt_32_bottom_center": [
+          99.5,
+          333
+        ]
+      },
+      {
+        "row": 0,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          0,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          27,
+          57,
+          138,
+          277
+        ],
+        "alpha_gt_32_bottom_center": [
+          95.5,
+          333
+        ]
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          62,
+          35,
+          129,
+          277
+        ],
+        "alpha_gt_32_bottom_center": [
+          126.0,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          51,
+          34,
+          134,
+          278
+        ],
+        "alpha_gt_32_bottom_center": [
+          117.5,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          36,
+          32,
+          132,
+          280
+        ],
+        "alpha_gt_32_bottom_center": [
+          101.5,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          40,
+          33,
+          131,
+          279
+        ],
+        "alpha_gt_32_bottom_center": [
+          105.0,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          36,
+          32,
+          131,
+          280
+        ],
+        "alpha_gt_32_bottom_center": [
+          101.0,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          341,
+          220,
+          342
+        ],
+        "content_bounds_xywh": [
+          33,
+          32,
+          132,
+          280
+        ],
+        "alpha_gt_32_bottom_center": [
+          98.5,
+          311
+        ]
+      },
+      {
+        "row": 1,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          341,
+          219,
+          342
+        ],
+        "content_bounds_xywh": [
+          27,
+          36,
+          129,
+          276
+        ],
+        "alpha_gt_32_bottom_center": [
+          91.0,
+          311
+        ]
+      },
+      {
+        "row": 2,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          62,
+          2,
+          122,
+          289
+        ],
+        "alpha_gt_32_bottom_center": [
+          122.5,
+          290
+        ]
+      },
+      {
+        "row": 2,
+        "column": 1,
+        "source_region_xywh": [
+          219,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          48,
+          2,
+          133,
+          288
+        ],
+        "alpha_gt_32_bottom_center": [
+          114.0,
+          289
+        ]
+      },
+      {
+        "row": 2,
+        "column": 2,
+        "source_region_xywh": [
+          439,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          33,
+          2,
+          135,
+          289
+        ],
+        "alpha_gt_32_bottom_center": [
+          100.0,
+          290
+        ]
+      },
+      {
+        "row": 2,
+        "column": 3,
+        "source_region_xywh": [
+          658,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          39,
+          2,
+          122,
+          289
+        ],
+        "alpha_gt_32_bottom_center": [
+          99.5,
+          290
+        ]
+      },
+      {
+        "row": 2,
+        "column": 4,
+        "source_region_xywh": [
+          878,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          37,
+          2,
+          133,
+          289
+        ],
+        "alpha_gt_32_bottom_center": [
+          103.0,
+          290
+        ]
+      },
+      {
+        "row": 2,
+        "column": 5,
+        "source_region_xywh": [
+          1097,
+          683,
+          220,
+          341
+        ],
+        "content_bounds_xywh": [
+          37,
+          3,
+          123,
+          288
+        ],
+        "alpha_gt_32_bottom_center": [
+          98.0,
+          290
+        ]
+      },
+      {
+        "row": 2,
+        "column": 6,
+        "source_region_xywh": [
+          1317,
+          683,
+          219,
+          341
+        ],
+        "content_bounds_xywh": [
+          31,
+          3,
+          127,
+          288
+        ],
+        "alpha_gt_32_bottom_center": [
+          94.0,
+          290
+        ]
+      }
+    ]
+  }
+}

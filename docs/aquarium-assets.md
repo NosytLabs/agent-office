@@ -29,6 +29,14 @@ manifest at `/user/aquarium/manifest.json` and its four PNGs at
 uses the included original generated fish. Importing art does not change fish unlocks,
 progress, or saved selections.
 
+The aquarium shows the active artwork source below its controls. A complete,
+valid import reads **Artwork: local Smallburg pack**. If one local image or its
+manifest metadata is invalid, that species uses the Agent Office original and
+the aquarium reports the fallback instead of rendering an uncertain crop.
+**Retry fish artwork** rechecks both sources after the local files have been
+repaired. The fallback silhouettes keep feeding and fish inspection available
+even if neither image source can be decoded.
+
 The importer reads the exact four source sheets and their license notice,
 checks every SHA256, and copies the original bytes without cropping or
 resizing. It publishes the complete directory after all validation and writes
@@ -53,12 +61,12 @@ The supported bytes were verified against Little Current revision
 also works; changed art fails validation rather than using an unverified crop.
 Source PNGs are under `Assets/Resources/Smallburg/Fish/`.
 
-| Fish ID | Kind | Source PNG | SHA256 |
-| --- | --- | --- | --- |
-| `ember` | Clownfish | `clown_fish-red.png` | `efac23e9983e1c1f49cb22692a95af533711f2dd11c3626f7be302e1e959a223` |
-| `mint` | Guppy | `guppy-blue.png` | `58067e766aece90bd7c0fbce7e7020af4544a156a08e2ef3fe1a4ecd74cc2e24` |
-| `violet` | Neon tetra | `neon_tetra-light_blue.png` | `5e3d76f06b867402dfa45429e9babd67a83b477b869ce11c6a5e586816a83007` |
-| `pearl` | Butterflyfish | `butterfly_fish-yellow_white_fin.png` | `392dbeee17c9d668d04b57e6d4565e29377af745f5abb1c83c87390ee1a453a2` |
+| Fish ID  | Kind          | Source PNG                            | SHA256                                                             |
+| -------- | ------------- | ------------------------------------- | ------------------------------------------------------------------ |
+| `ember`  | Clownfish     | `clown_fish-red.png`                  | `efac23e9983e1c1f49cb22692a95af533711f2dd11c3626f7be302e1e959a223` |
+| `mint`   | Guppy         | `guppy-blue.png`                      | `58067e766aece90bd7c0fbce7e7020af4544a156a08e2ef3fe1a4ecd74cc2e24` |
+| `violet` | Neon tetra    | `neon_tetra-light_blue.png`           | `5e3d76f06b867402dfa45429e9babd67a83b477b869ce11c6a5e586816a83007` |
+| `pearl`  | Butterflyfish | `butterfly_fish-yellow_white_fin.png` | `392dbeee17c9d668d04b57e6d4565e29377af745f5abb1c83c87390ee1a453a2` |
 
 All four original sheets are **96×64** pixels. Each uses **four 16×16** swim
 frames with top-left coordinates `(16 + frame * 16, 16)` and natural facing
@@ -66,6 +74,14 @@ frames with top-left coordinates `(16 + frame * 16, 16)` and natural facing
 records sheet size, frame size, count, x/y origin, horizontal stride, facing,
 kind, source filename, and SHA256. It also contains a closed five-file roster
 covering the four images and license notice.
+
+The browser checks the decoded sheet dimensions against the manifest before it
+crops any frames. It rejects out-of-bounds frames, empty frames, unsupported
+facing values, oversized sheets, and inconsistent sheet geometry. The four
+native frames advance only while aquarium motion is active; pausing the fish,
+pausing office motion, hiding the page, or requesting reduced motion also stops
+the sprite animation. Selecting a fish in the tank triggers a short local dart
+and identifies its name, kind, and snacks without changing progress or usage.
 
 These crops follow `AquariumArt.Fish()` and the catalog's `frameWidth = 16`,
 with facing confirmed by `AquariumTank`'s movement and x-scale convention.

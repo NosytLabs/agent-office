@@ -567,7 +567,7 @@ test("all sprite images load and canvas frames stay within room bounds on deskto
   withPage(async (p) => {
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 20 &&
+        officeScene.loadedAssets === 22 &&
         ["coatrack", "taskterminal", "statusbeacon", "petbed", "fern"].every(
           (key) => officeScene.sprites[key],
         ),
@@ -1456,7 +1456,7 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 20 &&
+        officeScene.loadedAssets === 22 &&
         officeScene.sprites.sofa &&
         initialized,
     );

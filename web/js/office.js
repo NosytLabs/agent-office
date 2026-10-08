@@ -85,55 +85,6 @@ const scene = new OfficeScene($("c"), selectAgent, (p, grid) =>
   placeFurniture(p, grid),
 );
 window.officeScene = scene;
-const roomActions = [
-  ["Aquarium", () => window.openAquarium?.()],
-  ["Jukebox", () => window.officeJukebox?.open()],
-  ["Pet the orange cat", () => scene.petCat("cat")],
-  ["Pet the black cat", () => scene.petCat("blackcat")],
-];
-for (const [label, action] of roomActions) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn";
-  button.textContent = label;
-  button.dataset.activity = label;
-  button.onclick = action;
-  $("room-actions").append(button);
-}
-scene.onProp = (kind) => {
-  if (kind === "FISH_TANK" || kind === "terrarium") window.openAquarium?.();
-  else if (kind === "jukebox" || kind === "recordplayer")
-    window.officeJukebox?.open();
-  else if (kind === "taskterminal") {
-    taskMode = "reported";
-    openSheet("sheet-tasks");
-  } else if (
-    kind === "whiteboard" ||
-    kind === "focusbooth" ||
-    kind === "statusbeacon"
-  ) {
-    taskMode = "activity";
-    openSheet("sheet-tasks");
-  } else if (kind === "petbed") {
-    openSheet("sheet-settings");
-    $("pet-name-form").scrollIntoView({ block: "center" });
-  } else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
-  else if (kind === "printer") openSheet("sheet-events");
-  else if (kind === "filingcabinet") {
-    eventMode = "history";
-    eventSession = null;
-    eventPageSize = 100;
-    openSheet("sheet-events");
-  } else if (kind === "arcade")
-    toast("You found the break room. No tickets required.");
-  else if (kind === "coffee") toast("Coffee break.");
-};
-scene.onPet = (key) => {
-  const name =
-    settings.pet_names?.[key === "blackcat" ? "cat2" : "cat1"] ||
-    (key === "blackcat" ? "Gitcat" : "Claudio");
-  toast(name + " purrs.");
-};
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) audioContext?.suspend().catch(() => {});
 });
@@ -311,6 +262,8 @@ function applyTheme() {
   );
   if (!settings.sound) audioContext?.suspend().catch(() => {});
   window.officeJukebox?.sync();
+  window.officeRoom?.sync();
+  window.officeArcade?.sync();
 }
 function updateScene() {
   scene.observerConnected = !offline;
@@ -319,22 +272,8 @@ function updateScene() {
     agent.label = settings.agent_names?.[agent.id] || agent.observed_label;
   }
   scene.update(agents, settings, progress, focusedId, platFilter);
-  for (const button of $("room-actions").children) {
-    const black = button.dataset.activity === "Pet the black cat";
-    if (black || button.dataset.activity === "Pet the orange cat") {
-      button.disabled =
-        !settings.decorations ||
-        settings.show_pets === false ||
-        (black && !progress?.cosmetics?.includes("gitcat"));
-      button.title = !settings.decorations
-        ? "Show room decorations to visit your pets"
-        : settings.show_pets === false
-          ? "Show pets to visit your office cats"
-          : black && button.disabled
-            ? "Unlock the second cat after 100 sessions and 50 tools"
-            : "Pet your office cat";
-    }
-  }
+  window.officeRoom?.sync();
+  window.officeArcade?.sync();
   window.officeAquarium?.refresh();
 }
 function kv(rows) {
@@ -2522,6 +2461,8 @@ function syncPause() {
   );
   $("pausebtn").setAttribute("aria-pressed", String(scene.paused));
   window.officeJukebox?.sync();
+  window.officeRoom?.sync();
+  window.officeArcade?.sync();
 }
 $("capturebtn").onclick = () => scene.snapshot();
 $("legendbox").innerHTML = kv([
@@ -2537,6 +2478,7 @@ $("legendbox").innerHTML = kv([
   ["Zoom + drag", "Explore the room at a larger scale"],
 ]);
 document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented) return;
   if (e.key === "Escape") {
     if (opened) backSheet();
     else finishFurniture();
@@ -2567,6 +2509,7 @@ document.addEventListener("keydown", (e) => {
     e.target.isContentEditable
   )
     return;
+  if (opened) return;
   const key = e.key.toLowerCase();
   const ids = {
     r: "sheet-floor",

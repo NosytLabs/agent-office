@@ -33,6 +33,17 @@ def test_unknown_key_ignored(tmp_path, monkeypatch):
     assert "rce" not in s
 
 
+def test_room_lighting_roundtrip_rejects_non_boolean_updates(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
+    plugin._save_settings({"room_lights": False})
+    assert plugin._load_settings()["room_lights"] is False
+    for invalid in ("false", 0, None, [], {}):
+        plugin._save_settings({"room_lights": invalid})
+        assert plugin._load_settings()["room_lights"] is False
+    plugin._save_settings({"room_lights": True})
+    assert plugin._load_settings()["room_lights"] is True
+
+
 def test_asset_manifest_includes_user_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
     user = tmp_path / "assets"

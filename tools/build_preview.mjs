@@ -55,6 +55,8 @@ const allowed = new Set([
   ".json",
   ".txt",
   ".md",
+  ".html",
+  ".mp3",
 ]);
 const copies = new Map();
 function collect(relative) {
@@ -71,7 +73,11 @@ function collect(relative) {
       }
       collect(name);
     } else if (entry.isFile()) {
-      if (!allowed.has(path.extname(name).toLowerCase())) continue;
+      if (
+        !allowed.has(path.extname(name).toLowerCase()) &&
+        !/^(LICENSE|NOTICE)$/i.test(entry.name)
+      )
+        continue;
       const data = fs.readFileSync(path.join(root, "web", name));
       const digest = createHash("sha256").update(data).digest("hex");
       if (privateHashes.has(digest) || /smallburg/i.test(entry.name)) {
@@ -81,7 +87,7 @@ function collect(relative) {
     }
   }
 }
-for (const directory of ["assets", "css", "js"]) collect(directory);
+for (const directory of ["assets", "css", "js", "arcade"]) collect(directory);
 
 const seed = JSON.parse(
   fs.readFileSync(path.join(root, "tools/fixtures/preview.json"), "utf8"),
@@ -195,5 +201,5 @@ console.log(
   `Built Agent Office 0.5.0 static demo with ${copies.size} public files in ${output}`,
 );
 console.log(
-  `Node ${process.version}; no Python runtime, local office data or optional licensed artwork included.`,
+  `Node ${process.version}; no Python runtime, local office data or private aquarium artwork included.`,
 );

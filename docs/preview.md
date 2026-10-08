@@ -76,6 +76,14 @@ when comparing a later deployment. Branch-preview URLs retain the project's
 existing deployment protection. The public production address above needs no
 temporary share link.
 
+Duck Hunt runs inside an opaque-origin sandbox. A protected branch preview can
+load the iframe document using its preview session while withholding that
+cookie from the iframe's stylesheet and script requests. In that case the
+arcade shows a load error and an explicit Retry button; it does not start the
+upstream game without its lifecycle wrapper. Use the public demo above or a
+local server for a full Duck Hunt playthrough. Deployment protection and the
+iframe's isolation remain intact.
+
 Use the [merged release pull requests](https://github.com/NosytLabs/agent-office/pulls?q=is%3Apr+is%3Amerged)
 for each reviewed commit's exact deployment and hosted checks. The current
 [audit record](audit/README.md) covers local regression results and remaining
@@ -167,7 +175,7 @@ python tools/generate_preview_fixture.py
 The generator never opens the operator's configured office directory, event
 log, or database. The schema regression compares the checked-in fixture with a
 fresh isolated generation. The public Node build only reads this reviewed
-fixture and the `web/assets`, `web/css`, `web/js`, and template inputs.
+fixture and the `web/assets`, `web/arcade`, `web/css`, `web/js`, and template inputs.
 
 The build adds `preview.js` before the regular application script. It answers
 the UI's state, settings, and history requests inside the browser. Timestamps

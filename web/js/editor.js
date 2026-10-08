@@ -215,7 +215,7 @@ function finishFurniture() {
   resetSelection();
   $("edit-hint").hidden = true;
   syncEmptyState();
-  $("scene-hint").textContent = "Select a desk to inspect its activity.";
+  scene.onHover?.("");
   scene.draw(0);
 }
 $("finish-furniture").onclick = () => {

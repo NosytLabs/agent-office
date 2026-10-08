@@ -1,5 +1,24 @@
 # Sprite sources and runtime contract
 
+## Moss engineer and Orbit courier
+
+`characters/moss-engineer.png` and `characters/orbit-courier.png` are original
+1536 × 1024 RGBA atlases generated for Agent Office on 2026-10-08 with the
+built-in ImageGen tool. The raw files are preserved. Each contains seven
+columns and three direction rows: down, up, and right. Walking uses columns
+0–2, typing uses 3–4, and reading uses 5–6. The renderer mirrors right-facing
+walks for left movement, trims each frame above alpha 32, and uses one shared
+scale with a bottom-center foot anchor in the existing 16 × 32 runtime cells.
+
+Moss engineer wears a green utility jacket and headphones; Orbit courier is a
+cream and orange robot. Both are selectable per agent, using the same saved
+appearance preferences and fallback behavior as the existing characters.
+No third-party art was supplied to their generation. All 21 cells in each
+source were checked for nonempty, contained silhouettes. Exact prompts,
+source checksums, dimensions, alpha bounds, and normalization contracts are in
+[generated-moss-engineer.json](generated-moss-engineer.json) and
+[generated-orbit-courier.json](generated-orbit-courier.json).
+
 ## Existing character and pet assets
 
 Retained from this repository's existing Pixel Agents adaptation. Upstream:

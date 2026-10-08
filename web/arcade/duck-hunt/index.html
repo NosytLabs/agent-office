@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duck Hunt</title>
+    <script>
+      (() => {
+        const nonce = new URLSearchParams(location.search).get("nonce") || "";
+        let failed = false;
+        let timeout;
+        let gameRequested = false;
+        const loaded = new Set();
+        function fail() {
+          if (failed) return;
+          failed = true;
+          const message =
+            "Duck Hunt could not load its local game files. Press Retry Duck Hunt.";
+          const loading = document.querySelector(".loading p");
+          if (loading) loading.textContent = message;
+          parent.postMessage(
+            {
+              channel: "agent-office-arcade",
+              nonce,
+              type: "load-error",
+            },
+            "*",
+          );
+        }
+        function mark(name) {
+          if (failed) return;
+          loaded.add(name);
+          if (
+            !gameRequested &&
+            loaded.has("style") &&
+            loaded.has("lifecycle")
+          ) {
+            if (!window.duckHuntLifecycle) {
+              fail();
+              return;
+            }
+            gameRequested = true;
+            const game = document.createElement("script");
+            game.src = "js/game.js";
+            game.onload = () => mark("game");
+            game.onerror = fail;
+            document.head.append(game);
+          }
+          if (loaded.size !== 3) return;
+          if (!window.duckHuntLifecycle?.ready) {
+            fail();
+            return;
+          }
+          clearTimeout(timeout);
+          window.duckHuntLifecycle.ready();
+        }
+        window.AgentOfficeDuckHuntBoot = { fail, mark };
+        timeout = setTimeout(fail, 4000);
+      })();
+    </script>
+    <link
+      rel="stylesheet"
+      href="embed.css"
+      onload="window.AgentOfficeDuckHuntBoot.mark('style')"
+      onerror="window.AgentOfficeDuckHuntBoot.fail()"
+    />
+  </head>
+  <body>
+    <div class="loading visible">
+      <div class="content"><p>Loading</p></div>
+    </div>
+    <main class="container">
+      <canvas
+        id="canvas"
+        width="768"
+        height="720"
+        tabindex="0"
+        aria-label="Duck Hunt playfield. Click or tap Start Game, then select flying ducks. Keyboard: arrows move the sight, T targets the visible duck, Space fires, and Escape pauses."
+        >Duck Hunt needs a browser with canvas support.</canvas
+      >
+      <span class="sr-only" id="keyboard-game-status" aria-live="polite"
+        >Keyboard sight ready. Use arrows to aim, T to target a visible duck,
+        and Space to fire.</span
+      >
+      <span class="sr-only" id="keyboard-score">000000</span>
+      <div class="volume" aria-label="Duck Hunt volume controls">
+        <button
+          class="fa-volume-down"
+          type="button"
+          aria-label="Lower game volume"
+        >
+          −
+        </button>
+        <button
+          class="fa-volume-up"
+          type="button"
+          aria-label="Raise game volume"
+        >
+          +
+        </button>
+        <button
+          class="fa-volume-mute"
+          type="button"
+          aria-label="Mute or unmute game"
+        >
+          Mute
+        </button>
+      </div>
+    </main>
+    <p class="credit">Duck Hunt browser recreation by Adi52.</p>
+    <script
+      src="lifecycle.js"
+      onload="window.AgentOfficeDuckHuntBoot.mark('lifecycle')"
+      onerror="window.AgentOfficeDuckHuntBoot.fail()"
+    ></script>
+  </body>
+</html>
