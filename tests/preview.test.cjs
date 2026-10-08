@@ -63,17 +63,37 @@ after(async () => {
   if (temporary) fs.rmSync(temporary, { recursive: true, force: true });
 });
 async function withPage(run, options = {}) {
+  const {
+    insecureOrigin,
+    storageBlocked,
+    storageWriteBlocked,
+    ...pageOptions
+  } = options;
   const browser = await chromium.launch({
     headless: true,
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ["--no-sandbox"],
   });
   try {
-    const { storageBlocked, storageWriteBlocked, ...pageOptions } = options;
     const context = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
       ...pageOptions,
     });
+    if (insecureOrigin)
+      await context.route(
+        "http://office-preview.test:18120/**",
+        async (route) => {
+          // Serve the real local build under an ordinary HTTP origin. Web Crypto
+          // remains native, so Chromium applies its actual secure-context rules.
+          const url = new URL(route.request().url());
+          const response = await fetch(baseURL + url.pathname + url.search);
+          await route.fulfill({
+            status: response.status,
+            headers: Object.fromEntries(response.headers),
+            body: Buffer.from(await response.arrayBuffer()),
+          });
+        },
+      );
     const p = await context.newPage();
     if (storageBlocked)
       await p.addInitScript(() => {
@@ -90,7 +110,7 @@ async function withPage(run, options = {}) {
     p.setDefaultTimeout(10000);
     const errors = [];
     p.on("pageerror", (error) => errors.push(error.stack || error.message));
-    await p.goto(baseURL);
+    await p.goto(insecureOrigin ? "http://office-preview.test:18120" : baseURL);
     await p.waitForFunction(
       () => initialized && window._state?.mode === "demo",
     );
@@ -115,6 +135,98 @@ async function capture(p, name) {
     fullPage: true,
   });
 }
+
+test("insecure HTTP preview saves preferences and still rejects a stale revision", () =>
+  withPage(
+    async (page) => {
+      assert.equal(await page.evaluate(() => isSecureContext), false);
+      assert.equal(
+        await page.evaluate(() => typeof crypto.randomUUID),
+        "undefined",
+      );
+      const oldTag = await page.evaluate(async () =>
+        (await fetch("/settings")).headers.get("etag"),
+      );
+      await page.click("#settingsbtn");
+      await page.fill("#room-name-input", "HTTP preview office");
+      await page.click("#room-name-save");
+      await page.waitForFunction(() => pendingSaves === 0);
+      assert.equal(await page.textContent("#room-name"), "HTTP preview office");
+      const stale = await page.evaluate(async (etag) => {
+        const response = await fetch("/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "If-Match": etag },
+          body: JSON.stringify({ room_name: "Stale office" }),
+        });
+        return { status: response.status, body: await response.json() };
+      }, oldTag);
+      assert.equal(stale.status, 409);
+      assert.equal(stale.body.settings.room_name, "HTTP preview office");
+      await page.reload();
+      await page.waitForFunction(() => initialized && settingsReady);
+      assert.equal(await page.textContent("#room-name"), "HTTP preview office");
+      await capture(page, "http-preview-saved-name");
+    },
+    { insecureOrigin: true },
+  ));
+
+test("insecure HTTP preview reads legacy preferences and migrates them on a conditional save", () =>
+  withPage(
+    async (page) => {
+      await page.evaluate(() =>
+        localStorage.setItem(
+          "agent-office:static-preview:v1",
+          JSON.stringify({
+            version: 1,
+            settings: {
+              room_name: "Existing HTTP office",
+              pet_names: { cat1: "Maple", cat2: "Mochi" },
+            },
+          }),
+        ),
+      );
+      await page.reload();
+      await page.waitForFunction(() => initialized);
+      const read = await page.evaluate(async () => {
+        const response = await fetch("/settings");
+        return {
+          status: response.status,
+          etag: response.headers.get("etag"),
+          body: await response.json(),
+        };
+      });
+      assert.equal(
+        read.status,
+        200,
+        "Readable legacy preferences stay editable",
+      );
+      assert.equal(read.body.room_name, "Existing HTTP office");
+      assert.deepEqual(read.body.pet_names, { cat1: "Maple", cat2: "Mochi" });
+      const saved = await page.evaluate(async (etag) => {
+        const response = await fetch("/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "If-Match": etag },
+          body: JSON.stringify({ room_name: "Renamed HTTP office" }),
+        });
+        return {
+          status: response.status,
+          etag: response.headers.get("etag"),
+          stored: JSON.parse(
+            localStorage.getItem("agent-office:static-preview:v1"),
+          ),
+        };
+      }, read.etag);
+      assert.equal(saved.status, 200);
+      assert.notEqual(saved.etag, read.etag);
+      assert.equal(saved.stored.settings.room_name, "Renamed HTTP office");
+      assert.deepEqual(saved.stored.settings.pet_names, {
+        cat1: "Maple",
+        cat2: "Mochi",
+      });
+      assert.equal(saved.etag, '"' + saved.stored.settingsRevision + '"');
+    },
+    { insecureOrigin: true },
+  ));
 
 test("legacy demo revisions detect changed bytes from another tab and preserve names on retry", () =>
   withPage(async (page) => {
