@@ -67,14 +67,14 @@ for Node 22. The following results belong to this update:
 | --- | --- |
 | `GEMINI_TEST_CLI=... python -m pytest -q -o addopts=''` | **531 passed**, including both native CLI cases; 21.75 seconds |
 | `npm test` | **101 passed** |
-| `npm run test:browser` | **188 passed**, 0 failed, 1 optional local-art check skipped; 125.13 seconds |
+| `npm run test:browser` | **189 passed**, 0 failed, 1 optional local-art check skipped; 122.56 seconds |
 | `npm run check` | Passed |
 | `npm run format:check` and `git diff --check` | Passed |
 | `npm run build:preview` | Built 99 public demo files and 20 product-site files, including local arcade media and source notices; no local runtime data or private Smallburg sheets |
 | Built static preview playthrough | An actual mouse hit scored 1,000 in Duck Hunt; Breakout cleared a brick; both new appearances and room lights saved and survived reload; no page errors, failed requests, or external game requests |
 
 The browser command bounds independent test-file workers to four. Its complete
-189-test result includes one deliberate skip for the optional private Smallburg
+190-test result includes one deliberate skip for the optional private Smallburg
 pack, which was unavailable in this environment. Original public fish, the
 missing-pack fallback, rejection of false manifest geometry, fish inspection,
 feeding, tank-light save/reload, and failed-save recovery were exercised. The
@@ -93,6 +93,17 @@ checks cover every brick pattern, score, lives, win/loss, and bounded movement;
 native browser controls cover starting, pausing, restarting, and closing.
 [Arcade documentation](../arcade.md) records source revisions, notices, controls,
 and the narrow compatibility patch.
+
+The hosted branch review exposed the protected-preview cookie boundary: the
+opaque iframe received its document but could not authenticate requests for
+its local scripts and stylesheet. An inline bootstrap now waits for both the
+stylesheet and lifecycle script before requesting the upstream game, reports a
+fixed load error instead of calling an undefined lifecycle function, and offers
+an explicit retry in a new iframe. A native regression aborts the child files,
+checks that the game is not requested without its lifecycle boundary, then
+allows the files and verifies successful retry. No sandbox or deployment
+protection permission was broadened. See [hosted review](../preview.md#hosted-review)
+for the public playthrough route.
 
 Room checks cover a real lamp click and rendered darkening, acknowledged light
 saves and reload, keyboard actions, a usable wall switch with decorations

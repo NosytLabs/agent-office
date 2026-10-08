@@ -186,6 +186,7 @@
     localMotionOptIn = false,
     lastOfficePaused = !!window.officeScene?.paused,
     duckReady = false,
+    duckFailed = false,
     duckPaused = true,
     duckNonce = "",
     duckFrame = null,
@@ -259,6 +260,7 @@
     duckFrame.remove();
     duckFrame = null;
     duckReady = false;
+    duckFailed = false;
     duckNonce = "";
   }
   function loadDuck() {
@@ -267,6 +269,7 @@
       globalThis.crypto?.randomUUID?.() ||
       `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     duckFrame = document.createElement("iframe");
+    duckFailed = false;
     duckFrame.id = "arcade-duck-frame";
     duckFrame.title = "Duck Hunt browser game";
     duckFrame.sandbox = "allow-scripts";
@@ -450,11 +453,14 @@
       selected !== "breakout" || state.state === "playing";
     byId("arcade-duck-start").hidden = selected !== "duck-hunt" || duckReady;
     byId("arcade-duck-start").textContent = duckFrame
-      ? duckReady
-        ? "Resume Duck Hunt"
-        : "Loading…"
+      ? duckFailed
+        ? "Retry Duck Hunt"
+        : duckReady
+          ? "Resume Duck Hunt"
+          : "Loading…"
       : "Load & start Duck Hunt";
-    byId("arcade-duck-start").disabled = !!duckFrame && !duckReady;
+    byId("arcade-duck-start").disabled =
+      !!duckFrame && !duckReady && !duckFailed;
     byId("arcade-motion-note").textContent =
       reducedMotion.matches || officePaused()
         ? "Office motion is paused. Start or Resume opts into motion for this game only."
@@ -481,7 +487,7 @@
   byId("arcade-duck-start").onclick = () => {
     localMotionOptIn = true;
     userPaused = false;
-    if (!duckFrame) loadDuck();
+    if (!duckFrame || duckFailed) loadDuck();
     else resumeDuck();
   };
   byId("arcade-pause").onclick = () => {
@@ -536,7 +542,7 @@
       !data ||
       data.channel !== "agent-office-arcade" ||
       data.nonce !== duckNonce ||
-      !["ready", "paused", "resumed"].includes(data.type)
+      !["ready", "paused", "resumed", "load-error"].includes(data.type)
     )
       return;
     if (data.type === "ready") {
@@ -544,6 +550,15 @@
       muteDuck();
       if (!userPaused && selected === "duck-hunt") resumeDuck();
       else render();
+    } else if (data.type === "load-error") {
+      duckReady = false;
+      duckFailed = true;
+      duckPaused = true;
+      userPaused = true;
+      localMotionOptIn = false;
+      status =
+        "Duck Hunt could not load its local game files. Press Retry Duck Hunt.";
+      render();
     } else if (data.type === "paused") {
       duckPaused = true;
       userPaused = true;
@@ -610,6 +625,7 @@
         duck: {
           loaded: !!duckFrame,
           ready: duckReady,
+          failed: duckFailed,
           paused: duckPaused,
           muted: !(typeof settings !== "undefined" && settings.sound === true),
         },

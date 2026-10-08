@@ -48,8 +48,11 @@ delivery.
 
 The game is isolated in a local opaque-origin iframe with scripts as its only
 sandbox permission. It receives no same-origin storage or observer API access.
-The parent accepts only `ready`, `paused`, and `resumed` messages from the current iframe window with
-origin `null`, a fixed channel name, an exact message type, and a fresh nonce.
+The parent accepts only `ready`, `paused`, `resumed`, and `load-error` messages
+from the current iframe window with origin `null`, a fixed channel name, an
+exact message type, and a fresh nonce. The child bootstrap reports the fixed
+`load-error` state when its local stylesheet or scripts are unavailable, and
+the parent offers an explicit retry without relaxing the sandbox.
 The child accepts only a four-action lifecycle allowlist from its parent with
 the same nonce. It starts after an explicit user action, pauses on panel close,
 game switch, office pause, window blur, tab hiding, and page exit, and never

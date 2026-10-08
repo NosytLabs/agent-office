@@ -34,6 +34,9 @@ Agent Office also changes the embedding and lifecycle boundary:
 - external Google Fonts, Font Awesome, and the remote mobile-demo GIF were
   removed;
 - the fixed canvas scales within a responsive local iframe;
+- an inline bootstrap requires the local stylesheet and lifecycle script before
+  requesting the game bundle, and reports a fixed load failure with a host Retry
+  action when those assets are unavailable;
 - `lifecycle.js` starts the animation loop only after an explicit host action,
   pauses it when the host panel or page is hidden, scopes input to the sandboxed
   iframe, gates audio through the Agent Office sound preference, and shortens

@@ -190,6 +190,55 @@ test("Breakout starts explicitly, scopes keys and pauses on panel close", () =>
     assert.equal(closed.frameActive, false);
   }));
 
+test("Duck Hunt reports blocked child files and retries in a fresh sandbox", () =>
+  withPage(async (page) => {
+    let blockChildFiles = true;
+    let gameRequests = 0;
+    await page.route(
+      /\/arcade\/duck-hunt\/(?:embed\.css|lifecycle\.js|js\/game\.js)(?:\?|$)/,
+      (route) => {
+        if (route.request().url().includes("/js/game.js")) gameRequests++;
+        return blockChildFiles
+          ? route.abort("blockedbyclient")
+          : route.continue();
+      },
+    );
+    await page.evaluate(() => officeArcade.open());
+    await page.click("#arcade-game-duck-hunt");
+    await page.click("#arcade-duck-start");
+    await page.waitForFunction(() => officeArcade.snapshot().duck.failed);
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        ready: officeArcade.snapshot().duck.ready,
+        paused: officeArcade.snapshot().duck.paused,
+        status: document.getElementById("arcade-status").textContent,
+        retry: document.getElementById("arcade-duck-start").textContent,
+        disabled: document.getElementById("arcade-duck-start").disabled,
+      })),
+      {
+        ready: false,
+        paused: true,
+        status:
+          "Duck Hunt could not load its local game files. Press Retry Duck Hunt.",
+        retry: "Retry Duck Hunt",
+        disabled: false,
+      },
+    );
+    assert.equal(
+      gameRequests,
+      0,
+      "the game bundle is not started without its lifecycle boundary",
+    );
+
+    blockChildFiles = false;
+    await page.click("#arcade-duck-start");
+    await page.waitForFunction(() => officeArcade.snapshot().duck.ready);
+    const recovered = await page.evaluate(() => officeArcade.snapshot().duck);
+    assert.equal(recovered.failed, false);
+    assert.equal(recovered.paused, false);
+    assert.equal(gameRequests, 1);
+  }));
+
 test("Duck Hunt is local, sandboxed, responsive and stopped by lifecycle controls", () =>
   withPage(
     async (page) => {

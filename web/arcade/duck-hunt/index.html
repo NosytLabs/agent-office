@@ -4,7 +4,66 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Duck Hunt</title>
-    <link rel="stylesheet" href="embed.css" />
+    <script>
+      (() => {
+        const nonce = new URLSearchParams(location.search).get("nonce") || "";
+        let failed = false;
+        let timeout;
+        let gameRequested = false;
+        const loaded = new Set();
+        function fail() {
+          if (failed) return;
+          failed = true;
+          const message =
+            "Duck Hunt could not load its local game files. Press Retry Duck Hunt.";
+          const loading = document.querySelector(".loading p");
+          if (loading) loading.textContent = message;
+          parent.postMessage(
+            {
+              channel: "agent-office-arcade",
+              nonce,
+              type: "load-error",
+            },
+            "*",
+          );
+        }
+        function mark(name) {
+          if (failed) return;
+          loaded.add(name);
+          if (
+            !gameRequested &&
+            loaded.has("style") &&
+            loaded.has("lifecycle")
+          ) {
+            if (!window.duckHuntLifecycle) {
+              fail();
+              return;
+            }
+            gameRequested = true;
+            const game = document.createElement("script");
+            game.src = "js/game.js";
+            game.onload = () => mark("game");
+            game.onerror = fail;
+            document.head.append(game);
+          }
+          if (loaded.size !== 3) return;
+          if (!window.duckHuntLifecycle?.ready) {
+            fail();
+            return;
+          }
+          clearTimeout(timeout);
+          window.duckHuntLifecycle.ready();
+        }
+        window.AgentOfficeDuckHuntBoot = { fail, mark };
+        timeout = setTimeout(fail, 4000);
+      })();
+    </script>
+    <link
+      rel="stylesheet"
+      href="embed.css"
+      onload="window.AgentOfficeDuckHuntBoot.mark('style')"
+      onerror="window.AgentOfficeDuckHuntBoot.fail()"
+    />
   </head>
   <body>
     <div class="loading visible">
@@ -49,10 +108,10 @@
       </div>
     </main>
     <p class="credit">Duck Hunt browser recreation by Adi52.</p>
-    <script src="lifecycle.js"></script>
-    <script src="js/game.js"></script>
-    <script>
-      window.duckHuntLifecycle.ready();
-    </script>
+    <script
+      src="lifecycle.js"
+      onload="window.AgentOfficeDuckHuntBoot.mark('lifecycle')"
+      onerror="window.AgentOfficeDuckHuntBoot.fail()"
+    ></script>
   </body>
 </html>
