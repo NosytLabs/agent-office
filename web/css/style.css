@@ -225,7 +225,14 @@ select.btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
+}
+.scene-heading > :first-child {
+  min-width: 0;
+}
+#room-name {
+  overflow-wrap: anywhere;
 }
 .eyebrow {
   font-size: 14px;
@@ -240,6 +247,7 @@ h2 {
 }
 #summary {
   display: flex;
+  flex-shrink: 0;
   gap: 12px;
   font-size: 14px;
   font-weight: 500;
@@ -449,6 +457,10 @@ html.panel-open {
 }
 .sheet-body {
   padding: 0 var(--sheet-padding) var(--sheet-padding);
+}
+.sheet-body :focus {
+  scroll-margin-top: calc(var(--sheet-header-height, 0px) + 18px);
+  scroll-margin-bottom: var(--sheet-padding);
 }
 .sheet-notices:has(#toast:not(:empty)),
 .sheet-notices:has(#settings-save-notice:not([hidden])) {

@@ -29,6 +29,28 @@ def test_event_names_must_be_nonempty_strings(tmp_path, monkeypatch):
     assert plugin._read_events() == [records[-1]]
 
 
+def test_deep_valid_legacy_json_cannot_block_following_observations(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, '_office_dir', lambda: tmp_path)
+    nested = "leaf"
+    for _ in range(600):
+        nested = {"nested": nested}
+    records = [
+        {'event': 'tool_start', 'ts': time.time(), 'session_id': 'too-deep', 'extra': nested},
+        {'event': 'session_start', 'ts': time.time(), 'session_id': 'healthy', 'platform': 'gemini'},
+    ]
+    path = tmp_path / 'events.jsonl'
+    original = '\n'.join(json.dumps(record) for record in records)
+    path.write_text(original)
+
+    state = plugin.build_state()
+    assert [agent['id'] for agent in state['agents']] == ['healthy']
+    assert state['tracking']['received'] == 1
+    assert state['progress']['stats']['tools'] == 0
+    assert state['progress']['stats']['sessions'] == 1
+    assert path.read_text() == original
+    assert plugin.build_state()['progress'] == state['progress']
+
+
 def test_settings_recover_from_non_object_file(tmp_path, monkeypatch):
     monkeypatch.setattr(plugin, '_office_dir', lambda: tmp_path)
     (tmp_path / 'settings.json').write_text('[1,2]')

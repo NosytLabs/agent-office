@@ -28,6 +28,13 @@
       note.textContent =
         "All agents, activity, XP and usage are fictional. Browser storage is unavailable; changes last for this visit only. Run locally to observe your own sessions.";
   }
+  function newSettingsRevision() {
+    // getRandomValues also works on ordinary HTTP origins, where randomUUID
+    // is unavailable. Revisions still carry 128 bits of random identity.
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  }
   function readStored() {
     if (!storageAvailable) return null;
     let raw;
@@ -65,7 +72,7 @@
         // one. Another old tab's write must invalidate a stale full-map save.
         legacySnapshot = {
           raw,
-          revision: "preview-legacy-" + crypto.randomUUID(),
+          revision: "preview-legacy-" + newSettingsRevision(),
         };
       }
       storageError = "";
@@ -317,7 +324,7 @@
               saved.settingsRevision,
             );
           Object.assign(saved.settings, normalizeSettings(patch));
-          saved.settingsRevision = crypto.randomUUID();
+          saved.settingsRevision = newSettingsRevision();
           syncSettings();
           return response(clone(demoSettings), 200, saved.settingsRevision);
         });

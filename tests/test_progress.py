@@ -118,6 +118,25 @@ def test_warm_lamp_unlocks_at_fifty_observed_tools_without_duplicate_legacy_rewa
     assert snapshot(data)["cosmetics"].count("storm_lamp") == 1
 
 
+@pytest.mark.parametrize("badge_id,tools,expected_progress,earned", [
+    ("workhorse", 499, 99, False),
+    ("thousand_cuts", 995, 99, False),
+    ("thousand_cuts", 999, 99, False),
+    ("thousand_cuts", 1000, 100, True),
+    ("five_k", 4999, 99, False),
+    ("five_k", 5000, 100, True),
+    ("marathon", 9999, 99, False),
+])
+def test_tool_milestone_percentages_reach_completion_only_at_the_threshold(
+        badge_id, tools, expected_progress, earned):
+    data = progress._empty()
+    data["stats"]["tools"] = tools
+    ingest(data, [], new_batch=True)
+    badge = next(item for item in snapshot(data)["catalog"] if item["id"] == badge_id)
+    assert badge["have"] is earned
+    assert badge["progress"] == expected_progress
+
+
 def test_new_batch_does_not_serialize_or_retain_event_bodies(monkeypatch):
     data = progress._empty()
     data["last_ts"] = 200

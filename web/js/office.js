@@ -521,6 +521,13 @@ function openSheet(id) {
   }
   displayPanel(id);
 }
+// Focus scrolling must leave room for wrapped titles, Back, and live notices.
+const panelHeaderObserver = new ResizeObserver((entries) => {
+  for (const { target } of entries)
+    target
+      .closest(".sheet")
+      .style.setProperty("--sheet-header-height", target.offsetHeight + "px");
+});
 for (const panel of document.querySelectorAll(".sheet")) {
   const header = document.createElement("div"),
     row = document.createElement("div"),
@@ -548,6 +555,7 @@ for (const panel of document.querySelectorAll(".sheet")) {
   header.append(back, row, notices);
   while (panel.firstChild) body.append(panel.firstChild);
   panel.append(header, body);
+  panelHeaderObserver.observe(header);
   panel.addEventListener(
     "scroll",
     () => {

@@ -215,6 +215,27 @@ def test_non_json_numbers_and_invalid_unicode_do_not_poison_the_state_api(tmp_pa
     json.dumps(snapshot, allow_nan=False).encode("utf-8")
 
 
+@pytest.mark.parametrize("container", ["list", "object"])
+def test_deep_valid_json_is_quarantined_without_blocking_other_receipts(tmp_path, container):
+    nested = "leaf"
+    for _ in range(600):
+        nested = [nested] if container == "list" else {"nested": nested}
+    # This is valid, modestly sized JSON. Its structure used to pass the
+    # decoder and serializer, then exhaust recursion while copying live state.
+    publish(tmp_path, 1, event(session_id="too-deep", extra=nested))
+    publish(tmp_path, 2, event(session_id="healthy", call_id="observed"))
+
+    state = consume(tmp_path)
+    assert state["tracking"]["invalid_records"] == 1
+    assert state["tracking"]["received"] == 1
+    assert state["progress"]["stats"]["tools"] == 1
+    assert [agent["id"] for agent in state["agents"]] == ["healthy"]
+    assert [record["session_id"] for record in EventStore(tmp_path).history()] == ["healthy"]
+    json.dumps(state, allow_nan=False).encode("utf-8")
+    assert not list((tmp_path / "inbox").glob("*.json"))
+    assert consume(tmp_path)["progress"] == state["progress"]
+
+
 def test_competing_consumers_commit_each_receipt_only_once(tmp_path):
     for index in range(40):
         publish(tmp_path, index, event(call_id=str(index)))

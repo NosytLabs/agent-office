@@ -49,6 +49,7 @@ for (const group of document.querySelectorAll("[data-tab-group]")) {
 const menu = document.querySelector(".menu-toggle");
 const nav = document.getElementById("site-nav");
 if (menu && nav) {
+  let focusedNavigation = null;
   function closeMenu(restoreFocus = false) {
     nav.classList.remove("open");
     menu.setAttribute("aria-expanded", "false");
@@ -82,9 +83,35 @@ if (menu && nav) {
       closeMenu(true);
     }
   });
+  document.addEventListener("focusin", (event) => {
+    const withinNavigation =
+      menu.contains(event.target) || nav.contains(event.target);
+    focusedNavigation = withinNavigation ? event.target : null;
+    if (menu.getAttribute("aria-expanded") === "true" && !withinNavigation) {
+      closeMenu();
+    }
+  });
+  document.addEventListener("focusout", (event) => {
+    // A responsive display:none can blur a control before the media event.
+    // Keep that target only until it can move to its visible counterpart.
+    if (
+      focusedNavigation === event.target &&
+      event.target.getClientRects().length
+    ) {
+      focusedNavigation = null;
+    }
+  });
   window
     .matchMedia("(min-width: 651px)")
-    .addEventListener("change", () => closeMenu());
+    .addEventListener("change", (event) => {
+      // Keep focus reachable when either side of the disclosure becomes hidden.
+      const focused = focusedNavigation || document.activeElement;
+      const focusDesktopLink = event.matches && menu.contains(focused);
+      const restoreFocus = !event.matches && nav.contains(focused);
+      closeMenu(restoreFocus);
+      if (focusDesktopLink)
+        nav.querySelector("a[href]")?.focus({ preventScroll: true });
+    });
 }
 
 const status = document.getElementById("copy-status");
