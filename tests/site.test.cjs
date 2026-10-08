@@ -384,3 +384,109 @@ test("reduced-motion preference removes animated scrolling and hover movement", 
     },
     { reducedMotion: "reduce" },
   ));
+
+test("responsive navigation returns focus to a visible control when desktop links collapse", () =>
+  withPage(
+    async (page) => {
+      const navigation = page.getByRole("navigation", {
+        name: "Main navigation",
+      });
+      await navigation
+        .getByRole("link", { name: "Connections", exact: true })
+        .focus();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForFunction(
+        () => document.activeElement === document.querySelector(".menu-toggle"),
+      );
+      assert.equal(await navigation.isVisible(), false);
+      const menu = page.getByRole("button", { name: "Menu" });
+      assert.equal(await menu.isVisible(), true);
+      await page.keyboard.press("Enter");
+      assert.equal(await navigation.isVisible(), true);
+      await page.keyboard.press("Tab");
+      assert.equal(
+        await navigation
+          .getByRole("link", { name: "The office", exact: true })
+          .evaluate((e) => e === document.activeElement),
+        true,
+      );
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await menu.evaluate((e) => e === document.activeElement),
+        true,
+      );
+      await page.setViewportSize({ width: 651, height: 900 });
+      await page.waitForFunction(
+        () => document.activeElement === document.querySelector("#site-nav a"),
+      );
+      assert.equal(await navigation.isVisible(), true);
+      const contentLink = page.getByRole("link", {
+        name: "Run locally",
+        exact: true,
+      });
+      await contentLink.focus();
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal(
+        await contentLink.evaluate((e) => e === document.activeElement),
+        true,
+      );
+    },
+    { viewport: { width: 768, height: 900 } },
+  ));
+
+test("mobile navigation closes when keyboard focus continues into page content", () =>
+  withPage(
+    async (page) => {
+      const menu = page.getByRole("button", { name: "Menu" });
+      const navigation = page.getByRole("navigation", {
+        name: "Main navigation",
+      });
+      await menu.click();
+      await navigation.getByRole("link", { name: "Get started" }).focus();
+      await page.keyboard.press("Tab");
+      const next = page.getByRole("link", { name: "Run locally", exact: true });
+      assert.equal(
+        await next.evaluate((e) => e === document.activeElement),
+        true,
+      );
+      assert.equal(await menu.getAttribute("aria-expanded"), "false");
+      assert.equal(await navigation.isVisible(), false);
+      // Native keyboard focus can initiate smooth scrolling; wait for the
+      // visible outcome rather than sampling the first animation frame.
+      await page.waitForFunction(() => {
+        const target = document.activeElement;
+        const box = target.getBoundingClientRect();
+        return target.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        );
+      });
+      const visible = await next.evaluate((e) => {
+        const box = e.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        );
+        return {
+          visible: e.contains(hit),
+          box: box.toJSON(),
+          hit: hit?.tagName,
+          scrollY,
+          height: innerHeight,
+          header: document
+            .querySelector(".site-header")
+            .getBoundingClientRect()
+            .toJSON(),
+        };
+      });
+      assert.equal(
+        visible.visible,
+        true,
+        "The continued keyboard target is not covered by the sticky header: " +
+          JSON.stringify(visible),
+      );
+    },
+    { viewport: { width: 390, height: 320 } },
+  ));
