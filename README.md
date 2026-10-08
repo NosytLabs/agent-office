@@ -1,12 +1,12 @@
 # Agent Office
 
-A local pixel office for watching your coding agents work. See current tools, find sessions waiting for input, inspect subagents, and track the usage your runtimes report.
+A local pixel office for working with your coding agents. See current tools, find sessions waiting for input, inspect subagents, track reported usage, and optionally launch a new task in a configured project.
 
 **Version 0.5.0** · [Product website](https://agent-office-preview-seven.vercel.app/about/) · [Live demo](https://agent-office-preview-seven.vercel.app/) · [Preview guide](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
 
 ![Agent Office in Juniper with synthetic runtime activity](docs/screenshots/appearance.png)
 
-Agent Office observes existing runtimes. It does not launch agents, send prompts, execute their tools, or grant approvals. Respond to questions and permission requests in the original runtime.
+Agent Office observes existing runtimes by default. The optional **Local runs** panel can launch a fresh Codex or Claude Code task when you explicitly enable the standalone runner. Existing sessions and their permission requests remain in the original runtime; the office does not grant approvals.
 
 ## Start locally
 
@@ -22,18 +22,39 @@ Open **[http://127.0.0.1:8113](http://127.0.0.1:8113)**. The server binds to loo
 
 For an isolated example, run `python3 demo_feed.py` and open **[http://127.0.0.1:8114](http://127.0.0.1:8114)**. Its **DEMO** label identifies synthetic activity. The demo always uses temporary data, even when your shell has a live `HERMES_HOME`. Ctrl+C stops it. The [preview guide](docs/preview.md) covers the shareable demonstration.
 
+## Run a local task
+
+Start the office with the projects you want available in its task selector:
+
+```sh
+python3 run.py --enable-task-runner --workspace /absolute/path/to/project
+```
+
+Open **Tasks → Local runs**, choose a project and installed CLI, write a brief,
+then select **Run task**. Follow its output, inspect its exit status, cancel an
+active run, or reuse a brief. Codex offers read-only and project-edit modes.
+Claude Code uses its normal permission rules and denies unanswered permission
+requests; it requires version 2.1.259 or later. Neither adapter adds approval
+bypasses. The CLI uses your existing account and configuration.
+
+Use `--workspace` more than once for multiple projects. The runner admits two
+simultaneous runs and one per project. History and bounded output stay in memory
+until the server exits. A finished process is not proof that its task passed
+review. The public demo cannot launch tasks. See [setup, behavior, and limits](docs/local-task-runner.md).
+
 ## Prepare a task brief
 
 Open **Tasks → Draft prompt** to write a goal, constraints, and verification steps.
 Choose a destination, append the editable template, then copy the exact text or
 export a text file. Paste it into the intended runtime and review its project,
-session, and permissions there. Selecting OpenClaw or another destination is not
-an installed integration and does not establish a connection.
+session, and permissions there, or transfer it to **Local runs** to prepare a
+new task. Transferring a draft does not launch it. Selecting OpenClaw or another
+destination is not an installed integration and does not establish a connection.
 
 Drafts are kept only in memory by default. **Remember this draft in this tab**
 opts into browser session storage, separate from event history and progression.
 Turning it off removes the stored draft without erasing the open text. Nothing
-in this panel sends prompts, runs commands, grants approvals, or creates XP.
+in this draft panel sends prompts, runs commands, grants approvals, or creates XP.
 If the browser rejects a save or removal, the panel explains which draft is
 still stored and lets you retry without losing your open text.
 
@@ -65,7 +86,7 @@ The in-app **Connection guide** provides setup and troubleshooting. A reachable 
 - **Watch work:** tool activity, parallel calls, parent/child relationships, status filters, and custom display names. The shared Tasks panel has **Session activity** and **Reported tasks** views. The needs-input control cycles through waiting sessions. A quiet-agent notice opens its last reported status and tool; silence alone does not establish that work is stuck or finished.
 - **Inspect history:** search retained events, focus on a session, inspect current activity, and export recorded data. The UI reconnects automatically and labels a retained scene when disconnected.
 - **Read reported usage:** token totals by runtime and model, plus usage for visible sessions. Missing values say **Not reported**; partial coverage remains visible. Dollar amounts are labeled runtime estimates, with their source. An optional cost threshold shows an alert without stopping a runtime.
-- **Arrange the room:** choose among **26 props**, place up to 24, move or remove custom furniture, undo/redo edits, and import/export preferences. The task terminal opens reported lists; the status beacon opens session activity and lights up for an observed input request. Saves enter edit history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
+- **Arrange the room:** choose among **26 props**, place up to 24, move or remove custom furniture, undo/redo edits, and import/export preferences. The task terminal opens Local runs when the runner is enabled and reported lists otherwise. Its new screen states reflect actual local run status. The status beacon opens session activity and lights up for an observed input request. Saves enter edit history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
 - **Make it yours:** choose a room theme, including Juniper, and classic, walnut, or slate desks. Give each agent a preferred desk and choose its default appearance, one of six people, the studio robot, Moss engineer, or Orbit courier. The new characters have walking, typing, and reading poses. Assignments use session IDs, so renaming an agent does not lose its preference. Appearance settings do not create activity or change XP.
 - **Use the camera:** follow an agent from its inspector, zoom, drag while zoomed, return to Fit, pause animation, or save a scene image. Following survives panel switches and stops on manual pan, Fit, editing, filtering out the agent, or its departure. Safe view preferences are remembered separately in the local observer and public demo. At Fit, mobile swipes scroll the page. Reduced-motion preferences pause motion without stopping tracking.
 

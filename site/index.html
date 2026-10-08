@@ -282,6 +282,7 @@
                 </p>
                 <ul>
                   <li>Session activity and source-reported task lists</li>
+                  <li>Optional local CLI runs with output and cancellation</li>
                   <li>Named agents and preferred desk assignments</li>
                   <li>Follow an agent, zoom, pause, and save your scene</li>
                 </ul>
@@ -688,9 +689,15 @@ python3 run.py</code></pre>
               >
             </summary>
             <p>
-              No. It observes the sessions you connect. Start work, send
-              prompts, answer questions, and grant permissions in the original
-              runtime. The office shows you where attention is needed.
+              It observes connected sessions by default. Enable the optional
+              local task runner to start a new Codex or Claude Code task in a
+              configured project, follow its output, and cancel it. Respond to
+              existing sessions' questions and permission requests in the
+              original runtime.
+              <a
+                href="https://github.com/NosytLabs/agent-office/blob/main/docs/local-task-runner.md"
+                >Set up local task runs.</a
+              >
             </p>
           </details>
           <details>
@@ -760,9 +767,10 @@ python3 run.py</code></pre>
             </summary>
             <p>
               More runtime adapters, current-context gauges, and broader host
-              integration checks are still open work. The Tasks panel shows
-              session activity and reported lists from OpenCode or captured
-              Codex streams. The
+              integration checks are still open work. Tasks brings together
+              session activity, reported lists, editable briefs, and optional
+              local runs. Full interactive terminals, resuming existing
+              sessions, and scheduled orchestration remain future work. The
               <a
                 href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
                 >audit record</a
@@ -801,7 +809,7 @@ python3 run.py</code></pre>
             >Agent Office<small>by Nosyt Labs</small></span
           ></a
         >
-        <p>An independent local observer for coding agents.</p>
+        <p>An independent local workspace for coding agents.</p>
       </div>
       <nav aria-label="Footer navigation">
         <a href="https://github.com/NosytLabs/agent-office">Source</a

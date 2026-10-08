@@ -22,6 +22,8 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 | Arcade | [Duck Hunt with a scored hit](../screenshots/arcade-duck-hunt.png) and [Breakout in play](../screenshots/arcade-breakout.png) |
 | Room toys and characters | [Moss engineer and Orbit courier in the office](../screenshots/office-toys.png) and [saved room lighting](../screenshots/room-lights.png) |
 | Aquarium interactions | [Public fish, tank lighting, and visible artwork source](../screenshots/aquarium-interactions.png) |
+| Local task runs | [Desktop form](../screenshots/local-runs-desktop.png), [completed fixture output](../screenshots/local-runs-output.png), and [320-pixel mobile output](../screenshots/local-runs-mobile.png) |
+| Task console | [Original generated console in the assembled office](../screenshots/task-console-running.png) |
 
 See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
 
@@ -39,6 +41,7 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Runtime adapters | Provider-shaped fixtures through actual local hook processes or the OpenCode plugin, immutable publication, and SQLite consumption | [`test_runtime_adapters.py`](../../tests/test_runtime_adapters.py), [`test_codex_hook.py`](../../tests/test_codex_hook.py), [`test_codex_stream.py`](../../tests/test_codex_stream.py), [`test_hermes_usage.py`](../../tests/test_hermes_usage.py), [`opencode-bridge.test.mjs`](../../tests/opencode-bridge.test.mjs) |
 | Gemini CLI | Four-hook lifecycle mapper, bounded silent input, real official CLI success/error flows with synthetic local responses, source closing-hook omissions, quiet/expiry behavior, and truthful browser coverage | [`test_gemini_hook.py`](../../tests/test_gemini_hook.py), [`test_gemini_native.py`](../../tests/test_gemini_native.py), [`gemini-browser.test.cjs`](../../tests/gemini-browser.test.cjs) |
 | Reported task lists | Valid full snapshots, explicit clearing, atomic invalid-input rejection, stable source/receipt times, eight-capture replay memory, restart, source adapters, historical rows, and unchanged XP/lifecycle | [`test_tasks.py`](../../tests/test_tasks.py), [`test_tasks_integration.py`](../../tests/test_tasks_integration.py), [`tasks-view.test.cjs`](../../tests/tasks-view.test.cjs), [`settings-concurrency.test.cjs`](../../tests/settings-concurrency.test.cjs) |
+| Local task execution | Explicit startup, fixed CLI arguments and exact stdin, project validation, admission limits, duplicate requests, streamed bounded output, failure, process-group cancellation, shutdown, strict HTTP boundaries, lost responses, retained draft transfer, focus, and mobile layout | [`test_task_runner.py`](../../tests/test_task_runner.py), [`test_task_runner_http.py`](../../tests/test_task_runner_http.py), [`task-runner.test.cjs`](../../tests/task-runner.test.cjs) |
 | Installation | Runtime detection, additive configuration, malformed configuration preservation, copied Hermes imports/observation without the source checkout, optional hooks, trust boundaries, and extension file selection | [`test_install_config.py`](../../tests/test_install_config.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Achievements | All 37 catalog conditions are reachable; incomplete milestones stay below 100%; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Browser and scene | Real local HTTP routes, polling, disconnected states, furniture/editor persistence, failed queued saves, touch scrolling, focus, search, reset, assets, and downloads | [`browser.test.cjs`](../../tests/browser.test.cjs), [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`product-ui.test.cjs`](../../tests/product-ui.test.cjs) |
@@ -57,7 +60,89 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
 
-### Verified arcade, aquarium, and room update
+### Local task control and console update — 8 October 2026
+
+The [optional local runner](../local-task-runner.md) is a separate execution
+path for explicitly starting a new Codex or Claude Code task. The existing
+observer adapters retain their reporting role. The shared Tasks panel now
+contains session activity, reported lists, editable briefs, and Local runs.
+
+The current validation used Python **3.12.14**, Node **24.19.0**, and Chromium
+**153.0.8010.0** on Linux. CI and Vercel are configured for Node 22.
+
+| Command or flow | Result |
+| --- | --- |
+| `GEMINI_TEST_CLI=... python -m pytest -v -o addopts='' --junitxml=reports/local-runs-review-python.xml` | **579 passed**, including both native Gemini fixture cases; 35.83 seconds |
+| `npm test` | **101 passed** |
+| `npm run test:browser` | **209 passed**, 0 failed, 1 optional private-art check skipped; 129.50 seconds |
+| `npm run check` | Passed |
+| `npm run format:check` and `git diff --check` | Passed |
+| `npm run build:preview` | Built **104 public demo files** and **20 product-site files**; no local office data or private aquarium sheets |
+
+Runner checks start the actual Python HTTP server and temporary executable
+fixtures. They verify exact prompts and selected working directories, fixed
+Codex/Claude argument lists, nonzero exits, a missing executable, output before
+process completion, and concurrent stdin/stdout pumping. They also exercise
+the 256 KiB output limit, 40-entry settled history, global and per-project
+admission, canonical UUID retries, and cancellation of a descendant that keeps
+the output pipe open after its parent exits. Startup on an occupied port fails
+clearly without altering the existing observer's shared-port behavior.
+
+The browser runner flow deliberately loses the first successful POST response
+and retries the unchanged request, producing one run. It verifies literal
+output, cancellation, prompt reuse, retained and programmatic draft transfer,
+Unicode code-point limits, focus and text selection across polling, stale-read
+rejection, and the disabled public preview. The desktop sheet expands to fit
+its form and history; narrower containers use one column. History is bounded,
+and mobile metadata wraps without horizontal clipping.
+
+The new console uses an original generated four-state atlas with exact source
+bytes, generation metadata, checksum, and the existing 24-by-34 placement box.
+Its running-only activity lamp has two frames and freezes under Pause or
+reduced motion. Only a successful process exit selects the steady finished
+sprite. A newer failure, cancellation, or interruption overrides an older
+success; a failed exit uses a steady error lamp. Missing artwork falls back to
+the established console while preserving the correct Local runs action.
+
+An additional assembled-app review exercised Settings save/reload, Escape
+focus restoration, keyboard pause/zoom/Fit, canvas selection, and desktop and
+320-pixel mobile placement. No page errors, sprite errors, or horizontal page
+overflow were observed in those flows. The screenshots show synthetic task
+fixtures, not provider-backed work.
+
+The runner tests do **not** establish a real authenticated Codex or Claude task
+on a provider account. Neither CLI was installed for native verification here.
+POSIX cleanup was exercised; native Windows signaling remains unverified.
+Interactive PTYs, attaching to existing sessions, answering permission prompts,
+durable scheduling, and orchestration are outside this implementation. These
+limits are also recorded in the [runner guide](../local-task-runner.md).
+
+The complete browser run contained 210 cases. Its one skip is the existing
+optional private Smallburg artwork check; the public artwork and missing-pack
+fallback paths passed. All new runner and console cases ran. The CI workflow
+includes the new runner suite through `npm run test:browser`; these results
+are local evidence, not a claim that the repository's disabled hosted CI ran.
+
+#### Review follow-up
+
+The published review prompted an additional fault-injection pass. Failure to
+start a task worker had consumed admission without creating a child; failure
+to start its stdin pump could abort cleanup by joining an unstarted thread.
+Both paths are now covered by regressions. Worker startup becomes a retained,
+idempotent failed run with a released slot. A started child is terminated and
+reaped before a pump failure is finalized. The browser reports an immediately
+failed acknowledgement without saying that a CLI started.
+
+| Review point | Decision and evidence |
+| --- | --- |
+| Windows descendants | Documented the best-effort boundary and possible surviving descendants in the [runner guide](../local-task-runner.md), with Microsoft and Python references. Console-group delivery can include descendants; the fallback does not guarantee their termination. Native Windows verification remains outstanding. |
+| Worker bookkeeping and resource failure | Fixed the reproduced startup paths, including terminal timestamps, idempotency, process reaping, closed pipes, released project/global admission, and a successful subsequent run. |
+| Duplicate Host fields | Kept the exact single-Host boundary. [RFC 9112 section 3.2](https://www.rfc-editor.org/rfc/rfc9112.html#section-3.2) requires rejection of duplicate Host field lines; allowing any matching value would weaken that boundary. |
+| HTTP timeout versus CLI startup | Kept the bounded HTTP timeout. Creation acknowledges the registered worker independently of CLI startup/output. The retained request ID and run-list polling recover a lost acknowledgement; timing out is not an instruction to cancel the user's task. |
+| Blocking output reads | Kept the blocking pipe read. It waits when the pipe is empty, as described by the [Linux pipe manual](https://man7.org/linux/man-pages/man7/pipe.7.html), and consumes available output without adding timer-based polling. |
+| Feedback and themes | Operation feedback and current validation now occupy separate lines. Output uses the selected theme's background variable. |
+
+### Earlier arcade, aquarium, and room update
 
 The integrated local run on 8 October 2026 (UTC) used Python **3.12.14**,
 Node **24.19.0**, and Chromium **153.0.8010.0**. CI and Vercel remain configured

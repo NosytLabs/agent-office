@@ -72,6 +72,44 @@ An optional interactive usage fallback can follow the narrow approach in [AgentS
 
 Usage records should retain source identity, aggregation scope (message, API attempt, turn, or cumulative session), model/provider, observation time, and completeness. Unknown values must remain distinguishable from numeric zero. Session-wide cumulative snapshots must replace their predecessor rather than be added repeatedly. Preserve corrections and replay behavior in the same durable transaction as the event receipt.
 
+## Local control follow-up — 8 October 2026
+
+The newer request explicitly includes sending task briefs to local CLIs. The
+[optional local runner](local-task-runner.md) adds that capability through a
+separate startup option; the runtime observer adapters retain their original
+read-only role.
+
+The implementation uses fixed Codex and Claude Code subprocess adapters,
+project selection, per-project admission, an idempotent run identity, output,
+and cancellation. These are independently written against the official CLI
+interfaces. The [Codex source](https://github.com/openai/codex/blob/main/codex-rs/exec/src/cli.rs)
+defines stdin prompts and sandbox flags. The
+[Claude CLI documentation](https://code.claude.com/docs/en/cli-reference)
+defines print mode and denial of unattended permission prompts. Both were
+checked through Context7 and primary sources.
+
+[BridgeMind](https://www.bridgemind.ai/) and
+[Termi](https://termiprotocol.com/) provide useful product references for a
+workspace selector, a task composer, visible process state, and a direct route
+from an office desk to useful controls. Their product pages do not establish a
+reusable license for application code or art, and none was copied for this
+update. The four console-state sprites are original generated artwork with
+their exact prompt, source bytes, hash, and normalization contract recorded
+in the sprite provenance files.
+
+The source review also found explicit placeholder commands in Harish Kotra's
+[CLI entry point](https://github.com/harishkotra/agent-office/blob/main/packages/cli/src/index.ts).
+Its [task manager](https://github.com/harishkotra/agent-office/blob/main/packages/core/src/task/TaskManager.ts)
+and [task board](https://github.com/harishkotra/agent-office/blob/main/packages/ui/src/components/TaskBoard.tsx)
+are useful structural examples, but their advertised orchestration was not
+treated as a verified drop-in runtime. Agent Office keeps source-reported
+tasks separate from the state of a newly launched process.
+
+Interactive terminals, attaching to existing sessions, recurring autonomous
+work, and checkpoint restoration remain separate future work. The previous
+observer-only scope statements below describe the earlier review; the new
+runner contract applies only when explicitly enabled.
+
 ## Reference projects and reuse decisions
 
 | Reference | Specific useful evidence | Reuse decision |

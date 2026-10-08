@@ -24,6 +24,7 @@ def test_runtime_sprite_dimensions_and_png_headers():
         "furniture/rewards-atlas.png": (1254, 1254),
         "furniture/workstations-atlas.png": (1254, 1254),
         "furniture/signals-atlas.png": (1254, 1254),
+        "furniture/task-console-atlas.png": (1254, 1254),
     }
     for rel, size in expected.items():
         raw = (SPRITES / rel).read_bytes()
@@ -72,3 +73,21 @@ def test_sprite_checksums_match_complete_runtime_inventory():
     actual = {str(p.relative_to(SPRITES)): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in SPRITES.rglob("*.png")}
     assert checksums == actual
+
+
+def test_task_console_source_provenance_and_state_contract():
+    import hashlib
+    import json
+    source = SPRITES / "furniture" / "task-console-atlas.png"
+    manifest = json.loads((SPRITES / "generated-task-console.json").read_text())
+    assert manifest["source"] == "furniture/task-console-atlas.png"
+    assert manifest["source_preserved_unmodified"] is True
+    assert manifest["layout"]["row_major"] == [
+        "idle", "running", "finished", "disconnected"
+    ]
+    assert manifest["logical_size"] == [24, 34]
+    assert "does not claim" in manifest["state_semantics"]["finished"]
+    assert "No external image" in manifest["reference"]
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["sha256"]
+    assert manifest["validation"]["raw_bytes_equal_generated_source"] is True
+    assert len(manifest["validation"]["cell_regions_and_bounds"]) == 4

@@ -63,7 +63,7 @@ vm.runInContext(
       );
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(scene.assetErrors.length, 0);
-    assert.equal(scene.loadedAssets, 22);
+    assert.equal(scene.loadedAssets, 23);
     const agents = Array.from({ length: 6 }, (_, i) => ({
       id: "session-" + i,
       label: ["Build", "Review", "Research", "Docs", "Notes", "Tests"][i],

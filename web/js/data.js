@@ -223,7 +223,7 @@ const PROP_HINTS = Object.freeze({
   whiteboard: "See agent activity",
   focusbooth: "See agent activity",
   statusbeacon: "See agents that need attention",
-  taskterminal: "See reported tasks",
+  taskterminal: "Open the task terminal",
   printer: "See recent activity",
   filingcabinet: "Browse activity history",
   server: "See the connected agents",
