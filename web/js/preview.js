@@ -17,6 +17,7 @@
   });
   let storageAvailable = true;
   let storageError = "";
+  let legacySnapshot = null;
   let saved = readStored() || emptySaved();
   const demoSettings = {};
   syncSettings();
@@ -38,6 +39,7 @@
       return null;
     }
     if (raw === null) {
+      legacySnapshot = null;
       storageError = "";
       return emptySaved();
     }
@@ -56,14 +58,25 @@
             !/^[a-zA-Z0-9-]{1,128}$/.test(stored.settingsRevision)))
       )
         throw new Error("Stored preferences are invalid");
+      if (stored.settingsRevision !== undefined) legacySnapshot = null;
+      else if (legacySnapshot?.raw !== raw) {
+        // Legacy records have no shared revision. Guard their exact bytes,
+        // keeping a bounded, view-local token until a normal save persists
+        // one. Another old tab's write must invalidate a stale full-map save.
+        legacySnapshot = {
+          raw,
+          revision: "preview-legacy-" + crypto.randomUUID(),
+        };
+      }
       storageError = "";
       return {
         settings: normalizeSettings(stored.settings),
-        settingsRevision: stored.settingsRevision || "preview-legacy-v1",
+        settingsRevision: stored.settingsRevision || legacySnapshot.revision,
         reset: stored.reset === true,
         historyCleared: stored.historyCleared === true,
       };
     } catch {
+      legacySnapshot = null;
       // Keep the last readable view and the original stored bytes. Defaults
       // must never turn unreadable preferences into a writable empty record.
       storageError = "demo-settings-invalid";

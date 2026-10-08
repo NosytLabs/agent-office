@@ -116,6 +116,143 @@ async function capture(p, name) {
   });
 }
 
+test("legacy demo revisions detect changed bytes from another tab and preserve names on retry", () =>
+  withPage(async (page) => {
+    const other = await page.context().newPage();
+    try {
+      const legacy = {
+        version: 1,
+        settings: { agent_names: { alpha: "First name", beta: "Old sibling" } },
+      };
+      await page.evaluate(
+        (value) =>
+          localStorage.setItem(
+            "agent-office:static-preview:v1",
+            JSON.stringify(value),
+          ),
+        legacy,
+      );
+      await other.goto(baseURL);
+      await other.waitForFunction(() => initialized && settingsReady);
+      const firstTag = await page.evaluate(async () =>
+        (await fetch("/settings")).headers.get("etag"),
+      );
+      assert.equal(
+        await page.evaluate(async () =>
+          (await fetch("/settings")).headers.get("etag"),
+        ),
+        firstTag,
+        "Repeated reads of identical bytes keep this view's revision",
+      );
+      await other.evaluate((value) => {
+        value.settings.agent_names.beta = "New sibling";
+        // Simulate a still-open pre-CAS preview, which writes no revision.
+        localStorage.setItem(
+          "agent-office:static-preview:v1",
+          JSON.stringify(value),
+        );
+      }, legacy);
+      const result = await page.evaluate(async (etag) => {
+        const save = await fetch("/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "If-Match": etag },
+          body: JSON.stringify({
+            agent_names: { alpha: "Stale rename", beta: "Old sibling" },
+          }),
+        });
+        return { status: save.status, body: await save.json() };
+      }, firstTag);
+      assert.equal(result.status, 409);
+      assert.equal(result.body.settings.agent_names.beta, "New sibling");
+      const retry = await page.evaluate(async () => {
+        const read = await fetch("/settings"),
+          current = await read.json();
+        const save = await fetch("/settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "If-Match": read.headers.get("etag"),
+          },
+          body: JSON.stringify({
+            agent_names: { ...current.agent_names, alpha: "Reviewed rename" },
+          }),
+        });
+        return {
+          status: save.status,
+          body: await save.json(),
+          stored: JSON.parse(
+            localStorage.getItem("agent-office:static-preview:v1"),
+          ),
+        };
+      });
+      assert.equal(retry.status, 200);
+      assert.deepEqual(retry.body.agent_names, {
+        alpha: "Reviewed rename",
+        beta: "New sibling",
+      });
+      assert.ok(
+        retry.stored.settingsRevision,
+        "An acknowledged save persists the shared revision",
+      );
+    } finally {
+      await other.close();
+    }
+  }));
+
+test("two views can read one legacy demo record and the second save conflicts after the first persists", () =>
+  withPage(async (page) => {
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "agent-office:static-preview:v1",
+        JSON.stringify({
+          version: 1,
+          settings: { pet_names: { cat1: "Original pet" } },
+        }),
+      ),
+    );
+    const other = await page.context().newPage();
+    try {
+      await other.goto(baseURL);
+      await other.waitForFunction(() => initialized && settingsReady);
+      const revision = async (view) =>
+        view.evaluate(async () =>
+          (await fetch("/settings")).headers.get("etag"),
+        );
+      const firstTag = await revision(page),
+        secondTag = await revision(other);
+      assert.equal(await revision(page), firstTag);
+      assert.equal(await revision(other), secondTag);
+      const first = await page.evaluate(
+        async (etag) =>
+          (
+            await fetch("/settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "If-Match": etag },
+              body: JSON.stringify({ pet_names: { cat1: "First saved pet" } }),
+            })
+          ).status,
+        firstTag,
+      );
+      assert.equal(
+        first,
+        200,
+        "Another view's read must not invalidate this view's revision",
+      );
+      const second = await other.evaluate(async (etag) => {
+        const response = await fetch("/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "If-Match": etag },
+          body: JSON.stringify({ pet_names: { cat1: "Stale pet" } }),
+        });
+        return { status: response.status, body: await response.json() };
+      }, secondTag);
+      assert.equal(second.status, 409);
+      assert.equal(second.body.settings.pet_names.cat1, "First saved pet");
+    } finally {
+      await other.close();
+    }
+  }));
+
 test("static preview has fresh synthetic state, honest usage, and no local observer connection", () =>
   withPage(async (p) => {
     assert.match(

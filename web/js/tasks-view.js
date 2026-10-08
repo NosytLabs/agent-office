@@ -158,12 +158,12 @@
       const sourceTime =
         board.source_updated_at === null
           ? "Source update time unavailable."
-          : `Source updated ${dateLabel(board.source_updated_at)}.`;
+          : `Source updated ${dateLabel(board.source_updated_at)}`;
       section.append(
         node(
           "p",
           "task-board-meta",
-          `${board.source} · Session ${board.session}\nReceived ${dateLabel(board.observed_at)}. ${sourceTime}`,
+          `${board.source} · Session ${board.session}\nReceived ${dateLabel(board.observed_at)}\n${sourceTime}`,
         ),
       );
       if (board.tasks === null) {

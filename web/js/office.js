@@ -1158,7 +1158,7 @@ function fillInspector() {
   if (a.status === "waiting") {
     const waiting = document.createElement("p");
     waiting.className = "waiting-note";
-    waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}.`;
+    waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed: ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}`;
     summary.append(waiting);
   }
   const usageHeading = document.createElement("h3");

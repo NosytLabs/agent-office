@@ -3,7 +3,8 @@
 const furnitureHistory = [],
   furnitureFuture = [];
 let furnitureSignature = JSON.stringify(settings.furniture),
-  furnitureSaving = false;
+  furnitureSaving = false,
+  furnitureInteraction = 0;
 scene.onFurnitureResolution = ({ relocated, unplaced }) => {
   const status = $("furniture-status");
   status.hidden = !relocated && !unplaced;
@@ -104,6 +105,7 @@ function syncFurnitureControls() {
 function startFurniture(kind) {
   if (!settingsReady || furnitureSaving) return;
   if (PROP_REWARDS[kind] && !haveUnlock(PROP_REWARDS[kind])) return;
+  furnitureInteraction++;
   scene.edit = kind;
   scene.movingIndex = null;
   scene.pointer = null;
@@ -125,6 +127,7 @@ function startFurniture(kind) {
 }
 function pickFurniture(index) {
   if (furnitureSaving || !settings.furniture[index]) return;
+  furnitureInteraction++;
   scene.movingIndex = index;
   const b =
     scene.furnitureBounds(index) ||
@@ -207,6 +210,7 @@ function reconcileFurniture() {
   }
 }
 function finishFurniture() {
+  furnitureInteraction++;
   scene.edit = null;
   resetSelection();
   $("edit-hint").hidden = true;
@@ -236,7 +240,7 @@ $("redo-furniture").onclick = () => {
   if (!furnitureFuture.length || furnitureSaving) return;
   persistFurniture(furnitureFuture.at(-1), "redo");
 };
-function placeFurniture(p) {
+async function placeFurniture(p) {
   if (!settingsReady) return;
   if (furnitureSaving) {
     toast("Wait for the current furniture change to save.");
@@ -276,10 +280,20 @@ function placeFurniture(p) {
       ? [...items, placement.item]
       : items.map((item, i) => (i === moving ? placement.item : item));
   resetSelection();
-  saveFurniture(next);
-  if (scene.edit === "move")
-    $("edit-message").textContent =
-      "Moved. Select another custom prop, or choose Done.";
+  const interaction = ++furnitureInteraction,
+    movingProp = scene.edit === "move";
+  if (movingProp) $("edit-message").textContent = "Saving move…";
+  const saved = await saveFurniture(next);
+  // Done, Escape, or a later edit owns its own instructions. A delayed save
+  // must not overwrite them or announce success before it is acknowledged.
+  if (
+    movingProp &&
+    scene.edit === "move" &&
+    interaction === furnitureInteraction
+  )
+    $("edit-message").textContent = saved
+      ? "Moved. Select another custom prop, or choose Done."
+      : "Move was not saved. Select a custom prop to try again.";
 }
 $("clear-furniture").onclick = () => {
   if (settings.furniture.length) {
