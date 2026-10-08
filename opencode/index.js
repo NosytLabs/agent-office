@@ -168,6 +168,62 @@ function usageSnapshot(info) {
   return event;
 }
 
+function taskText(value, limit, multiline = false) {
+  if (typeof value !== "string" || !value.trim() || value.length > limit * 2)
+    return false;
+  const characters = [...value];
+  return (
+    characters.length <= limit &&
+    characters.every((character) => {
+      const code = character.codePointAt(0);
+      return (
+        !(code < 32 && !(multiline && "\n\r\t".includes(character))) &&
+        code !== 127 &&
+        !(code >= 0xd800 && code <= 0xdfff)
+      );
+    })
+  );
+}
+
+function taskSnapshot(data) {
+  // SDK EventTodoUpdated supplies a complete array, not a stream of task
+  // changes. Its Todo rows have no stable ID or source update timestamp.
+  if (
+    !taskText(data.sessionID, 512) ||
+    !Array.isArray(data.todos) ||
+    data.todos.length > 100
+  )
+    return null;
+  const tasks = [];
+  for (const [index, row] of data.todos.entries()) {
+    if (
+      !row ||
+      typeof row !== "object" ||
+      Array.isArray(row) ||
+      !taskText(row.content, 512, true) ||
+      !["pending", "in_progress", "completed", "cancelled"].includes(row.status)
+    )
+      return null;
+    const task = {
+      id: `row-${index}`,
+      content: row.content,
+      status: row.status,
+    };
+    if (Object.hasOwn(row, "priority")) {
+      if (!["high", "medium", "low"].includes(row.priority)) return null;
+      task.priority = row.priority;
+    }
+    tasks.push(task);
+  }
+  return {
+    event: "tasks_update",
+    session_id: data.sessionID,
+    task_source: "opencode.todo.updated",
+    source_updated_at: null,
+    tasks,
+  };
+}
+
 export const PixelOfficeBridge = async () => {
   const childSessions = new Set();
   const finishedCalls = new Map();
@@ -214,7 +270,10 @@ export const PixelOfficeBridge = async () => {
           (type.startsWith("session.") ? data.id : "") ||
           "";
         if (!sid) return;
-        if (type === "session.created" || type === "session.updated") {
+        if (type === "todo.updated") {
+          const snapshot = taskSnapshot(data);
+          if (snapshot) publish(snapshot);
+        } else if (type === "session.created" || type === "session.updated") {
           const info = data.info || data;
           if (info.parentID) childSessions.add(sid);
           if (type === "session.created" && info.parentID) {

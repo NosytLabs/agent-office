@@ -10,6 +10,11 @@ import copy
 import math
 from typing import Any, Dict, Iterable, Optional
 
+try:
+    from .tasks import TaskBoards
+except ImportError:
+    from tasks import TaskBoards
+
 
 def _agent_key(ev: Dict[str, Any]) -> Optional[str]:
     sid = ev.get("session_id") or ev.get("child_session_id")
@@ -32,6 +37,7 @@ class StateModel:
         self.active_tools: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self.pending_input: Dict[str, Dict[tuple, Dict[str, Any]]] = {}
         self.inactive_sessions: Dict[str, float] = {}
+        self.task_boards = TaskBoards()
         if not snapshot:
             return
         if not isinstance(snapshot, dict) or snapshot.get("version") != 1:
@@ -46,6 +52,7 @@ class StateModel:
             for key, records in data.get("pending_input", {}).items()
         }
         self.inactive_sessions = data.get("inactive_sessions", {})
+        self.task_boards = TaskBoards(data.get("task_boards", []))
 
     def dump(self) -> Dict[str, Any]:
         """Return an independent JSON-safe checkpoint, preserving arrival order."""
@@ -60,6 +67,7 @@ class StateModel:
                 for key, records in self.pending_input.items()
             },
             "inactive_sessions": self.inactive_sessions,
+            "task_boards": self.task_boards.dump(),
         })
 
     def apply(self, events: Iterable[Dict[str, Any]], now: float, *, received_at: Optional[float] = None) -> None:
@@ -156,6 +164,11 @@ class StateModel:
             if not math.isfinite(ev["ts"]):
                 continue
             kind = ev.get("event")
+            if kind == "tasks_update":
+                # Planning telemetry is not a heartbeat, a new session, or a
+                # completion signal. Never touch agent clocks or tombstones.
+                self.task_boards.apply(ev, observed(ev))
+                continue
             key = _agent_key(ev)
             if not key:
                 continue
@@ -318,6 +331,19 @@ class StateModel:
                 if kind == "approval_response" and accepted and a["status"] == "thinking":
                     a["status"] = "working"
 
+
+    def snapshot_tasks(self, now: float) -> list[Dict[str, Any]]:
+        """Report source snapshots separately from the current office lifecycle."""
+        visible = {agent["id"]: agent for agent in self.visible(now)}
+        boards = self.task_boards.snapshot(now)
+        for board in boards:
+            agent = self.agents.get(board["session_id"])
+            if agent and (agent.get("platform") or "hermes") != board["runtime"]:
+                agent = None
+            present = visible.get(board["session_id"]) if agent else None
+            board["session_status"] = (present or agent or {}).get("status", "unobserved")
+            board["historical"] = not present or present["status"] in ("done", "gone")
+        return boards
 
     def visible(self, now: float, stale_seconds: float = 1800) -> list[Dict[str, Any]]:
         """Return display copies; unanswered prompts remain until explicitly resolved."""

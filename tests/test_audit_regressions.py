@@ -3,6 +3,7 @@ import json
 import time
 import shlex
 import shutil
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -51,7 +52,13 @@ def test_theme_switches_do_not_create_work_progress(tmp_path, monkeypatch):
         plugin._save_settings({'theme': theme})
     assert plugin._load_settings()['theme'] == 'default'
     assert not (tmp_path / 'progress.json').exists()
-    assert not (tmp_path / 'office.sqlite3').exists()
+    # Settings use the shared database only to serialize concurrent writes.
+    # Personalization still creates no observation or progression state.
+    with sqlite3.connect(tmp_path / 'office.sqlite3') as database:
+        assert database.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() == []
+    state = plugin.build_state()
+    assert state['tracking']['received'] == 0
+    assert state['progress']['xp'] == 0
 
 
 def test_fish_unlock_matches_displayed_threshold(tmp_path):

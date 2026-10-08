@@ -22,6 +22,7 @@ function recordEvents(events, customHome = false, options = {}) {
     : join(home, ".hermes");
   const script = `
     import bridgeFactory from ${JSON.stringify(bridgeUrl)};
+    import { readFileSync } from 'node:fs';
     if (${Boolean(options.freezeClock)}) Date.now = () => 1000;
     if (${Boolean(options.failRename)}) {
       const fs = await import('node:fs');
@@ -29,7 +30,7 @@ function recordEvents(events, customHome = false, options = {}) {
       (await import('node:module')).syncBuiltinESMExports();
     }
     const bridge = await bridgeFactory();
-    for (const item of JSON.parse(process.argv[1])) {
+    for (const item of JSON.parse(readFileSync(0, 'utf8'))) {
       if (item.hook) await bridge[item.hook](item.input, Object.hasOwn(item, "output") ? item.output : {});
       else await bridge.event({event: item});
     }
@@ -47,8 +48,8 @@ function recordEvents(events, customHome = false, options = {}) {
     if (customHome) env.HERMES_HOME = hermesHome;
     const result = spawnSync(
       process.execPath,
-      ["--input-type=module", "-e", script, JSON.stringify(events)],
-      { env, encoding: "utf8" },
+      ["--input-type=module", "-e", script],
+      { env, encoding: "utf8", input: JSON.stringify(events) },
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout, "");
@@ -125,6 +126,109 @@ test("OpenCode failed atomic publication stays silent and exposes no ready event
     }),
     [],
   );
+});
+
+test("OpenCode publishes complete source TODO snapshots with explicit unknown source time", () => {
+  const events = recordEvents(
+    [
+      {
+        id: "evt-plan",
+        type: "todo.updated",
+        properties: {
+          sessionID: "session",
+          todos: [
+            {
+              content: "Inspect the bug",
+              status: "completed",
+              priority: "high",
+            },
+            {
+              content: "Run the regression",
+              status: "in_progress",
+              priority: "medium",
+            },
+            {
+              content: "Retired approach",
+              status: "cancelled",
+              priority: "low",
+            },
+          ],
+        },
+      },
+      { type: "todo.updated", properties: { sessionID: "session", todos: [] } },
+    ],
+    true,
+    { freezeClock: true },
+  );
+  assert.equal(events.length, 2);
+  assert.deepEqual(events[0].tasks, [
+    {
+      id: "row-0",
+      content: "Inspect the bug",
+      status: "completed",
+      priority: "high",
+    },
+    {
+      id: "row-1",
+      content: "Run the regression",
+      status: "in_progress",
+      priority: "medium",
+    },
+    {
+      id: "row-2",
+      content: "Retired approach",
+      status: "cancelled",
+      priority: "low",
+    },
+  ]);
+  assert.equal(events[0].event, "tasks_update");
+  assert.equal(events[0].session_id, "session");
+  assert.equal(events[0].platform, "opencode");
+  assert.equal(events[0].task_source, "opencode.todo.updated");
+  assert.equal(events[0].source_updated_at, null);
+  assert.equal(events[0].ts, 1);
+  assert.deepEqual(events[1].tasks, []);
+});
+
+test("OpenCode rejects malformed or oversized TODO snapshots instead of partial lists", () => {
+  const row = {
+    content: "Keep the full plan",
+    status: "pending",
+    priority: "high",
+  };
+  const invalid = [
+    undefined,
+    null,
+    {},
+    [null],
+    [row, { content: "Broken", status: "done" }],
+    [{ ...row, content: "x".repeat(513) }],
+    [{ ...row, priority: "urgent" }],
+    [{ ...row, content: "\u0000" }],
+    Array.from({ length: 101 }, () => row),
+  ];
+  const events = recordEvents(
+    invalid.map((todos) => ({
+      type: "todo.updated",
+      properties: { sessionID: "session", todos },
+    })),
+  );
+  assert.deepEqual(events, []);
+});
+
+test("OpenCode preserves 100 TODOs, repeated descriptions, and 512 Unicode characters", () => {
+  const todos = Array.from({ length: 100 }, () => ({
+    content: "🐟".repeat(512),
+    status: "pending",
+    priority: "low",
+  }));
+  const events = recordEvents([
+    { type: "todo.updated", properties: { sessionID: "session", todos } },
+  ]);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].tasks.length, 100);
+  assert.equal(new Set(events[0].tasks.map((row) => row.id)).size, 100);
+  assert.equal(events[0].tasks[0].content, "🐟".repeat(512));
 });
 
 test("OpenCode completed assistant usage is normalized by message identity without double-counted subsets", () => {

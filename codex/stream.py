@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Observe usage from an existing codex exec --json stream; never launch Codex.
+"""Observe usage and task lists in an existing codex exec --json stream.
 
 The documented stream has no turn ID. The caller therefore supplies a stable,
 unique ID for this captured invocation; its turn.started sequence is replayable.
 Reuse the same --stream-id only when replaying that same capture. Lifecycle is
 left to the Codex hook adapter, so attaching both cannot duplicate tool/session XP.
+Task snapshots use their explicit item flags; a finished turn is not proof that
+its unfinished plan steps were completed. Capture sequence guards task replay.
 """
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from codex.hook import publish
+from tasks import MAX_TASKS, normalize_rows
 
 MAX_LINE_BYTES = 1024 * 1024
 MAX_SAFE_TOKENS = (1 << 53) - 1
@@ -30,8 +33,10 @@ class UsageStream:
         self.stream_id = stream_id.strip()
         self.session_id = ""
         self.turn = 0
+        self.sequence = 0
 
     def observe(self, raw: dict) -> dict | None:
+        self.sequence += 1
         kind = raw.get("type")
         if kind == "thread.started":
             sid = raw.get("thread_id")
@@ -39,6 +44,26 @@ class UsageStream:
             self.turn = 0
         elif kind == "turn.started" and self.session_id:
             self.turn += 1
+        elif kind in ("item.started", "item.updated", "item.completed") and self.session_id:
+            item = raw.get("item")
+            if not isinstance(item, dict) or item.get("type") != "todo_list":
+                return None
+            identity, items = item.get("id"), item.get("items")
+            if (not isinstance(identity, str) or not identity.strip() or len(identity) > 256
+                    or not isinstance(items, list) or len(items) > MAX_TASKS):
+                return None
+            rows = []
+            for index, row in enumerate(items):
+                if not isinstance(row, dict) or not isinstance(row.get("completed"), bool):
+                    return None
+                rows.append({"id": f"row-{index}", "content": row.get("text"),
+                             "status": "completed" if row["completed"] else "pending"})
+            tasks = normalize_rows(rows)
+            if tasks is None:
+                return None
+            return {"event": "tasks_update", "platform": "codex", "session_id": self.session_id,
+                    "task_source": "codex.exec.todo_list", "source_updated_at": None, "tasks": tasks,
+                    "task_capture_id": self.stream_id, "task_sequence": self.sequence}
         elif kind == "turn.completed" and self.session_id and self.turn:
             source = raw.get("usage")
             if not isinstance(source, dict):

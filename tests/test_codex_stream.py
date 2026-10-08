@@ -55,6 +55,74 @@ def test_codex_stream_bounds_malformed_oversized_and_partial_records():
     assert list(iter_records(source)) == [good]
 
 
+@pytest.mark.parametrize("kind", ["item.started", "item.updated", "item.completed"])
+def test_codex_source_todo_flags_determine_completion_even_when_the_list_event_completes(kind):
+    observer = UsageStream("plan-check")
+    observer.observe({"type": "thread.started", "thread_id": "thread"})
+    observer.observe({"type": "turn.started"})
+    event = observer.observe({"type": kind, "item": {
+        "id": "plan-1", "type": "todo_list", "items": [
+            {"text": "Run the tests", "completed": True},
+            {"text": "Review the result", "completed": False},
+        ],
+    }})
+    assert event is not None
+    assert event["event"] == "tasks_update"
+    assert event["platform"] == "codex" and event["session_id"] == "thread"
+    assert event["task_source"] == "codex.exec.todo_list"
+    assert event["source_updated_at"] is None
+    assert event["tasks"] == [
+        {"id": "row-0", "content": "Run the tests", "status": "completed"},
+        {"id": "row-1", "content": "Review the result", "status": "pending"},
+    ]
+    assert event["task_capture_id"] == "plan-check" and event["task_sequence"] == 3
+
+
+def test_codex_empty_todo_snapshot_is_reported_but_turn_completion_does_not_invent_one():
+    observer = UsageStream("plan-check")
+    observer.observe({"type": "thread.started", "thread_id": "thread"})
+    observer.observe({"type": "turn.started"})
+    event = observer.observe({"type": "item.updated", "item": {"id": "plan", "type": "todo_list", "items": []}})
+    assert event is not None and event["tasks"] == []
+    complete = observer.observe({"type": "turn.completed", "usage": {"input_tokens": 0, "output_tokens": 0}})
+    assert complete["event"] == "usage" and "tasks" not in complete
+
+
+@pytest.mark.parametrize("items", [
+    None, {}, [None], [{"text": "Missing flag"}], [{"text": "Not boolean", "completed": "true"}],
+    [{"text": "Too long " + "x" * 512, "completed": False}],
+    [{"text": "Valid", "completed": False}, {"text": "Bad flag", "completed": 1}],
+    [{"text": "Duplicate source descriptions are fine", "completed": False}] * 101,
+])
+def test_codex_invalid_todo_snapshot_is_not_published_as_an_empty_or_partial_board(items):
+    observer = UsageStream("plan-check")
+    observer.observe({"type": "thread.started", "thread_id": "thread"})
+    observer.observe({"type": "turn.started"})
+    assert observer.observe({"type": "item.updated", "item": {"id": "plan", "type": "todo_list", "items": items}}) is None
+
+
+def test_codex_todo_requires_source_identity_and_never_parses_a_plan_from_message_text():
+    observer = UsageStream("plan-check")
+    plan = {"type": "item.updated", "item": {"id": "plan", "type": "todo_list", "items": []}}
+    assert observer.observe(plan) is None
+    observer.observe({"type": "thread.started", "thread_id": "thread"})
+    assert observer.observe({"type": "item.updated", "item": {"type": "todo_list", "items": []}}) is None
+    assert observer.observe({"type": "item.completed", "item": {
+        "id": "message", "type": "agent_message", "text": "[x] Done\n[ ] Next",
+    }}) is None
+
+
+def test_codex_preserves_a_full_100_row_todo_snapshot_and_unicode_content():
+    observer = UsageStream("plan-check")
+    observer.observe({"type": "thread.started", "thread_id": "thread"})
+    event = observer.observe({"type": "item.updated", "item": {
+        "id": "plan", "type": "todo_list", "items": [{"text": "🐟" * 512, "completed": False}] * 100,
+    }})
+    assert event is not None
+    assert len(event["tasks"]) == 100 and len({task["id"] for task in event["tasks"]}) == 100
+    assert event["tasks"][99]["content"] == "🐟" * 512
+
+
 def test_codex_stream_real_stdin_replay_and_distinct_capture_accounting(tmp_path):
     payload = "\n".join(json.dumps(event) for event in [
         {"type": "thread.started", "thread_id": "thread"}, {"type": "turn.started"},

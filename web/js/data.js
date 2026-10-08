@@ -120,6 +120,7 @@ const STATUS_NAMES = {
 };
 const EVENT_NAMES = {
   usage: "Usage reported",
+  tasks_update: "Task list reported",
   session_start: "Session started",
   session_end: "Session ended",
   session_busy: "Session working",
@@ -158,6 +159,10 @@ const PROP_SIZES = {
   jukebox: [24, 36],
   focusbooth: [30, 38],
   filingcabinet: [22, 26],
+  taskterminal: [24, 34],
+  statusbeacon: [12, 28],
+  petbed: [26, 16],
+  fern: [26, 28],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -182,6 +187,10 @@ const PROP_NAMES = {
   jukebox: "Jukebox",
   focusbooth: "Focus booth",
   filingcabinet: "Filing cabinet",
+  taskterminal: "Task terminal",
+  statusbeacon: "Attention beacon",
+  petbed: "Pet bed",
+  fern: "Potted fern",
 };
 const PROP_REWARDS = {
   arcade: "arcade_break",

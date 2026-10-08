@@ -100,8 +100,13 @@
           </button>
         </div>
         <div class="cluster secondary">
-          <label class="sr-only" for="filterbtn">Filter runtime</label
-          ><select id="filterbtn" class="btn">
+          <label class="sr-only" for="filterbtn">Floor runtime</label
+          ><select
+            id="filterbtn"
+            class="btn"
+            aria-label="Floor runtime"
+            title="Filter the office floor. Agent and task panels include all runtimes."
+          >
             <option value="every">All runtimes</option>
             <option value="hermes">Hermes</option>
             <option value="claude">Claude Code</option>
@@ -222,6 +227,12 @@
       </footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
+    <p
+      id="settings-save-notice"
+      class="settings-warning"
+      role="status"
+      hidden
+    ></p>
     <div id="backdrop" hidden></div>
     <section
       class="sheet"
@@ -266,11 +277,20 @@
       hidden
     >
       <h2>Work in progress</h2>
-      <p class="h">
+      <p class="h" id="task-description">
         Observed session activity. Assign and approve work in your agent’s own
         terminal.
       </p>
+      <div id="task-tabs" class="seg" role="group" aria-label="Task view">
+        <button data-task-view="activity" aria-pressed="true">
+          Session activity
+        </button>
+        <button data-task-view="reported" aria-pressed="false">
+          Reported tasks
+        </button>
+      </div>
       <div id="taskboard"></div>
+      <div id="reported-taskboard" hidden></div>
     </section>
     <section
       class="sheet"
@@ -435,6 +455,25 @@
           The database also stores live sessions and usage totals, outside the
           event history limit.
         </p>
+        <details id="storage-diagnostics" class="storage-diagnostics">
+          <summary>Observer storage details</summary>
+          <p class="h" id="retention-paused" role="status" hidden>
+            Automatic history pruning is paused until settings can be read.
+          </p>
+          <dl id="storage-measurements"></dl>
+          <p class="h" id="storage-measurement-errors" role="status" hidden></p>
+          <p class="h">
+            Retention limits apply to raw event history. The database also keeps
+            usage correction records and live state. Inbox totals already
+            include processed files awaiting cleanup and temporary publications;
+            these rows are not additive.
+          </p>
+          <p class="h">
+            Unprocessed events and temporary publications are kept for safe
+            retry. Legacy logs are read without truncation. A settings change
+            does not remove those files.
+          </p>
+        </details>
         <button class="btn danger" id="clear-history">
           Clear saved history
         </button>
@@ -491,6 +530,10 @@
       hidden
     >
       <h2>At this desk</h2>
+      <div id="inspector-summary" class="inspector-summary"></div>
+      <button class="btn" id="agent-follow" aria-pressed="false" hidden>
+        Follow on floor
+      </button>
       <form id="agent-name-form" class="agent-name-form" hidden>
         <label for="agent-name-input" class="setting-label"
           >Local agent name</label
@@ -814,6 +857,7 @@
     <script src="js/icons.js"></script>
     <script src="js/scene.js"></script>
     <script src="js/view-state.js"></script>
+    <script src="js/tasks-view.js"></script>
     <script src="js/office.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/aquarium.js"></script>

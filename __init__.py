@@ -40,9 +40,10 @@ import json
 import copy
 import contextvars
 import logging
-import math
 import os
+import re
 import socket
+import sqlite3
 import sys
 import threading
 import time
@@ -60,6 +61,11 @@ if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
 logger = logging.getLogger(__name__)
+
+try:
+    from .settings_store import SettingsStore, SettingsConflict, SettingsUnavailable
+except ImportError:
+    from settings_store import SettingsStore, SettingsConflict, SettingsUnavailable
 
 DEFAULT_PORT = 8113
 _lock = threading.RLock()
@@ -183,9 +189,9 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
             out[key] = value
         elif key == "history_max_bytes" and type(value) is int and value in (1024 * 1024, 5 * 1024 * 1024, 20 * 1024 * 1024):
             out[key] = value
-        elif key == "budget_usd" and type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1000000000:
+        elif key == "budget_usd" and type(value) in (int, float) and 0 <= value <= 1000000000:
             out[key] = value
-        elif key == "music_volume" and type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 0.5:
+        elif key == "music_volume" and type(value) in (int, float) and 0 <= value <= 0.5:
             out[key] = value
         elif key == "pet_names" and isinstance(value, dict):
             out[key] = {k: " ".join(v.split())[:32] for k, v in value.items()
@@ -193,49 +199,31 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         elif key == "aquarium_species" and isinstance(value, list):
             out[key] = list(dict.fromkeys(v for v in value[:4]
                                           if isinstance(v, str) and v in ("ember", "mint", "violet", "pearl"))) or ["ember"]
-        elif key == "furniture" and isinstance(value, list):
-            items = []
-            for item in value[:24]:
-                if (isinstance(item, dict) and item.get("kind") in (
-                    "sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp",
-                    "roundtable", "stool", "succulent", "planter", "whiteboard",
-                    "printer", "cart", "coatrack", "arcade", "recordplayer", "robot", "terrarium", "jukebox", "focusbooth", "filingcabinet")
-                    and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
-                    items.append({k: item[k] for k in ("kind", "x", "y")})
-            out[key] = items
+        elif key == "furniture" and isinstance(value, list) and len(value) <= 24:
+            # Layouts are full replacements. Reject a malformed whole field,
+            # matching the browser validator; never save a truncated layout.
+            kinds = ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp",
+                     "roundtable", "stool", "succulent", "planter", "whiteboard",
+                     "printer", "cart", "coatrack", "arcade", "recordplayer", "robot", "terrarium", "jukebox",
+                     "focusbooth", "filingcabinet", "taskterminal", "statusbeacon", "petbed", "fern")
+            if all(isinstance(item, dict) and item.get("kind") in kinds
+                   and all(type(item.get(k)) in (int, float) and 0 <= item[k] <= 1 for k in ("x", "y"))
+                   for item in value):
+                out[key] = [{k: item[k] for k in ("kind", "x", "y")} for item in value]
     return out
 
 
 def _load_settings() -> Dict[str, Any]:
-    try:
-        path = _settings_path()
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-        else:
-            data = {}
-    except Exception:
-        data = {}
-    out = dict(_DEFAULTS)
-    out.update(_valid_settings(data))
-    return out
+    return _settings_store().read().settings
 
 
-def _save_settings(payload: Dict[str, Any]) -> None:
+def _settings_store() -> SettingsStore:
+    return SettingsStore(_settings_path(), _DEFAULTS, _valid_settings)
+
+
+def _save_settings(payload: Dict[str, Any], *, expected_revision: Optional[str] = None):
     with _lock:
-        _save_settings_locked(payload)
-
-
-def _save_settings_locked(payload: Dict[str, Any]) -> None:
-    cur = _load_settings()
-    cur.update(_valid_settings(payload))
-    try:
-        path = _settings_path()
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(cur, indent=2), encoding="utf-8")
-        tmp.replace(path)
-    except Exception:
-        logger.debug("pixel-office settings save failed", exc_info=True)
-        raise
+        return _settings_store().save(payload, expected_revision)
 
 
 def _asset_manifest() -> Dict[str, Any]:
@@ -308,6 +296,10 @@ def _read_event_snapshot() -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     try:
         before = _event_signature(path, path.stat())
+    except FileNotFoundError:
+        _event_cache = None
+        return []
+    try:
         if _event_cache is not None and _event_cache[0] == before:
             return _event_cache[1]
         _event_cache = None
@@ -327,11 +319,12 @@ def _read_event_snapshot() -> List[Dict[str, Any]]:
         after = _event_signature(path, path.stat())
         if before == opened == finished == after:
             _event_cache = (after, out)
-    except FileNotFoundError:
+    except OSError:
         _event_cache = None
-    except Exception:
-        _event_cache = None
-        logger.debug("pixel-office read failed", exc_info=True)
+        # A failed/partial read is not an empty or shorter legacy rewrite.
+        # Let the store preserve its cursor while other inbox writers drain.
+        # Reset likewise needs a complete snapshot before it can set a fence.
+        raise
     return out
 
 
@@ -356,15 +349,17 @@ def _store():
 def _build_state_locked() -> Dict[str, Any]:
     """Apply new receipts and render the durable live checkpoint."""
     now = time.time()
-    settings = _load_settings()
+    preferences = _settings_store().read()
+    settings = preferences.settings
     state = _store().consume(_read_event_snapshot, now,
                              history_limit=settings["history_limit"],
                              history_days=settings["history_days"],
-                             history_max_bytes=settings["history_max_bytes"])
+                             history_max_bytes=settings["history_max_bytes"],
+                             retention_enabled=preferences.error is None)
     for agent in state["agents"]:
         agent["observed_label"] = agent["label"]
         agent["label"] = settings["agent_names"].get(agent["id"], agent["label"])
-    return {**state, "ts": now, "settings": settings,
+    return {**state, "ts": now, **preferences.public(),
             "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
 
 
@@ -469,10 +464,12 @@ def _serve() -> None:
                     self.respond(200, {"events": rows})
                     return
                 elif route == "/settings":
-                    body = json.dumps(_load_settings()).encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Cache-Control", "no-store")
+                    preferences = _settings_store().read()
+                    if preferences.error:
+                        self.respond(503, {"error": preferences.error, **preferences.public()})
+                    else:
+                        self.respond(200, preferences.settings, {"ETag": f'"{preferences.revision}"'})
+                    return
                 elif route == "/assets-manifest":
                     body = json.dumps(_asset_manifest()).encode("utf-8")
                     self.send_response(200)
@@ -528,12 +525,14 @@ def _serve() -> None:
                 except OSError:
                     pass
 
-        def respond(self, code, data):
+        def respond(self, code, data, headers=None):
             body = json.dumps(data).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
 
@@ -573,14 +572,28 @@ def _serve() -> None:
                 payload = json.loads(self.rfile.read(length))
                 if not isinstance(payload, dict):
                     raise ValueError("object required")
-            except (ValueError, UnicodeError):
+            except (ValueError, UnicodeError, RecursionError):
                 self.respond(400, {"error": "expected a JSON object"})
                 return
+            condition = self.headers.get("If-Match")
+            if condition is None:
+                self.respond(428, {"error": "Read current settings and send their ETag in If-Match before saving."})
+                return
+            match = re.fullmatch(r'"(missing|[0-9a-f]{64})"', condition)
+            if not match:
+                self.respond(400, {"error": "If-Match must contain the quoted revision from the current settings response."})
+                return
             try:
-                _save_settings(payload)
-                self.respond(200, _load_settings())
-            except OSError:
-                self.respond(500, {"error": "could not save settings"})
+                preferences = _save_settings(payload, expected_revision=match[1])
+                self.respond(200, preferences.settings, {"ETag": f'"{preferences.revision}"'})
+            except SettingsConflict as exc:
+                self.respond(409, {"error": str(exc), **exc.snapshot.public()})
+            except SettingsUnavailable as exc:
+                self.respond(503, {"error": str(exc), **exc.snapshot.public()})
+            except ValueError:
+                self.respond(400, {"error": "Settings exceed the supported format or size. Review the values before saving."})
+            except (OSError, sqlite3.Error):
+                self.respond(503, {"error": "Settings could not be saved. Check office storage access and try again."})
 
     class OfficeServer(ThreadingHTTPServer):
         daemon_threads = True

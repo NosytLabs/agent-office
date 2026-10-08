@@ -59,7 +59,7 @@ class OfficePetController {
       (agent.quiet && ["working", "thinking"].includes(agent.recorded_status))
     );
   }
-  route(pet, target, world) {
+  route(pet, target, world, minimum = 8) {
     // Reuse the office's collision-aware pathfinder in a small local window.
     // Even a very tall office cannot turn one pet decision into a whole-floor BFS.
     const left = Math.max(12, pet.x - 72),
@@ -73,7 +73,7 @@ class OfficePetController {
       };
     if (
       !this.clear(goal, world) ||
-      Math.hypot(goal.x - pet.x, goal.y - pet.y) < 8
+      Math.hypot(goal.x - pet.x, goal.y - pet.y) < minimum
     )
       return null;
     const blocked = world.blocked.map((b) => ({
@@ -95,7 +95,62 @@ class OfficePetController {
     }));
     return absolute.every((p) => this.clear(p, world)) ? absolute : null;
   }
+  overlaps(a, b) {
+    return Math.abs(a.x - b.x) < 10 && Math.abs(a.y - b.y) < 15;
+  }
+  freeBed(pet, bed, world) {
+    return (
+      this.clear(bed, world) &&
+      ![...this.pets.values()].some(
+        (other) =>
+          other !== pet &&
+          other.visible &&
+          (this.overlaps(bed, other) ||
+            (other.bed &&
+              (bed.id === other.bed.id || this.overlaps(bed, other.bed)))),
+      )
+    );
+  }
+  bedLeg(pet, world) {
+    if (Math.hypot(pet.x - pet.bed.x, pet.y - pet.bed.y) < 0.01) {
+      pet.mode = "sleep";
+      pet.wait = 12;
+      return true;
+    }
+    const path = this.route(pet, pet.bed, world, 0.01);
+    if (!path) return false;
+    pet.path = path;
+    pet.mode = "bed";
+    pet.wait = 0;
+    return true;
+  }
+  chooseBed(pet, world) {
+    const beds = world.beds
+      .filter((bed) => this.freeBed(pet, bed, world))
+      .sort(
+        (a, b) =>
+          Math.hypot(a.x - pet.x, a.y - pet.y) -
+            Math.hypot(b.x - pet.x, b.y - pet.y) || (a.id < b.id ? -1 : 1),
+      )
+      .slice(0, 3);
+    for (const bed of beds) {
+      pet.bed = bed;
+      if (this.bedLeg(pet, world)) {
+        pet.cooldown = 1.5;
+        return true;
+      }
+    }
+    pet.bed = null;
+    if (!beds.length) return false;
+    // Three unsuccessful bounded paths cannot become a whole-floor search.
+    // The current position already clears furniture, so it remains a safe nap.
+    pet.mode = "sleep";
+    pet.wait = 12;
+    pet.path = [];
+    return true;
+  }
   decide(pet, world, active) {
+    pet.bed = null;
     let mode = "wander",
       candidates = [];
     if (active) {
@@ -126,6 +181,7 @@ class OfficePetController {
             Math.hypot(b.x - pet.x, b.y - pet.y),
         );
       if (cycle % 4 === 2) {
+        if (this.chooseBed(pet, world)) return;
         mode = "sleep";
         if (Math.hypot(pet.x - pet.home.x, pet.y - pet.home.y) < 15) {
           pet.mode = "sleep";
@@ -174,6 +230,7 @@ class OfficePetController {
   hold(key) {
     const pet = this.pets.get(key);
     if (!pet?.visible) return false;
+    pet.bed = null;
     pet.path = [];
     pet.mode = "rest";
     pet.wait = 1.8;
@@ -198,7 +255,24 @@ class OfficePetController {
       agents: (source.agents || []).filter(
         (a) => Number.isFinite(a.x) && Number.isFinite(a.y),
       ),
+      beds: [],
     };
+    const bedIds = new Set();
+    for (const bed of Array.isArray(source.beds)
+      ? source.beds.slice(0, 24)
+      : []) {
+      if (
+        !bed ||
+        typeof bed.id !== "string" ||
+        !bed.id.trim() ||
+        bed.id.length > 128 ||
+        bedIds.has(bed.id) ||
+        !this.clear(bed, world)
+      )
+        continue;
+      bedIds.add(bed.id);
+      world.beds.push({ id: bed.id, x: bed.x, y: bed.y });
+    }
     const geometry = String(world.key) + ":" + world.w + ":" + world.h,
       changed = geometry !== this.geometry,
       dt =
@@ -227,6 +301,7 @@ class OfficePetController {
           wait: 0.6 + index * 0.8,
           cooldown: 0,
           path: [],
+          bed: null,
           facing: 1,
           visible: false,
         };
@@ -234,6 +309,7 @@ class OfficePetController {
       }
       pet.home = home;
       if (changed) {
+        pet.bed = null;
         pet.path = [];
         pet.wait = 0.6 + index * 0.8;
         pet.mode = "rest";
@@ -251,6 +327,20 @@ class OfficePetController {
         }
       }
       if (!pet.visible) continue;
+      if (pet.bed) {
+        const bed = world.beds.find((bed) => bed.id === pet.bed.id);
+        if (
+          !bed ||
+          bed.x !== pet.bed.x ||
+          bed.y !== pet.bed.y ||
+          !this.freeBed(pet, bed, world)
+        ) {
+          pet.bed = null;
+          pet.path = [];
+          pet.mode = "rest";
+          pet.wait = 2.5;
+        }
+      }
       if (dt > 0) {
         pet.cooldown = Math.max(0, pet.cooldown - dt);
         const active = world.agents.find(
@@ -273,16 +363,11 @@ class OfficePetController {
               ratio = d ? distance / d : 0,
               point = { x: pet.x + dx * ratio, y: pet.y + dy * ratio };
             const other = [...this.pets.values()].some(
-              (p) =>
-                p !== pet &&
-                p.visible &&
-                point.x + 5 > p.x - 5 &&
-                point.x - 5 < p.x + 5 &&
-                point.y > p.y - 15 &&
-                point.y - 15 < p.y,
+              (p) => p !== pet && p.visible && this.overlaps(point, p),
             );
             if (!this.clear(point, world) || other) {
               pet.path = [];
+              pet.bed = null;
               pet.mode = "rest";
               pet.wait = 2.5;
               break;
@@ -294,9 +379,17 @@ class OfficePetController {
             if (d <= distance + 0.001) pet.path.shift();
           }
           if (!pet.path.length && pet.wait === 0) {
-            pet.wait =
-              pet.mode === "sleep" ? 12 : pet.mode === "visit" ? 5 : 3.5;
-            if (!["sleep", "visit"].includes(pet.mode)) pet.mode = "rest";
+            if (pet.mode === "bed") {
+              if (!this.bedLeg(pet, world)) {
+                pet.bed = null;
+                pet.mode = "sleep";
+                pet.wait = 12;
+              }
+            } else {
+              pet.wait =
+                pet.mode === "sleep" ? 12 : pet.mode === "visit" ? 5 : 3.5;
+              if (!["sleep", "visit"].includes(pet.mode)) pet.mode = "rest";
+            }
           }
         } else {
           pet.wait = Math.max(0, pet.wait - dt);
@@ -310,6 +403,7 @@ class OfficePetController {
         mode: pet.mode,
         moving: pet.path.length > 0,
         facing: pet.facing,
+        bed_id: pet.bed?.id || null,
       });
     }
     return result;

@@ -60,7 +60,7 @@ Logical sizes are 20 × 26 (coffee), 12 × 26 (cooler), 12 × 30 (lamp), and
 10 × 10 (clock). The first three are placeable; the clock decorates the wall.
 See [generated-utilities.json](generated-utilities.json) for the prompt and
 contract, and [asset-checksums.json](asset-checksums.json) for source hashes.
-All twenty-two placeable props have previews made from the actual runtime sprite.
+All twenty-six placeable props have previews made from the actual runtime sprite.
 
 ## Matching cafe and plant atlas
 
@@ -159,3 +159,26 @@ preserved without offline raster edits. Exact prompts, dimensions, hashes,
 per-cell alpha bounds, and normalization contracts are recorded in
 [generated-studio-assistant.json](generated-studio-assistant.json) and
 [generated-workstations.json](generated-workstations.json).
+
+## Task terminal, status beacon, pet bed, and fern
+
+`furniture/signals-atlas.png` is an original **1254 × 1254 RGBA** atlas
+generated on 2026-10-08 with the built-in ImageGen tool. It contains four
+complete objects in equal quadrants. No third-party image was supplied, and
+the generated PNG bytes are preserved unchanged. The runtime trims each cell
+at alpha > 32 and samples it onto its logical canvas with nearest-neighbor
+scaling.
+
+| Runtime key | Furniture | Logical size | Interaction |
+| --- | --- | --- | --- |
+| `taskterminal` | Task terminal | 24 × 34 | Opens the existing Reported tasks view |
+| `statusbeacon` | Status beacon | 12 × 28 | Opens Session activity; amber means an observed waiting session while connected |
+| `petbed` | Pet bed | 26 × 16 | Provides a reachable resting target and opens pet settings |
+| `fern` | Office fern | 26 × 28 | Decoration |
+
+The terminal cursor is ambient motion. The beacon does not invent work or
+infer that a quiet session needs permission. Scene pause freezes their small
+animation overlays. Placement uses the shared collision and responsive layout
+rules; pet routing admits the bed surface while retaining other obstacles.
+The exact prompt, source checksum, alpha bounds, and normalization contract
+are recorded in [generated-signals.json](generated-signals.json).

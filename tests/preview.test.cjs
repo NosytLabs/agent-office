@@ -301,7 +301,7 @@ for (const [label, options] of [
     }, options),
   );
 
-test("two preview tabs merge preferences and preserve reset/history changes", () =>
+test("two preview tabs keep conditional preferences and preserve reset/history changes", () =>
   withPage(async (p) => {
     const other = await p.context().newPage();
     const errors = [];
@@ -310,9 +310,13 @@ test("two preview tabs merge preferences and preserve reset/history changes", ()
     await other.waitForFunction(() => initialized);
     const update = (page, patch) =>
       page.evaluate(async (value) => {
+        const current = await fetch("settings");
         const response = await fetch("settings", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "If-Match": current.headers.get("ETag"),
+          },
           body: JSON.stringify(value),
         });
         if (!response.ok) throw new Error("Demo preference write failed");
@@ -327,10 +331,8 @@ test("two preview tabs merge preferences and preserve reset/history changes", ()
     await update(other, { sound: true });
     assert.equal((await stored()).settings.room_name, "Shared sample room");
     assert.equal((await stored()).settings.sound, true);
-    await Promise.all([
-      update(p, { ambience: "night" }),
-      update(other, { max_chars: 8 }),
-    ]);
+    await update(p, { ambience: "night" });
+    await update(other, { max_chars: 8 });
     assert.equal((await stored()).settings.ambience, "night");
     assert.equal((await stored()).settings.max_chars, 8);
 
@@ -367,6 +369,197 @@ test("two preview tabs merge preferences and preserve reset/history changes", ()
       "Unsaved local draft",
     );
     assert.deepEqual(errors, []);
+  }));
+
+test("two native demo views serialize conditional map saves and keep a rejected draft", () =>
+  withPage(async (p) => {
+    const other = await p.context().newPage();
+    await other.goto(baseURL);
+    await other.waitForFunction(() => initialized && settingsReady);
+    for (const page of [p, other]) await page.click("#settingsbtn");
+    await p.fill("#pet-cat1-name", "Orange from first tab");
+    await other.fill("#pet-cat2-name", "Black from second tab");
+    // Hold the actual Web Lock until both native form submissions are waiting.
+    // Each view has the same acknowledged revision and a different full map.
+    await p.evaluate(() => {
+      window.demoLockHeld = false;
+      navigator.locks.request(
+        "agent-office:static-preview:v1",
+        () =>
+          new Promise((resolve) => {
+            window.releaseDemoLock = resolve;
+            window.demoLockHeld = true;
+          }),
+      );
+    });
+    await p.waitForFunction(() => window.demoLockHeld);
+    try {
+      await p.locator("#pet-name-form button").click();
+      await other.locator("#pet-name-form button").click();
+      for (const page of [p, other])
+        await page.waitForFunction(() => pendingSaves === 1);
+      await p.evaluate(() => window.releaseDemoLock());
+      for (const page of [p, other])
+        await page.waitForFunction(() => pendingSaves === 0);
+      const names = await p.evaluate(
+        async () => (await (await fetch("settings")).json()).pet_names,
+      );
+      assert.equal(
+        Object.keys(names).length,
+        1,
+        "one revision wins, so one stale map is rejected",
+      );
+      const rejected = (await p.isVisible("#settings-save-notice")) ? p : other;
+      assert.match(
+        await rejected.textContent("#settings-save-notice"),
+        /changed in another view/,
+      );
+      await rejected.locator("#pet-name-form button").click();
+      await rejected.waitForFunction(() => pendingSaves === 0);
+      assert.deepEqual(
+        await p.evaluate(
+          async () => (await (await fetch("settings")).json()).pet_names,
+        ),
+        {
+          cat1: "Orange from first tab",
+          cat2: "Black from second tab",
+        },
+      );
+    } finally {
+      await p.evaluate(() => window.releaseDemoLock?.());
+    }
+  }));
+
+test("static settings expose revisions and reject missing or stale write conditions", () =>
+  withPage(async (p) => {
+    const result = await p.evaluate(async () => {
+      const initial = await fetch("settings"),
+        etag = initial.headers.get("ETag");
+      const write = (condition, name) =>
+        fetch("settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(condition ? { "If-Match": condition } : {}),
+          },
+          body: JSON.stringify({ room_name: name }),
+        });
+      const missing = await write(null, "Must not save");
+      const first = await write(etag, "Confirmed demo");
+      const stale = await write(etag, "Must not replace");
+      return {
+        etag,
+        missing: missing.status,
+        first: first.status,
+        next: first.headers.get("ETag"),
+        stale: stale.status,
+        conflict: await stale.json(),
+        state: await (await fetch("state")).json(),
+      };
+    });
+    assert.match(result.etag, /^".+"$/);
+    assert.equal(result.missing, 428);
+    assert.equal(result.first, 200);
+    assert.notEqual(result.next, result.etag);
+    assert.equal(result.stale, 409);
+    assert.equal(result.conflict.settings.room_name, "Confirmed demo");
+    assert.equal(result.state.settings.room_name, "Confirmed demo");
+    assert.equal(
+      result.conflict.settings_revision,
+      result.state.settings_revision,
+    );
+    assert.equal(result.state.settings_status.available, true);
+  }));
+
+test("malformed stored demo preferences stay intact and block edits until repaired", () =>
+  withPage(async (p) => {
+    await p.click("#settingsbtn");
+    await p.fill("#room-name-input", "Preserved demo preferences");
+    await p.click("#room-name-save");
+    await p.waitForFunction(() => pendingSaves === 0);
+    const original = await p.evaluate(() =>
+      localStorage.getItem("agent-office:static-preview:v1"),
+    );
+    for (const corrupt of [
+      '{"version":1,"settings":',
+      JSON.stringify({ version: 1, settings: null }),
+      "x".repeat(65537),
+    ]) {
+      const result = await p.evaluate(async (raw) => {
+        const key = "agent-office:static-preview:v1";
+        const etag = (await fetch("settings")).headers.get("ETag");
+        localStorage.setItem(key, raw);
+        const snapshot = await (await fetch("state")).json();
+        applyState(snapshot);
+        const read = await fetch("settings");
+        const write = await fetch("settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "If-Match": etag },
+          body: JSON.stringify({ room_name: "Must not replace" }),
+        });
+        const clear = await fetch("history", { method: "DELETE" });
+        const reset = await fetch("state", { method: "DELETE" });
+        return {
+          snapshot,
+          read: read.status,
+          readEtag: read.headers.get("ETag"),
+          write: write.status,
+          clear: clear.status,
+          reset: reset.status,
+          stored: localStorage.getItem(key),
+        };
+      }, corrupt);
+      assert.equal(result.snapshot.settings_status.available, false);
+      assert.equal(result.snapshot.settings_revision, undefined);
+      assert.ok(result.snapshot.agents.length > 0);
+      assert.equal(result.read, 503);
+      assert.equal(result.readEtag, null);
+      assert.equal(result.write, 503);
+      assert.equal(result.clear, 503);
+      assert.equal(result.reset, 503);
+      assert.equal(result.stored, corrupt);
+      assert.equal(await p.locator("#room-name-input").isDisabled(), true);
+      assert.match(
+        await p.textContent("#settings-save-notice"),
+        /demo preferences/i,
+      );
+      assert.doesNotMatch(
+        await p.textContent("#settings-save-notice"),
+        /settings\.json/,
+      );
+      await p.keyboard.press("Escape");
+      await p.click("#preview-restore");
+      assert.equal(
+        await p.evaluate(() =>
+          localStorage.getItem("agent-office:static-preview:v1"),
+        ),
+        corrupt,
+        "restoring the sample must not overwrite unreadable preferences",
+      );
+      await p.reload();
+      await p.waitForFunction(() => initialized);
+      assert.equal(await p.evaluate(() => settingsReady), false);
+      assert.ok(await p.evaluate(() => agents.length > 0));
+      await p.evaluate(async (raw) => {
+        localStorage.setItem("agent-office:static-preview:v1", raw);
+        applyState(await (await fetch("state")).json());
+      }, original);
+      await p.waitForFunction(() => settingsReady);
+    }
+    await p.click("#settingsbtn");
+    assert.equal(
+      await p.inputValue("#room-name-input"),
+      "Preserved demo preferences",
+    );
+    await p.fill("#room-name-input", "Recovered demo preferences");
+    await p.click("#room-name-save");
+    await p.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      await p.evaluate(
+        async () => (await (await fetch("settings")).json()).room_name,
+      ),
+      "Recovered demo preferences",
+    );
   }));
 
 test("preview quiet context and terminal durations match the live observer", () =>
@@ -425,5 +618,50 @@ test("preview quiet context and terminal durations match the live observer", () 
     assert.equal(
       departed.agents.some((agent) => agent.id === finished.id),
       false,
+    );
+  }));
+
+test("demo task snapshots age and become historical without completing unfinished work", () =>
+  withPage(async (p) => {
+    const initial = await p.evaluate(() => window._state);
+    assert.equal(initial.tasks.length, 3);
+    const after = await p.evaluate(async () => {
+      const seed = window.__AGENT_OFFICE_PREVIEW_SEED__,
+        realNow = Date.now();
+      seed.state.tasks.find(
+        (board) => board.session_id === "demo-opencode",
+      ).source_updated_at = seed.base_time - 40;
+      Date.now = () => realNow + 310000;
+      const quiet = await (await fetch("state")).json();
+      Date.now = () => realNow + 1900000;
+      const expired = await (await fetch("state")).json();
+      return { quiet, expired, realNow };
+    });
+    const quiet = after.quiet.tasks.find(
+      (board) => board.session_id === "demo-opencode",
+    );
+    assert.equal(quiet.session_status, "idle");
+    assert.equal(quiet.historical, false);
+    assert.ok(quiet.age_s >= 350);
+    assert.ok(
+      Math.abs(quiet.source_updated_at - (after.realNow / 1000 - 40)) < 2,
+    );
+    const ended = after.quiet.tasks.find(
+      (board) => board.session_id === "demo-review",
+    );
+    assert.equal(ended.historical, true);
+    assert.equal(ended.session_status, "done");
+    const expired = after.expired.tasks.find(
+      (board) => board.session_id === "demo-opencode",
+    );
+    assert.equal(expired.historical, true);
+    assert.deepEqual(
+      expired.tasks,
+      initial.tasks.find((board) => board.session_id === "demo-opencode").tasks,
+    );
+    assert.equal(
+      expired.session_status,
+      "working",
+      "expired views keep the last durable observation, not an invented completion",
     );
   }));

@@ -288,6 +288,11 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
                 if previous_counts is None or boundary_counts[identity] <= previous_counts.get(identity, 0):
                     continue
         kind = ev.get("event")
+        if kind == "tasks_update":
+            # A source plan is observation metadata, not performed work. Keep
+            # the legacy replay cursor above, but do not count its runtime,
+            # event totals, or award cross-runtime achievements and XP.
+            continue
         plat = str(ev.get("platform") or "")
         if plat:
             plats.add(plat)

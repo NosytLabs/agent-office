@@ -73,8 +73,10 @@ def test_standalone_tracks_hook_lifecycle_and_serves_new_props(tmp_path):
         assert (agents["smoke"]["status"], agents["smoke"]["tool"]) == ("idle", "")
         assert (agents["child"]["status"], agents["child"]["tool"]) == ("thinking", "")
         props = [{"kind": kind, "x": 0.5, "y": 0.8} for kind in ("roundtable", "stool", "succulent", "planter")]
+        with urllib.request.urlopen(url + "/settings", timeout=2) as current:
+            revision = current.headers["ETag"]
         request = urllib.request.Request(url + "/settings", data=json.dumps({"furniture": props}).encode(),
-                                         headers={"Content-Type": "application/json"}, method="POST")
+                                         headers={"Content-Type": "application/json", "If-Match": revision}, method="POST")
         with urllib.request.urlopen(request, timeout=2) as response:
             assert response.status == 200
         assert state()["settings"]["furniture"] == props

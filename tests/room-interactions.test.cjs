@@ -1,3 +1,4 @@
+const { fetchSettings } = require("./settings-helper.cjs");
 /* Real observer, pointer/keyboard interaction, and native Web Audio measurements. */
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -74,7 +75,7 @@ async function withPage(run, options = {}) {
     args: ["--no-sandbox"],
   });
   try {
-    await fetch(baseURL + "/settings", {
+    await fetchSettings(baseURL + "/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -724,13 +725,16 @@ test("an old unresolved tool observation opens a truthful quiet-agent inspector"
     await p.focus("#health-alert");
     await p.keyboard.press("Enter");
     assert.equal(await p.isVisible("#sheet-inspector"), true);
-    assert.match(await p.textContent("#inspectorbox"), /No new observation/);
     assert.match(
-      await p.textContent("#inspectorbox"),
+      await p.textContent("#inspector-summary"),
+      /No new observation/,
+    );
+    assert.match(
+      await p.textContent("#inspector-summary"),
       /Last reported working · Bash/,
     );
     assert.match(
-      await p.textContent("#inspectorbox"),
+      await p.textContent("#inspector-summary"),
       /silence does not prove/,
     );
     await screenshot(p, "quiet-agent-inspector");

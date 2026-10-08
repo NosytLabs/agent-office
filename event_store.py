@@ -16,7 +16,9 @@ import logging
 import math
 import os
 from pathlib import Path
+import re
 import sqlite3
+import stat
 import uuid
 
 try:
@@ -31,6 +33,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 MAX_RECORD_BYTES = 256 * 1024
 MAX_BATCH = 2048
+READ_RETRY_SECONDS = 5
+_PUBLISHER_NAME = re.compile(r"^\d{20,}-([a-f0-9]{32})-\d{12,}\.json$")
 DEFAULT_HISTORY_LIMIT = 1000
 DEFAULT_HISTORY_DAYS = 7
 DEFAULT_HISTORY_MAX_BYTES = 5 * 1024 * 1024
@@ -74,6 +78,11 @@ def _digest(fingerprints):
     return hashlib.sha256("".join(fingerprints).encode("ascii")).hexdigest()
 
 
+def _publisher(name):
+    match = _PUBLISHER_NAME.fullmatch(name)
+    return match[1] if match else None
+
+
 class EventStore:
     def __init__(self, directory):
         self.directory = Path(directory)
@@ -92,6 +101,7 @@ class EventStore:
             db.execute("BEGIN IMMEDIATE")
             db.execute("CREATE TABLE IF NOT EXISTS checkpoint (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS receipts (name TEXT PRIMARY KEY)")
+            db.execute("CREATE TABLE IF NOT EXISTS inbox_retries (name TEXT PRIMARY KEY, next_attempt REAL NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS history (seq INTEGER PRIMARY KEY AUTOINCREMENT, received_at REAL NOT NULL, event TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS legacy_counts (fingerprint TEXT PRIMARY KEY, n INTEGER NOT NULL)")
             ensure_schema(db)
@@ -247,11 +257,71 @@ class EventStore:
                     legacy_reset_guard=False)
         return model, fresh
 
-    def _ready_files(self, acknowledged=()):
-        # Directory enumeration is not causal order. The filename contains a
-        # publication clock and per-writer sequence separate from payload ts.
-        return heapq.nsmallest(MAX_BATCH, (path for path in self.inbox.glob("*.json")
-                                         if path.name not in acknowledged)) if self.inbox.exists() else []
+    def _ready_files(self, db, data, now, acknowledged=()):
+        """Bound work while retrying failed inputs fairly across publishers.
+
+        New publishers use monotonic names with a stable writer ID. An earlier
+        unreadable file is a barrier for that writer, including across restart.
+        Custom/legacy filenames do not provide a trustworthy writer identity.
+        They remain retryable without inventing a relationship to other files.
+        """
+        retries = dict(db.execute("SELECT name,next_attempt FROM inbox_retries"))
+        for name in list(retries):
+            missing = name in acknowledged
+            if not missing:
+                try:
+                    (self.inbox / name).lstat()
+                except FileNotFoundError:
+                    missing = True
+                except OSError:
+                    pass  # Keep its barrier when absence cannot be established.
+            if missing:
+                db.execute("DELETE FROM inbox_retries WHERE name=?", (name,))
+                retries.pop(name)
+        barriers = {}
+        for name in retries:
+            writer = _publisher(name)
+            if writer:
+                barriers[writer] = min(name, barriers.get(writer, name))
+
+        def fresh(entries):
+            for entry in entries:
+                name = entry.name
+                if not name.endswith(".json") or name in acknowledged or name in retries:
+                    continue
+                barrier = barriers.get(_publisher(name))
+                if not barrier or name < barrier:
+                    yield self.inbox / name
+
+        try:
+            with os.scandir(self.inbox) as entries:
+                ready = heapq.nsmallest(MAX_BATCH, fresh(entries))
+        except FileNotFoundError:
+            ready = []
+        except OSError:
+            return [], barriers  # Measurement reports unknown; inputs stay put.
+        due = heapq.nsmallest(MAX_BATCH, (
+            (at, name) for name, at in retries.items()
+            if (at <= now or at > now + READ_RETRY_SECONDS)
+            and barriers.get(_publisher(name), name) == name
+        ))
+        if ready and due:
+            if MAX_BATCH == 1:
+                # Also keep a deliberately one-slot consumer fair. Production
+                # uses larger batches, where both queues progress each drain.
+                retry_count = int(bool(data.get("retry_turn")))
+                data["retry_turn"] = not retry_count
+                fresh_count = 1 - retry_count
+            else:
+                retry_count = min(len(due), max(1, MAX_BATCH // 4))
+                fresh_count = min(len(ready), MAX_BATCH - retry_count)
+                retry_count = min(len(due), MAX_BATCH - fresh_count)
+            ready = ready[:fresh_count]
+            due = due[:retry_count]
+        elif ready:
+            due = []
+        # The selected eligible publications still apply in filename order.
+        return sorted([*ready, *(self.inbox / name for _, name in due)]), barriers
 
     def _read_ready(self, path):
         if path.stat().st_size > MAX_RECORD_BYTES:
@@ -299,12 +369,93 @@ class EventStore:
     def _cleanup(self):
         """A receipt is retired only after its published file is absent."""
         with self._transaction() as db:
+            remaining = set()
             for (name,) in db.execute("SELECT name FROM receipts").fetchall():
                 try:
                     (self.inbox / name).unlink(missing_ok=True)
                 except OSError:
+                    remaining.add(name)
                     continue
                 db.execute("DELETE FROM receipts WHERE name=?", (name,))
+            retrying = {name for (name,) in db.execute("SELECT name FROM inbox_retries")}
+        return remaining, retrying
+
+    def _storage_tracking(self, acknowledged, retrying, usage_units):
+        """Measure direct entries without opening their contents or symlink targets.
+
+        A failed measurement is unknown, never a zero or a plausible partial
+        total. Entries that disappear during the scan no longer occupy storage.
+        Counts are an observation of the directory, not a whole-folder quota.
+        """
+        fields = {
+            "inbox": ("inbox_files", "inbox_bytes"),
+            "backlog": ("backlog", "backlog_bytes"),
+            "cleanup": ("cleanup_pending", "cleanup_pending_bytes"),
+            "temporary": ("temporary_files", "temporary_bytes"),
+        }
+        values = {field: 0 for pair in fields.values() for field in pair}
+        values.update(retrying_files=0, usage_units=usage_units)
+        errors = set()
+        opened = False
+        try:
+            with os.scandir(self.inbox) as entries:
+                opened = True
+                for entry in entries:
+                    groups = ["inbox"]
+                    if entry.name.endswith(".json"):
+                        groups.append("cleanup" if entry.name in acknowledged else "backlog")
+                    if entry.name.endswith(".tmp"):
+                        groups.append("temporary")
+                    try:
+                        metadata = (self.inbox / entry.name).lstat()
+                    except FileNotFoundError:
+                        continue
+                    except OSError:
+                        for group in groups:
+                            for key in fields[group]:
+                                values[key] = None
+                        if entry.name in retrying:
+                            values["retrying_files"] = None
+                        errors.add("inbox")
+                        continue
+                    if stat.S_ISDIR(metadata.st_mode):
+                        continue
+                    for group in groups:
+                        count, size = fields[group]
+                        if values[count] is not None:
+                            values[count] += 1
+                        if values[size] is not None:
+                            values[size] += metadata.st_size
+                    if entry.name in retrying and values["retrying_files"] is not None:
+                        values["retrying_files"] += 1
+        except OSError as exc:
+            # Missing before opening is known empty. A failed scan after
+            # opening, including disappearance, cannot validate a partial sum.
+            if opened or not isinstance(exc, FileNotFoundError):
+                for pair in fields.values():
+                    for key in pair:
+                        values[key] = None
+                values["retrying_files"] = None
+                errors.add("inbox")
+        for path, key, category in (
+            (self.path, "database_bytes", "database"),
+            (self.directory / "events.jsonl", "legacy_log_bytes", "legacy_log"),
+        ):
+            try:
+                values[key] = path.lstat().st_size
+                if category == "legacy_log":
+                    values["legacy_log"] = True
+            except FileNotFoundError:
+                values[key] = 0
+                if category == "legacy_log":
+                    values["legacy_log"] = False
+            except OSError:
+                values[key] = None
+                if category == "legacy_log":
+                    values["legacy_log"] = None
+                errors.add(category)
+        values["measurement_errors"] = sorted(errors)
+        return values
 
     def _export_progress(self):
         # This backwards-compatible file is a mirror, never the ingestion
@@ -316,21 +467,41 @@ class EventStore:
 
     def consume(self, read_legacy, now, *, history_limit=DEFAULT_HISTORY_LIMIT,
                 history_days=DEFAULT_HISTORY_DAYS,
-                history_max_bytes=DEFAULT_HISTORY_MAX_BYTES):
+                history_max_bytes=DEFAULT_HISTORY_MAX_BYTES, retention_enabled=True):
         changed = False
+        legacy_unreadable = False
         with self._transaction() as db:
             data, original = self._load(db)
             self._sync_epoch(data["epoch"])
             model = StateModel(data["model"])
-            model, legacy = self._legacy(db, data, model, read_legacy, now)
+            try:
+                model, legacy = self._legacy(db, data, model, read_legacy, now)
+            except OSError:
+                # Filesystem failures precede the legacy fold. Preserve its
+                # cursor and live state while unrelated inbox writers progress.
+                legacy = []
+                legacy_unreadable = True
             self._remember(db, data, legacy, now)
             fresh = []
             acknowledged = {row[0] for row in db.execute("SELECT name FROM receipts")}
-            for path in self._ready_files(acknowledged):
+            ready, barriers = self._ready_files(db, data, now, acknowledged)
+            for path in ready:
+                writer = _publisher(path.name)
+                barrier = barriers.get(writer)
+                if barrier and path.name > barrier:
+                    continue
                 try:
                     record = self._read_ready(path)
                 except OSError:
-                    continue  # unreadable inputs remain available for retry
+                    db.execute("""INSERT INTO inbox_retries(name,next_attempt) VALUES(?,?)
+                        ON CONFLICT(name) DO UPDATE SET next_attempt=excluded.next_attempt""",
+                        (path.name, now + READ_RETRY_SECONDS))
+                    if writer:
+                        barriers[writer] = min(path.name, barriers.get(writer, path.name))
+                    continue  # Retry without letting later same-writer events pass.
+                db.execute("DELETE FROM inbox_retries WHERE name=?", (path.name,))
+                if writer and barriers.get(writer) == path.name:
+                    barriers.pop(writer)
                 if record is None:
                     data["invalid_records"] += 1
                 elif record[0] == data["epoch"]:
@@ -352,31 +523,41 @@ class EventStore:
                 if platform in ("cli", "telegram", "gateway"):
                     session_keys.add(("hermes", agent["id"]))
             usage = snapshot_usage(db, session_keys=session_keys)
+            tasks = model.snapshot_tasks(now)
             data["progress"]["stats"]["usage_reports"] = usage["totals"]["reports"]
             progress.ingest(data["progress"], [], new_batch=True)
             progress.apply_live(data["progress"], sum(
                 agent["status"] not in ("done", "gone") for agent in visible))
             data["model"] = model.dump()
-            self._prune(db, data, now, history_limit, history_days, history_max_bytes)
+            # An unreadable settings file must not silently replace a user's
+            # longer retention with destructive defaults. Keep consuming work
+            # until the requested policy becomes readable again.
+            if retention_enabled:
+                self._prune(db, data, now, history_limit, history_days, history_max_bytes)
             changed = self._save(db, data, original)
             retained = db.execute("SELECT COUNT(*) FROM history").fetchone()[0]
             retained_bytes = db.execute("SELECT COALESCE(SUM(LENGTH(CAST(event AS BLOB))),0) FROM history").fetchone()[0]
-            backlog = max(0, sum(1 for _ in self.inbox.glob("*.json")) - db.execute("SELECT COUNT(*) FROM receipts").fetchone()[0])
         # Neither an unlink failure nor a mirror-file failure can undo the
         # committed checkpoint. Replayed ready files find their receipt.
-        self._cleanup()
+        acknowledged, retrying = self._cleanup()
         if changed:
             self._export_progress()
+        # The materialized report count is exactly the usage_units cardinality:
+        # insertion adds one, replacement does not, and reset clears both in
+        # one transaction. Avoid scanning an unbounded ledger on every poll.
+        storage = self._storage_tracking(acknowledged, retrying, usage["totals"]["reports"])
+        if legacy_unreadable:
+            storage["measurement_errors"] = sorted({*storage["measurement_errors"], "legacy_log_read"})
         return {
             "agents": visible, "progress": progress.snapshot(data["progress"]),
             "events": copy.deepcopy(data["recent"]),
             "usage": usage,
+            "tasks": tasks,
             "tracking": {"received": data["received"], "retained": retained,
+                         "retention_suspended": not retention_enabled,
                          "retained_bytes": retained_bytes,
-                         "database_bytes": self.path.stat().st_size,
                          "invalid_records": data["invalid_records"],
-                         "backlog": backlog,
-                         "legacy_log": (self.directory / "events.jsonl").exists()},
+                         **storage},
         }
 
     def history(self, limit=1000):

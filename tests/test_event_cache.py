@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import __init__ as plugin
+from event_inbox import publish
 
 
 @pytest.fixture
@@ -160,3 +161,84 @@ def test_file_modified_during_read_is_not_cached(log_reader, monkeypatch):
     stable_counts = dict(counts)
     plugin._read_events()
     assert counts == stable_counts
+
+
+def _interrupt_legacy_read(monkeypatch, *, during_iteration):
+    original = builtins.open
+
+    class InterruptedFile:
+        def __init__(self, handle):
+            self.handle = handle
+
+        def __getattr__(self, name):
+            return getattr(self.handle, name)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return self.handle.__exit__(*args)
+
+        def __iter__(self):
+            yield next(iter(self.handle))
+            raise PermissionError("legacy reader interrupted after a valid prefix")
+
+    def interrupted(filename, *args, **kwargs):
+        if Path(filename).name != "events.jsonl":
+            return original(filename, *args, **kwargs)
+        if not during_iteration:
+            raise PermissionError("legacy reader temporarily unavailable")
+        return InterruptedFile(original(filename, *args, **kwargs))
+
+    monkeypatch.setattr(plugin, "open", interrupted, raising=False)
+    monkeypatch.setattr(plugin, "_event_cache", None)
+
+
+@pytest.mark.parametrize("during_iteration", [False, True])
+def test_legacy_read_failure_preserves_cursor_and_live_work_while_inbox_drains(tmp_path, monkeypatch, during_iteration):
+    monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
+    monkeypatch.setattr(plugin.time, "time", lambda: 1000)
+    path = tmp_path / "events.jsonl"
+    events = [
+        {"ts": 990, "event": "session_start", "session_id": "alpha", "platform": "opencode"},
+        {"ts": 991, "event": "tool_start", "session_id": "alpha", "platform": "opencode", "tool_name": "Read", "tool_call_id": "one"},
+    ]
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    before = plugin.build_state()
+    assert before["agents"][0]["tool"] == "Read"
+    events.append({"ts": 992, "event": "tool_end", "session_id": "alpha", "platform": "opencode", "tool_name": "Read", "tool_call_id": "one"})
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    publish(tmp_path, {"ts": 999, "event": "session_start", "session_id": "beta", "platform": "claude"})
+    with monkeypatch.context() as failure:
+        _interrupt_legacy_read(failure, during_iteration=during_iteration)
+        with pytest.raises(OSError):
+            plugin._read_events()
+        state = plugin.build_state()
+        agents = {agent["id"]: agent for agent in state["agents"]}
+        assert agents["alpha"]["tool"] == "Read"
+        assert agents["beta"]["status"] == "idle"
+        assert state["progress"]["stats"]["tools"] == 1
+        assert state["tracking"]["received"] == 3
+        assert "legacy_log_read" in state["tracking"]["measurement_errors"]
+    recovered = plugin.build_state()
+    assert next(agent for agent in recovered["agents"] if agent["id"] == "alpha")["tool"] == ""
+    assert recovered["progress"]["stats"]["tools"] == 1
+    assert recovered["tracking"]["received"] == 4
+    assert "legacy_log_read" not in recovered["tracking"]["measurement_errors"]
+
+
+def test_reset_cannot_use_an_unreadable_legacy_prefix_as_its_boundary(tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin, "_office_dir", lambda: tmp_path)
+    monkeypatch.setattr(plugin.time, "time", lambda: 1000)
+    path = tmp_path / "events.jsonl"
+    path.write_text('{"ts":990,"event":"tool_start","session_id":"alpha","tool_name":"Read"}\n')
+    before = plugin.build_state()
+    fence = (tmp_path / "event-epoch").read_bytes()
+    with monkeypatch.context() as failure:
+        _interrupt_legacy_read(failure, during_iteration=False)
+        with pytest.raises(OSError):
+            plugin._store().reset(plugin._read_event_snapshot)
+    assert (tmp_path / "event-epoch").read_bytes() == fence
+    after = plugin.build_state()
+    for field in ("progress", "usage", "agents", "events"):
+        assert after[field] == before[field]

@@ -1,3 +1,4 @@
+const { postSettings } = require("./settings-helper.cjs");
 /* Native preference saves against the real observer; fixture actors never expire. */
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -81,7 +82,7 @@ async function withPage(run) {
     p.on("pageerror", (e) => errors.push(e.message));
     assert.equal(
       (
-        await p.request.post(base + "/settings", {
+        await postSettings(p.request, base + "/settings", {
           data: { agent_preferences: {} },
         })
       ).ok(),

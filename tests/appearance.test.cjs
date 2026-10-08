@@ -1,3 +1,4 @@
+const { fetchSettings } = require("./settings-helper.cjs");
 /* Real observer and canvas evidence for appearance settings and reward furniture. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -95,7 +96,7 @@ async function withOffice(run, options = {}) {
       await delay(50);
     }
     assert.ok(ready, "Appearance observer starts: " + serverOutput);
-    const saved = await fetch(baseURL + "/settings", {
+    const saved = await fetchSettings(baseURL + "/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -126,8 +127,14 @@ async function withOffice(run, options = {}) {
     await p.waitForFunction(() => initialized && agents.length === 3);
     await p.waitForFunction(
       (blocked) =>
-        officeScene.loadedAssets === (blocked ? 18 : 19) &&
-        officeScene.sprites.filingcabinet,
+        officeScene.loadedAssets === (blocked ? 19 : 20) &&
+        [
+          "filingcabinet",
+          "taskterminal",
+          "statusbeacon",
+          "petbed",
+          "fern",
+        ].every((key) => officeScene.sprites[key]),
       !!options.blockRobot,
     );
     await observeDraws(p);
@@ -475,7 +482,7 @@ test("keyboard appearance controls change rendered desks and persist without cre
     await capture(p, "juniper-slate-people");
     await p.reload();
     await p.waitForFunction(
-      () => initialized && officeScene.loadedAssets === 19,
+      () => initialized && officeScene.loadedAssets === 20,
     );
     await customize(p);
     for (const [group, name] of [
@@ -801,7 +808,15 @@ test("recorded progress gates booth and cabinet; their previews, placement, refl
     await customize(p);
     const booth = p.locator('#furniture-tools [data-kind="focusbooth"]'),
       cabinet = p.locator('#furniture-tools [data-kind="filingcabinet"]');
-    assert.equal(await p.locator("#furniture-tools button").count(), 22);
+    assert.deepEqual(
+      await p
+        .locator("#furniture-tools button")
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.dataset.kind).sort(),
+        ),
+      await p.evaluate(() => Object.keys(PROP_NAMES).sort()),
+      "every registered prop has one catalog button",
+    );
     assert.equal(await booth.isDisabled(), true);
     assert.equal(await cabinet.isDisabled(), true);
     assert.match(await booth.textContent(), /Workhorse|500/);
@@ -926,7 +941,7 @@ test("recorded progress gates booth and cabinet; their previews, placement, refl
     }
     await p.reload();
     await p.waitForFunction(
-      () => initialized && officeScene.loadedAssets === 19,
+      () => initialized && officeScene.loadedAssets === 20,
     );
     assert.deepEqual(await p.evaluate(() => settings.furniture), saved);
     assert.deepEqual(

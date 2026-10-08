@@ -15,6 +15,7 @@ class OfficeScene {
     this.assetErrors = [];
     this.loadedAssets = 0;
     this.focus = null;
+    this.following = null;
     this.filter = "every";
     this.zoom = 1;
     this.pan = { x: 0, y: 0 };
@@ -66,6 +67,7 @@ class OfficeScene {
       ["decor", ["roundtable", "stool", "succulent", "planter"]],
       ["workshop", ["whiteboard", "printer", "cart", "coatrack"]],
       ["rewards", ["arcade", "recordplayer", "robot", "terrarium"]],
+      ["signals", ["taskterminal", "statusbeacon", "petbed", "fern"]],
       [
         "workstations",
         ["desk-walnut", "desk-slate", "focusbooth", "filingcabinet"],
@@ -221,7 +223,49 @@ class OfficeScene {
     this.cosmetics = progress?.cosmetics || [];
     this.focus = focus;
     this.filter = filter;
+    if (
+      this.following &&
+      !this.list().some((agent) => agent.id === this.following)
+    )
+      this.setFollowTarget(null);
     this.stateAtTime = this.time;
+  }
+  setFollowTarget(id) {
+    if (this.following === id) return;
+    this.following = id;
+    this.onFollowChange?.(id);
+  }
+  followAgent(id) {
+    if (id !== null && !this.list().some((agent) => agent.id === id))
+      return false;
+    this.setFollowTarget(id);
+    if (id !== null) this.zoom = Math.max(1.75, this.zoom);
+    this.draw();
+    return true;
+  }
+  followCamera(room, width, height, scale) {
+    if (!this.following) return;
+    if (this.edit) {
+      this.setFollowTarget(null);
+      return;
+    }
+    const seat = room.seats.find(
+      (candidate) => candidate.a.id === this.following,
+    );
+    if (!seat) {
+      this.setFollowTarget(null);
+      return;
+    }
+    const character = !this.relayout && this.chars.get(this.following),
+      target = character
+        ? { x: character.x + 8, y: character.y + 16 }
+        : { x: seat.x + 16, y: seat.y - 1 },
+      maxX = Math.max(0, (room.w * scale - width) / 2 + 12),
+      maxY = Math.max(0, (room.h * scale - height) / 2 + 12);
+    this.pan = {
+      x: Math.max(-maxX, Math.min(maxX, (room.w / 2 - target.x) * scale)),
+      y: Math.max(-maxY, Math.min(maxY, (room.h / 2 - target.y) * scale)),
+    };
   }
   list() {
     return this.agents.filter(
@@ -390,6 +434,9 @@ class OfficeScene {
         "coffee",
         "focusbooth",
         "filingcabinet",
+        "taskterminal",
+        "statusbeacon",
+        "petbed",
       ].includes(kind)
     )
       this.propHits.push({ kind, x, y, w, h });
@@ -397,6 +444,22 @@ class OfficeScene {
       pulse = Math.floor(this.time * 3) % 2;
     if (kind === "server") {
       r(x + w * 0.26, y + h * 0.34, 2, 1, pulse ? "#b1d5b5" : "#729e98");
+    } else if (kind === "statusbeacon") {
+      // Neutral while disconnected or without a recorded waiting session.
+      // An illuminated beacon is an observed request, never inferred health.
+      const waiting =
+        this.observerConnected &&
+        this.agents.some((agent) => agent.status === "waiting");
+      r(
+        x + w * 0.4,
+        y + h * 0.2,
+        3,
+        3,
+        waiting ? (pulse ? "#f3c17b" : "#d99d5c") : "#8c989b",
+      );
+    } else if (kind === "taskterminal") {
+      // Cursor animation is decoration; actual task state lives in the panel.
+      if (pulse) r(x + w * 0.29, y + h * 0.13, 2, 1, "#b1d5b5");
     } else if (kind === "arcade" && this.cosmetics.includes("arcade_glow")) {
       r(x + w * 0.36, y + h * 0.27, 2, 1, "#94d4c2");
       r(
@@ -519,6 +582,10 @@ class OfficeScene {
   drawPets(grid) {
     const enabled =
       this.settings.decorations && this.settings.show_pets !== false;
+    const beds = (this.resolvedFurniture || []).filter(
+      (item) => item.kind === "petbed" && item.bounds,
+    );
+    const bedBounds = new Set(beds.map((item) => item.bounds));
     if (typeof OfficePetController === "function")
       this.petWorld ||= new OfficePetController(officePath);
     const world = {
@@ -526,9 +593,16 @@ class OfficeScene {
       h: grid.h,
       key: this.navigationKey + JSON.stringify(this.furnitureObstacles || []),
       blocked: [
-        ...(this.navigationProps || []),
+        ...(this.navigationProps || []).filter(
+          (bounds) => !bedBounds.has(bounds),
+        ),
         ...(this.furnitureObstacles || []),
       ],
+      beds: beds.map((item) => ({
+        id: `bed:${item.index}:${item.bounds.x}:${item.bounds.y}`,
+        x: item.bounds.x + item.bounds.w / 2,
+        y: item.bounds.y + item.bounds.h / 2 + 3,
+      })),
       agents: (grid.seats || []).map((s) => ({
         id: s.a.id,
         status: s.a.status,
@@ -878,6 +952,7 @@ class OfficeScene {
     this.routeBudget = 2;
     const scale =
       Math.min((W - 24) / (room.w + 5), (H - 24) / (room.h + 8)) * this.zoom;
+    this.followCamera(room, W, H, scale);
     const ox = (W - room.w * scale) / 2 + this.pan.x,
       oy = (H - room.h * scale) / 2 + this.pan.y;
     this.transform = { scale, ox, oy };
@@ -1051,6 +1126,7 @@ class OfficeScene {
           y: this.drag.anchor.y + this.pointer.y - this.drag.point.y,
         };
       } else if (this.drag.moved && this.zoom > 1) {
+        this.setFollowTarget(null);
         this.pan.x = this.drag.pan.x + dx;
         this.pan.y = this.drag.pan.y + dy;
       }
@@ -1161,7 +1237,10 @@ class OfficeScene {
   }
   setZoom(value) {
     this.zoom = Math.max(1, Math.min(3, value));
-    if (this.zoom === 1) this.pan = { x: 0, y: 0 };
+    if (this.zoom === 1) {
+      this.setFollowTarget(null);
+      this.pan = { x: 0, y: 0 };
+    }
     this.draw();
   }
   snapshot() {

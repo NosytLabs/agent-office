@@ -68,15 +68,28 @@ def sample_events():
         model="Demo model · planner", provider="synthetic-example", input_tokens=9600,
         output_tokens=1900, total_tokens=11500, cached_input_tokens=3200,
         reasoning_output_tokens=400)
+    add(-40, "tasks_update", "demo-opencode", "opencode", task_source="opencode.todo.updated",
+        tasks=[
+            {"id": "row-1", "content": "Demo · Review the welcome screen", "status": "completed", "priority": "high"},
+            {"id": "row-2", "content": "Demo · Build the shared controls", "status": "in_progress", "priority": "high"},
+            {"id": "row-3", "content": "Demo · Check the mobile layout", "status": "pending", "priority": "medium"},
+        ])
     add(-38, "usage", "demo-codex", "codex", usage_id="demo-test-turn",
         model="Demo model · reviewer", provider="synthetic-example", output_tokens=1100)
     add(-32, "subagent_stop", "demo-opencode", "opencode",
         parent_session_id="demo-opencode", child_session_id="demo-review")
+    add(-30, "tasks_update", "demo-review", "opencode", task_source="opencode.todo.updated",
+        tasks=[{"id": "row-1", "content": "Demo · Check keyboard access", "status": "completed", "priority": "high"}])
     add(-28, "tool_start", "demo-opencode", "opencode", call_id="demo-edit",
         tool_name="edit", activity="writing", preview="sample/WelcomeCard.tsx")
     add(-24, "tool_start", "demo-hermes", call_id="demo-plan",
         tool_name="Read", activity="reading", preview="sample/release-checklist.md")
     add(-20, "session_busy", "demo-codex", "codex")
+    add(-18, "tasks_update", "demo-codex", "codex", task_source="codex.exec.todo_list",
+        tasks=[
+            {"id": "row-1", "content": "Demo · Read the test failures", "status": "completed"},
+            {"id": "row-2", "content": "Demo · Run the revised checks", "status": "pending"},
+        ])
     add(-16, "approval_request", "demo-claude", "claude", request_id="demo-approval",
         tool_name="Bash", command="Demo request: run the sample test suite?")
     return sorted(rows, key=lambda event: event["ts"])

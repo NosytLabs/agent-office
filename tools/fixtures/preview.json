@@ -368,14 +368,27 @@
       "xp": 0
     },
     "synthetic": true,
+    "tasks": [],
     "tracking": {
       "backlog": 0,
+      "backlog_bytes": 0,
+      "cleanup_pending": 0,
+      "cleanup_pending_bytes": 0,
+      "inbox_bytes": 0,
+      "inbox_files": 0,
       "invalid_records": 0,
       "legacy_log": false,
+      "legacy_log_bytes": 0,
+      "measurement_errors": [],
       "received": 0,
       "retained": 0,
       "retained_bytes": 0,
-      "storage": "browser-demo"
+      "retention_suspended": false,
+      "retrying_files": 0,
+      "storage": "browser-demo",
+      "temporary_bytes": 0,
+      "temporary_files": 0,
+      "usage_units": 0
     },
     "ts": 1791374400.0,
     "usage": {
@@ -412,7 +425,7 @@
     {
       "command": "Demo request: run the sample test suite?",
       "event": "approval_request",
-      "id": 91,
+      "id": 94,
       "platform": "claude",
       "received_at": 1791374384.0,
       "request_id": "demo-approval",
@@ -422,8 +435,30 @@
       "ts": 1791374384.0
     },
     {
+      "event": "tasks_update",
+      "id": 93,
+      "platform": "codex",
+      "received_at": 1791374382.0,
+      "session_id": "demo-codex",
+      "synthetic": true,
+      "task_source": "codex.exec.todo_list",
+      "tasks": [
+        {
+          "content": "Demo \u00b7 Read the test failures",
+          "id": "row-1",
+          "status": "completed"
+        },
+        {
+          "content": "Demo \u00b7 Run the revised checks",
+          "id": "row-2",
+          "status": "pending"
+        }
+      ],
+      "ts": 1791374382.0
+    },
+    {
       "event": "session_busy",
-      "id": 90,
+      "id": 92,
       "platform": "codex",
       "received_at": 1791374380.0,
       "session_id": "demo-codex",
@@ -434,7 +469,7 @@
       "activity": "reading",
       "call_id": "demo-plan",
       "event": "tool_start",
-      "id": 89,
+      "id": 91,
       "platform": "hermes",
       "preview": "sample/release-checklist.md",
       "received_at": 1791374376.0,
@@ -447,7 +482,7 @@
       "activity": "writing",
       "call_id": "demo-edit",
       "event": "tool_start",
-      "id": 88,
+      "id": 90,
       "platform": "opencode",
       "preview": "sample/WelcomeCard.tsx",
       "received_at": 1791374372.0,
@@ -457,9 +492,27 @@
       "ts": 1791374372.0
     },
     {
+      "event": "tasks_update",
+      "id": 89,
+      "platform": "opencode",
+      "received_at": 1791374370.0,
+      "session_id": "demo-review",
+      "synthetic": true,
+      "task_source": "opencode.todo.updated",
+      "tasks": [
+        {
+          "content": "Demo \u00b7 Check keyboard access",
+          "id": "row-1",
+          "priority": "high",
+          "status": "completed"
+        }
+      ],
+      "ts": 1791374370.0
+    },
+    {
       "child_session_id": "demo-review",
       "event": "subagent_stop",
-      "id": 87,
+      "id": 88,
       "parent_session_id": "demo-opencode",
       "platform": "opencode",
       "received_at": 1791374368.0,
@@ -469,7 +522,7 @@
     },
     {
       "event": "usage",
-      "id": 86,
+      "id": 87,
       "model": "Demo model \u00b7 reviewer",
       "output_tokens": 1100,
       "platform": "codex",
@@ -479,6 +532,36 @@
       "synthetic": true,
       "ts": 1791374362.0,
       "usage_id": "demo-test-turn"
+    },
+    {
+      "event": "tasks_update",
+      "id": 86,
+      "platform": "opencode",
+      "received_at": 1791374360.0,
+      "session_id": "demo-opencode",
+      "synthetic": true,
+      "task_source": "opencode.todo.updated",
+      "tasks": [
+        {
+          "content": "Demo \u00b7 Review the welcome screen",
+          "id": "row-1",
+          "priority": "high",
+          "status": "completed"
+        },
+        {
+          "content": "Demo \u00b7 Build the shared controls",
+          "id": "row-2",
+          "priority": "high",
+          "status": "in_progress"
+        },
+        {
+          "content": "Demo \u00b7 Check the mobile layout",
+          "id": "row-3",
+          "priority": "medium",
+          "status": "pending"
+        }
+      ],
+      "ts": 1791374360.0
     },
     {
       "cached_input_tokens": 3200,
@@ -1588,37 +1671,6 @@
     ],
     "events": [
       {
-        "call_id": "demo-read-18",
-        "event": "tool_end",
-        "platform": "hermes",
-        "session_id": "demo-hermes",
-        "status": "ok",
-        "synthetic": true,
-        "tool_name": "Read",
-        "ts": 1791374285.0
-      },
-      {
-        "activity": "reading",
-        "call_id": "demo-read-19",
-        "event": "tool_start",
-        "platform": "hermes",
-        "preview": "sample/docs/chapter-20.md",
-        "session_id": "demo-hermes",
-        "synthetic": true,
-        "tool_name": "Read",
-        "ts": 1791374287.0
-      },
-      {
-        "call_id": "demo-read-19",
-        "event": "tool_end",
-        "platform": "hermes",
-        "session_id": "demo-hermes",
-        "status": "ok",
-        "synthetic": true,
-        "tool_name": "Read",
-        "ts": 1791374288.0
-      },
-      {
         "activity": "reading",
         "call_id": "demo-read-20",
         "event": "tool_start",
@@ -1852,6 +1904,34 @@
         "usage_id": "demo-plan-request"
       },
       {
+        "event": "tasks_update",
+        "platform": "opencode",
+        "session_id": "demo-opencode",
+        "synthetic": true,
+        "task_source": "opencode.todo.updated",
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Review the welcome screen",
+            "id": "row-1",
+            "priority": "high",
+            "status": "completed"
+          },
+          {
+            "content": "Demo \u00b7 Build the shared controls",
+            "id": "row-2",
+            "priority": "high",
+            "status": "in_progress"
+          },
+          {
+            "content": "Demo \u00b7 Check the mobile layout",
+            "id": "row-3",
+            "priority": "medium",
+            "status": "pending"
+          }
+        ],
+        "ts": 1791374360.0
+      },
+      {
         "event": "usage",
         "model": "Demo model \u00b7 reviewer",
         "output_tokens": 1100,
@@ -1870,6 +1950,22 @@
         "session_id": "demo-opencode",
         "synthetic": true,
         "ts": 1791374368.0
+      },
+      {
+        "event": "tasks_update",
+        "platform": "opencode",
+        "session_id": "demo-review",
+        "synthetic": true,
+        "task_source": "opencode.todo.updated",
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Check keyboard access",
+            "id": "row-1",
+            "priority": "high",
+            "status": "completed"
+          }
+        ],
+        "ts": 1791374370.0
       },
       {
         "activity": "writing",
@@ -1899,6 +1995,26 @@
         "session_id": "demo-codex",
         "synthetic": true,
         "ts": 1791374380.0
+      },
+      {
+        "event": "tasks_update",
+        "platform": "codex",
+        "session_id": "demo-codex",
+        "synthetic": true,
+        "task_source": "codex.exec.todo_list",
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Read the test failures",
+            "id": "row-1",
+            "status": "completed"
+          },
+          {
+            "content": "Demo \u00b7 Run the revised checks",
+            "id": "row-2",
+            "status": "pending"
+          }
+        ],
+        "ts": 1791374382.0
       },
       {
         "command": "Demo request: run the sample test suite?",
@@ -2446,14 +2562,98 @@
       "xp": 457
     },
     "synthetic": true,
+    "tasks": [
+      {
+        "age_s": 18,
+        "historical": false,
+        "observed_at": 1791374382.0,
+        "runtime": "codex",
+        "session_id": "demo-codex",
+        "session_status": "thinking",
+        "source": "codex.exec.todo_list",
+        "source_updated_at": null,
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Read the test failures",
+            "id": "row-1",
+            "status": "completed"
+          },
+          {
+            "content": "Demo \u00b7 Run the revised checks",
+            "id": "row-2",
+            "status": "pending"
+          }
+        ]
+      },
+      {
+        "age_s": 30,
+        "historical": true,
+        "observed_at": 1791374370.0,
+        "runtime": "opencode",
+        "session_id": "demo-review",
+        "session_status": "done",
+        "source": "opencode.todo.updated",
+        "source_updated_at": null,
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Check keyboard access",
+            "id": "row-1",
+            "priority": "high",
+            "status": "completed"
+          }
+        ]
+      },
+      {
+        "age_s": 40,
+        "historical": false,
+        "observed_at": 1791374360.0,
+        "runtime": "opencode",
+        "session_id": "demo-opencode",
+        "session_status": "working",
+        "source": "opencode.todo.updated",
+        "source_updated_at": null,
+        "tasks": [
+          {
+            "content": "Demo \u00b7 Review the welcome screen",
+            "id": "row-1",
+            "priority": "high",
+            "status": "completed"
+          },
+          {
+            "content": "Demo \u00b7 Build the shared controls",
+            "id": "row-2",
+            "priority": "high",
+            "status": "in_progress"
+          },
+          {
+            "content": "Demo \u00b7 Check the mobile layout",
+            "id": "row-3",
+            "priority": "medium",
+            "status": "pending"
+          }
+        ]
+      }
+    ],
     "tracking": {
       "backlog": 0,
+      "backlog_bytes": 0,
+      "cleanup_pending": 0,
+      "cleanup_pending_bytes": 0,
+      "inbox_bytes": 0,
+      "inbox_files": 0,
       "invalid_records": 0,
       "legacy_log": false,
-      "received": 91,
-      "retained": 91,
-      "retained_bytes": 15920,
-      "storage": "browser-demo"
+      "legacy_log_bytes": 0,
+      "measurement_errors": [],
+      "received": 94,
+      "retained": 94,
+      "retained_bytes": 16937,
+      "retention_suspended": false,
+      "retrying_files": 0,
+      "storage": "browser-demo",
+      "temporary_bytes": 0,
+      "temporary_files": 0,
+      "usage_units": 3
     },
     "ts": 1791374400.0,
     "usage": {
