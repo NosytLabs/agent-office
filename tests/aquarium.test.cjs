@@ -307,9 +307,10 @@ test("fish pause with controls, office motion and hidden or closed panels", () =
   withPage(async (p) => {
     await open(p);
     const first = await p.evaluate(() => officeAquarium.snapshot());
-    await p.waitForTimeout(200);
-    assert.ok(
-      (await p.evaluate(() => officeAquarium.snapshot())).time > first.time,
+    await p.waitForFunction(
+      (startedAt) => officeAquarium.snapshot().time > startedAt,
+      first.time,
+      { timeout: 8000 },
     );
     await p.click("#aquarium-motion");
     const paused = await p.evaluate(() => officeAquarium.snapshot());

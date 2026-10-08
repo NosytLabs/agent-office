@@ -102,10 +102,13 @@ _DEFAULTS = {
     "max_chars": 4,
     "ambience": "auto",
     "show_labels": True,
+    "show_pets": True,
+    "pets_roam": True,
     "decorations": True,
     "furniture": [],
     "room_name": "",
     "agent_names": {},
+    "agent_preferences": {},
     "history_limit": 1000,
     "history_days": 7,
     "history_max_bytes": 5 * 1024 * 1024,
@@ -114,6 +117,38 @@ _DEFAULTS = {
     "aquarium_name": "",
     "aquarium_species": ["ember"],
 }
+
+
+def _valid_agent_preference_id(agent_id: Any) -> bool:
+    return (isinstance(agent_id, str) and bool(agent_id.strip()) and len(agent_id) <= 512
+            and not any(ord(c) < 32 or 127 <= ord(c) <= 159 or 0xD800 <= ord(c) <= 0xDFFF for c in agent_id))
+
+
+def _valid_agent_preferences(value: Any) -> Optional[Dict[str, Any]]:
+    """Validate the whole replacement map; never truncate canonical identities."""
+    if not isinstance(value, dict) or len(value) > 128:
+        return None
+    appearances = {"default", "char0", "char1", "char2", "char3", "char4", "char5", "studio-assistant"}
+    out = {}
+    for agent_id, preference in value.items():
+        if (not _valid_agent_preference_id(agent_id)
+                or not isinstance(preference, dict) or not set(preference) <= {"seat", "appearance"}):
+            return None
+        clean = {}
+        if "seat" in preference and preference["seat"] is not None:
+            seat = preference["seat"]
+            if type(seat) not in (int, float) or not 0 <= seat < 128 or int(seat) != seat:
+                return None
+            clean["seat"] = int(seat)
+        if "appearance" in preference:
+            appearance = preference["appearance"]
+            if not isinstance(appearance, str) or appearance not in appearances:
+                return None
+            if appearance != "default":
+                clean["appearance"] = appearance
+        if clean:
+            out[agent_id] = clean
+    return out
 
 
 def _valid_settings(data: Any) -> Dict[str, Any]:
@@ -129,16 +164,19 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         if key in choices:
             if isinstance(value, str) and value in choices[key]:
                 out[key] = value
-        elif key in ("sound", "show_labels", "decorations") and isinstance(value, bool):
+        elif key in ("sound", "show_labels", "show_pets", "pets_roam", "decorations") and isinstance(value, bool):
             out[key] = value
         elif key == "max_chars" and type(value) is int and 2 <= value <= 8:
             out[key] = value
         elif key in ("room_name", "aquarium_name") and isinstance(value, str):
             out[key] = " ".join(value.split())[:48]
-        elif key == "agent_names" and isinstance(value, dict):
-            out[key] = {str(k)[:200]: " ".join(v.split())[:48]
-                        for k, v in list(value.items())[:128]
-                        if isinstance(k, str) and k and isinstance(v, str) and v.strip()}
+        elif (key == "agent_names" and isinstance(value, dict) and len(value) <= 128
+              and all(_valid_agent_preference_id(k) and isinstance(v, str) for k, v in value.items())):
+            out[key] = {k: " ".join(v.split())[:48] for k, v in value.items() if v.strip()}
+        elif key == "agent_preferences":
+            preferences = _valid_agent_preferences(value)
+            if preferences is not None:
+                out[key] = preferences
         elif key == "history_limit" and type(value) is int and value in (250, 1000, 5000):
             out[key] = value
         elif key == "history_days" and type(value) is int and value in (1, 7, 30):
