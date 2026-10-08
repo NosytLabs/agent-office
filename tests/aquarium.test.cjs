@@ -66,6 +66,7 @@ after(async () => {
   if (home) fs.rmSync(home, { recursive: true, force: true });
 });
 async function withPage(run, options = {}) {
+  const { beforeReady, initialSettings, ...pageOptions } = options;
   const browser = await chromium.launch({
     headless: true,
     executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -74,12 +75,36 @@ async function withPage(run, options = {}) {
   try {
     const p = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
-      ...options,
+      ...pageOptions,
     });
+    if (initialSettings)
+      await p.request.post(baseURL + "/settings", { data: initialSettings });
     p.setDefaultTimeout(8000);
     const errors = [];
     p.on("pageerror", (error) => errors.push(error.stack || error.message));
+    let releaseInitialState;
+    if (beforeReady) {
+      const held = new Promise((resolve) => {
+        releaseInitialState = resolve;
+      });
+      await p.route("**/state", async (route) => {
+        await held;
+        await route.continue().catch(() => {});
+      });
+    }
     await p.goto(baseURL);
+    if (beforeReady) {
+      try {
+        await p.waitForFunction(
+          () =>
+            typeof openAquarium === "function" &&
+            officeScene.loadedAssets >= 19,
+        );
+        await beforeReady(p);
+      } finally {
+        releaseInitialState();
+      }
+    }
     await p.waitForFunction(() => initialized);
     await run(p);
     assert.deepEqual(errors, []);
@@ -491,3 +516,69 @@ test(
       await capture(p, "local-fish-pack");
     }),
 );
+
+test("aquarium room and canvas actions wait for saved settings before exposing editable names", () => {
+  let posts = 0;
+  return withPage(
+    async (p) => {
+      await p.click("#settingsbtn");
+      await p.locator('[data-activity="Aquarium"]').click();
+      assert.equal(await p.inputValue("#aquarium-name-input"), "Saved Lagoon");
+      await p.click("#aquarium-name-save");
+      await p.waitForFunction(() => pendingSaves === 0);
+      assert.equal(
+        (await (await p.request.get(baseURL + "/settings")).json())
+          .aquarium_name,
+        "Saved Lagoon",
+      );
+      assert.equal(posts, 1);
+    },
+    {
+      initialSettings: { aquarium_name: "Saved Lagoon", decorations: true },
+      beforeReady: async (p) => {
+        p.on("request", (request) => {
+          if (
+            request.url().endsWith("/settings") &&
+            request.method() === "POST"
+          )
+            posts++;
+        });
+        await p.click("#settingsbtn");
+        await p.locator('[data-activity="Aquarium"]').click();
+        assert.equal(
+          await p.isVisible("#sheet-aquarium"),
+          false,
+          "room action cannot expose placeholder name",
+        );
+        assert.equal(await p.evaluate(() => opened), "sheet-settings");
+        assert.match(await p.textContent("#toast"), /loading.*settings/i);
+        await p.locator("#sheet-settings .close").click();
+        while (await p.locator(".toast-dismiss").count())
+          await p.locator(".toast-dismiss").first().click();
+        // The earned tank is absent until progress loads. Exercise its actual
+        // scene callback to ensure it shares the same protected entry point.
+        await p.evaluate(() => officeScene.onProp("FISH_TANK"));
+        assert.equal(
+          await p.isVisible("#sheet-aquarium"),
+          false,
+          "the canvas interaction callback also waits",
+        );
+        assert.match(await p.textContent("#toast"), /loading.*settings/i);
+        assert.equal(posts, 0);
+        assert.equal(
+          (await (await p.request.get(baseURL + "/settings")).json())
+            .aquarium_name,
+          "Saved Lagoon",
+        );
+        assert.equal(
+          await p.evaluate(() => {
+            officeViewState.write({ version: 1, panel: "sheet-aquarium" });
+            return officeViewState.read().panel;
+          }),
+          null,
+          "editable aquarium is not an automatically restored panel",
+        );
+      },
+    },
+  );
+});

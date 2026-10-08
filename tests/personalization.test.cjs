@@ -35,6 +35,193 @@ function sceneWith(agents, preferences = {}, extra = {}) {
 const slots = (room) =>
   Object.fromEntries(room.seats.map((seat) => [seat.a.id, seat.slot]));
 
+test("moving an automatic agent keeps every peer's established desk and reset restores its home", () => {
+  const all = ["hermes", "claude", "opencode", "codex", "child"].map((id) =>
+    agent(id),
+  );
+  const scene = sceneWith(all);
+  assert.deepEqual(slots(scene.layout(1100)), {
+    hermes: 0,
+    claude: 1,
+    opencode: 2,
+    codex: 3,
+    child: 4,
+  });
+  const moved = scene.agentPreferencePatch("hermes", {
+    seat: 5,
+    appearance: "studio-assistant",
+  });
+  assert.equal(moved.ok, true);
+  Object.assign(scene.settings, moved.patch);
+  assert.deepEqual(slots(scene.layout(1100)), {
+    claude: 1,
+    opencode: 2,
+    codex: 3,
+    child: 4,
+    hermes: 5,
+  });
+  assert.equal(scene.seatOptions().find((s) => s.slot === 0).agentId, null);
+  Object.assign(
+    scene.settings,
+    scene.agentPreferencePatch("hermes", { seat: null }).patch,
+  );
+  assert.deepEqual(slots(scene.layout(1100)), {
+    hermes: 0,
+    claude: 1,
+    opencode: 2,
+    codex: 3,
+    child: 4,
+  });
+});
+
+test("automatic desks survive snapshot reordering, new arrivals, departures and filtering", () => {
+  const [alpha, beta, gamma, newcomer] = ["alpha", "beta", "gamma", "new"].map(
+    (id) => agent(id),
+  );
+  beta.platform = "codex";
+  const scene = sceneWith([alpha, beta, gamma]);
+  scene.layout(1100);
+  scene.update(
+    [newcomer, gamma, beta, alpha],
+    scene.settings,
+    null,
+    null,
+    "every",
+  );
+  assert.deepEqual(slots(scene.layout(1100)), {
+    alpha: 0,
+    beta: 1,
+    gamma: 2,
+    new: 3,
+  });
+  scene.update([newcomer, gamma, alpha], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { alpha: 0, gamma: 2, new: 3 });
+  assert.equal(scene.seatOptions().find((s) => s.slot === 1).agentId, null);
+  scene.update(
+    [newcomer, gamma, alpha, beta],
+    scene.settings,
+    null,
+    null,
+    "claude",
+  );
+  assert.deepEqual(slots(scene.layout(390)), { alpha: 0, gamma: 2, new: 3 });
+  assert.equal(scene.seatOptions().find((s) => s.slot === 1).agentId, "beta");
+  assert.equal(
+    scene.agentPreferencePatch("alpha", { seat: 1 }).code,
+    "occupied",
+  );
+  scene.filter = "every";
+  assert.deepEqual(slots(scene.layout(1100)), {
+    alpha: 0,
+    beta: 1,
+    gamma: 2,
+    new: 3,
+  });
+});
+
+test("an optimistic explicit move cannot replace the automatic home needed by failed-save rollback", () => {
+  const scene = sceneWith([agent("alpha"), agent("beta"), agent("gamma")]);
+  const before = slots(scene.layout(1100));
+  const confirmed = scene.settings.agent_preferences;
+  Object.assign(
+    scene.settings,
+    scene.agentPreferencePatch("alpha", { seat: 5 }).patch,
+  );
+  assert.deepEqual(slots(scene.layout(1100)), { beta: 1, gamma: 2, alpha: 5 });
+  scene.settings.agent_preferences = confirmed;
+  assert.deepEqual(slots(scene.layout(1100)), before);
+});
+
+test("returning to automatic never evicts a peer that acquired the vacated home", () => {
+  const alpha = agent("alpha"),
+    beta = agent("beta"),
+    newcomer = agent("new");
+  const scene = sceneWith([alpha, beta]);
+  scene.layout(1100);
+  Object.assign(
+    scene.settings,
+    scene.agentPreferencePatch("alpha", { seat: 5 }).patch,
+  );
+  scene.layout(1100);
+  scene.update([alpha, beta, newcomer], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { new: 0, beta: 1, alpha: 5 });
+  Object.assign(
+    scene.settings,
+    scene.agentPreferencePatch("alpha", { seat: null }).patch,
+  );
+  assert.deepEqual(slots(scene.layout(1100)), { new: 0, beta: 1, alpha: 2 });
+});
+
+test("departed IDs release their automatic history before a later session return", () => {
+  const [alpha, beta, newcomer] = ["alpha", "beta", "new"].map((id) =>
+    agent(id),
+  );
+  const scene = sceneWith([alpha, beta]);
+  scene.layout(1100);
+  scene.update([beta], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { beta: 1 });
+  scene.update([newcomer, beta], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { new: 0, beta: 1 });
+  scene.update([alpha, newcomer, beta], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { new: 0, beta: 1, alpha: 2 });
+});
+
+test("fresh views restore explicit preferences but bootstrap automatic homes independently", () => {
+  const all = [agent("alpha"), agent("beta"), agent("gamma")];
+  const current = sceneWith(all);
+  current.layout(1100);
+  Object.assign(
+    current.settings,
+    current.agentPreferencePatch("alpha", { seat: 5 }).patch,
+  );
+  assert.deepEqual(slots(current.layout(1100)), {
+    beta: 1,
+    gamma: 2,
+    alpha: 5,
+  });
+  const reloaded = sceneWith(all, current.settings.agent_preferences);
+  assert.deepEqual(slots(reloaded.layout(1100)), {
+    beta: 0,
+    gamma: 1,
+    alpha: 5,
+  });
+});
+
+test("live imported conflicts remain deterministic and rejected occupied requests leave homes intact", () => {
+  const all = [agent("zeta"), agent("alpha"), agent("other")];
+  const scene = sceneWith(all);
+  scene.settings.agent_preferences = { zeta: { seat: 4 }, alpha: { seat: 4 } };
+  assert.deepEqual(slots(scene.layout(1100)), { zeta: 0, other: 2, alpha: 4 });
+  const before = slots(scene.layout(1100));
+  assert.equal(
+    scene.agentPreferencePatch("zeta", { seat: 2 }).code,
+    "occupied",
+  );
+  assert.deepEqual(slots(scene.layout(1100)), before);
+  scene.update([...all].reverse(), scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), before);
+  scene.settings.agent_preferences = {};
+  assert.deepEqual(slots(scene.layout(1100)), { zeta: 0, alpha: 1, other: 2 });
+});
+
+test("stable slot ownership uses current observed actor data and releases an empty office", () => {
+  const scene = sceneWith([agent("alpha"), agent("beta")]);
+  scene.update(
+    [{ ...agent("beta"), status: "waiting", label: "New question" }],
+    scene.settings,
+    null,
+    null,
+    "every",
+  );
+  const room = scene.layout(1100);
+  assert.deepEqual(slots(room), { beta: 1 });
+  assert.equal(room.seats[0].a.status, "waiting");
+  assert.equal(room.seats[0].a.label, "New question");
+  scene.update([], scene.settings, null, null, "every");
+  scene.update([agent("new")], scene.settings, null, null, "every");
+  assert.deepEqual(slots(scene.layout(1100)), { new: 0 });
+});
+
 test("long canonical name keys stay distinct and match individual preferences", () => {
   const first = "a".repeat(200) + "one",
     second = "a".repeat(200) + "two";
@@ -415,7 +602,7 @@ test("prototype-like canonical IDs can be personalized without overwriting other
     {},
   );
   assert.deepEqual(slots(scene.layout(1100)), {
-    constructor: 0,
+    constructor: 1,
     ["__proto__"]: 3,
   });
   assert.equal({}.seat, undefined);

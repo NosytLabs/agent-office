@@ -158,7 +158,12 @@ async function withPage(run, options = {}) {
     });
     const p = await context.newPage();
     await p.request.post(baseURL + "/settings", {
-      data: { agent_preferences: {}, show_pets: true, pets_roam: true },
+      data: {
+        agent_preferences: {},
+        show_pets: true,
+        pets_roam: true,
+        ...options.initialSettings,
+      },
     });
     p.setDefaultTimeout(10000);
     const errors = [];
@@ -176,7 +181,34 @@ async function withPage(run, options = {}) {
           throw new DOMException("Unavailable", "SecurityError");
         };
       });
+    let releaseInitialState;
+    if (options.beforeReady) {
+      const held = new Promise((resolve) => {
+        releaseInitialState = resolve;
+      });
+      let attempts = 0;
+      await p.route("**/state", async (route) => {
+        if (options.failFirstState && attempts++ === 0) {
+          await route.fulfill({ status: 503, body: "Unavailable" });
+          return;
+        }
+        await held;
+        await route.continue().catch(() => {});
+      });
+    }
     await p.goto(baseURL);
+    if (options.beforeReady) {
+      try {
+        await p.waitForFunction(
+          () =>
+            typeof startFurniture === "function" &&
+            officeScene.loadedAssets >= 19,
+        );
+        await options.beforeReady(p);
+      } finally {
+        releaseInitialState();
+      }
+    }
     await p.waitForFunction(
       () => initialized && officeScene.loadedAssets >= 19,
     );
@@ -1000,6 +1032,239 @@ test("inactive-choice summary follows departing sessions while Customize stays o
       false,
     );
   }));
+
+test("initial loading blocks furniture actions and imports without replacing saved furniture", () => {
+  const saved = [{ kind: "monstera", x: 0.2, y: 0.8 }];
+  let posts = 0,
+    downloads = 0;
+  return withPage(
+    async (p) => {
+      assert.deepEqual(
+        (await (await p.request.get(baseURL + "/settings")).json()).furniture,
+        saved,
+      );
+      await p.click("#settingsbtn");
+      assert.equal(await p.locator('[data-kind="stool"]').isDisabled(), false);
+      await p.locator('[data-kind="stool"]').click();
+      await p.waitForTimeout(160);
+      const point = await p.evaluate(() => {
+        const s = officeScene,
+          r = s.canvas.getBoundingClientRect();
+        for (let y = 30; y < s.grid.h - 10; y += 4)
+          for (let x = 15; x < s.grid.w - 15; x += 4) {
+            if (
+              [-4, 0, 4].every((dx) =>
+                [-4, 0, 4].every(
+                  (dy) => s.placement({ x: x + dx, y: y + dy })?.valid,
+                ),
+              )
+            )
+              return {
+                x: r.x + s.transform.ox + x * s.transform.scale,
+                y: r.y + s.transform.oy + y * s.transform.scale,
+              };
+          }
+        return null;
+      });
+      assert.ok(point);
+      await p.mouse.click(point.x, point.y);
+      await p.waitForFunction(() => pendingSaves === 0);
+      assert.equal(posts, 1);
+      const after = (await (await p.request.get(baseURL + "/settings")).json())
+        .furniture;
+      assert.equal(after.length, 2);
+      assert.deepEqual(after[0], saved[0]);
+      assert.equal(after[1].kind, "stool");
+    },
+    {
+      initialSettings: { furniture: saved },
+      beforeReady: async (p) => {
+        p.on("request", (request) => {
+          if (
+            request.url().endsWith("/settings") &&
+            request.method() === "POST"
+          )
+            posts++;
+        });
+        p.on("download", () => downloads++);
+        await p.click("#settingsbtn");
+        for (const id of [
+          '[data-kind="arcade"]',
+          '[data-kind="focusbooth"]',
+          '[data-kind="filingcabinet"]',
+          '[data-kind="stool"]',
+          "#edit-furniture",
+          "#clear-furniture",
+          "#import-settings",
+          "#export-settings",
+        ])
+          assert.equal(
+            await p.locator(id).isDisabled(),
+            true,
+            id + " waits for saved settings",
+          );
+        assert.match(
+          await p.locator('[data-kind="focusbooth"]').textContent(),
+          /loading/i,
+        );
+        await p.locator('[data-kind="stool"]').click({ force: true });
+        await p.locator("#edit-furniture").click({ force: true });
+        await p.locator("#clear-furniture").click({ force: true });
+        await p.locator("#export-settings").click({ force: true });
+        await p.evaluate(() =>
+          document.querySelector("#export-settings").onclick(),
+        );
+        assert.equal(await p.evaluate(() => officeScene.edit), null);
+        // File selection dispatches change even if its control is disabled: the handler also needs a guard.
+        await p.locator("#import-settings").setInputFiles({
+          name: "early-layout.json",
+          mimeType: "application/json",
+          buffer: Buffer.from(
+            JSON.stringify({
+              version: 1,
+              settings: { furniture: [{ kind: "sofa", x: 0.5, y: 0.5 }] },
+            }),
+          ),
+        });
+        await closeAll(p);
+        const c = await p.locator("#c").boundingBox();
+        await p.mouse.click(c.x + c.width / 2, c.y + c.height / 2);
+        assert.equal(posts, 0);
+        assert.equal(downloads, 0);
+        assert.equal(await p.evaluate(() => pendingSaves), 0);
+        assert.equal(await p.evaluate(() => furnitureHistory.length), 0);
+        assert.deepEqual(
+          (await (await p.request.get(baseURL + "/settings")).json()).furniture,
+          saved,
+        );
+      },
+    },
+  );
+});
+
+test("pre-ready pet-name save preserves both stored names and its retry keeps the untouched name", () => {
+  const names = { cat1: "Saved orange", cat2: "Saved black" };
+  let posts = 0;
+  return withPage(
+    async (p) => {
+      assert.equal(await p.inputValue("#pet-cat1-name"), "Draft orange");
+      assert.equal(await p.inputValue("#pet-cat2-name"), "Saved black");
+      await p.locator('#pet-name-form button[type="submit"]').click();
+      await p.waitForFunction(() => pendingSaves === 0);
+      assert.equal(posts, 1);
+      assert.deepEqual(
+        (await (await p.request.get(baseURL + "/settings")).json()).pet_names,
+        { cat1: "Draft orange", cat2: "Saved black" },
+      );
+    },
+    {
+      initialSettings: { pet_names: names },
+      beforeReady: async (p) => {
+        p.on("request", (request) => {
+          if (
+            request.url().endsWith("/settings") &&
+            request.method() === "POST"
+          )
+            posts++;
+        });
+        await p.click("#settingsbtn");
+        assert.equal(await p.locator("#pet-cat1-name").isDisabled(), true);
+        assert.equal(
+          await p.locator('#pet-name-form button[type="submit"]').isDisabled(),
+          true,
+        );
+        await p
+          .locator('#pet-name-form button[type="submit"]')
+          .click({ force: true });
+        // An integration can still dispatch a form submission; the central writer must reject it before any optimism or queue mutation.
+        await p.locator("#pet-cat1-name").evaluate((input) => {
+          input.value = "Draft orange";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.form.requestSubmit();
+        });
+        assert.equal(posts, 0);
+        assert.equal(await p.evaluate(() => pendingSaves), 0);
+        assert.equal(await p.evaluate(() => settingsRevision), 0);
+        assert.equal(await p.evaluate(() => queuedSettings.length), 0);
+        assert.match(
+          await p.textContent("#toast"),
+          /loading.*settings|settings.*load/i,
+        );
+        assert.deepEqual(
+          (await (await p.request.get(baseURL + "/settings")).json()).pet_names,
+          names,
+        );
+      },
+    },
+  );
+});
+
+test("first hydration fills a focused untouched pet-name field before a full-map save", () =>
+  withPage(
+    async (p) => {
+      assert.equal(await p.inputValue("#pet-cat2-name"), "Saved black");
+      await p.locator('#pet-name-form button[type="submit"]').click();
+      await p.waitForFunction(() => pendingSaves === 0);
+      assert.deepEqual(
+        (await (await p.request.get(baseURL + "/settings")).json()).pet_names,
+        { cat1: "Saved orange", cat2: "Saved black" },
+      );
+    },
+    {
+      initialSettings: {
+        pet_names: { cat1: "Saved orange", cat2: "Saved black" },
+      },
+      beforeReady: async (p) => {
+        await p.click("#settingsbtn");
+        assert.equal(await p.locator("#pet-cat2-name").isDisabled(), true);
+        await p.locator("#pet-cat2-name").focus();
+        assert.notEqual(
+          await p.evaluate(() => document.activeElement.id),
+          "pet-cat2-name",
+        );
+        assert.equal(await p.inputValue("#pet-cat2-name"), "");
+      },
+    },
+  ));
+
+test("failed initial state keeps editing blocked until a successful retry", () =>
+  withPage(
+    async (p) => {
+      assert.equal(await p.evaluate(() => settingsReady), true);
+      assert.equal(await p.locator("#pet-cat1-name").isDisabled(), false);
+      assert.equal(await p.locator('[data-kind="stool"]').isDisabled(), false);
+      assert.equal(
+        await p.locator('[data-kind="focusbooth"]').isDisabled(),
+        true,
+        "readiness does not override reward gates",
+      );
+      assert.equal(
+        await p.locator("#settings-loading-status").isVisible(),
+        false,
+      );
+    },
+    {
+      failFirstState: true,
+      beforeReady: async (p) => {
+        await p.waitForFunction(() =>
+          document.body.classList.contains("offline"),
+        );
+        await p.click("#settingsbtn");
+        assert.equal(await p.evaluate(() => settingsReady), false);
+        assert.equal(await p.locator("#pet-cat1-name").isDisabled(), true);
+        assert.equal(await p.locator('[data-kind="stool"]').isDisabled(), true);
+        assert.equal(
+          await p.locator("#settings-loading-status").isVisible(),
+          true,
+        );
+        await closeAll(p);
+        assert.equal(await p.evaluate(() => opened), null);
+        await p.click("#helpbtn");
+        await closeAll(p);
+        await p.click("#settingsbtn");
+      },
+    },
+  ));
 
 for (const viewport of [
   { width: 1440, height: 1000 },

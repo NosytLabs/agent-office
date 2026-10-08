@@ -498,7 +498,12 @@ function agentPreference(id, settings = {}) {
     return {};
   return normalizeAgentPreference(preferences[id]) || {};
 }
-function resolveAgentSeats(agents, settings = {}) {
+function resolveAgentSeats(
+  agents,
+  settings = {},
+  automaticHomes = new Map(),
+  automaticIds = new Set(),
+) {
   const assigned = new Map(),
     occupied = new Set();
   // Imported or concurrently saved conflicts have one deterministic winner.
@@ -511,6 +516,21 @@ function resolveAgentSeats(agents, settings = {}) {
     );
   for (const { a, slot } of preferred) {
     if (occupied.has(slot)) continue;
+    assigned.set(a.id, slot);
+    occupied.add(slot);
+  }
+  // Automatic incumbents keep their desks before returning actors reclaim a
+  // remembered home. Explicit choices win imported conflicts, as above.
+  const remembered = agents
+    .filter((a) => !assigned.has(a.id) && automaticHomes.has(a.id))
+    .sort((one, two) => {
+      const priority =
+        Number(automaticIds.has(two.id)) - Number(automaticIds.has(one.id));
+      return priority || (one.id < two.id ? -1 : one.id > two.id ? 1 : 0);
+    });
+  for (const a of remembered) {
+    const slot = automaticHomes.get(a.id);
+    if (!Number.isSafeInteger(slot) || slot < 0 || occupied.has(slot)) continue;
     assigned.set(a.id, slot);
     occupied.add(slot);
   }
