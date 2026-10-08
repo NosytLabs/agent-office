@@ -53,8 +53,9 @@ also covers settings failure/retry, queued writes, two-tab demo reset/history
 behavior, grouped unlock notices, quiet-agent inspection, and 320-pixel layouts.
 The four screenshots above come from the integrated public-fixture run.
 
-The [hosted preview](../preview.md#hosted-review) also built successfully under
-Node **22.23.2** and passed the recorded deployed UI checks on 8 October 2026.
+The [hosted demo](../preview.md#hosted-review) also built successfully under
+Node **22.23.2** and passed the recorded deployed UI checks on 8 October 2026,
+including the merged build at the existing public production address.
 This confirms the static build on Node 22; it does not substitute for running
 the complete test suite on that version.
 

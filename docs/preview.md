@@ -8,14 +8,16 @@ or real charges.
 
 ## Hosted review
 
-[Open the verified Vercel preview](https://agent-office-preview-pb9y8gmfo-nosyt.vercel.app/).
-The deployment was built from [commit `59fc545`](https://github.com/NosytLabs/agent-office/commit/59fc545be78629bb6008e717de5fabe576c82462)
-with Node **22.23.2**, producing **52 public files**. Vercel's existing deployment
-protection remains enabled; access may require your Vercel account or a temporary
-share link from the project owner.
+[Open the live demo](https://agent-office-preview-seven.vercel.app/).
+The existing production address serves the public, synthetic office. The merged
+UI was verified from [commit `1b9884c`](https://github.com/NosytLabs/agent-office/commit/1b9884c637c719ef7e48b00bffe524dfca5050c9),
+which Vercel built with Node **22.23.2**, producing **52 public files**. Generated
+branch-preview URLs retain the project's existing deployment protection; the
+public production address above needs no temporary share link.
 
 The deployed UI was checked on 8 October 2026: agent and partial-usage panels,
-room settings, loaded aquarium art and feeding, and jukebox play/stop. The
+room settings, loaded aquarium art and feeding, and jukebox play/stop. Usage
+labels and feeding were checked again on the merged production build. The
 completed sample subagent left the floor after its normal display window. No
 application-origin warnings or errors appeared in the browser's captured log;
 separate browser-extension metadata errors were excluded.

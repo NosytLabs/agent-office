@@ -2,7 +2,7 @@
 
 A local pixel office for watching your coding agents work. See current tools, find sessions waiting for input, inspect subagents, and track the usage your runtimes report.
 
-**Version 0.5.0** · [Demo and preview](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
+**Version 0.5.0** · [Live demo](https://agent-office-preview-seven.vercel.app/) · [Preview guide](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
 
 ![Agent Office with synthetic runtime activity](docs/screenshots/office.png)
 
