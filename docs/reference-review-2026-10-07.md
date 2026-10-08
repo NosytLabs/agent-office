@@ -67,7 +67,7 @@ An optional interactive usage fallback can follow the narrow approach in [AgentS
 | Source | Token total | Cost treatment |
 | --- | --- | --- |
 | OpenCode normalized message | Input + output + reasoning + cache read + cache write; retain an explicit source total when available | Runtime estimate; zero may reflect missing pricing |
-| Hermes canonical API usage | Input + cache read + cache write + output; reasoning is already represented within output | Unavailable unless a separately identified cost source supplies it |
+| Hermes canonical API usage | Canonical `prompt_tokens` + `output_tokens`; cache and reasoning counters are reported subsets, not additions | Unavailable unless a separately identified cost source supplies it |
 | Codex structured usage | Input + output; cached input and reasoning output are subtotals | Unavailable from the documented usage event |
 
 Usage records should retain source identity, aggregation scope (message, API attempt, turn, or cumulative session), model/provider, observation time, and completeness. Unknown values must remain distinguishable from numeric zero. Session-wide cumulative snapshots must replace their predecessor rather than be added repeatedly. Preserve corrections and replay behavior in the same durable transaction as the event receipt.
@@ -287,9 +287,13 @@ An evicted capture or board loses that replay protection. Unseen records from
 different captures still follow receipt order: their schemas supply no shared
 source clock, so the observer does not assert a globally ordered task history.
 OpenCode's source schema likewise supplies no source update clock.
-Current-context gauges and additional Gemini CLI, Aider,
-Cursor, and Copilot CLI adapters remain future work. No new upstream repository
-was forked or rebundled during this implementation.
+The follow-up adds a source-verified Gemini CLI lifecycle adapter, including
+real CLI 0.63.0 tests against a synthetic loopback provider. Its hooks do not
+supply the stable identities required for tool, subagent, or usage accounting;
+those metrics remain unavailable. See [runtime coverage](runtime-observers.md).
+Current-context gauges and Aider, Cursor, and Copilot CLI adapters remain
+future work. No upstream application source or artwork was rebundled for the
+task-board or Gemini additions.
 
 ## Repository inventory
 
