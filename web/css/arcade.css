@@ -110,10 +110,38 @@
 #sheet-arcade[data-game="picker"] .arcade-controls,
 #sheet-arcade:not([data-game="picker"]) .arcade-picker,
 #sheet-arcade:not([data-game="picker"]) .arcade-intro,
-#sheet-arcade:not([data-game="breakout"]) #arcade-breakout-stage,
+#sheet-arcade:not([data-game="breakout"]):not([data-game="snake"])
+  #arcade-breakout-stage,
 #sheet-arcade:not([data-game="duck-hunt"]) #arcade-duck-stage,
-#sheet-arcade:not([data-game="breakout"]) .arcade-hud {
+#sheet-arcade:not([data-game="breakout"]):not([data-game="snake"]) .arcade-hud,
+#sheet-arcade:not([data-game="snake"]) #arcade-snake-controls {
   display: none;
+}
+#arcade-snake-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(44px, 64px));
+  gap: 6px;
+  justify-content: center;
+  margin: 10px auto;
+}
+#arcade-snake-controls .btn {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+#arcade-snake-controls [data-snake-turn="up"] {
+  grid-column: 2;
+}
+#arcade-snake-controls [data-snake-turn="left"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+#arcade-snake-controls [data-snake-turn="down"] {
+  grid-column: 2;
+  grid-row: 2;
+}
+#arcade-snake-controls [data-snake-turn="right"] {
+  grid-column: 3;
+  grid-row: 2;
 }
 .arcade-controls {
   display: flex;
