@@ -188,6 +188,63 @@ def test_hermes_refreshes_copied_runtime_files_but_keeps_local_configuration(tmp
     assert not any((dest / name).exists() for name in ("node_modules", "reports", ".git", "__pycache__", "test-results", "tests"))
 
 
+@pytest.mark.parametrize("copy_reason", ["existing-copy", "symlinks-unavailable"])
+def test_copied_hermes_plugin_loads_and_observes_without_the_source_checkout(tmp_path, monkeypatch, copy_reason):
+    """A missing transitive runtime module must fail a real isolated install."""
+    import os
+    import subprocess
+    import sys
+
+    home = tmp_path / "hermes"
+    dest = home / "plugins/pixel-office"
+    monkeypatch.setenv("HERMES_HOME", str(home))
+    if copy_reason == "existing-copy":
+        dest.mkdir(parents=True)
+        (dest / "local-config.json").write_text('{"preserve":true}')
+    else:
+        def symlinks_unavailable(*args, **kwargs):
+            raise OSError("symlinks unavailable on this filesystem")
+        monkeypatch.setattr(Path, "symlink_to", symlinks_unavailable)
+
+    run = subprocess.run
+    monkeypatch.setattr(install.subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+    install.enable_hermes()
+    assert not dest.is_symlink()
+    if copy_reason == "existing-copy":
+        assert (dest / "local-config.json").read_text() == '{"preserve":true}'
+
+    # -I excludes the checkout and PYTHONPATH. Import and use the installed
+    # package, settings store, publisher, and SQLite model in a fresh process.
+    probe = '''
+import importlib.util
+import json
+import sys
+import time
+from pathlib import Path
+
+root = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("copied_office", root / "__init__.py",
+                                            submodule_search_locations=[str(root)])
+office = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = office
+spec.loader.exec_module(office)
+settings = office._settings_store().read()
+office._save_settings({"room_name": "Copied studio"}, expected_revision=settings.revision)
+from event_inbox import publish
+publish(office._office_dir(), {"event": "session_start", "session_id": "copied-session",
+                              "platform": "hermes", "ts": time.time()})
+snapshot = office.build_state()
+assert snapshot["settings"]["room_name"] == "Copied studio"
+assert [agent["id"] for agent in snapshot["agents"]] == ["copied-session"]
+print(json.dumps({"room": snapshot["settings"]["room_name"], "agents": len(snapshot["agents"])}))
+'''
+    result = run([sys.executable, "-I", "-c", probe, str(dest)], cwd=tmp_path,
+                 env={**os.environ, "HERMES_HOME": str(home)}, text=True,
+                 capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"room": "Copied studio", "agents": 1}
+
+
 def test_codex_installs_synchronous_observers_preserves_config_and_requires_visible_trust(tmp_path, monkeypatch):
     import shlex
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "custom codex"))

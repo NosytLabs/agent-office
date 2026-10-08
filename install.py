@@ -83,7 +83,7 @@ def detect() -> dict:
 def _refresh_hermes_copy(dest: Path) -> None:
     """Refresh source-owned runtime files, retaining unrelated local settings."""
     dest.mkdir(parents=True, exist_ok=True)
-    for name in ("__init__.py", "event_inbox.py", "event_store.py", "state_model.py",
+    for name in ("__init__.py", "settings_store.py", "event_inbox.py", "event_store.py", "state_model.py",
                  "progress.py", "usage.py", "tasks.py", "plugin.yaml", "LICENSE", "README.md"):
         if (HERE / name).is_file():
             shutil.copy2(HERE / name, dest / name)
