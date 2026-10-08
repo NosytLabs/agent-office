@@ -186,8 +186,10 @@ class StateModel:
                 previous = agents.get(key)
                 if kind == "session_idle" and previous is None:
                     continue
-                if kind == "session_idle" and previous and previous["status"] in ("done", "gone"):
-                    continue  # A repeated terminal callback cannot extend its exit.
+                if previous and previous["status"] in ("done", "gone"):
+                    # Late idle/error callbacks remain in event history, but do
+                    # not reopen a completed session or extend its exit timer.
+                    continue
                 mark_inactive(key, ev)
                 a = ensure(key, ev)
                 previous_error = a["detail"] if a["status"] == "idle" and a["detail"].startswith("⚠ ") else ""
