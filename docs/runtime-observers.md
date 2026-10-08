@@ -4,18 +4,36 @@ Agent Office observes work performed by an existing runtime. The installer adds 
 
 ## Implemented adapters
 
-| Runtime | Lifecycle observation | Usage observation | Setup and limits |
+| Runtime | Lifecycle observation | Usage and task reports | Setup and limits |
 | --- | --- | --- | --- |
-| Hermes | Existing session, tool, approval, and real subagent callbacks; turn busy/idle callbacks when supported | Current `post_api_request`, keyed by `api_request_id` | Run `python3 install.py` with an existing Hermes installation. Optional hook names are checked against that runtime's `VALID_HOOKS`. Older Hermes keeps the established callbacks and may have no usage reporting. |
-| OpenCode | Sessions, busy/idle, real child sessions, tools, permissions, questions, errors | Completed assistant `message.updated` snapshots, keyed by message ID | Installer adds an importable `file:` URL. Existing JSONC configuration is preserved and receives a manual setup instruction. Restart OpenCode after changing the plugin. |
-| Claude Code | Session, prompt, stop/failure, tool, approval, question, and subagent hooks | Not reported by this adapter | Installer merges the observer into `~/.claude/settings.json`, preserving unrelated hooks. No transcript usage scraping is performed. |
-| Codex | Session, prompt, tool, permission, subagent, stop, interrupt hooks | Optional existing `codex exec --json` stream; hooks themselves provide no usage counters | Installer merges `hooks.json` in `CODEX_HOME` or `~/.codex`. Open Codex **`/hooks` to review and trust** the new definitions. The installer never changes trust records or bypasses trust. |
+| Hermes | Existing session, tool, approval, and real subagent callbacks; turn busy/idle callbacks when supported | Current `post_api_request`, keyed by `api_request_id`; no source task-list adapter | Run `python3 install.py` with an existing Hermes installation. Optional hook names are checked against that runtime's `VALID_HOOKS`. Older Hermes keeps the established callbacks and may have no usage reporting. |
+| OpenCode | Sessions, busy/idle, real child sessions, tools, permissions, questions, errors | Completed assistant `message.updated` usage snapshots; complete `todo.updated` task lists | Installer adds an importable `file:` URL. Existing JSONC configuration is preserved and receives a manual setup instruction. Restart OpenCode after changing the plugin. |
+| Claude Code | Session, prompt, stop/failure, tool, approval, question, and subagent hooks | No usage or source task-list adapter | Installer merges the observer into `~/.claude/settings.json`, preserving unrelated hooks. No transcript usage scraping is performed. |
+| Codex | Session, prompt, tool, permission, subagent, stop, interrupt hooks | Optional existing `codex exec --json` stream supplies usage and `todo_list` snapshots; hooks themselves provide neither | Installer merges `hooks.json` in `CODEX_HOME` or `~/.codex`. Open Codex **`/hooks` to review and trust** the new definitions. The installer never changes trust records or bypasses trust. |
 
 All bundled writers publish complete immutable files in `HERMES_HOME/pixel-office/inbox`, or `~/.hermes/pixel-office/inbox` by default. Each publication has a unique receipt, even when two event payloads are identical. Filename order comes from publication time and process-local sequence, not the runtime payload timestamp. Writes use a temporary file and atomic rename. A write failure remains fail-open for the agent runtime. Python and JavaScript writers do not append to the legacy JSONL file.
 
-The server commits observations and their receipts before deleting acknowledged inbox files. Processed history retention is independent of active tools and pending approvals. An offline server necessarily leaves an unprocessed inbox backlog; start the office server to drain it. These guarantees do not imply delivery when a runtime cancels a hook, loses access to the filesystem, or never emits an event.
+The server commits observations and their receipts before deleting acknowledged inbox files. Processed history retention is independent of active tools, pending approvals, and bounded task checkpoints. Unreadable publications remain retryable; a durable same-writer barrier prevents later corrections from overtaking them, while other writers continue to drain. An offline server necessarily leaves an unprocessed inbox backlog. These guarantees do not imply delivery when a runtime cancels a hook, loses access to the filesystem, or never emits an event.
 
-### Codex usage input
+### OpenCode setup
+
+From the checked-out repository, run:
+
+```sh
+python3 install.py
+```
+
+For a detected OpenCode installation, this merges the absolute `file:` URL of `opencode/index.js` into the `plugin` array in `~/.config/opencode/opencode.json`. It also repairs the obsolete directory-path entry used by earlier installs. Keep the checkout at that location or rerun the installer after moving it.
+
+When `opencode.jsonc` exists, the installer preserves it and prints the URL to add manually to its existing `plugin` array. To obtain the correct URL, including path escaping:
+
+```sh
+python3 -c "from pathlib import Path; print(Path('opencode/index.js').resolve().as_uri())"
+```
+
+Restart OpenCode, keep the office server running, and perform work in the existing runtime. The plugin observes source events without launching an agent. Task lists appear only when that source emits `todo.updated`; absence is not reported as an empty plan. OpenCode's JavaScript plugin is not a Codex or Claude Code plugin: those runtimes use their separate Python hook adapters installed by `install.py`.
+
+### Codex usage and task input
 
 Import an already captured structured stream from the repository root:
 
@@ -23,11 +41,26 @@ Import an already captured structured stream from the repository root:
 python3 codex/stream.py --stream-id build-check-01 < build-check-01.jsonl
 ```
 
-Use a unique stable name for each captured invocation. Reuse that name only when replaying the same capture. Codex's documented `turn.completed` event does not include a turn ID, so this adapter combines the capture name with the sequence of `turn.started` records. The stream must include its `thread.started` and turn boundaries; arbitrary transcript fragments are not a supported substitute. Repeated snapshots of one turn replace that turn's counters. Different captures of resumed work require different names.
+Use a unique stable name for each captured invocation. Reuse that name only when replaying the same capture. Codex's documented `turn.completed` event does not include a turn ID, so usage identity combines the capture name with the sequence of `turn.started` records. Usage requires `thread.started` and turn boundaries; task items require the known thread identity. Arbitrary transcript fragments are not a supported substitute. Repeated snapshots of one turn replace that turn's counters. Different captures of resumed work require different names.
 
-The reader accepts JSONL on stdin, reads at most 1 MiB per record, and discards malformed or oversized records without accumulating the full stream. It emits usage only; installed Codex hooks own lifecycle observation, avoiding duplicate session/tool counts when both paths are attached. It emits no model/provider/cost claim absent a supported source field. Interactive transcript usage remains unsupported because the transcript format is not a stable hook API.
+The reader accepts JSONL on stdin, reads at most 1 MiB per record, and discards malformed or oversized records without accumulating the full stream. It emits usage and complete task-list snapshots; installed Codex hooks own lifecycle observation, avoiding duplicate session/tool counts when both paths are attached. It emits no model/provider/cost claim absent a supported source field. Interactive transcript usage remains unsupported because the transcript format is not a stable hook API.
 
 Codex hook installation uses synchronous commands with a three-second timeout. This keeps short local publications ordered and avoids normal background-hook cancellation at session end. `SessionStart` with source `compact` changes metadata without clearing active tools. `PermissionRequest` retains the tool and turn without fabricating a tool-call ID or permission outcome. Tool results without an explicit recognized outcome are recorded as `unknown`, not assumed successful.
+
+### Reported task semantics
+
+| Source | Explicit task data | Limits on interpretation |
+| --- | --- | --- |
+| OpenCode `todo.updated` | `properties.sessionID` and complete `todos` rows with `content`, `status`, and optional accepted priority | Preserves `pending`, `in_progress`, `completed`, and `cancelled`. The checked schema supplies no row ID or source update clock. |
+| Codex `todo_list` in `item.started`, `item.updated`, or `item.completed` | Whole-list item ID, known thread, and complete `items` rows with `text` and boolean `completed` | Only the row boolean selects pending/completed. A completed item or turn does not complete unfinished rows; no in-progress state or source update clock is supplied. |
+
+Boards are keyed by exact runtime/session identity, including separate parents and children. Each valid report replaces the whole previous list, removing absent rows. Empty `[]` means the source explicitly reported no tasks. Missing or malformed data preserves the last valid board, or remains unknown when none exists. A board admits at most 100 tasks with 512-character content; an oversized snapshot is rejected rather than truncated. Row IDs are positional within a source snapshot, not evidence that two edited plans contain the same historical work.
+
+The Tasks panel shows full reported text, source, session, and the observer receipt date. Source update time remains unavailable for these two adapters; receipt time does not claim when the upstream plan changed. Task telemetry cannot create or revive a sprite, refresh its work status, earn XP, or infer completion. A board becomes **Last reported** when no current nonterminal matching sprite is visible, and unfinished rows stay unfinished. The observer retains the 128 most recently accepted boards after raw history is pruned.
+
+For Codex task replay, each board remembers maximum parsed-record sequences for its eight most recently accepted capture IDs. This memory survives restart and migrates the previous single-capture checkpoint. Known older or duplicate records from A remain ignored after B reports; an unseen later record from A can replace the board. Evicting a capture or board removes that replay protection. New records from different captures are ordered by receipt, since the source provides no shared update clock. Usage deduplication remains a separate durable accounting contract.
+
+The adapter, restart, parent/child, replay, and terminal-session paths are covered by [synthetic source-contract integration tests](../tests/test_tasks_integration.py) through actual publishers and SQLite. [Browser tests](../tests/tasks-view.test.cjs) exercise text and focus behavior. These checks do not establish an installed OpenCode or Codex model session in this environment.
 
 ### Usage semantics
 
@@ -54,8 +87,8 @@ These are support gaps in this repository, not claims that the upstream products
 
 ## Source contracts
 
-Reviewed on 7 October 2026:
+Reviewed on 7–8 October 2026:
 
-- [Codex hooks](https://learn.chatgpt.com/docs/hooks), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), and [official TypeScript event types](https://github.com/openai/codex/blob/main/sdk/typescript/src/events.ts).
+- [Codex hooks](https://learn.chatgpt.com/docs/hooks), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), [pinned TypeScript event types](https://github.com/openai/codex/blob/624b45c4dcdc43a64da0307ce59c4508ef2206e9/sdk/typescript/src/events.ts), and [task item types](https://github.com/openai/codex/blob/624b45c4dcdc43a64da0307ce59c4508ef2206e9/sdk/typescript/src/items.ts).
 - [OpenCode plugin events](https://opencode.ai/docs/plugins/#events), [pinned V2 schemas](https://github.com/anomalyco/opencode/blob/a697115b203395c54a7496dc3d1863fe7b319c0c/packages/sdk/js/src/v2/gen/types.gen.ts), and [source usage normalization](https://github.com/anomalyco/opencode/blob/a697115b203395c54a7496dc3d1863fe7b319c0c/packages/opencode/src/session/session.ts).
 - [Hermes observer hooks](https://hermes-agent.nousresearch.com/docs/developer-guide/observer-hooks), [pinned request hook implementation](https://github.com/NousResearch/hermes-agent/blob/c538ec5f402e8078248becacd474e47a08c6e79a/agent/api_request_hooks.py), and [canonical usage model](https://github.com/NousResearch/hermes-agent/blob/c538ec5f402e8078248becacd474e47a08c6e79a/agent/usage_pricing.py).

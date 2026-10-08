@@ -134,8 +134,10 @@ def test_settings_endpoint_persists_personalization_without_creating_observation
     def request(path, payload=None):
         req = urllib.request.Request(url + path)
         if payload is not None:
+            with urllib.request.urlopen(url + "/settings", timeout=2) as current:
+                revision = current.headers["ETag"]
             req = urllib.request.Request(url + path, data=json.dumps(payload).encode(),
-                                         headers={"Content-Type": "application/json"}, method="POST")
+                                         headers={"Content-Type": "application/json", "If-Match": revision}, method="POST")
         with urllib.request.urlopen(req, timeout=2) as response:
             return json.load(response)
 

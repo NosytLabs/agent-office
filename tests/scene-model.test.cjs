@@ -9,6 +9,77 @@ vm.runInContext(
   fs.readFileSync("web/js/scene.js", "utf8") + ";globalThis.Scene=OfficeScene;",
   model,
 );
+test("following is explicit, validates the visible actor, and stops without resetting the view", () => {
+  const changes = [];
+  const scene = Object.create(model.Scene.prototype);
+  Object.assign(scene, {
+    agents: [{ id: "alpha", platform: "opencode" }],
+    filter: "every",
+    following: null,
+    zoom: 1,
+    pan: { x: 12, y: -20 },
+    draw() {},
+    onFollowChange: (id) => changes.push(id),
+  });
+  assert.equal(scene.followAgent("missing"), false);
+  assert.equal(scene.following, null);
+  assert.equal(scene.followAgent("alpha"), true);
+  assert.equal(scene.following, "alpha");
+  assert.equal(scene.zoom, 1.75);
+  assert.equal(scene.followAgent("alpha"), true);
+  assert.deepEqual(changes, ["alpha"]);
+  assert.equal(scene.followAgent(null), true);
+  assert.equal(scene.following, null);
+  assert.deepEqual(scene.pan, { x: 12, y: -20 });
+  assert.deepEqual(changes, ["alpha", null]);
+  scene.filter = "claude";
+  assert.equal(scene.followAgent("alpha"), false);
+});
+test("follow camera tracks the character and keeps floor edges inside bounded pan", () => {
+  const scene = Object.create(model.Scene.prototype);
+  Object.assign(scene, {
+    following: "alpha",
+    chars: new Map([["alpha", { x: 192, y: 254 }]]),
+    pan: { x: 0, y: 0 },
+    relayout: false,
+  });
+  const room = {
+    w: 400,
+    h: 600,
+    seats: [{ a: { id: "alpha" }, x: 80, y: 100 }],
+  };
+  scene.followCamera(room, 500, 500, 2);
+  assert.equal(
+    scene.pan.x,
+    0,
+    "uses moving character x rather than its distant desk",
+  );
+  assert.equal(scene.pan.y, 60);
+  scene.chars.get("alpha").x = -50;
+  scene.chars.get("alpha").y = 999;
+  scene.followCamera(room, 500, 500, 2);
+  assert.equal(scene.pan.x, 162);
+  assert.equal(scene.pan.y, -362);
+  scene.followCamera(room, 1000, 1600, 1);
+  assert.equal(Math.abs(scene.pan.x), 0);
+  assert.equal(Math.abs(scene.pan.y), 0);
+});
+test("filtering or removing the followed session clears the camera target", () => {
+  const scene = Object.create(model.Scene.prototype);
+  const changes = [];
+  Object.assign(scene, {
+    chars: new Map(),
+    following: "alpha",
+    onFollowChange: (id) => changes.push(id),
+  });
+  const agent = { id: "alpha", platform: "opencode" };
+  scene.update([agent], {}, null, "alpha", "claude");
+  assert.equal(scene.following, null);
+  scene.following = "alpha";
+  scene.update([], {}, null, null, "every");
+  assert.equal(scene.following, null);
+  assert.deepEqual(changes, [null, null]);
+});
 test("appearance preferences accept only supported finishes and subagent styles", () => {
   assert.deepEqual(
     JSON.parse(

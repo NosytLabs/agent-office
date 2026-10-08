@@ -1,0 +1,138 @@
+{
+  "created": "2026-10-08",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/signals-atlas.png",
+  "source_preserved_unmodified": true,
+  "prompt": "Use case: stylized-concept.\nAsset type: one production 2D pixel-art furniture sprite atlas for Agent Office, an original animated office dashboard.\nCreate a BRAND NEW square transparent RGBA PNG atlas containing EXACTLY FOUR complete isolated objects in an exact TWO BY TWO equal-quadrant grid. Center one object wholly within each cell with at least 12 percent transparent padding on every side; no object may cross either canvas midline. The sprites share a shallow elevated front viewpoint, front edges horizontal, warm walnut and cream materials with sage green and dark navy outlines. Crisp chunky readable pixel clusters, few details, restrained shading, no soft painted textures. This must work in a small top-down office game.\nTOP LEFT: a small standing task terminal: cream retro computer monitor with a dark teal blank screen and tiny mint cursor square, resting on a compact walnut podium with a small cream keyboard shelf. No writing on the screen. Entire silhouette approximately 28 wide by 32 high logical pixels, with short stable feet and a clear front-facing screen.\nTOP RIGHT: a compact office signal beacon on a short dark navy and cream pedestal. One round pale cream frosted dome on top, a simple brass collar, a short slim navy post and broad stable round base. No flashing rays or glow in the source; the game adds a tiny status light. Entire silhouette approximately 14 wide by 26 high logical pixels. Keep the dome pale and neutral, not red or amber.\nBOTTOM LEFT: an empty cozy oval cat bed, sage fabric cushion inside a low warm walnut or woven brown rim, seen from slightly above. No cat, no animal, no blanket sticking out, no toy. A soft central depression makes it clear where a cat can sleep. Entire silhouette approximately 26 wide by 16 high logical pixels. The full bed fits comfortably inside the lower-left quadrant.\nBOTTOM RIGHT: a compact lush office fern with a handful of simple arching sage green fronds in a rounded cream ceramic pot on a tiny walnut stand. Entire silhouette approximately 20 wide by 28 high logical pixels. Clear broad fronds rather than noisy individual leaves.\nConstraints: exactly this four-object atlas, one complete sprite per equal quadrant, generous clear gaps, consistent pixel-art style and elevated front camera. Actual fully transparent surrounding background, no checkerboard, floor, ground shadow, labels, text, logos, watermark, extra objects or scene. Objects should remain readable when downscaled to their stated logical sizes. Entirely original artwork; do not reproduce any third-party sprite pack or product artwork.",
+  "reference": "Original artwork generated from a written prompt. No external image or product artwork supplied.",
+  "layout": {
+    "columns": 2,
+    "rows": 2,
+    "row_major": [
+      "taskterminal",
+      "statusbeacon",
+      "petbed",
+      "fern"
+    ]
+  },
+  "logical_sizes": {
+    "taskterminal": [
+      24,
+      34
+    ],
+    "statusbeacon": [
+      12,
+      28
+    ],
+    "petbed": [
+      26,
+      16
+    ],
+    "fern": [
+      26,
+      28
+    ]
+  },
+  "normalization": "Preserve the source PNG. Trim each equal quadrant at alpha > 32 and normalize once to the stated logical canvas using nearest-neighbor sampling. Collision and placement geometry use logical dimensions, not source size.",
+  "interactivity": {
+    "taskterminal": "Opens the existing Reported tasks view. Screen cursor is ambient decoration, not task completion.",
+    "statusbeacon": "Opens Session activity. Light follows observed waiting sessions when the observer is connected.",
+    "petbed": "Provides an optional reachable resting target for a visible pet. Opens existing pet settings.",
+    "fern": "Decorative office fern."
+  },
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "cf99a20c27093efc142d453cb382711af977ac6468ae7c58de0d0a7b48fb42a1",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_file_bytes": 599701,
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "threshold": 32,
+    "all_silhouettes_within_cells": true,
+    "raw_bytes_equal_generated_source": true,
+    "cell_regions_and_bounds": [
+      {
+        "row": 0,
+        "column": 0,
+        "source_region_xyxy": [
+          0,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_xyxy": [
+          176,
+          121,
+          525,
+          613
+        ]
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "source_region_xyxy": [
+          627,
+          0,
+          1254,
+          627
+        ],
+        "content_bounds_xyxy": [
+          208,
+          186,
+          405,
+          612
+        ]
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "source_region_xyxy": [
+          0,
+          627,
+          627,
+          1254
+        ],
+        "content_bounds_xyxy": [
+          127,
+          205,
+          573,
+          484
+        ]
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "source_region_xyxy": [
+          627,
+          627,
+          1254,
+          1254
+        ],
+        "content_bounds_xyxy": [
+          89,
+          80,
+          503,
+          506
+        ]
+      }
+    ],
+    "visual_review": {
+      "date": "2026-10-08",
+      "method": "Rendered and inspected in Chromium through the actual local observer and native placement controls, using isolated synthetic runtime events.",
+      "views": [
+        "1440 by 1000 desktop",
+        "320-pixel mobile"
+      ],
+      "result": "All four runtime-normalized sprites are nonempty, readable, contained on the floor, and free of overlapping placed props. Mobile reflow preserves saved positions.",
+      "evidence": [
+        "docs/screenshots/signals.png",
+        "docs/screenshots/signals-mobile.png"
+      ]
+    }
+  }
+}

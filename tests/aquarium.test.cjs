@@ -1,3 +1,4 @@
+const { postSettings } = require("./settings-helper.cjs");
 /* Aquarium product checks use a real, isolated observer and synthetic records. */
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -78,7 +79,9 @@ async function withPage(run, options = {}) {
       ...pageOptions,
     });
     if (initialSettings)
-      await p.request.post(baseURL + "/settings", { data: initialSettings });
+      await postSettings(p.request, baseURL + "/settings", {
+        data: initialSettings,
+      });
     p.setDefaultTimeout(8000);
     const errors = [];
     p.on("pageerror", (error) => errors.push(error.stack || error.message));

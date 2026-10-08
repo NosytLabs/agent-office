@@ -11,10 +11,12 @@
   const clone = (value) => structuredClone(value);
   const emptySaved = () => ({
     settings: {},
+    settingsRevision: "preview-empty-v1",
     reset: false,
     historyCleared: false,
   });
   let storageAvailable = true;
+  let storageError = "";
   let saved = readStored() || emptySaved();
   const demoSettings = {};
   syncSettings();
@@ -35,18 +37,38 @@
       storageNotice();
       return null;
     }
-    try {
-      const stored = raw && raw.length <= 65536 ? JSON.parse(raw) : null;
-      if (stored?.version === 1 && !Array.isArray(stored))
-        return {
-          settings: normalizeSettings(stored.settings),
-          reset: stored.reset === true,
-          historyCleared: stored.historyCleared === true,
-        };
-    } catch {
-      // Invalid stored data cannot become a settings or reset authority.
+    if (raw === null) {
+      storageError = "";
+      return emptySaved();
     }
-    return emptySaved();
+    try {
+      if (raw.length > 65536 || new TextEncoder().encode(raw).length > 65536)
+        throw new Error("Stored preferences exceed the supported size");
+      const stored = JSON.parse(raw);
+      if (
+        stored?.version !== 1 ||
+        Array.isArray(stored) ||
+        !stored.settings ||
+        typeof stored.settings !== "object" ||
+        Array.isArray(stored.settings) ||
+        (stored.settingsRevision !== undefined &&
+          (typeof stored.settingsRevision !== "string" ||
+            !/^[a-zA-Z0-9-]{1,128}$/.test(stored.settingsRevision)))
+      )
+        throw new Error("Stored preferences are invalid");
+      storageError = "";
+      return {
+        settings: normalizeSettings(stored.settings),
+        settingsRevision: stored.settingsRevision || "preview-legacy-v1",
+        reset: stored.reset === true,
+        historyCleared: stored.historyCleared === true,
+      };
+    } catch {
+      // Keep the last readable view and the original stored bytes. Defaults
+      // must never turn unreadable preferences into a writable empty record.
+      storageError = "demo-settings-invalid";
+      return null;
+    }
   }
   function syncSettings() {
     Object.assign(
@@ -78,7 +100,9 @@
   async function changeSaved(change) {
     const commit = () => {
       refreshStored();
+      if (storageError) return unavailableSettings();
       const result = change();
+      if (result instanceof Response && !result.ok) return result;
       syncSettings();
       persist();
       return result;
@@ -100,6 +124,7 @@
       "updated_at",
       "first_received_at",
       "observed_at",
+      "source_updated_at",
     ]);
     function visit(item) {
       if (!item || typeof item !== "object") return;
@@ -128,6 +153,13 @@
     result.mode = "demo";
     result.synthetic = true;
     result.settings = clone(demoSettings);
+    result.settings_revision = storageError
+      ? undefined
+      : saved.settingsRevision;
+    result.settings_status = storageError
+      ? { available: false, error: storageError }
+      : { available: true };
+    const recordedAgents = clone(result.agents);
     result.agents = result.agents.filter((agent) => {
       const age = Math.max(0, now - agent.observed_at);
       if (agent.status === "done" && age > 120) return false;
@@ -154,6 +186,19 @@
         agent.label;
       return true;
     });
+    result.tasks = (result.tasks || []).map((board) => {
+      const matches = (agent) =>
+        agent.id === board.session_id &&
+        (agent.platform || "hermes") === board.runtime;
+      const current = result.agents.find(matches),
+        recorded = recordedAgents.find(matches);
+      return {
+        ...board,
+        age_s: Math.max(0, Math.floor(now - board.observed_at)),
+        session_status: (current || recorded)?.status || "unobserved",
+        historical: !current || ["done", "gone"].includes(current.status),
+      };
+    });
     const visible = new Set(
       result.agents.map((agent) => `${agent.platform}\u0000${agent.id}`),
     );
@@ -167,14 +212,25 @@
     }
     return result;
   }
-  const response = (body, status = 200) =>
+  const response = (body, status = 200, revision = null) =>
     new Response(JSON.stringify(body), {
       status,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
+        ...(revision ? { ETag: '"' + revision + '"' } : {}),
       },
     });
+  const unavailableSettings = () =>
+    response(
+      {
+        error:
+          "Saved demo preferences cannot be read. Their original data has been kept.",
+        settings: clone(demoSettings),
+        settings_status: { available: false, error: storageError },
+      },
+      503,
+    );
   window.fetch = async (input, options = {}) => {
     const request = new Request(input, options);
     if (request.signal.aborted) throw new DOMException("Aborted", "AbortError");
@@ -202,7 +258,8 @@
       if (route === "/state") return response(state());
       if (route === "/settings") {
         refreshStored();
-        return response(clone(demoSettings));
+        if (storageError) return unavailableSettings();
+        return response(clone(demoSettings), 200, saved.settingsRevision);
       }
       const limit = Number(url.searchParams.get("limit") || 1000);
       if (!Number.isInteger(limit))
@@ -224,10 +281,33 @@
         const patch = JSON.parse(text);
         if (!patch || typeof patch !== "object" || Array.isArray(patch))
           return response({ error: "expected a JSON object" }, 400);
-        await changeSaved(() => {
+        const condition = request.headers.get("If-Match");
+        if (!condition)
+          return response(
+            {
+              error:
+                "Read current settings and send their ETag in If-Match before saving.",
+            },
+            428,
+          );
+        return await changeSaved(() => {
+          if (condition !== '"' + saved.settingsRevision + '"')
+            return response(
+              {
+                error:
+                  "Settings changed in another view. Review the current settings before saving again.",
+                settings: clone(demoSettings),
+                settings_revision: saved.settingsRevision,
+                settings_status: { available: true },
+              },
+              409,
+              saved.settingsRevision,
+            );
           Object.assign(saved.settings, normalizeSettings(patch));
+          saved.settingsRevision = crypto.randomUUID();
+          syncSettings();
+          return response(clone(demoSettings), 200, saved.settingsRevision);
         });
-        return response(clone(demoSettings));
       } catch {
         return response({ error: "expected a JSON object" }, 400);
       }
@@ -239,13 +319,15 @@
         saved.historyCleared = true;
         return count;
       });
+      if (removed instanceof Response) return removed;
       return response({ ok: true, removed_events: removed, synthetic: true });
     }
     if (request.method === "DELETE" && route === "/state") {
-      await changeSaved(() => {
+      const result = await changeSaved(() => {
         saved.reset = true;
         saved.historyCleared = true;
       });
+      if (result instanceof Response) return result;
       return response({
         ok: true,
         cleared: ["progress", "history", "usage"],
@@ -284,10 +366,14 @@
       applyState(state());
     });
     document.getElementById("preview-restore").onclick = async () => {
-      await changeSaved(() => {
+      const result = await changeSaved(() => {
         saved.reset = false;
         saved.historyCleared = false;
       });
+      if (result instanceof Response && !result.ok) {
+        applyState(state());
+        return;
+      }
       shift = Date.now() / 1000 - fixture.base_time;
       refreshDemo();
     };

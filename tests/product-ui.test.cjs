@@ -129,7 +129,7 @@ test("office and agent names persist, while typing survives live polling", () =>
     await p.fill("#agent-name-input", "Coder One");
     await p.click("#agent-name-save");
     await p.waitForFunction(() => pendingSaves === 0);
-    assert.match(await p.textContent("#inspectorbox"), /Coder One/);
+    assert.match(await p.textContent("#inspector-summary"), /Coder One/);
     await p.fill("#agent-name-input", "Draft name");
     await p.locator("#inspect-history").focus();
     await p.waitForTimeout(1700);

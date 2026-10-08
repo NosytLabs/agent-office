@@ -1,3 +1,4 @@
+const { postSettings, fetchSettings } = require("./settings-helper.cjs");
 /* Real observer and browser flows for decorative, accounting-neutral pets. */
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -116,7 +117,7 @@ after(async () => {
   if (home) fs.rmSync(home, { recursive: true, force: true });
 });
 async function office(run, options = {}) {
-  await fetch(base + "/settings", {
+  await fetchSettings(base + "/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -382,7 +383,7 @@ test("pet motion preferences, global pause and hidden-tab gating stop motion wit
   }));
 test("furniture edits and narrow reflow replan pets without stranding their feet", () =>
   office(async (p) => {
-    await p.request.post(base + "/settings", {
+    await postSettings(p.request, base + "/settings", {
       data: {
         furniture: [
           { kind: "succulent", x: 0.45, y: 0.75 },

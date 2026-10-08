@@ -25,12 +25,17 @@ let trackQuery = "",
   settingsReady = false;
 let pendingSaves = 0,
   settingsRevision = 0,
+  confirmedSettingsRevision = null,
+  settingsSaveGeneration = 0,
+  settingsUnavailable = "",
+  settingsSaveMessage = "",
   saveQueue = Promise.resolve(),
   audioContext = null,
   settingsSignature = "";
 const confirmedSettings = structuredClone(settings),
   queuedSettings = [];
 let eventMode = "latest",
+  taskMode = "activity",
   eventRuntime = "every",
   eventSession = null,
   historyEvents = [],
@@ -45,7 +50,6 @@ let eventMode = "latest",
 const seenAttention = new Set();
 const seenUnlocks = new Set();
 const settingsDrafts = new Set();
-const loadingDisabledControls = new Map();
 const settingsDraftVersions = new Map();
 const panelViews = new Map(),
   panelStack = [],
@@ -100,9 +104,20 @@ scene.onProp = (kind) => {
   if (kind === "FISH_TANK" || kind === "terrarium") window.openAquarium?.();
   else if (kind === "jukebox" || kind === "recordplayer")
     window.officeJukebox?.open();
-  else if (kind === "whiteboard" || kind === "focusbooth")
+  else if (kind === "taskterminal") {
+    taskMode = "reported";
     openSheet("sheet-tasks");
-  else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
+  } else if (
+    kind === "whiteboard" ||
+    kind === "focusbooth" ||
+    kind === "statusbeacon"
+  ) {
+    taskMode = "activity";
+    openSheet("sheet-tasks");
+  } else if (kind === "petbed") {
+    openSheet("sheet-settings");
+    $("pet-name-form").scrollIntoView({ block: "center" });
+  } else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
   else if (kind === "printer") openSheet("sheet-events");
   else if (kind === "filingcabinet") {
     eventMode = "history";
@@ -297,6 +312,7 @@ function applyTheme() {
   window.officeJukebox?.sync();
 }
 function updateScene() {
+  scene.observerConnected = !offline;
   for (const agent of agents) {
     agent.observed_label ??= agent.label || agent.id;
     agent.label = settings.agent_names?.[agent.id] || agent.observed_label;
@@ -347,11 +363,19 @@ function positionNotices() {
   const target = opened
     ? $(opened).querySelector(".sheet-notices")
     : $("notice-slot");
-  if (target && $("toast").parentElement !== target) target.append($("toast"));
+  if (target) {
+    if ($("settings-save-notice").parentElement !== target)
+      target.append($("settings-save-notice"));
+    if ($("toast").parentElement !== target) target.append($("toast"));
+  }
   positionNoticeSlot();
 }
 function positionNoticeSlot() {
-  if (opened || !$("toast").children.length) return;
+  if (
+    opened ||
+    (!$("toast").children.length && $("settings-save-notice").hidden)
+  )
+    return;
   const gap = 12,
     bottom = innerHeight - gap;
   const controls = document
@@ -560,6 +584,7 @@ function persistView() {
     paused: scene.paused,
     panel: opened,
     eventMode,
+    taskMode,
     eventRuntime,
     badgeFilter,
     queries: { agents: trackQuery, events: eventQuery, badges: badgeQuery },
@@ -585,6 +610,7 @@ function restoreViewState() {
   $("eventSearch").value = eventQuery;
   $("badgeSearch").value = badgeQuery;
   eventMode = view.eventMode;
+  taskMode = view.taskMode;
   eventRuntime = view.eventRuntime;
   $("event-runtime").value = eventRuntime;
   badgeFilter = view.badgeFilter;
@@ -833,6 +859,26 @@ $("trackSearch").oninput = (e) => {
   queueViewSave();
 };
 function fillTasks() {
+  $("taskboard").hidden = taskMode !== "activity";
+  $("reported-taskboard").hidden = taskMode !== "reported";
+  for (const button of $("task-tabs").children)
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.taskView === taskMode),
+    );
+  $("task-description").textContent =
+    taskMode === "reported"
+      ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
+      : "Observed session activity. Assign and approve work in your agent’s own terminal.";
+  if (taskMode === "reported") {
+    window.renderReportedTasks(
+      $("reported-taskboard"),
+      window._state?.tasks,
+      agents,
+      { onSelect: selectAgent },
+    );
+    return;
+  }
   const box = $("taskboard");
   const existing = new Map(
     [...box.querySelectorAll(".agent-card")].map((b) => [b.dataset.agent, b]),
@@ -869,6 +915,12 @@ function fillTasks() {
     box.closest(".sheet").querySelector(".close"),
   );
 }
+for (const button of $("task-tabs").children)
+  button.onclick = () => {
+    taskMode = button.dataset.taskView === "reported" ? "reported" : "activity";
+    fillTasks();
+    persistView();
+  };
 function usageValue(metrics, field) {
   if (metrics?.overflow?.[field]) return "Amount too large";
   const value = metrics?.[field];
@@ -1035,15 +1087,40 @@ function fillStats() {
 }
 function fillInspector() {
   const a = agents.find((a) => a.id === focusedId);
-  const box = $("inspectorbox");
+  const box = $("inspectorbox"),
+    summary = $("inspector-summary");
   if (!a) {
+    summary.replaceChildren();
+    summary.hidden = true;
     $("agent-name-form").hidden = true;
     $("agent-preference-form").hidden = true;
     $("inspect-history").hidden = true;
+    $("agent-follow").hidden = true;
     box.innerHTML = '<p class="h">This session has left the office.</p>';
     return;
   }
   $("agent-name-form").hidden = false;
+  syncAgentFollow();
+  summary.hidden = false;
+  const headline = document.createElement("div"),
+    label = document.createElement("strong"),
+    status = document.createElement("span"),
+    activity = document.createElement("p");
+  headline.className = "inspector-live-heading";
+  label.textContent = a.label || a.id;
+  status.className =
+    "status " +
+    (["working", "thinking", "waiting", "idle", "done", "gone"].includes(
+      a.status,
+    )
+      ? a.status
+      : "idle");
+  status.textContent = STATUS_NAMES[a.status] || a.status;
+  headline.append(label, status);
+  activity.textContent =
+    [a.tool, a.detail].filter(Boolean).join(" · ") ||
+    "No current tool activity reported.";
+  summary.replaceChildren(headline, activity);
   fillAgentPreferences(a);
   $("inspect-history").hidden = false;
   const nameInput = $("agent-name-input");
@@ -1060,11 +1137,6 @@ function fillInspector() {
   nameInput.placeholder = a.observed_label || a.id;
   $("agent-name-reset").disabled = !settings.agent_names?.[a.id];
   box.innerHTML = kv([
-    ["Agent", a.label || a.id],
-    ["Runtime", platOf(a)],
-    ["Status", STATUS_NAMES[a.status] || a.status],
-    ["Tool", a.tool || "—"],
-    ["Detail", a.detail || "—"],
     ["Session", a.id],
     ["Parent", a.parent || "—"],
     ["Elapsed", duration(a.duration_s)],
@@ -1081,13 +1153,13 @@ function fillInspector() {
       (a.recorded_status || "activity") +
       (a.last_tool ? " · " + a.last_tool : "") +
       ". Check the original runtime; silence does not prove that the process is stuck or finished.";
-    box.append(note);
+    summary.append(note);
   }
   if (a.status === "waiting") {
     const waiting = document.createElement("p");
     waiting.className = "waiting-note";
     waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}.`;
-    box.append(waiting);
+    summary.append(waiting);
   }
   const usageHeading = document.createElement("h3");
   usageHeading.textContent = "This session’s reported usage";
@@ -1111,6 +1183,24 @@ function fillInspector() {
     box.append(p);
   }
 }
+function syncAgentFollow() {
+  const button = $("agent-follow"),
+    agent = agents.find((value) => value.id === focusedId);
+  button.hidden = !agent;
+  button.disabled = !agent || typeof scene.followAgent !== "function";
+  const following = !!agent && scene.following === agent.id;
+  button.setAttribute("aria-pressed", String(following));
+  labelButton(button, "scan", following ? "Stop following" : "Follow on floor");
+}
+scene.onFollowChange = syncAgentFollow;
+$("agent-follow").onclick = () => {
+  if (!focusedId || typeof scene.followAgent !== "function") return;
+  const target = scene.following === focusedId ? null : focusedId;
+  scene.followAgent(target);
+  syncAgentFollow();
+  persistView();
+  if (target && scene.following === target) closeSheets();
+};
 function fillAgentPreferences(agent) {
   const form = $("agent-preference-form"),
     seat = $("agent-seat-select"),
@@ -1239,7 +1329,7 @@ function fillInactivePreferences() {
   $("agent-preferences-count").textContent =
     `${Object.keys(settings.agent_preferences || {}).length} saved · ${inactive.length} inactive · 128 session limit`;
   $("clear-inactive-preferences").disabled =
-    preferenceCleanupPending || !inactive.length;
+    !settingsReady || preferenceCleanupPending || !inactive.length;
 }
 $("clear-inactive-preferences").onclick = async () => {
   if (preferenceCleanupPending) return;
@@ -1659,8 +1749,10 @@ function applyState(state, pollRevision = settingsRevision) {
     state.settings &&
     typeof state.settings === "object" &&
     !Array.isArray(state.settings);
-  if (!settingsReady && !hasSettings)
-    throw new Error("Office settings have not loaded");
+  const canReadSettings =
+    hasSettings &&
+    validSettingsRevision(state.settings_revision) &&
+    state.settings_status?.available !== false;
   const previousState = window._state;
   window._state = state;
   offline = false;
@@ -1676,10 +1768,17 @@ function applyState(state, pollRevision = settingsRevision) {
     ]),
   );
   const restoredView = !viewRestored ? restoreViewState() : null;
-  if (hasSettings && !pendingSaves && pollRevision === settingsRevision) {
-    Object.assign(confirmedSettings, normalizeSettings(state.settings));
-    Object.assign(settings, confirmedSettings);
-    settingsReady = true;
+  if (pollRevision === settingsRevision) {
+    if (!canReadSettings) {
+      blockSettings(
+        state.settings_status?.available === false
+          ? unavailableSettingsMessage(state.settings_status)
+          : "Safe settings revisions are unavailable. Update and restart the local observer before editing.",
+      );
+    } else if (!pendingSaves) {
+      confirmSettings(state.settings, state.settings_revision);
+      Object.assign(settings, confirmedSettings);
+    }
   }
   applyTheme();
   updateScene();
@@ -1756,7 +1855,8 @@ function applyState(state, pollRevision = settingsRevision) {
   } else if (opened === "sheet-inspector") fillInspector();
   else if (opened === "sheet-tasks") fillTasks();
   else if (opened === "sheet-unlocks") fillBadges();
-  const signature = JSON.stringify(settings) + haveUnlock("layout_bullpen");
+  const signature =
+    JSON.stringify(settings) + haveUnlock("layout_bullpen") + settingsReady;
   if (signature !== settingsSignature) {
     settingsSignature = signature;
     fillSettings();
@@ -1778,6 +1878,8 @@ async function poll() {
     applyState(await r.json(), revision);
   } catch {
     offline = true;
+    scene.observerConnected = false;
+    scene.draw(0);
     syncAttention();
     syncHealth();
     if (opened === "sheet-setup") fillSetup();
@@ -1792,17 +1894,67 @@ async function poll() {
 function updateSetting(key, value) {
   return saveSettings({ [key]: value });
 }
+function validSettingsRevision(value) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 256 &&
+    !/["\\\s\x00-\x1f\x7f]/.test(value)
+  );
+}
+function responseSettingsRevision(response) {
+  const value = response.headers.get("ETag"),
+    match = value?.match(/^"([^"\\]+)"$/);
+  return match && validSettingsRevision(match[1]) ? match[1] : null;
+}
+function showSettingsMessage() {
+  const notice = $("settings-save-notice");
+  notice.textContent = settingsUnavailable || settingsSaveMessage;
+  notice.hidden = !notice.textContent;
+  positionNotices();
+}
+function unavailableSettingsMessage(status) {
+  return status?.error === "demo-settings-invalid"
+    ? "Saved demo preferences cannot be read. Repair or clear Agent Office demo data in this site's browser storage; editing will resume automatically."
+    : "Saved office settings cannot be read. Repair settings.json on the observer computer; editing will resume automatically.";
+}
+function blockSettings(message) {
+  if (settingsReady || !settingsUnavailable) settingsSaveGeneration++;
+  settingsReady = false;
+  settingsUnavailable = message;
+  showSettingsMessage();
+}
+function confirmSettings(values, revision) {
+  if (
+    !values ||
+    typeof values !== "object" ||
+    Array.isArray(values) ||
+    !validSettingsRevision(revision)
+  )
+    return false;
+  Object.assign(confirmedSettings, normalizeSettings(values));
+  confirmedSettingsRevision = revision;
+  settingsReady = true;
+  settingsUnavailable = "";
+  showSettingsMessage();
+  return true;
+}
+function activeSettingsPatches() {
+  return queuedSettings
+    .filter((entry) => entry.generation === settingsSaveGeneration)
+    .map((entry) => entry.patch);
+}
 function saveSettings(patch) {
   if (!settingsReady) {
     $("save-status").textContent =
+      settingsUnavailable ||
       "Loading office settings. Nothing was saved; try again when loading finishes.";
-    toast(
-      "Loading office settings. Nothing was saved; try again when loading finishes.",
-    );
+    toast($("save-status").textContent);
     return Promise.resolve(false);
   }
   patch = normalizeSettings(patch);
-  queuedSettings.push(patch);
+  const entry = { patch, generation: settingsSaveGeneration };
+  queuedSettings.push(entry);
   Object.assign(settings, patch);
   pendingSaves++;
   settingsRevision++;
@@ -1812,35 +1964,74 @@ function saveSettings(patch) {
   $("save-status").textContent = "Saving…";
   saveQueue = saveQueue.then(async () => {
     let saved = false;
+    let conflict = entry.generation !== settingsSaveGeneration;
     try {
+      if (conflict || !settingsReady) return false;
       const r = await fetch("settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "If-Match": '"' + confirmedSettingsRevision + '"',
+        },
         body: JSON.stringify(patch),
         signal: AbortSignal.timeout(5000),
       });
-      if (!r.ok) throw new Error("Save failed");
-      Object.assign(confirmedSettings, normalizeSettings(await r.json()));
+      const body = await r.json().catch(() => null);
+      if (r.status === 409 || r.status === 428) {
+        conflict = true;
+        settingsSaveGeneration++;
+        settingsSaveMessage =
+          "Settings changed in another view. Your edits were not saved. Review the current values, then save again." +
+          (Object.hasOwn(patch, "furniture")
+            ? " Review an imported replacement layout before selecting its file again."
+            : "");
+        if (!confirmSettings(body?.settings, body?.settings_revision))
+          blockSettings(
+            "Current settings could not be loaded after a conflict. Reconnect to the observer before retrying.",
+          );
+        showSettingsMessage();
+        return false;
+      }
+      if (!r.ok) {
+        if (body?.settings_status?.available === false)
+          blockSettings(unavailableSettingsMessage(body.settings_status));
+        throw new Error("Save failed");
+      }
+      if (!confirmSettings(body, responseSettingsRevision(r))) {
+        blockSettings(
+          "The observer did not acknowledge a safe settings revision. Reload or update the observer before trying another edit.",
+        );
+        return false;
+      }
       saved = true;
+      settingsSaveMessage = "";
+      showSettingsMessage();
     } catch {
-      toast("Could not save settings. Reconnect and try again.");
+      toast(
+        settingsUnavailable ||
+          "Could not save settings. Reconnect and try again.",
+      );
     } finally {
       queuedSettings.shift();
       pendingSaves--;
       // Start from acknowledged server values, then preserve newer optimistic
       // edits. A failed request must never become the rollback base of another.
-      Object.assign(settings, confirmedSettings, ...queuedSettings);
+      Object.assign(settings, confirmedSettings, ...activeSettingsPatches());
       // Also invalidate polls started while the write was in flight.
       settingsRevision++;
       reconcileFurniture();
       applyTheme();
       updateScene();
       fillSettings();
-      $("save-status").textContent = !saved
-        ? "Not saved. Server unavailable."
-        : pendingSaves
-          ? "Saving…"
-          : "Saved on this computer.";
+      $("save-status").textContent =
+        settingsUnavailable ||
+        (conflict
+          ? "Not saved. Settings changed in another view; review and retry."
+          : !saved
+            ? "Not saved. Server unavailable."
+            : pendingSaves
+              ? "Saving…"
+              : "Saved on this computer.");
     }
     return saved;
   });
@@ -1873,6 +2064,7 @@ function segmented(label, key, options) {
 }
 function fillTrackingStatus() {
   const tracking = window._state?.tracking;
+  $("retention-paused").hidden = tracking?.retention_suspended !== true;
   if (!tracking) {
     $("tracking-status").textContent =
       "Connect the observer to view stored activity.";
@@ -1895,12 +2087,73 @@ function fillTrackingStatus() {
   }
   $("tracking-status").textContent =
     `${Number(tracking.retained || 0).toLocaleString()} saved events${sizes.length ? " · " + sizes.join(" · ") : ""}. ${Number(tracking.received || 0).toLocaleString()} received in total.${tracking.backlog ? " " + Number(tracking.backlog).toLocaleString() + " events are waiting to be processed." : ""}${tracking.invalid_records ? " " + Number(tracking.invalid_records).toLocaleString() + " unreadable records were skipped." : ""}`;
+  const number = (value) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? value.toLocaleString()
+      : "Unavailable";
+  const bytes = (value) => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+      return "Unavailable";
+    if (value >= 1048576)
+      return `${(value / 1048576).toLocaleString(undefined, { maximumFractionDigits: 1 })} MiB`;
+    if (value >= 1024)
+      return `${(value / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} KiB`;
+    return `${value.toLocaleString()} B`;
+  };
+  const measurement = (count, size) =>
+    `${number(tracking[count])} files · ${bytes(tracking[size])}`;
+  const rows = [
+    [
+      "Raw event history",
+      `${number(tracking.retained)} events · ${bytes(tracking.retained_bytes)}`,
+    ],
+    ["Database file", bytes(tracking.database_bytes)],
+    ["Waiting to process", measurement("backlog", "backlog_bytes")],
+    [
+      "Processed, awaiting cleanup",
+      measurement("cleanup_pending", "cleanup_pending_bytes"),
+    ],
+    ["Inbox total", measurement("inbox_files", "inbox_bytes")],
+    [
+      "Temporary publications",
+      measurement("temporary_files", "temporary_bytes"),
+    ],
+    ["Unreadable files to retry", number(tracking.retrying_files)],
+    ["Legacy log", bytes(tracking.legacy_log_bytes)],
+    ["Usage correction records", number(tracking.usage_units)],
+  ];
+  const target = $("storage-measurements"),
+    signature = JSON.stringify(rows);
+  if (contentSignatures.get(target) !== signature) {
+    target.replaceChildren(
+      ...rows.flatMap(([label, value]) => {
+        const term = document.createElement("dt"),
+          detail = document.createElement("dd");
+        term.textContent = label;
+        detail.textContent = value;
+        return [term, detail];
+      }),
+    );
+    contentSignatures.set(target, signature);
+  }
+  const errors = Array.isArray(tracking.measurement_errors)
+    ? tracking.measurement_errors
+    : [];
+  $("storage-measurement-errors").hidden = !errors.length;
+  $("storage-measurement-errors").textContent = errors.length
+    ? `Some storage could not be measured: ${errors.map((value) => String(value).replaceAll("_", " ")).join(", ")}. Check permissions on the observer computer; unavailable values are not zero.`
+    : "";
 }
 function syncHealth() {
   const quiet = agents.find((agent) => agent.quiet),
     tracking = window._state?.tracking || {};
   const storage =
+    tracking.retention_suspended === true ||
     tracking.backlog > 0 ||
+    tracking.cleanup_pending > 0 ||
+    tracking.retrying_files > 0 ||
+    (Array.isArray(tracking.measurement_errors) &&
+      tracking.measurement_errors.length > 0) ||
     tracking.invalid_records > 0 ||
     tracking.retained_bytes >= settings.history_max_bytes * 0.9;
   const button = $("health-alert");
@@ -1913,7 +2166,11 @@ function syncHealth() {
     : "Inspect backlog, unreadable records and history retention in Customize";
   button.onclick = quiet
     ? () => selectAgent(quiet.id)
-    : () => openSheet("sheet-settings");
+    : () => {
+        openSheet("sheet-settings");
+        $("storage-diagnostics").open = true;
+        $("storage-diagnostics").scrollIntoView({ block: "center" });
+      };
 }
 function syncBudget() {
   const totals = window._state?.usage?.totals,
@@ -2021,25 +2278,31 @@ function syncSettingsReadiness() {
     notice.id = "settings-loading-status";
     notice.className = "h";
     notice.setAttribute("role", "status");
-    notice.textContent =
-      "Loading saved office settings. Editing is available after the observer responds.";
     $("sheet-settings").querySelector(".sheet-body").prepend(notice);
   }
   notice.hidden = settingsReady;
+  notice.textContent =
+    settingsUnavailable ||
+    "Loading saved office settings. Editing is available after the observer responds.";
   $("sheet-settings").setAttribute("aria-busy", String(!settingsReady));
-  if (!settingsReady) {
-    for (const control of document.querySelectorAll(
-      "#sheet-settings form input, #sheet-settings form button, #mc",
-    )) {
-      if (!loadingDisabledControls.has(control))
-        loadingDisabledControls.set(control, control.disabled);
-      control.disabled = true;
+  for (const form of document.querySelectorAll(
+    "#sheet-settings form, #agent-name-form, #agent-preference-form, #aquarium-name-form",
+  )) {
+    let fields = form.querySelector(":scope > .settings-readiness");
+    if (!fields) {
+      fields = document.createElement("fieldset");
+      fields.className = "settings-readiness";
+      while (form.firstChild) fields.append(form.firstChild);
+      form.append(fields);
     }
-  } else {
-    for (const [control, disabled] of loadingDisabledControls)
-      control.disabled = disabled;
-    loadingDisabledControls.clear();
+    // The fieldset gates interaction without overwriting each control's own
+    // pending-save or validation state when storage becomes unavailable.
+    fields.disabled = !settingsReady;
   }
+  for (const control of document.querySelectorAll(
+    "#jukebox-tracks, #jukebox-volume, #mc, #themeNextbtn, #sound",
+  ))
+    control.disabled = !settingsReady;
 }
 function fillSettings() {
   fillInactivePreferences();

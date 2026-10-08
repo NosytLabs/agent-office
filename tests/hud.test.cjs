@@ -1,3 +1,4 @@
+const { postSettings } = require("./settings-helper.cjs");
 /* HUD regressions against a real observer; all records are synthetic fixtures. */
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -157,7 +158,7 @@ async function withPage(run, options = {}) {
       reducedMotion: options.reducedMotion || "no-preference",
     });
     const p = await context.newPage();
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: {
         agent_preferences: {},
         show_pets: true,
@@ -766,7 +767,7 @@ test("inactive preference cleanup frees a bounded map and preserves active filte
     );
     prefs["hud-0"] = { appearance: "char1" };
     prefs["hud-1"] = { appearance: "char5" };
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: {
         agent_preferences: prefs,
         agent_names: { "hud-1": "Hidden colleague" },
@@ -934,7 +935,7 @@ test("bounded notification eviction preserves keyboard focus inside the active p
 
 test("a drafted free desk survives another session leaving and an empty desk cannot be saved", () =>
   withPage(async (p) => {
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { agent_preferences: { "hud-1": { seat: 30 } } },
     });
     await p.reload();
@@ -973,7 +974,7 @@ test("a drafted free desk survives another session leaving and an empty desk can
 
 test("resetting preferences does not overwrite edits made while its save is pending", () =>
   withPage(async (p) => {
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { agent_preferences: { "hud-0": { appearance: "char5" } } },
     });
     await p.reload();
@@ -1011,7 +1012,7 @@ test("resetting preferences does not overwrite edits made while its save is pend
 
 test("inactive-choice summary follows departing sessions while Customize stays open", () =>
   withPage(async (p) => {
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { agent_preferences: { "hud-1": { appearance: "char3" } } },
     });
     await p.reload();

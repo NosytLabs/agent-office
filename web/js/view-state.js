@@ -47,6 +47,7 @@ window.officeViewState = (() => {
       paused: input.paused === true,
       panel: panels.includes(input.panel) ? input.panel : null,
       eventMode: input.eventMode === "history" ? "history" : "latest",
+      taskMode: input.taskMode === "reported" ? "reported" : "activity",
       eventRuntime: runtimes.includes(input.eventRuntime)
         ? input.eventRuntime
         : "every",

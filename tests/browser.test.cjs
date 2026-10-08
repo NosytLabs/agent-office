@@ -1,3 +1,4 @@
+const { postSettings } = require("./settings-helper.cjs");
 /* Browser regressions: actual server, DOM, canvas, and bundled asset requests. */
 const { test, before, after } = require("node:test");
 const { spawn } = require("node:child_process");
@@ -298,7 +299,7 @@ test("search matches the status and event names shown to users", () =>
   }));
 test("saved theme and desk settings survive a reload", () =>
   withPage(async (p) => {
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { theme: "amber", max_chars: 2 },
     });
     await p.reload();
@@ -565,7 +566,11 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
 test("all sprite images load and canvas frames stay within room bounds on desktop and mobile", () =>
   withPage(async (p) => {
     await p.waitForFunction(
-      () => officeScene.loadedAssets === 19 && officeScene.sprites.coatrack,
+      () =>
+        officeScene.loadedAssets === 20 &&
+        ["coatrack", "taskterminal", "statusbeacon", "petbed", "fern"].every(
+          (key) => officeScene.sprites[key],
+        ),
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
     assert.equal(
@@ -634,7 +639,7 @@ test("activity search persists, tasks open inspector, Escape restores focus", ()
     await p.locator("#taskboard .agent-card").first().click();
     assert.ok(await p.locator("#sheet-inspector").isVisible());
     assert.ok(
-      (await p.locator("#inspectorbox").innerText()).includes(
+      (await p.locator("#inspector-summary").innerText()).includes(
         "Apply the reviewed patch",
       ),
     );
@@ -716,22 +721,22 @@ test("pause, zoom, runtime filters, snapshot download, achievements and furnitur
   }));
 test("HTTP settings endpoint rejects malformed and oversized bodies with JSON errors", () =>
   withPage(async (p) => {
-    let r = await p.request.post(baseURL + "/settings", {
+    let r = await postSettings(p.request, baseURL + "/settings", {
       headers: { "Content-Type": "application/json" },
       data: "{bad",
     });
     assert.equal(r.status(), 400);
-    r = await p.request.post(baseURL + "/settings", {
+    r = await postSettings(p.request, baseURL + "/settings", {
       headers: { "Content-Type": "application/json" },
       data: "[]",
     });
     assert.equal(r.status(), 400);
-    r = await p.request.post(baseURL + "/settings", {
+    r = await postSettings(p.request, baseURL + "/settings", {
       headers: { "Content-Type": "application/json" },
       data: "x".repeat(65537),
     });
     assert.equal(r.status(), 413);
-    r = await p.request.post(baseURL + "/settings", {
+    r = await postSettings(p.request, baseURL + "/settings", {
       headers: { "Content-Type": "text/plain" },
       data: "{}",
     });
@@ -940,7 +945,15 @@ test("readable local fonts, decorative icons, labels, and catalog previews load"
         }
     }
     await p.locator("#settingsbtn").click();
-    assert.equal(await p.locator("#furniture-tools button").count(), 22);
+    assert.deepEqual(
+      await p
+        .locator("#furniture-tools button")
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.dataset.kind).sort(),
+        ),
+      await p.evaluate(() => Object.keys(PROP_NAMES).sort()),
+      "every registered prop has one catalog button",
+    );
     const populated = await p
       .locator("#furniture-tools canvas")
       .evaluateAll((cs) =>
@@ -1359,7 +1372,9 @@ test("external furniture changes invalidate stale selection and undo", () =>
     await p.waitForFunction(() => pendingSaves === 0);
     await p.locator("#arrange-furniture").click();
     await p.locator("#c").press("Space");
-    await p.request.post(baseURL + "/settings", { data: { furniture: [] } });
+    await postSettings(p.request, baseURL + "/settings", {
+      data: { furniture: [] },
+    });
     await p.waitForFunction(() => settings.furniture.length === 0);
     assert.equal(await p.evaluate(() => officeScene.movingIndex), null);
     assert.equal(await p.locator("#undo-furniture").isDisabled(), true);
@@ -1375,7 +1390,7 @@ test("a settings save response invalidates an externally replaced selected prop"
     await p.locator("#settingsbtn").click();
     await p.locator("#edit-furniture").click();
     await p.locator("#c").press("Space");
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { furniture: [{ kind: "sofa", x: 0.5, y: 0.95 }] },
     });
     await p.evaluate(() => saveSettings({ theme: "amber" }));
@@ -1435,13 +1450,13 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     const dir = process.env.OFFICE_SCREENSHOTS;
     if (!dir) return;
     fs.mkdirSync(dir, { recursive: true });
-    await p.request.post(baseURL + "/settings", {
+    await postSettings(p.request, baseURL + "/settings", {
       data: { ...(await p.evaluate(() => DEFAULT_SETTINGS)), ambience: "day" },
     });
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 19 &&
+        officeScene.loadedAssets === 20 &&
         officeScene.sprites.sofa &&
         initialized,
     );

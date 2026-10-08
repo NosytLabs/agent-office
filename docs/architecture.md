@@ -26,11 +26,14 @@ The observer does not execute tasks, supply prompts, decide permissions, or send
 | [`event_inbox.py`](../event_inbox.py) | Python publication protocol and reset-epoch reads |
 | [`event_store.py`](../event_store.py) | SQLite transactions, receipt cleanup, legacy migration, retention, and reset recovery |
 | [`state_model.py`](../state_model.py) | Incremental sessions, concurrent tools, pending input, and lifecycle transitions |
+| [`tasks.py`](../tasks.py) | Bounded source task snapshots and capture replay memory, independent of lifecycle and XP |
+| [`settings_store.py`](../settings_store.py) | Revisioned settings reads, conditional atomic writes, and preservation of unavailable files |
 | [`progress.py`](../progress.py) | XP, the active achievement catalog, runtime aliases, and retired-record cleanup |
 | [`usage.py`](../usage.py) | Stable usage identities, replacement corrections, coverage, and materialized aggregates |
 | [`claude/hook.py`](../claude/hook.py), [`codex/hook.py`](../codex/hook.py), [`codex/stream.py`](../codex/stream.py), [`opencode/index.js`](../opencode/index.js) | Runtime-specific payload normalization |
 | [`install.py`](../install.py) | Detection and additive configuration of existing runtimes and the VS Code view |
 | [`web/js/office.js`](../web/js/office.js), [`editor.js`](../web/js/editor.js) | Polling, panels, settings reconciliation, and transactional furniture editing |
+| [`web/js/tasks-view.js`](../web/js/tasks-view.js) | Read-only source task lists, provenance, and focus-preserving reconciliation |
 | [`web/js/data.js`](../web/js/data.js), [`scene.js`](../web/js/scene.js) | Shared geometry, assets, camera, movement, drawing, and hit testing |
 | [`web/js/aquarium.js`](../web/js/aquarium.js), [`jukebox.js`](../web/js/jukebox.js) | Optional fish simulation and gesture-started local music |
 | [`vscode/extension.js`](../vscode/extension.js), [`panel.js`](../vscode/panel.js) | Extension commands, URL forwarding, bounded connection checks, and the webview shell |
@@ -39,11 +42,14 @@ The observer does not execute tasks, supply prompts, decide permissions, or send
 
 Each bundled publisher writes one complete envelope to a temporary file, then atomically renames it into `inbox/`. The envelope carries its protocol version, reset epoch, and normalized event. A unique filename supplies a receipt identity and deterministic publication order, independent of the event's source timestamp. Two intentional publications with identical payloads remain two observations. Publishers must not reuse receipt filenames.
 
-The server drains at most 2,048 available records per batch. Its maintenance loop runs approximately once per second even with no browser connected; HTTP reads also ingest available observations. Oversized or malformed records are skipped and counted, while unreadable files remain for retry. The current record limit is 256 KiB.
+The server drains at most 2,048 available records per batch. Its maintenance loop runs approximately once per second even with no browser connected; HTTP reads also ingest available observations. Oversized or malformed records are counted and acknowledged without applying their contents. The current record limit is 256 KiB.
+
+Unreadable files remain for retry, normally after five seconds. The retry queue is durable and shares each batch with new inputs, so one failed publisher cannot starve unrelated writers. For bundled filenames, an unreadable record blocks later records from the same writer until it can be read or is confirmed absent. This preserves that writer's corrections across restarts. Custom filenames without a trustworthy writer ID remain retryable without inventing ordering relationships.
 
 Each drain uses SQLite `BEGIN IMMEDIATE`, so cooperating consumer processes serialize writes. One transaction updates:
 
 - The incremental live model, including each session's parallel calls and pending prompts.
+- Valid source task-board replacements and bounded capture replay memory.
 - XP, achievements, receipt count, and the retained event window.
 - Usage-unit corrections and aggregate totals.
 - Receipt acknowledgments and the authoritative checkpoint.
@@ -76,13 +82,32 @@ Raw history retains the newest records satisfying all configured limits:
 
 The byte limit counts UTF-8 event JSON, not total SQLite file size. `/state` returns up to 30 retained recent events; `/history` reads the retained history separately. Pruning also updates the recent-event window. XP, live checkpoints, and usage accounting are independent of raw retention.
 
-Three stores can grow beyond the raw-history limit: an offline inbox, the compact usage identity/aggregate ledger, and a legacy writer's JSONL file. Unanswered prompts also remain in live state until resolved or reset. These are deliberate retention boundaries rather than a hard whole-directory size guarantee. The settings panel reports retained-history bytes and database size separately, with notices for backlog, invalid records, or approaching the configured byte limit.
+Automatic pruning is suspended when `settings.json` cannot be read or parsed, is not a regular file, or contains a present but unsupported retention value. `/state` reports `tracking.retention_suspended` and unavailable settings while observation continues. Defaults must never silently replace an unreadable longer retention policy. A genuinely absent file uses the documented defaults; repairing the file resumes automatic pruning.
+
+An offline inbox, the compact usage ledger, and a legacy writer's JSONL file can grow beyond the raw-history limit. Unanswered prompts remain until resolved or reset. Task checkpoints retain at most 128 boards independently of raw history. These are separate retention boundaries, not a hard whole-directory quota.
+
+The `tracking` object reports the following independent measurements:
+
+| Fields | Meaning |
+| --- | --- |
+| `retained`, `retained_bytes` | Raw history rows and their encoded UTF-8 JSON bytes |
+| `database_bytes`, `legacy_log_bytes` | The database and legacy log file-entry sizes; not a sum of the entire office directory |
+| `inbox_files`, `inbox_bytes` | All direct, non-directory inbox entries, including temporary and cleanup-pending files |
+| `backlog`, `backlog_bytes` | Unacknowledged `.json` files awaiting processing |
+| `cleanup_pending`, `cleanup_pending_bytes` | Acknowledged files still on disk after cleanup could not remove them |
+| `temporary_files`, `temporary_bytes`, `retrying_files` | Unfinished publications and files with a recorded read retry; these overlap the inbox totals |
+| `usage_units` | Persisted unique accounting units, maintained transactionally with insertions, corrections, and reset |
+| `measurement_errors` | Categories whose inventory or legacy read could not be completed |
+
+Known absence is zero; a failed measurement is `null`, never a plausible partial total. Directory scans use entry metadata without opening symlink targets. A disappearing entry is omitted, while a failed scan invalidates the affected totals. A legacy file can have a known byte size but an unreadable body; `legacy_log_read` reports that separate failure. UI warnings must preserve these distinctions.
 
 ### Legacy migration
 
 On first database creation, `progress.json` supplies existing XP and statistics. The original timestamp boundary is used only for this otherwise unidentified historical progress; it cannot establish exact identity for every old event. Subsequent legacy appends use their verified prefix and position, so a new line with an older timestamp still counts.
 
 Legacy reads reuse a private parsed cache only while path, inode, size, modification time, and change time match. Before/after checks reject a concurrently changing snapshot. A changed legacy file still requires a full read. Rewrites compare fingerprint occurrence counts conservatively; a rewrite without stable source IDs cannot always distinguish a new identical event from old history. A legacy rewrite cannot replace live state already established by new inbox publishers.
+
+A stat, open, or mid-read I/O failure preserves the previous legacy cursor and live state. It is not an empty file or a shorter rewrite. Other inbox writers continue to drain; the failed legacy source is retried after access recovers.
 
 Rerunning the installer moves bundled adapters to the inbox protocol. Keeping legacy JSONL read-only avoids truncation races with an older writer. Old source files remain on disk after resets; the reset cursor fences their preceding contents rather than deleting an active append target.
 
@@ -94,7 +119,7 @@ A reset holds the SQLite writer transaction while obtaining a stable legacy pref
 
 If the process stops after publishing the intent but before committing the database reset, the next database load completes the pending reset transactionally. It never restores the older epoch over the published fence. New-epoch publications survive recovery. A publisher that prepared an old-epoch event before reset cannot reintroduce it by finishing its rename afterward. An append beyond the fenced legacy prefix remains available for ingestion.
 
-If a continuously changing legacy file prevents a stable boundary, reset fails before publishing its intent and preserves existing data. Crash and append-race regressions are in [`test_reset_protocol.py`](../tests/test_reset_protocol.py).
+If an unreadable or continuously changing legacy file prevents a complete, stable boundary, reset fails before publishing its intent and preserves existing data. Crash and append-race regressions are in [`test_reset_protocol.py`](../tests/test_reset_protocol.py); partial-read preservation is covered in [`test_event_cache.py`](../tests/test_event_cache.py).
 
 ## Live state and display lifetime
 
@@ -122,23 +147,47 @@ The compact ledger stores IDs, model/provider metadata, counters, and accounting
 
 Without a source revision, an older differing snapshot is indistinguishable from a later correction. Adapters therefore need a stable identity and a documented snapshot contract, not timestamp-based deduplication.
 
+## Source-reported tasks
+
+`tasks_update` replaces one complete board keyed by exact `(runtime, session_id)`. Valid statuses are `pending`, `in_progress`, `completed`, and `cancelled`; priority is optionally `high`, `medium`, or `low`. Boards contain at most 100 rows, with 512-character content and 256-character row IDs. A malformed or oversized snapshot is rejected in full. Only an explicit empty list clears a board; missing task coverage remains unknown.
+
+OpenCode reports `todo.updated`; the optional Codex stream reader reports `todo_list` items. Their row IDs are positional within a snapshot. Neither source supplies a task update timestamp, so `source_updated_at` is `null`; `observed_at` and `age_s` describe observer receipt freshness. If another supported source supplies a valid source clock, an older same-source clock cannot replace its newer snapshot.
+
+The version-1 live checkpoint adds `task_boards`, defaulting to an empty list for older checkpoints. It retains the 128 most recently accepted boards, independently of raw-history pruning. Each board keeps up to eight internal capture watermarks, recording the maximum accepted parsed-record sequence for each recent Codex capture. These survive restart and upgrade the earlier single-capture cursor. Replays of remembered records cannot replace a newer board or refresh its age. Previously unseen records remain receipt-ordered; eviction of a capture or board removes its replay protection.
+
+Task reports bypass lifecycle and progression: they cannot start a session, refresh an agent, complete work, or earn XP. Parent and child boards stay separate. `snapshot_tasks(now)` joins a board to a matching runtime/session for presentation, returning source, timestamps, rows, `historical`, and `session_status`, but no internal capture watermarks. **Last reported** means no current nonterminal matching sprite is visible; it is not proof that the external process stopped. A completed session may still have explicitly pending source tasks.
+
+The existing Tasks panel separates **Session activity** and **Reported tasks**. The renderer uses literal text, preserves unchanged DOM and selected text across polls, and restores a focused session button after changes without taking focus from an unrelated draft. Ambiguous same-ID runtime matches offer no inspector action. See [runtime setup and source limits](runtime-observers.md).
+
+## Settings consistency
+
+`settings.json` remains the authoritative preference file. A valid read returns its exact-byte SHA-256 revision; a missing file uses revision `missing`. `/state` supplies `settings`, `settings_revision`, and `settings_status`. `GET /settings` returns the settings object with a quoted `ETag`. A JSON `POST /settings` must send that exact quoted revision in `If-Match`.
+
+Missing preconditions return **428**; malformed preconditions return **400**; stale revisions return **409** with the current settings snapshot. An unreadable, corrupt, oversized, nonregular, or invalid-retention file returns **503** and remains untouched. A successful write returns the saved object and a new `ETag`. JSON requests are limited to 64 KiB; the complete saved file is limited to 1 MiB.
+
+Cooperating server processes serialize compare-and-replace through the office database's writer transaction. The writer validates and merges a patch, flushes a temporary file, checks the source revision again, and atomically replaces the settings file. The database is a lock, not a second settings copy.
+
+The frontend permits edits only after a valid settings object and revision arrive. Corrupt or unavailable preferences disable writes while observation continues. On a conflict, it adopts the current server snapshot, cancels queued edits based on the stale generation, and asks the user to review before retrying; it does not silently replay a replacement layout over another view's work. Ordinary failed writes retain newer patches in the active queue. Name drafts remain readable, and furniture undo history changes only after a confirmed save. See [`test_settings_concurrency.py`](../tests/test_settings_concurrency.py) and the [native browser cases](../tests/settings-concurrency.test.cjs).
+
 ## Frontend and extension
 
 The canvas separates world geometry from display resolution and uses nearest-neighbor sprite sampling. Shared collision bounds drive rendering, placement, selection, and pathfinding. Saved normalized prop positions survive viewport changes; a bounded resolver finds nearby free floor when necessary and reports props that cannot fit.
 
-The furniture editor provides 20 in-session undo steps. It changes history only after a successful settings save. Pending settings patches replay over the latest confirmed values; a failed earlier write cannot overwrite a later queued edit. An external replacement of custom furniture invalidates stale index-based history. At Fit, touch permits vertical page scrolling; zoom and edit modes reserve canvas gestures. Cancelled gestures do not commit moves.
+The furniture editor provides 20 in-session undo steps and up to 24 custom placements. External furniture replacement invalidates stale index-based history. At Fit, touch permits vertical page scrolling; zoom and edit modes reserve canvas gestures. Cancelled gestures do not commit moves.
 
-Settings become editable only after the first valid state response supplies the saved settings object. The shared writer rejects earlier calls before changing local values, revision counters, or the write queue. Name fields, editor controls, and layout import/export remain unavailable during that initial load, and the aquarium cannot open its editable panel yet. Failed initial requests keep this guard in place until a successful retry. After hydration, temporary connection loss retains the established save/retry behavior using the last known settings. This prevents an empty placeholder collection or untouched name from replacing saved data.
-
-The active catalog contains 37 reachable achievements and 22 furniture choices, including six earned prop choices. Errors remain in activity statistics; error counts, session time of day, and theme changes do not award XP. Saving appearance preferences does not write progress. Runtime aliases are canonicalized for achievement conditions while their recorded platform statistics are preserved.
+The active catalog contains 37 reachable achievements and 26 furniture choices, including six earned prop choices. The task terminal opens Reported tasks; the attention beacon opens Session activity and lights only for an observed waiting session while connected. Its neutral state is not a claim of system health. The pet bed opens pet settings and supplies a cat rest target; the potted fern is decoration. Cursor and beacon animations respect scene motion controls. Errors remain in activity statistics; error counts, session time of day, and theme changes do not award XP. Saving appearance preferences does not write progress.
 
 `agent_preferences` maps canonical session IDs to optional desk slots and character choices. A full replacement map is validated atomically, bounded to 128 entries, and never truncates an identity. All active actors participate in occupancy; an invalid or occupied destination is rejected before changing the old assignment. Imported conflicts have a deterministic ID-based winner.
 
 The scene keeps automatic desk homes for the lifetime of the open view. Moving or removing one actor leaves the other actors at their established logical desk numbers; filtering, snapshot reordering, and responsive layout do not renumber them. Explicit choices take precedence, then automatic incumbents, then returning actors with a free remembered home, then new or displaced actors. A rejected optimistic save can reclaim its former automatic home. Once an actor leaves the complete live roster, its automatic history is discarded. Explicit choices persist across reloads; automatic homes are rebuilt when a new view opens. Screen coordinates can change as the room reflows. The shared character resolver also drives roster portraits and sprite-specific crown offsets.
 
-`view-state.js` stores bounded viewing preferences in browser storage: zoom, pause, runtime and panel filters, search text, and reading positions. Only reading panels reopen automatically. Observer and public-demo views use separate namespaces. Saved views never restore music playback, furniture editing, or camera pan, and the browser's reduced-motion preference overrides a saved moving scene. Storage failures leave the controls usable. Panel updates preserve existing event rows and selection when the underlying record has not changed.
+`view-state.js` stores bounded viewing preferences in browser storage: zoom, pause, runtime and panel filters, the selected Tasks subview, search text, and reading positions. Only reading panels reopen automatically. Observer and public-demo views use separate namespaces. Saved views never restore music playback, furniture editing, camera pan, or a follow target, and the browser's reduced-motion preference overrides a saved moving scene. Storage failures leave the controls usable. Panel updates preserve existing event rows and selection when the underlying record has not changed.
 
-`pets.js` owns a deterministic, bounded movement controller for the existing cats. It reuses the office pathfinder within a local search window, checks furniture clearance while moving, and updates canvas hit targets from actual drawn positions. Cats wander, approach nearby idle agents, rest or sleep, and move away from active work. Hiding pets, disabling roaming, pausing the scene, hiding the page, or requesting reduced motion stops the relevant animation. The verified front-idle art is translated and mirrored; native cat walk frames have not been verified. The earned sofa sleeper remains a separate decoration. Pet behavior makes no model calls and never changes observer events, XP, or usage.
+**Follow on floor** is an explicit inspector action. It brings the selected character into view at a minimum zoom of 1.75 while preserving a higher zoom, and bounds pan to the room edges. Switching panels preserves the target. Manual pan, Fit, filtering it out, furniture editing, or removal from the live roster cancels follow. A terminal sprite can remain followed during its existing exit interval; following does not prolong that interval or change accounting. The [three native browser flows](../tests/follow-camera.test.cjs) exercise controls and actual observer lifecycle events, including the 20-second ended-session fade under reduced motion.
+
+`pets.js` owns a deterministic, bounded movement controller for the existing cats. It reuses the office pathfinder within a local search window, checks furniture clearance while moving, and updates canvas hit targets from actual drawn positions. Cats wander, approach nearby idle agents, rest or sleep, and move away from active work. For a scheduled nap, a cat can reserve an unoccupied placed pet bed and follow bounded path segments to it. Overlapping cats or reservations exclude that target; moving or removing the bed cancels the stale reservation. If bounded routing cannot reach a candidate, the cat keeps a safe local nap instead of teleporting or searching the whole room. Bed footprints are walkable for pets while surrounding furniture and desks remain obstacles.
+
+Hiding pets, disabling roaming, pausing the scene, hiding the page, or requesting reduced motion stops the relevant animation. The verified front-idle art is translated and mirrored; native cat walk frames have not been verified. The earned sofa sleeper remains a separate decoration. Pet behavior makes no model calls and never changes observer events, XP, or usage.
 
 Retired unlock/recent records are removed without subtracting XP or changing statistics. The warm lamp now belongs to `coffee_break`, earned after 50 observed tool calls. Removing a saved `weather_storm` unlock preserves its appearance as `legacy_cosmetics: ["storm_lamp"]`; this field admits only that existing cosmetic and is normalized on JSON import and authoritative SQLite reads. It does not grant the replacement badge, invent activity, or add XP. History clearing preserves it, and Reset progress clears it with the rest of the progress record.
 
@@ -151,11 +200,11 @@ The VS Code extension hosts the shared frontend in an iframe. It forwards config
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/` | Office frontend |
-| GET | `/state` | Visible agents, recent events, progress, usage, tracking, settings, and live/demo marker |
+| GET | `/state` | Visible agents, reported task boards, recent events, progress, usage, tracking, settings with revision/availability, and live/demo marker |
 | GET | `/history?limit=1000` | Retained activity, newest first; response limit clamped to 1–5,000 |
 | DELETE | `/history` | Clear raw activity while retaining progress, usage, and live state |
 | DELETE | `/state` | Reset tracking/progress/usage; preserve room settings |
-| GET / POST | `/settings` | Read or partially update validated settings; JSON writes limited to 64 KiB |
+| GET / POST | `/settings` | Read validated settings with `ETag`; conditionally patch with `If-Match`, limited to 64 KiB |
 | GET | `/js/*`, `/css/*`, `/assets/*` | Bundled frontend assets |
 | GET | `/assets-manifest`, `/user/<name>.svg` | Compatibility inventory and local user SVGs |
 | GET | `/user/aquarium/manifest.json`, `/user/aquarium/<fish-id>.png` | Optional local aquarium pack |

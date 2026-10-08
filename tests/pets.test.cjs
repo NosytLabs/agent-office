@@ -253,3 +253,199 @@ test("a blocked original home still permits sleeping at a safe resting spot", ()
   }
   assert.ok(slept, "the actual furnished lounge has a reachable sleep state");
 });
+
+function until(pets, world, predicate, options = {}, limit = 2400) {
+  let previous = pets.step(0, world, options);
+  for (let frame = 0; frame < limit; frame++) {
+    const current = pets.step(0.1, world, options);
+    for (const pet of current) {
+      safe(pet, world);
+      const old = previous.find((p) => p.key === pet.key);
+      if (old)
+        assert.ok(
+          Math.hypot(pet.x - old.x, pet.y - old.y) <= 1.801,
+          "a bed journey uses bounded movement rather than teleportation",
+        );
+    }
+    const reserved = current.map((pet) => pet.bed_id).filter(Boolean);
+    assert.equal(
+      new Set(reserved).size,
+      reserved.length,
+      "each bed has at most one reservation",
+    );
+    if (predicate(current)) return current;
+    previous = current;
+  }
+  assert.fail(
+    "the requested pet behavior did not occur within the bounded run",
+  );
+}
+
+test("cats reserve separate beds and reach their exact foot points before sleeping", () => {
+  const pets = controller(),
+    world = room({
+      w: 420,
+      h: 280,
+      homes: { cat: { x: 50, y: 240 }, blackcat: { x: 370, y: 240 } },
+      beds: [
+        { id: "left-bed", x: 80, y: 190 },
+        { id: "right-bed", x: 340, y: 190 },
+      ],
+      progress: { xp: 120 },
+      events: [{ event: "observed" }],
+      usage: { input_tokens: 150 },
+    }),
+    original = JSON.stringify(world),
+    slept = new Map();
+  until(
+    pets,
+    world,
+    (current) => {
+      for (const pet of current) {
+        if (pet.mode !== "sleep" || pet.moving || !pet.bed_id) continue;
+        const bed = world.beds.find((bed) => bed.id === pet.bed_id);
+        assert.ok(bed);
+        assert.ok(Math.hypot(pet.x - bed.x, pet.y - bed.y) < 0.1);
+        slept.set(pet.key, pet.bed_id);
+      }
+      return slept.size === 2;
+    },
+    { secondCat: true },
+  );
+  assert.equal(new Set(slept.values()).size, 2);
+  assert.equal(
+    JSON.stringify(world),
+    original,
+    "beds do not mutate XP, observations, or layout data",
+  );
+});
+
+test("a bed journey routes around furniture and never sleeps at an intermediate waypoint", () => {
+  const pets = controller(),
+    world = room({
+      w: 360,
+      h: 280,
+      homes: { cat: { x: 50, y: 205 } },
+      beds: [{ id: "window-bed", x: 230, y: 170 }],
+      blocked: [{ x: 95, y: 155, w: 18, h: 60 }],
+    });
+  let traveled = false;
+  until(pets, world, ([pet]) => {
+    traveled ||= pet.mode === "bed" && pet.moving;
+    if (pet.bed_id === "window-bed" && pet.mode === "sleep") {
+      assert.equal(pet.moving, false);
+      assert.ok(Math.hypot(pet.x - 230, pet.y - 170) < 0.1);
+      return true;
+    }
+    return false;
+  });
+  assert.ok(traveled, "resting in a bed follows a visible journey");
+});
+
+test("one bed cannot be reserved by both cats or overlapping duplicate beds", () => {
+  const pets = controller(),
+    world = room({
+      beds: [
+        { id: "single", x: 125, y: 165 },
+        { id: "overlap", x: 126, y: 166 },
+        { id: "single", x: 220, y: 120 },
+      ],
+    });
+  let slept = false;
+  until(
+    pets,
+    world,
+    (current) => {
+      assert.ok(
+        current.filter((pet) => pet.bed_id).length <= 1,
+        "overlapping bed targets have a shared physical occupancy limit",
+      );
+      const [a, b] = current;
+      assert.ok(
+        Math.abs(a.x - b.x) >= 10 || Math.abs(a.y - b.y) >= 15,
+        "bed occupants never overlap",
+      );
+      slept ||= current.some(
+        (pet) => pet.bed_id && pet.mode === "sleep" && !pet.moving,
+      );
+      return slept;
+    },
+    { secondCat: true },
+  );
+});
+
+test("blocked or malformed beds preserve safe fallback resting behavior", () => {
+  const pets = controller(),
+    world = room({
+      w: 300,
+      beds: [
+        null,
+        { id: "bad", x: NaN, y: 150 },
+        { id: "edge", x: 0, y: 0 },
+        { id: "wall-bed", x: 230, y: 140 },
+      ],
+      blocked: [{ x: 135, y: 46, w: 20, h: 180 }],
+    });
+  until(pets, world, ([pet]) => {
+    assert.ok(
+      pet.x < 135,
+      "an inaccessible bed cannot pull a cat through a wall",
+    );
+    return pet.mode === "sleep" && !pet.moving && !pet.bed_id;
+  });
+});
+
+test("bed movement freezes while paused or hidden and rest preference does not start a journey", () => {
+  const pets = controller(),
+    world = room({ beds: [{ id: "rest", x: 200, y: 100 }] });
+  until(pets, world, ([pet]) => pet.mode === "bed" && pet.moving);
+  const frozen = plain(pets.step(0, world));
+  for (const option of [{ paused: true }, { hidden: true }, { roam: false }])
+    for (let i = 0; i < 20; i++)
+      assert.deepEqual(plain(pets.step(20, world, option)), frozen);
+  const settled = controller(),
+    initial = plain(settled.step(0, world, { roam: false }));
+  for (let i = 0; i < 100; i++)
+    assert.deepEqual(plain(settled.step(20, world, { roam: false })), initial);
+  assert.equal(initial[0].bed_id, null);
+});
+
+test("moving or removing a bed releases its reservation without relocating the cat", () => {
+  for (const changed of [[], [{ id: "rest", x: 110, y: 80 }]]) {
+    const pets = controller(),
+      world = room({ beds: [{ id: "rest", x: 200, y: 100 }] });
+    const [before] = until(
+      pets,
+      world,
+      ([pet]) => pet.mode === "bed" && pet.moving,
+    );
+    world.beds = changed;
+    const [after] = pets.step(0.1, world);
+    assert.equal(after.bed_id, null);
+    assert.equal(after.moving, false);
+    assert.equal(after.x, before.x);
+    assert.equal(after.y, before.y);
+    safe(after, world);
+  }
+});
+
+test("petting or nearby active work releases a bed for another cat", () => {
+  for (const action of ["pet", "work"]) {
+    const pets = controller(),
+      world = room({ beds: [{ id: "rest", x: 180, y: 100 }] });
+    const [before] = until(
+      pets,
+      world,
+      ([pet]) => pet.mode === "sleep" && pet.bed_id,
+    );
+    if (action === "pet") assert.equal(pets.hold("cat"), true);
+    else
+      world.agents = [
+        { id: "working", x: before.x + 5, y: before.y + 5, status: "working" },
+      ];
+    const [after] = pets.step(0.1, world);
+    assert.equal(after.bed_id, null);
+    assert.notEqual(after.mode, "sleep");
+    safe(after, world);
+  }
+});

@@ -281,9 +281,9 @@
                   inspect the activity behind the animation.
                 </p>
                 <ul>
-                  <li>Parent and child session relationships</li>
+                  <li>Session activity and source-reported task lists</li>
                   <li>Named agents and preferred desk assignments</li>
-                  <li>Zoom, pause, and a snapshot of your scene</li>
+                  <li>Follow an agent, zoom, pause, and save your scene</li>
                 </ul>
                 <a
                   href="https://github.com/NosytLabs/agent-office/blob/main/docs/architecture.md"
@@ -344,7 +344,7 @@
                   opens useful views when you click it.
                 </p>
                 <ul>
-                  <li>22 placeable props, including earned additions</li>
+                  <li>26 placeable props, including earned additions</li>
                   <li>Undo, redo, and portable room preferences</li>
                   <li>37 activity-based achievements</li>
                 </ul>
@@ -378,7 +378,7 @@
                 </p>
                 <ul>
                   <li>Four collectible fish species</li>
-                  <li>Named pets with optional movement</li>
+                  <li>Named pets, roaming, and placeable nap beds</li>
                   <li>Audio starts only when you press Play</li>
                 </ul>
                 <p class="tour-fineprint">
@@ -718,7 +718,9 @@ python3 run.py</code></pre>
               seven days and 5 MiB. Change all three limits in Customize.
               History pruning preserves earned progress, usage totals, and
               unanswered approvals. Usage identities remain separately for
-              corrections, so this is not a hard cap on the entire database.
+              corrections, so this is not a hard cap on the entire database. If
+              retention settings cannot be read safely, automatic pruning pauses
+              while observation continues.
             </p>
           </details>
           <details>
@@ -740,9 +742,10 @@ python3 run.py</code></pre>
               What is still being built?<span aria-hidden="true">＋</span>
             </summary>
             <p>
-              More runtime adapters, source task-list snapshots, current-context
-              gauges, and broader host integration checks are still open work.
-              The existing Tasks panel shows observed session activity. The
+              More runtime adapters, current-context gauges, and broader host
+              integration checks are still open work. The Tasks panel shows
+              session activity and reported lists from OpenCode or captured
+              Codex streams. The
               <a
                 href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
                 >audit record</a
