@@ -169,7 +169,7 @@
       setText(
         formStatus,
         formFeedback && issue
-          ? `${formFeedback} ${issue}`
+          ? `${formFeedback}\n${issue}`
           : formFeedback || issue,
       );
     if (draftRun) draftRun.disabled = !draft?.value.trim();
@@ -541,7 +541,11 @@
       renderRuns();
       selectRun(run.id);
       formFeedback =
-        "Run started. This is a new CLI process, separate from existing observed sessions.";
+        run.status === "running"
+          ? "Run started. This is a new CLI process, separate from existing observed sessions."
+          : run.status === "failed"
+            ? `${run.exit_code == null ? "Run could not start" : "Run failed"}. Review the run details before retrying.`
+            : `Run ${statusLabel(run.status).toLowerCase()}. Review its output and status before starting another task.`;
       setText(formStatus, formFeedback);
     } catch (error) {
       const uncertain = !error.status || error.name === "AbortError";

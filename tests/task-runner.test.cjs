@@ -332,7 +332,52 @@ test("malformed success retains the idempotency key and operation feedback", () 
     assert.deepEqual(requestIds, [requestIds[0], requestIds[0]]);
     assert.match(
       await page.locator("#task-run-form-status").innerText(),
-      /Run started.*active run/i,
+      /Run started.*active run/is,
+    );
+  }));
+
+test("a worker startup failure is shown as failed and leaves the form retryable", () =>
+  withPage(async (page) => {
+    let failedRun = null;
+    await page.route("**/task-runs**", (route) => {
+      if (route.request().method() === "POST") {
+        failedRun = {
+          ...route.request().postDataJSON(),
+          id: "worker-failed",
+          workspace_name: "Project",
+          status: "failed",
+          created_at: 1791453600,
+          finished_at: 1791453600,
+          exit_code: null,
+          output_truncated: false,
+          error: "Could not start task worker",
+        };
+        return route.fulfill({ status: 201, json: { run: failedRun } });
+      }
+      if (new URL(route.request().url()).pathname.endsWith("/worker-failed"))
+        return route.fulfill({ json: { run: { ...failedRun, output: "" } } });
+      return route.fulfill({
+        json: { ...capability, runs: failedRun ? [failedRun] : [] },
+      });
+    });
+    await page.addScriptTag({ path: script });
+    await page.evaluate(() => window.officeTaskRunner.open());
+    await page.locator("#task-run-prompt").fill("Inspect the project");
+    await page.locator("#task-run-submit").click();
+    await page.locator('[data-run-id="worker-failed"]').waitFor();
+    assert.match(
+      await page.locator("#task-run-form-status").innerText(),
+      /Run could not start/,
+    );
+    assert.match(
+      await page.locator("#task-run-detail-meta").innerText(),
+      /Failed/,
+    );
+    assert.equal(await page.locator("#task-run-cancel").isVisible(), false);
+    assert.equal(await page.locator("#task-run-submit").isDisabled(), false);
+    assert.equal(
+      await page.locator("#task-run-prompt").inputValue(),
+      "Inspect the project",
     );
   }));
 

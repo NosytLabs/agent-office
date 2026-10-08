@@ -95,11 +95,15 @@
   overflow: auto;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  background: #10151d;
+  background: var(--bg);
   color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   tab-size: 2;
+}
+
+#task-run-form-status {
+  white-space: pre-line;
 }
 
 .task-run-enable code {

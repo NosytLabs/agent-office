@@ -49,16 +49,31 @@ the output and inspect the project changes to verify the task's outcome.
 A CLI can describe a permission denial or an incomplete task even when its
 process returns successfully.
 
-**Cancel** sends termination to the run's process group and escalates if it
-does not exit. On POSIX this also stops descendants that remain in that group,
+On POSIX, **Cancel** sends termination to the run's process group and escalates
+if the group does not exit. This also stops descendants that remain in that group,
 including a child that still holds the captured output pipe after the original
-CLI process exits. A run remains **Running** until its process is reaped and
-the output pipe closes, then becomes **Cancelled**; this keeps the project slot
-occupied while cleanup is still in progress. A descendant that deliberately
-detaches into a different process group is outside this cleanup boundary. Cancellation
-does not revert file changes, recall requests already accepted by a provider,
-or stop an agent launched separately from the run. Reuse a previous prompt to
-prepare a new run; starting the new run remains an explicit action.
+CLI process exits. A descendant that deliberately detaches into a different
+process group is outside this cleanup boundary.
+
+On Windows, cancellation cleanup is **best-effort**. The runner starts a new
+process group and sends `CTRL_BREAK_EVENT`, which can reach descendants in that
+group only when they share the server's console; see Microsoft's
+[console-event scope](https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent).
+The fallback uses Python's
+[`terminate()` / `kill()`](https://docs.python.org/3/library/subprocess.html#subprocess.Popen.terminate)
+on the launched CLI process. Windows
+[process termination does not terminate child processes](https://learn.microsoft.com/en-us/windows/win32/procthread/terminating-a-process),
+so this does not guarantee descendant cleanup.
+
+After cancellation, a run remains **Running** until its process is reaped and
+the captured output reaches end-of-file, then becomes **Cancelled**; this keeps
+the project slot occupied while cleanup is still in progress. A surviving
+Windows descendant can keep that run and slot active by retaining a write
+handle to the captured output pipe; the pipe cannot reach end-of-file until
+[all its write handles close](https://learn.microsoft.com/en-us/windows/win32/ipc/anonymous-pipe-operations).
+Cancellation does not revert file changes, recall requests already accepted by
+a provider, or stop an agent launched separately from the run. Reuse a previous
+prompt to prepare a new run; starting the new run remains an explicit action.
 
 The runner permits at most two simultaneous runs and one per resolved project
 path. These are process admission limits, not file locks on tools launched
@@ -110,8 +125,9 @@ They exercise HTTP admission, prompt delivery, output, failure, cancellation,
 duplicate requests, and project concurrency without using a provider account.
 Those checks establish the runner's behavior, not that an installed Codex or
 Claude session completed a real provider-backed task on your computer.
-Process-group cleanup has been exercised on POSIX. The Windows signal path
-has not been exercised in a native Windows host for this update.
+Process-group cleanup has been exercised on POSIX. Windows cancellation,
+including console-event delivery and descendant cleanup, has not been exercised
+on a native Windows host for this update.
 
 Full interactive terminals, attaching to existing sessions, responding to
 their questions, cross-CLI conversation transfer, persistent task scheduling,

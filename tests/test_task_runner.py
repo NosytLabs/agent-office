@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -129,6 +131,117 @@ def test_failure_launch_error_and_bounded_output(runner):
     assert launch["status"] == "failed"
     assert launch["exit_code"] is None
     assert launch["error"].startswith("could not start codex CLI:")
+
+
+def test_worker_start_failure_is_terminal_idempotent_and_releases_admission(runner, monkeypatch):
+    original_start = threading.Thread.start
+    failed_threads = []
+    children = []
+    original_popen = subprocess.Popen
+
+    def start(thread):
+        if thread.name.startswith("task-run-") and not failed_threads:
+            failed_threads.append(thread)
+            raise RuntimeError("worker thread unavailable")
+        return original_start(thread)
+
+    def popen(*args, **kwargs):
+        process = original_popen(*args, **kwargs)
+        children.append(process)
+        return process
+
+    monkeypatch.setattr(threading.Thread, "start", start)
+    monkeypatch.setattr(subprocess, "Popen", popen)
+    payload = _payload(prompt="worker cannot start")
+    try:
+        created, is_new = runner.create(payload)
+        failed = created["run"]
+        assert is_new is True
+        assert failed["status"] == "failed"
+        assert failed["finished_at"] is not None
+        assert failed["exit_code"] is None
+        assert failed["error"] == "could not start task worker: worker thread unavailable"
+        assert children == []
+        assert runner._threads == set()
+        assert failed_threads[0].ident is None
+
+        repeated, is_new = runner.create(dict(payload))
+        assert is_new is False
+        assert repeated["run"] == failed
+
+        # Both global slots and the failed run's workspace remain available.
+        first, _ = runner.create(_payload(prompt="sleep", workspace_id="w1"))
+        second, _ = runner.create(_payload(prompt="sleep", workspace_id="w2"))
+        runner.cancel(first["run"]["id"])
+        runner.cancel(second["run"]["id"])
+        assert _finished(runner, first["run"]["id"])["status"] == "cancelled"
+        assert _finished(runner, second["run"]["id"])["status"] == "cancelled"
+        runner.shutdown(timeout=3)
+        assert runner._threads == set()
+    finally:
+        # A regression must not make fixture teardown join an unstarted thread.
+        for thread in failed_threads:
+            if thread.ident is None:
+                runner._threads.discard(thread)
+
+
+def test_stdin_start_failure_terminates_and_reaps_child_before_releasing_workspace(runner, monkeypatch):
+    original_start = threading.Thread.start
+    original_popen = subprocess.Popen
+    failed_threads = []
+    worker_threads = []
+    children = []
+
+    def start(thread):
+        if thread.name.startswith("task-stdin-") and not failed_threads:
+            failed_threads.append(thread)
+            raise RuntimeError("stdin thread unavailable")
+        if thread.name.startswith("task-run-"):
+            worker_threads.append(thread)
+        return original_start(thread)
+
+    def popen(*args, **kwargs):
+        process = original_popen(*args, **kwargs)
+        children.append(process)
+        return process
+
+    monkeypatch.setattr(threading.Thread, "start", start)
+    monkeypatch.setattr(subprocess, "Popen", popen)
+    payload = _payload(prompt="stdin cannot start")
+    try:
+        created, _ = runner.create(payload)
+        worker_threads[0].join(timeout=5)
+        assert not worker_threads[0].is_alive()
+        failed = runner.detail(created["run"]["id"])["run"]
+        assert failed["status"] == "failed"
+        assert failed["finished_at"] is not None
+        assert failed["error"] == "could not run codex CLI: stdin thread unavailable"
+        assert len(children) == 1
+        process = children[0]
+        # returncode is set by the runner's reap; this assertion cannot reap it.
+        assert process.returncode is not None and process.returncode != 0
+        assert failed["exit_code"] == process.returncode
+        assert process.stdin.closed and process.stdout.closed
+        assert runner._runs[failed["id"]]["process"] is None
+        assert runner._threads == set()
+        assert failed_threads[0].ident is None
+
+        repeated, is_new = runner.create(dict(payload))
+        assert is_new is False
+        assert repeated["run"] == {key: value for key, value in failed.items() if key != "output"}
+        recovered, _ = runner.create(_payload(prompt="workspace released"))
+        assert _finished(runner, recovered["run"]["id"])["status"] == "succeeded"
+        runner.shutdown(timeout=3)
+        assert runner._threads == set()
+    finally:
+        # Reap the fixture child even when the lifecycle regression reappears.
+        for process in children:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=3)
+            for stream in (process.stdin, process.stdout):
+                if stream is not None:
+                    stream.close()
 
 
 def test_request_id_is_idempotent_but_cannot_name_different_content(runner):

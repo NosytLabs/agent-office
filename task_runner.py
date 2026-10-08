@@ -180,7 +180,13 @@ class TaskRunner:
                 target=self._execute, args=(run_id,), name=f"task-run-{run_id[:8]}", daemon=True
             )
             self._threads.add(thread)
-            thread.start()
+            try:
+                thread.start()
+            except (OSError, RuntimeError) as exc:
+                self._threads.discard(thread)
+                run["error"] = f"could not start task worker: {exc}"
+                self._mark_stopped(run, "failed")
+                self._prune_locked()
             return {"run": self._summary(run)}, True
 
     def cancel(self, run_id: str) -> Dict[str, Any]:
@@ -266,7 +272,7 @@ class TaskRunner:
         process = None
         stdin_thread = None
         exit_code = None
-        launch_error = None
+        execution_error = None
         try:
             process = subprocess.Popen(
                 command,
@@ -293,10 +299,11 @@ class TaskRunner:
                     except (BrokenPipeError, OSError, ValueError):
                         pass
 
-                stdin_thread = threading.Thread(
+                stdin_worker = threading.Thread(
                     target=write_stdin, name=f"task-stdin-{run_id[:8]}", daemon=True
                 )
-                stdin_thread.start()
+                stdin_worker.start()
+                stdin_thread = stdin_worker
             if process.stdout is not None:
                 while True:
                     chunk = os.read(process.stdout.fileno(), 65536)
@@ -310,10 +317,16 @@ class TaskRunner:
                         if len(chunk) > remaining:
                             self._runs[run_id]["output_truncated"] = True
             exit_code = process.wait()
-        except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            launch_error = f"could not start {run['runtime']} CLI: {exc}"
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            action = "start" if process is None else "run"
+            execution_error = f"could not {action} {run['runtime']} CLI: {exc}"
         finally:
             if process is not None:
+                if exit_code is None:
+                    # Reap a launched child before publishing failure or
+                    # releasing admission, including stdin worker failures.
+                    self._terminate_process(process)
+                    exit_code = process.wait()
                 if stdin_thread is not None:
                     stdin_thread.join(timeout=1)
                 for stream in (process.stdin, process.stdout):
@@ -330,8 +343,8 @@ class TaskRunner:
                     self._mark_stopped(run, "interrupted")
                 elif run["cancel_requested"]:
                     self._mark_stopped(run, "cancelled")
-                elif launch_error is not None:
-                    run["error"] = launch_error
+                elif execution_error is not None:
+                    run["error"] = execution_error
                     self._mark_stopped(run, "failed")
                 elif exit_code == 0:
                     self._mark_stopped(run, "succeeded")
@@ -391,6 +404,8 @@ class TaskRunner:
             except (OSError, subprocess.TimeoutExpired):
                 pass
             return
+        # Windows console-group delivery is best-effort; terminate/kill
+        # fallbacks affect only the leader. See docs/local-task-runner.md.
         try:
             os.kill(process.pid, signal.CTRL_BREAK_EVENT)
         except OSError:

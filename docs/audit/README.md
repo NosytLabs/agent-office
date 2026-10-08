@@ -72,9 +72,9 @@ The current validation used Python **3.12.14**, Node **24.19.0**, and Chromium
 
 | Command or flow | Result |
 | --- | --- |
-| `GEMINI_TEST_CLI=... python -m pytest -v -o addopts='' --junitxml=reports/local-runs-python.xml` | **577 passed**, including both native Gemini fixture cases; 33.69 seconds |
+| `GEMINI_TEST_CLI=... python -m pytest -v -o addopts='' --junitxml=reports/local-runs-review-python.xml` | **579 passed**, including both native Gemini fixture cases; 35.83 seconds |
 | `npm test` | **101 passed** |
-| `npm run test:browser` | **208 passed**, 0 failed, 1 optional private-art check skipped; 153.98 seconds |
+| `npm run test:browser` | **209 passed**, 0 failed, 1 optional private-art check skipped; 129.50 seconds |
 | `npm run check` | Passed |
 | `npm run format:check` and `git diff --check` | Passed |
 | `npm run build:preview` | Built **104 public demo files** and **20 product-site files**; no local office data or private aquarium sheets |
@@ -117,11 +117,30 @@ Interactive PTYs, attaching to existing sessions, answering permission prompts,
 durable scheduling, and orchestration are outside this implementation. These
 limits are also recorded in the [runner guide](../local-task-runner.md).
 
-The complete browser run contained 209 cases. Its one skip is the existing
+The complete browser run contained 210 cases. Its one skip is the existing
 optional private Smallburg artwork check; the public artwork and missing-pack
 fallback paths passed. All new runner and console cases ran. The CI workflow
 includes the new runner suite through `npm run test:browser`; these results
 are local evidence, not a claim that the repository's disabled hosted CI ran.
+
+#### Review follow-up
+
+The published review prompted an additional fault-injection pass. Failure to
+start a task worker had consumed admission without creating a child; failure
+to start its stdin pump could abort cleanup by joining an unstarted thread.
+Both paths are now covered by regressions. Worker startup becomes a retained,
+idempotent failed run with a released slot. A started child is terminated and
+reaped before a pump failure is finalized. The browser reports an immediately
+failed acknowledgement without saying that a CLI started.
+
+| Review point | Decision and evidence |
+| --- | --- |
+| Windows descendants | Documented the best-effort boundary and possible surviving descendants in the [runner guide](../local-task-runner.md), with Microsoft and Python references. Console-group delivery can include descendants; the fallback does not guarantee their termination. Native Windows verification remains outstanding. |
+| Worker bookkeeping and resource failure | Fixed the reproduced startup paths, including terminal timestamps, idempotency, process reaping, closed pipes, released project/global admission, and a successful subsequent run. |
+| Duplicate Host fields | Kept the exact single-Host boundary. [RFC 9112 section 3.2](https://www.rfc-editor.org/rfc/rfc9112.html#section-3.2) requires rejection of duplicate Host field lines; allowing any matching value would weaken that boundary. |
+| HTTP timeout versus CLI startup | Kept the bounded HTTP timeout. Creation acknowledges the registered worker independently of CLI startup/output. The retained request ID and run-list polling recover a lost acknowledgement; timing out is not an instruction to cancel the user's task. |
+| Blocking output reads | Kept the blocking pipe read. It waits when the pipe is empty, as described by the [Linux pipe manual](https://man7.org/linux/man-pages/man7/pipe.7.html), and consumes available output without adding timer-based polling. |
+| Feedback and themes | Operation feedback and current validation now occupy separate lines. Output uses the selected theme's background variable. |
 
 ### Earlier arcade, aquarium, and room update
 
