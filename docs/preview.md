@@ -6,9 +6,9 @@ coding tools. The page displays a persistent demo notice and labels the usage
 section as synthetic. Sample costs are illustrative values, not model prices
 or real charges.
 
-The product website in `site/` explains the local observer, its setup,
-capabilities, and limits. It uses actual app screenshots with synthetic
-sessions, bundled licensed fonts/icons, and original page design. It performs
+The product website in `site/` explains the office, runtime observation,
+optional local task execution, setup, and limits. It uses actual app screenshots
+with synthetic sessions, bundled licensed fonts/icons, and original page design. It performs
 no analytics, model, or observer requests and writes no browser storage.
 Copy buttons and keyboard tabs enhance content that also works without
 JavaScript.
