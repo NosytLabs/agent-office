@@ -163,6 +163,83 @@ def test_hermes_install_repairs_dangling_plugin_link(tmp_path, monkeypatch):
     assert link.resolve() == install.HERE
 
 
+def test_hermes_refreshes_copied_runtime_files_but_keeps_local_configuration(tmp_path, monkeypatch):
+    source = tmp_path / "checkout"
+    source.mkdir()
+    for name in ("__init__.py", "event_inbox.py", "event_store.py", "usage.py", "plugin.yaml"):
+        (source / name).write_text("current " + name)
+    (source / "web/assets").mkdir(parents=True)
+    (source / "web/assets/prop.png").write_bytes(b"sprite")
+    for name in ("node_modules", "reports", ".git", "__pycache__", "test-results", "tests"):
+        (source / name).mkdir()
+        (source / name / "generated").write_text("do not install")
+    monkeypatch.setattr(install, "HERE", source)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    dest = tmp_path / "home/plugins/pixel-office"
+    dest.mkdir(parents=True)
+    (dest / "__init__.py").write_text("old")
+    (dest / "local-config.json").write_text('{"preserve":true}')
+    monkeypatch.setattr(install.subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+    install.enable_hermes()
+    assert (dest / "__init__.py").read_text() == "current __init__.py"
+    assert (dest / "event_inbox.py").is_file() and (dest / "usage.py").is_file()
+    assert (dest / "local-config.json").read_text() == '{"preserve":true}'
+    assert (dest / "web/assets/prop.png").read_bytes() == b"sprite"
+    assert not any((dest / name).exists() for name in ("node_modules", "reports", ".git", "__pycache__", "test-results", "tests"))
+
+
+def test_codex_installs_synchronous_observers_preserves_config_and_requires_visible_trust(tmp_path, monkeypatch):
+    import shlex
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "custom codex"))
+    path = tmp_path / "custom codex/hooks.json"
+    path.parent.mkdir(parents=True)
+    original = {"matcher": "Bash", "hooks": [{"type": "command", "command": "existing-observer"}]}
+    path.write_text(json.dumps({"hooks": {"PreToolUse": [original]}, "description": "keep me"}))
+    result = install.enable_codex()
+    assert "/hooks" in result and "review" in result and "trust" in result
+    data = json.loads(path.read_text())
+    assert data["description"] == "keep me" and data["hooks"]["PreToolUse"][0] == original
+    for event in install.CODEX_EVENTS:
+        handler = data["hooks"][event][-1]["hooks"][0]
+        assert handler["type"] == "command" and handler["timeout"] == 3
+        assert handler.get("async") is not True
+        assert shlex.split(handler["command"])[-1] == str(install.HERE / "codex/hook.py")
+        assert "bypass" not in handler["command"]
+    before = path.read_text()
+    assert "already wired" in install.enable_codex()
+    assert path.read_text() == before
+
+
+def test_codex_invalid_hook_config_is_not_replaced(tmp_path, monkeypatch):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    path = tmp_path / "hooks.json"
+    original = '{"hooks":{"Stop":"invalid"},"keep":1}'
+    path.write_text(original)
+    assert "skip codex" in install.enable_codex()
+    assert path.read_text() == original
+
+
+def test_codex_detects_existing_user_config_without_launching_runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "custom"))
+    monkeypatch.setattr(install, "have", lambda cmd: False)
+    assert not install.detect()["codex"]
+    (tmp_path / "custom").mkdir()
+    (tmp_path / "custom/config.toml").write_text('model = "existing"\n')
+    assert install.detect()["codex"]
+
+
+def test_vscode_installs_current_manifest_version_with_runtime_whitelist(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    result = install.enable_vscode()
+    manifest = json.loads((install.HERE / "vscode/package.json").read_text())
+    ext = tmp_path / ".vscode/extensions" / f"{manifest['publisher']}.{manifest['name']}-{manifest['version']}"
+    assert ext.is_dir() and str(ext) in result
+    assert (ext / "extension.js").is_file() and (ext / "panel.js").is_file()
+    assert (ext / "package.json").read_text() == (install.HERE / "vscode/package.json").read_text()
+    assert not (ext / "node_modules").exists()
+
+
 
 def test_claude_restricted_existing_observer_does_not_hide_other_tools(tmp_path, monkeypatch):
     import shlex

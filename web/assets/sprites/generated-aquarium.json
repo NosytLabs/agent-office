@@ -1,0 +1,15 @@
+{
+  "created": "2026-10-07",
+  "tool": "Built-in ImageGen",
+  "source": "aquarium/original-fish.png",
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "058ae4a1ada163943ed711556cf6abd6c900d5ce1d33271c1b5b772e4581fb22",
+  "prompt": "Use case: stylized-concept. Asset type: production sprite atlas for a cozy pixel-art aquarium inside an agent-office dashboard. Generate one square transparent PNG containing exactly FOUR independent fish sprites in a perfectly regular 2 by 2 grid. Each fish is centered in its own quadrant with at least 12% empty transparent padding, never crossing its quadrant. Reading order: top left Ember, a warm orange and cream goldfish with a rounded split tail; top right Mint, a small sage and turquoise guppy with a broad fan tail; bottom left Violet, a plum and soft lilac betta with long flowing fins; bottom right Pearl, a cream and pale blue angelfish with a tall triangular silhouette. Every fish faces RIGHT, eye near the right end, tail to the left. True side profile suitable for horizontal swimming, full body including fins, one eye, pleasant expressive faces. Handcrafted-looking crisp pixel clusters, dark navy single-pixel-style outlines, a compact muted palette with warm cream highlights and restrained soft internal shading. Each sprite should remain legible when reduced to approximately 24 by 16 logical pixels; avoid tiny speckled detail. No captions, no letters, no labels, no grid lines, no panels, no water, no bubbles, no scenery, no accessories, no ground shadows, no outer glow. The background must be fully transparent, with transparent gaps and padding between all four sprites. This is original artwork, not copied from an existing commercial sprite pack.",
+  "source_preserved_unmodified": true,
+  "normalization": "Explicit source regions in aquarium/manifest.json retain full fin silhouettes. The browser trims alpha > 32, preserves aspect ratio, samples once with nearest-neighbor interpolation, and mirrors right-facing sprites for leftward swimming.",
+  "animation": "The public artwork is four original still sprites. Habitat movement, turns, bubbles and feeding are animated in code. An optional local Smallburg import supplies its native four-frame fish animations.",
+  "validation": "RGBA PNG; all four distinct silhouettes were visually reviewed. Violet crosses the equal quadrant edge, so explicit wider regions prevent clipping. No Smallburg artwork is bundled."
+}

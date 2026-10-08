@@ -6,21 +6,22 @@ your browser at http://127.0.0.1:8113 (port configurable).
 
 Design:
 
-* Hooks are pure observers — they never block, veto, or transform anything.
-  Each hook appends one JSON line to ``~/.hermes/pixel-office/events.jsonl``.
-  Appends and server startup are wrapped in try/except so observer errors
+* Hooks are pure observers — they never veto or transform anything.
+  Each hook atomically publishes one immutable record into the local inbox.
+  Publishing and server startup are wrapped in try/except so observer errors
   never propagate into the agent loop.
 
 * A daemon HTTP server thread is started lazily on the first event. It
   serves the office page and ``/state``, which folds the event log into a
-  current-agents snapshot. Because state is derived from the shared event
-  file (not process memory), agents from OTHER Hermes processes (gateway +
+  current-agents snapshot. Because state is checkpointed in a shared local
+  SQLite database, agents from OTHER Hermes processes (gateway +
   CLI at once, cron sessions) appear in the same office. If the port is
   already bound, another Hermes process is serving — we just keep appending
   events and skip serving.
 
-* The event log is trimmed when it exceeds ~512 KB (keeps the newest half),
-  so it never grows unbounded.
+* Processed input files are removed only after their state and XP commit.
+  Recent history has configurable count/age/byte retention. Pending approvals
+  survive compaction and restart. Old events.jsonl integrations remain readable.
 
 Configuration (all optional, config.yaml):
 
@@ -36,6 +37,7 @@ Nothing here touches the conversation, the prompt cache, or tool results.
 from __future__ import annotations
 
 import json
+import copy
 import contextvars
 import logging
 import math
@@ -60,11 +62,8 @@ if str(_PLUGIN_DIR) not in sys.path:
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8113
-_MAX_LOG_BYTES = 512 * 1024
-# An agent with no events for this long is swept from the office.
-_STALE_SECONDS = 30 * 60
-
 _lock = threading.RLock()
+_event_cache: Optional[tuple[tuple, List[Dict[str, Any]]]] = None
 _server_started = False
 _port: int = DEFAULT_PORT
 # Current Hermes versions provide session/tool ids on approvals. Keep a
@@ -96,11 +95,22 @@ _DEFAULTS = {
     "layout": "open",
     "theme": "default",
     "sound": False,
+    "music_track": "window-seat",
+    "music_volume": 0.12,
     "max_chars": 4,
     "ambience": "auto",
     "show_labels": True,
     "decorations": True,
     "furniture": [],
+    "room_name": "",
+    "agent_names": {},
+    "history_limit": 1000,
+    "history_days": 7,
+    "history_max_bytes": 5 * 1024 * 1024,
+    "pet_names": {},
+    "budget_usd": 0,
+    "aquarium_name": "",
+    "aquarium_species": ["ember"],
 }
 
 
@@ -109,7 +119,8 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         return {}
     out = {}
     choices = {"layout": {"open", "bullpen"}, "theme": {"default", "midnight", "amber"},
-               "ambience": {"auto", "day", "night"}}
+               "ambience": {"auto", "day", "night"},
+               "music_track": {"window-seat", "night-shift", "rainy-break"}}
     for key, value in data.items():
         if key in choices:
             if isinstance(value, str) and value in choices[key]:
@@ -118,10 +129,35 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
             out[key] = value
         elif key == "max_chars" and type(value) is int and 2 <= value <= 8:
             out[key] = value
+        elif key in ("room_name", "aquarium_name") and isinstance(value, str):
+            out[key] = " ".join(value.split())[:48]
+        elif key == "agent_names" and isinstance(value, dict):
+            out[key] = {str(k)[:200]: " ".join(v.split())[:48]
+                        for k, v in list(value.items())[:128]
+                        if isinstance(k, str) and k and isinstance(v, str) and v.strip()}
+        elif key == "history_limit" and type(value) is int and value in (250, 1000, 5000):
+            out[key] = value
+        elif key == "history_days" and type(value) is int and value in (1, 7, 30):
+            out[key] = value
+        elif key == "history_max_bytes" and type(value) is int and value in (1024 * 1024, 5 * 1024 * 1024, 20 * 1024 * 1024):
+            out[key] = value
+        elif key == "budget_usd" and type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1000000000:
+            out[key] = value
+        elif key == "music_volume" and type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 0.5:
+            out[key] = value
+        elif key == "pet_names" and isinstance(value, dict):
+            out[key] = {k: " ".join(v.split())[:32] for k, v in value.items()
+                        if k in ("cat1", "cat2") and isinstance(v, str) and v.strip()}
+        elif key == "aquarium_species" and isinstance(value, list):
+            out[key] = list(dict.fromkeys(v for v in value[:4]
+                                          if isinstance(v, str) and v in ("ember", "mint", "violet", "pearl"))) or ["ember"]
         elif key == "furniture" and isinstance(value, list):
             items = []
             for item in value[:24]:
-                if (isinstance(item, dict) and item.get("kind") in ("sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp", "roundtable", "stool", "succulent", "planter")
+                if (isinstance(item, dict) and item.get("kind") in (
+                    "sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp",
+                    "roundtable", "stool", "succulent", "planter", "whiteboard",
+                    "printer", "cart", "coatrack", "arcade", "recordplayer", "robot", "terrarium", "jukebox")
                     and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
                     items.append({k: item[k] for k in ("kind", "x", "y")})
             out[key] = items
@@ -151,16 +187,6 @@ def _save_settings_locked(payload: Dict[str, Any]) -> None:
     cur = _load_settings()
     prev_theme = cur.get("theme")
     cur.update(_valid_settings(payload))
-    # track theme switches for theme_designer badge
-    if cur.get("theme") and cur.get("theme") != prev_theme:
-        try:
-            try:
-                from .progress import record_theme_switch
-            except ImportError:
-                from progress import record_theme_switch
-            record_theme_switch(_office_dir() / "progress.json")
-        except Exception:
-            logger.debug("pixel-office theme switch tracking failed", exc_info=True)
     try:
         path = _settings_path()
         tmp = path.with_suffix(".json.tmp")
@@ -169,6 +195,11 @@ def _save_settings_locked(payload: Dict[str, Any]) -> None:
     except Exception:
         logger.debug("pixel-office settings save failed", exc_info=True)
         raise
+    if cur.get("theme") != prev_theme:
+        try:
+            _store().record_theme_switch()
+        except Exception:
+            logger.debug("pixel-office theme switch tracking failed", exc_info=True)
 
 
 def _asset_manifest() -> Dict[str, Any]:
@@ -193,12 +224,11 @@ def _publish(event: Dict[str, Any]) -> None:
     try:
         event.setdefault("ts", time.time())
         event.setdefault("pid", os.getpid())
-        line = json.dumps(event, ensure_ascii=False, default=str)
-        path = _events_path()
-        with _lock:
-            with open(path, "a", encoding="utf-8") as fh:
-                fh.write(line + "\n")
-            _maybe_trim(path)
+        try:
+            from .event_inbox import publish
+        except ImportError:
+            from event_inbox import publish
+        publish(_office_dir(), event)
         _ensure_server()
         # If the serve thread exited without binding (port raced with a dying
         # predecessor), clear the flag so a later event retries the bind.
@@ -210,17 +240,6 @@ def _publish(event: Dict[str, Any]) -> None:
                        type(exc).__name__, exc)
 
 
-def _maybe_trim(path: Path) -> None:
-    try:
-        if path.stat().st_size <= _MAX_LOG_BYTES:
-            return
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-        keep = lines[len(lines) // 2:]
-        tmp = path.with_suffix(".jsonl.tmp")
-        tmp.write_text("\n".join(keep) + "\n", encoding="utf-8")
-        tmp.replace(path)
-    except Exception:
-        logger.debug("pixel-office trim failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -228,41 +247,56 @@ def _maybe_trim(path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def _read_events() -> List[Dict[str, Any]]:
-    path = _events_path()
-    if not path.exists():
-        return []
+    """Return independent events for callers that may modify their result."""
+    with _lock:
+        return copy.deepcopy(_read_event_snapshot())
+
+
+def _event_signature(path: Path, stat: os.stat_result) -> tuple:
+    return (str(path), stat.st_dev, stat.st_ino, stat.st_size,
+            stat.st_mtime_ns, stat.st_ctime_ns)
+
+
+def _read_event_snapshot() -> List[Dict[str, Any]]:
+    """Internal read-only snapshot; callers hold _lock while using it.
+
+    Keep one stable parsed log. Any file change forces a full read so quiet
+    waiting sessions and repeated same-timestamp events remain in the fold.
+    """
+    global _event_cache
+    try:
+        from .event_store import valid_event
+    except ImportError:
+        from event_store import valid_event
+    path = _events_path().resolve()
     out: List[Dict[str, Any]] = []
     try:
+        before = _event_signature(path, path.stat())
+        if _event_cache is not None and _event_cache[0] == before:
+            return _event_cache[1]
+        _event_cache = None
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            opened = _event_signature(path, os.fstat(fh.fileno()))
             for line in fh:
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    event = json.loads(line)
-                    if not isinstance(event, dict):
-                        continue
-                    if not isinstance(event.get("event"), str) or not event["event"].strip():
-                        continue
-                    timestamp = float(event.get("ts") or 0)
-                    if not math.isfinite(timestamp):
-                        continue
-                    event["ts"] = timestamp
-                    out.append(event)
+                    event = valid_event(json.loads(line))
+                    if event is not None:
+                        out.append(event)
                 except Exception:
                     continue
+            finished = _event_signature(path, os.fstat(fh.fileno()))
+        after = _event_signature(path, path.stat())
+        if before == opened == finished == after:
+            _event_cache = (after, out)
+    except FileNotFoundError:
+        _event_cache = None
     except Exception:
+        _event_cache = None
         logger.debug("pixel-office read failed", exc_info=True)
     return out
-
-
-def _agent_key(ev: Dict[str, Any]) -> Optional[str]:
-    sid = ev.get("session_id") or ev.get("child_session_id")
-    if sid:
-        return str(sid)
-    # Fall back to pid so events without a session id still get a character.
-    pid = ev.get("pid")
-    return f"pid-{pid}" if pid else None
 
 
 def _short(text: Any, n: int = 60) -> str:
@@ -275,265 +309,27 @@ def build_state() -> Dict[str, Any]:
         return _build_state_locked()
 
 
-def _build_state_locked() -> Dict[str, Any]:
-    """Fold the event log into {agents: [...]} for the frontend."""
-    agents: Dict[str, Dict[str, Any]] = {}
-    active_tools: Dict[str, Dict[str, Dict[str, Any]]] = {}
-    pending_input: Dict[str, Dict[tuple, Dict[str, Any]]] = {}
-    inactive_sessions = set()
-    now = time.time()
-
-    def ensure(key: str, ev: Dict[str, Any]) -> Dict[str, Any]:
-        a = agents.get(key)
-        if a is None:
-            a = {
-                "id": key,
-                "label": f"agent {key[-6:]}",
-                "kind": "main",
-                "status": "idle",
-                "tool": "",
-                "activity": "",
-                "detail": "",
-                "platform": ev.get("platform") or "",
-                "first_seen": ev.get("ts", now),
-                "updated_at": ev.get("ts", now),
-            }
-            agents[key] = a
-        a["updated_at"] = ev.get("ts", a["updated_at"])
-        if ev.get("platform"):
-            a["platform"] = str(ev["platform"])
-        if ev.get("parent_session_id"):
-            a["kind"] = "subagent"
-            a["parent"] = str(ev["parent_session_id"])
-        return a
-
-    def clear_tool(a: Dict[str, Any]) -> None:
-        a["tool"] = ""
-        a["activity"] = ""
-        a["detail"] = ""
-
-    def session_metadata(a: Dict[str, Any], ev: Dict[str, Any]) -> None:
-        if ev.get("title"):
-            a["label"] = _short(ev["title"], 60)
-        if ev.get("parent_session_id"):
-            a["kind"] = "subagent"
-            a["parent"] = str(ev["parent_session_id"])
-
-    def clear_pending(key: str) -> None:
-        active_tools.pop(key, None)
-        pending_input.pop(key, None)
-
-    def settle(a: Dict[str, Any], key: str, detail: str = "") -> None:
-        """A parallel completion must not erase another tool or unanswered prompt."""
-        clear_tool(a)
-        waiting = pending_input.get(key, {})
-        tools = active_tools.get(key, {})
-        if waiting:
-            request = list(waiting.values())[-1]
-            a["status"] = "waiting"
-            a["detail"] = _short(request.get("question") or request.get("command"), 60) or "needs input"
-        elif tools:
-            tool = list(tools.values())[-1]
-            a["status"] = "working"
-            a["tool"] = str(tool.get("tool_name") or "")
-            a["activity"] = str(tool.get("activity") or "working")
-            a["detail"] = _short(tool.get("preview"))
-        else:
-            a["status"] = "thinking"
-            a["detail"] = detail
-
-    events = _read_events()
-    for ev in events:
-        kind = ev.get("event")
-        key = _agent_key(ev)
-        if not key:
-            continue
-
-        if kind == "session_start":
-            inactive_sessions.discard(key)
-            a = ensure(key, ev)
-            clear_pending(key)
-            clear_tool(a)
-            a["status"] = "idle"
-            plat = ev.get("platform") or ""
-            a["label"] = f"{plat or 'hermes'} {key[-6:]}"
-            a["detail"] = "session started"
-            session_metadata(a, ev)
-        elif kind == "session_update":
-            # Titles/diffs change during a turn; metadata is not a new session.
-            a = ensure(key, ev)
-            session_metadata(a, ev)
-        elif kind == "session_busy":
-            inactive_sessions.discard(key)
-            a = ensure(key, ev)
-            if a["status"] not in ("working", "waiting"):
-                clear_tool(a)
-                a["status"] = "thinking"
-        elif kind in ("session_idle", "session_error"):
-            inactive_sessions.add(key)
-            a = ensure(key, ev)
-            previous_error = a["detail"] if a["status"] == "idle" and a["detail"].startswith("⚠ ") else ""
-            clear_pending(key)
-            clear_tool(a)
-            a["status"] = "idle"
-            if kind == "session_error":
-                a["detail"] = f"⚠ {_short(ev.get('error_message'), 60) or 'session error'}"
-            else:
-                a["detail"] = previous_error
-        elif kind == "session_end":
-            inactive_sessions.add(key)
-            if key in agents:
-                clear_pending(key)
-                clear_tool(agents[key])
-                agents[key]["status"] = "gone"
-                agents[key]["updated_at"] = ev.get("ts", now)
-        elif kind == "subagent_start":
-            child = ev.get("child_session_id")
-            if child:
-                ck = str(child)
-                inactive_sessions.discard(ck)
-                ev2 = dict(ev)
-                ev2["session_id"] = ck
-                a = ensure(ck, ev2)
-                clear_pending(ck)
-                clear_tool(a)
-                a["kind"] = "subagent"
-                a["label"] = _short(ev.get("child_goal"), 26) or f"sub {ck[-6:]}"
-                a["status"] = "working"
-                a["detail"] = _short(ev.get("child_goal"))
-                a["parent"] = str(ev.get("parent_session_id") or "")
-        elif kind == "subagent_stop":
-            child = ev.get("child_session_id")
-            if child:
-                inactive_sessions.add(str(child))
-            if child and str(child) in agents:
-                clear_pending(str(child))
-                clear_tool(agents[str(child)])
-                agents[str(child)]["status"] = "done"
-                agents[str(child)]["updated_at"] = ev.get("ts", now)
-        elif kind == "tool_start":
-            inactive_sessions.discard(key)
-            a = ensure(key, ev)
-            call = str(ev.get("call_id") or f"legacy:{ev.get('tool_name') or ''}")
-            active_tools.setdefault(key, {})[call] = ev
-            settle(a, key)
-        elif kind == "tool_end":
-            if key in inactive_sessions:
-                continue
-            a = ensure(key, ev)
-            tools = active_tools.setdefault(key, {})
-            call = ev.get("call_id")
-            if call:
-                tools.pop(str(call), None)
-            else:
-                matched = [c for c, tool in tools.items() if tool.get("tool_name") == ev.get("tool_name")]
-                if matched:
-                    for c in matched:
-                        tools.pop(c)
-                else:
-                    # Older hooks do not expose call ids (or even tool names).
-                    tools.clear()
-            waiting = pending_input.get(key, {})
-            for request, data in list(waiting.items()):
-                if ((call and data.get("call_id") == call)
-                    or (not data.get("call_id") and ev.get("tool_name") and data.get("tool_name") == ev["tool_name"])
-                    or (not call and not data.get("call_id") and not data.get("tool_name"))):
-                    waiting.pop(request)
-            detail = ""
-            if ev.get("status") == "error":
-                detail = f"⚠ {_short(ev.get('error_message'), 40) or 'tool failed'}"
-            settle(a, key, detail)
-        elif kind in ("approval_request", "input_request"):
-            inactive_sessions.discard(key)
-            a = ensure(key, ev)
-            request = (kind, str(ev.get("request_id") or ev.get("call_id") or "legacy"))
-            pending_input.setdefault(key, {})[request] = ev
-            settle(a, key)
-        elif kind in ("approval_response", "input_response"):
-            if key in inactive_sessions:
-                continue
-            a = ensure(key, ev)
-            request_kind = kind.replace("response", "request")
-            waiting = pending_input.setdefault(key, {})
-            request_id = ev.get("request_id") or ev.get("call_id")
-            resolved = waiting.pop((request_kind, str(request_id or "legacy")), None)
-            if resolved is None and not ev.get("request_id") and ev.get("tool_name"):
-                # Claude PermissionRequest omits tool_use_id on some versions.
-                for request, data in list(waiting.items()):
-                    if request[0] == request_kind and not data.get("call_id") and data.get("tool_name") == ev["tool_name"]:
-                        resolved = waiting.pop(request)
-            if not request_id:
-                for request in [r for r in waiting if r[0] == request_kind]:
-                    resolved = waiting.pop(request)
-            choice = str(ev.get("choice") or "").lower()
-            accepted = choice in ("once", "always", "allow", "approve", "approved", "yes", "y")
-            detail = ""
-            rejected_input = kind == "input_response" and choice in ("reject", "deny", "denied", "timeout", "cancelled")
-            if (kind == "approval_response" and not accepted) or rejected_input:
-                call = ev.get("call_id") or (resolved or {}).get("call_id")
-                if call:
-                    active_tools.setdefault(key, {}).pop(str(call), None)
-                    # Rejecting a permission/question cancels that call, so
-                    # another prompt attached to the same call cannot stay open.
-                    for request, data in list(waiting.items()):
-                        if data.get("call_id") == call:
-                            waiting.pop(request)
-                elif resolved or not request_id:
-                    active_tools.pop(key, None)
-                    # Older Claude permission hooks omit tool_use_id. Resolve
-                    # an attached question by tool name only when unambiguous.
-                    blocked_tool = ev.get("tool_name") or (resolved or {}).get("tool_name")
-                    questions = [request for request, data in waiting.items()
-                                 if request[0] == "input_request" and blocked_tool and data.get("tool_name") == blocked_tool]
-                    if len(questions) == 1:
-                        waiting.pop(questions[0])
-                detail = f"{'question' if rejected_input else 'approval'}: {choice or 'response received'}"
-            settle(a, key, detail)
-            if kind == "approval_response" and accepted and a["status"] == "thinking":
-                a["status"] = "working"
-
-    # Sweep stale + long-gone agents.
-    visible = []
-    for a in agents.values():
-        age = now - float(a.get("updated_at") or 0)
-        if a["status"] == "gone" and age > 20:
-            continue
-        if a["status"] == "done" and age > 120:
-            continue
-        if age > _STALE_SECONDS:
-            continue
-        # Agents quiet for a bit are "idle", not eternally "thinking".
-        if a["status"] in ("working", "thinking") and age > 300:
-            clear_tool(a)
-            a["status"] = "idle"
-        visible.append(a)
-
-    visible.sort(key=lambda a: (a["kind"] != "main", a.get("first_seen", 0)))
-    for a in visible:
-        try:
-            a["duration_s"] = max(0, int(now - float(a.get("first_seen") or now)))
-            a["idle_s"] = max(0, int(now - float(a.get("updated_at") or now)))
-        except Exception:
-            a["duration_s"] = 0
-            a["idle_s"] = 0
-    settings = _load_settings()
-    progress = {}
+def _store():
     try:
-        try:
-            from .progress import apply_live, ingest, load, save, snapshot
-        except ImportError:
-            from progress import apply_live, ingest, load, save, snapshot
+        from .event_store import EventStore
+    except ImportError:
+        from event_store import EventStore
+    return EventStore(_office_dir())
 
-        ppath = _office_dir() / "progress.json"
-        pdata = load(ppath)
-        pdata = ingest(pdata, events)
-        apply_live(pdata, len(visible))
-        save(ppath, pdata)
-        progress = snapshot(pdata)
-    except Exception:
-        logger.debug("pixel-office progress fold failed", exc_info=True)
-    return {"agents": visible, "ts": now, "progress": progress, "settings": settings,
-            "events": events[-30:], "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
+
+def _build_state_locked() -> Dict[str, Any]:
+    """Apply new receipts and render the durable live checkpoint."""
+    now = time.time()
+    settings = _load_settings()
+    state = _store().consume(_read_event_snapshot, now,
+                             history_limit=settings["history_limit"],
+                             history_days=settings["history_days"],
+                             history_max_bytes=settings["history_max_bytes"])
+    for agent in state["agents"]:
+        agent["observed_label"] = agent["label"]
+        agent["label"] = settings["agent_names"].get(agent["id"], agent["label"])
+    return {**state, "ts": now, "settings": settings,
+            "mode": "demo" if os.environ.get("AGENT_OFFICE_DEMO") == "1" else "live"}
 
 
 # ---------------------------------------------------------------------------
@@ -623,6 +419,19 @@ def _serve() -> None:
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Cache-Control", "no-store")
+                elif route == "/history":
+                    from urllib.parse import parse_qs, urlsplit
+                    query = parse_qs(urlsplit(self.path).query)
+                    try:
+                        limit = int(query.get("limit", ["1000"])[0])
+                    except ValueError:
+                        self.respond(400, {"error": "history limit must be an integer"})
+                        return
+                    with _lock:
+                        build_state()
+                        rows = _store().history(limit)
+                    self.respond(200, {"events": rows})
+                    return
                 elif route == "/settings":
                     body = json.dumps(_load_settings()).encode("utf-8")
                     self.send_response(200)
@@ -632,6 +441,19 @@ def _serve() -> None:
                     body = json.dumps(_asset_manifest()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
+                elif route.startswith("/user/aquarium/"):
+                    name = route.rsplit("/", 1)[-1]
+                    allowed = {"ember.png", "mint.png", "violet.png", "pearl.png", "manifest.json"}
+                    root = (_office_dir() / "assets" / "aquarium").resolve()
+                    asset = (root / name).resolve()
+                    if name in allowed and asset.parent == root and asset.is_file():
+                        body = asset.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json" if name.endswith(".json") else "image/png")
+                        self.send_header("Cache-Control", "no-store")
+                    else:
+                        self.respond(404, {"error": "optional aquarium pack not installed"})
+                        return
                 elif route.startswith("/user/"):
                     name = Path(route).name
                     asset = _office_dir() / "assets" / name
@@ -661,8 +483,14 @@ def _serve() -> None:
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             except Exception:
                 logger.debug("pixel-office request failed", exc_info=True)
+                try:
+                    self.respond(500, {"error": "could not read office state"})
+                except OSError:
+                    pass
 
         def respond(self, code, data):
             body = json.dumps(data).encode("utf-8")
@@ -674,19 +502,23 @@ def _serve() -> None:
             self.wfile.write(body)
 
         def do_DELETE(self) -> None:
-            if self.path.split("?")[0] != "/state":
+            global _event_cache
+            route = self.path.split("?")[0]
+            if route not in ("/state", "/history"):
                 self.respond(404, {"error": "not found"})
                 return
             try:
                 with _lock:
-                    removed = []
-                    for filename in ("progress.json", "events.jsonl"):
-                        path = _office_dir() / filename
-                        if path.exists():
-                            path.unlink()
-                            removed.append(filename)
-                self.respond(200, {"ok": True, "removed": removed})
-            except OSError:
+                    if route == "/history":
+                        removed = _store().prune_history()
+                        self.respond(200, {"ok": True, "removed_events": removed})
+                        return
+                    _store().reset(_read_event_snapshot)
+                    _event_cache = None
+                self.respond(200, {"ok": True, "cleared": ["progress", "history", "usage"],
+                                   "legacy_log_retained": _events_path().exists()})
+            except Exception:
+                logger.debug("pixel-office reset failed", exc_info=True)
                 self.respond(500, {"error": "could not reset state"})
 
         def do_POST(self) -> None:
@@ -714,8 +546,27 @@ def _serve() -> None:
             except OSError:
                 self.respond(500, {"error": "could not save settings"})
 
+    class OfficeServer(ThreadingHTTPServer):
+        daemon_threads = True
+        next_maintenance = 0.0
+        next_failure_log = 0.0
+
+        def service_actions(self):
+            # Consume even with no browser connected. Only unacknowledged
+            # offline activity remains in the inbox between server runs.
+            now = time.monotonic()
+            if now >= self.next_maintenance:
+                self.next_maintenance = now + 1.0
+                try:
+                    build_state()
+                    self.next_failure_log = 0.0
+                except Exception:
+                    if now >= self.next_failure_log:
+                        self.next_failure_log = now + 60.0
+                        logger.warning("pixel-office background ingestion failed; inputs retained", exc_info=True)
+
     try:
-        srv = ThreadingHTTPServer(("127.0.0.1", _port), Handler)
+        srv = OfficeServer(("127.0.0.1", _port), Handler)
     except OSError as exc:
         # Port already bound. Probe it: a healthy pixel-office answers /state
         # with JSON containing "agents". Anything else is a foreign squatter
@@ -889,6 +740,35 @@ def _post_approval_response(**kw: Any) -> None:
     })
 
 
+def _pre_llm_call(**kw: Any) -> None:
+    _publish({"event": "session_busy", "session_id": kw.get("session_id"),
+              "platform": kw.get("platform") or "hermes"})
+
+
+def _post_llm_call(**kw: Any) -> None:
+    _publish({"event": "session_idle", "session_id": kw.get("session_id"),
+              "platform": kw.get("platform") or "hermes"})
+
+
+def _post_api_request(**kw: Any) -> None:
+    """Normalize one stable Hermes API attempt; reasoning is within output."""
+    source = kw.get("usage")
+    sid, request_id = kw.get("session_id"), kw.get("api_request_id")
+    if not isinstance(source, dict) or not isinstance(sid, str) or not sid or not isinstance(request_id, str) or not request_id:
+        return
+    event = {"event": "usage", "platform": "hermes", "session_id": sid,
+             "usage_id": request_id, "usage_scope": "api_request",
+             "model": kw.get("response_model") or kw.get("model"), "provider": kw.get("provider")}
+    fields = {"prompt_tokens": "input_tokens", "output_tokens": "output_tokens",
+              "cache_read_tokens": "cached_input_tokens", "cache_write_tokens": "cache_write_tokens",
+              "reasoning_tokens": "reasoning_output_tokens", "total_tokens": "total_tokens"}
+    for source_key, target_key in fields.items():
+        value = source.get(source_key)
+        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= (1 << 53) - 1:
+            event[target_key] = value
+    _publish(event)
+
+
 def register(ctx: Any) -> None:
     ctx.register_hook("on_session_start", _on_session_start)
     ctx.register_hook("on_session_end", _on_session_end)
@@ -898,6 +778,17 @@ def register(ctx: Any) -> None:
     ctx.register_hook("subagent_stop", _subagent_stop)
     ctx.register_hook("pre_approval_request", _pre_approval_request)
     ctx.register_hook("post_approval_response", _post_approval_response)
+    # Old Hermes versions reject or warn about unknown hook names. Richer
+    # telemetry must never prevent the established tool/session hooks loading.
+    try:
+        from hermes_cli.plugins import VALID_HOOKS
+    except (ImportError, AttributeError):
+        VALID_HOOKS = set()
+    for name, callback in (("pre_llm_call", _pre_llm_call),
+                           ("post_llm_call", _post_llm_call),
+                           ("post_api_request", _post_api_request)):
+        if name in VALID_HOOKS:
+            ctx.register_hook(name, callback)
     logger.info(
         "pixel-office registered — office at http://127.0.0.1:%s once events flow",
         _resolve_port(),

@@ -1,0 +1,120 @@
+{
+  "created": "2026-10-07",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/workshop-atlas.png",
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "268dc583937d280324a419573090765795c90c735e21def6ff611c76031dfc2c",
+  "layout": "2x2 row-major; equal 627x627 source cells; transparent padding trimmed once in scene loader",
+  "cells": [
+    "whiteboard",
+    "printer",
+    "cart",
+    "coatrack"
+  ],
+  "prompt": "Use case: stylized-concept.\nAsset type: production 2D pixel-art office furniture atlas for a small cozy agent office game.\nPrimary request: Create exactly four standalone office furniture sprites on a genuinely transparent square canvas, arranged one per quadrant of a strict 2x2 grid with broad transparent margins and clear empty transparent gutters. Each entire object must fit inside its own quadrant, centered, with no overlap.\nTop-left quadrant: freestanding planning whiteboard with a cream blank rectangular board in a dark navy narrow frame, on two short sturdy feet, showing only three subtle small colored sticky-note squares grouped near the upper-left corner of the board, no writing or diagrams.\nTop-right quadrant: compact cream office printer sitting on a low walnut storage cabinet with two simple doors; printer and cabinet read as one cohesive furniture sprite.\nBottom-left quadrant: compact rolling office supply cart with two walnut shelves, a dark navy metal frame, four tiny caster wheels, and a few neatly stacked cream paper reams and sage folders fully contained on the shelves.\nBottom-right quadrant: slim walnut freestanding coat rack with a stable short base and a single muted sage coat hanging neatly from one hook, with an unmistakable rack silhouette.\nStyle/medium: crisp low-resolution pixel-art clusters, deliberate stepped edges, compact readable silhouettes at roughly 40 to 70 game pixels, consistent dark navy outlines, restrained block shading, lightly textured walnut and warm cream, muted sage accents. Match classic cozy pixel-office furniture, not vector art or a 3D render.\nComposition/framing: straight-on front view with slightly visible top surfaces; all four objects use the same shallow elevated camera angle and lighting. Keep the sprites centered independently in the equal quadrants with generous empty margins around every object.\nColor palette: dark navy, warm walnut brown, cream, olive and muted sage green, small restrained ochre and faded coral note accents.\nConstraints: actual alpha transparency around and between all four sprites; no scenery, floor, room, backdrop, labels, grid lines, numbers, letters, logos, watermarks, writing, additional objects outside the specified furniture, artificial checkerboard background, soft glow, blur, or cast shadows outside objects. Keep pixel clusters crisp. Do not crop any sprite.",
+  "normalization": "Generated source PNG retained unmodified. Runtime calculates trim bounds using alpha > 32, matching the existing atlas loader, then uses nearest-neighbor resampling to PROP_SIZES. Validation bounds below were measured conservatively at alpha > 16.",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_preserved_unmodified": true,
+    "source_file_bytes": 609933,
+    "alpha_range": [
+      0,
+      255
+    ],
+    "transparent_pixels": 1087790,
+    "opaque_pixels": 3295,
+    "partial_alpha_pixels": 481431,
+    "canvas_pixels": 1572516,
+    "trim_alpha_threshold": 16,
+    "cell_edge_max_alpha": 1,
+    "note": "The generated source contains faint alpha=1 background speckles. All object silhouettes fit inside their quadrant at alpha > 16. No imagery was edited or normalized offline.",
+    "visual_review": "All four quadrants inspected at source resolution: consistent navy/walnut/cream/sage palette, readable silhouettes, no clipped objects, overlaps, labels, writing, floor, or scenery.",
+    "cells": [
+      {
+        "name": "whiteboard",
+        "source_rect": [
+          0,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_relative_alpha_gt_16": [
+          103,
+          116,
+          571,
+          564
+        ],
+        "content_touches_cell_edge_alpha_gt_16": false
+      },
+      {
+        "name": "printer",
+        "source_rect": [
+          627,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_relative_alpha_gt_16": [
+          101,
+          148,
+          508,
+          556
+        ],
+        "content_touches_cell_edge_alpha_gt_16": false
+      },
+      {
+        "name": "cart",
+        "source_rect": [
+          0,
+          627,
+          627,
+          627
+        ],
+        "content_bounds_relative_alpha_gt_16": [
+          108,
+          96,
+          554,
+          496
+        ],
+        "content_touches_cell_edge_alpha_gt_16": false
+      },
+      {
+        "name": "coatrack",
+        "source_rect": [
+          627,
+          627,
+          627,
+          627
+        ],
+        "content_bounds_relative_alpha_gt_16": [
+          214,
+          29,
+          436,
+          521
+        ],
+        "content_touches_cell_edge_alpha_gt_16": false
+      }
+    ]
+  },
+  "logical_sizes": {
+    "whiteboard": [
+      34,
+      32
+    ],
+    "printer": [
+      24,
+      24
+    ],
+    "cart": [
+      28,
+      25
+    ],
+    "coatrack": [
+      16,
+      34
+    ]
+  }
+}

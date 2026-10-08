@@ -48,11 +48,22 @@ const DEFAULT_SETTINGS = Object.freeze({
   layout: "open",
   theme: "default",
   sound: false,
+  music_track: "window-seat",
+  music_volume: 0.12,
   max_chars: 4,
   ambience: "auto",
   show_labels: true,
   decorations: true,
   furniture: [],
+  room_name: "",
+  aquarium_name: "",
+  aquarium_species: ["ember"],
+  agent_names: {},
+  history_limit: 1000,
+  history_days: 7,
+  history_max_bytes: 5242880,
+  pet_names: {},
+  budget_usd: 0,
 });
 const RANKS = [
   ["intern", 0],
@@ -78,6 +89,7 @@ const STATUS_NAMES = {
   gone: "Ended",
 };
 const EVENT_NAMES = {
+  usage: "Usage reported",
   session_start: "Session started",
   session_end: "Session ended",
   session_busy: "Session working",
@@ -105,6 +117,15 @@ const PROP_SIZES = {
   stool: [16, 18],
   succulent: [12, 16],
   planter: [32, 18],
+  whiteboard: [34, 32],
+  printer: [24, 24],
+  cart: [28, 25],
+  coatrack: [16, 34],
+  arcade: [24, 34],
+  recordplayer: [28, 22],
+  robot: [18, 28],
+  terrarium: [24, 28],
+  jukebox: [24, 36],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -118,6 +139,21 @@ const PROP_NAMES = {
   stool: "Sage stool",
   succulent: "Succulent",
   planter: "Planter box",
+  whiteboard: "Planning board",
+  printer: "Printer cabinet",
+  cart: "Supply cart",
+  coatrack: "Coat rack",
+  arcade: "Arcade cabinet",
+  recordplayer: "Record player",
+  robot: "Desk robot",
+  terrarium: "Terrarium",
+  jukebox: "Jukebox",
+};
+const PROP_REWARDS = {
+  arcade: "arcade_break",
+  recordplayer: "listening_room",
+  robot: "helping_hand",
+  terrarium: "green_thumb",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
@@ -253,6 +289,7 @@ function defaultDecor(grid, cosmetics = []) {
     props.push(
       { kind: "roundtable", x: 111, y: grid.h - 40, w: 28, h: 24 },
       { kind: "stool", x: 145, y: grid.h - 29, w: 16, h: 18 },
+      { kind: "jukebox", x: 177, y: grid.h - 46, w: 24, h: 36 },
     );
   if (cosmetics.includes("fish_tank"))
     props.push({
@@ -344,7 +381,7 @@ function hash(text) {
 function platOf(a) {
   const p = String(a.platform || "").toLowerCase();
   if (p.includes("claude")) return "claude";
-  return ["opencode", "telegram", "cli"].includes(p) ? p : "hermes";
+  return ["opencode", "codex", "telegram", "cli"].includes(p) ? p : "hermes";
 }
 function isNight(settings) {
   const h = new Date().getHours();
@@ -372,9 +409,86 @@ function normalizeSettings(data) {
     layout: ["open", "bullpen"],
     theme: THEMES.map((t) => t.id),
     ambience: ["auto", "day", "night"],
+    music_track: ["window-seat", "night-shift", "rainy-break"],
   };
   for (const [key, value] of Object.entries(data)) {
-    if (choices[key]?.includes(value)) valid[key] = value;
+    if (Object.hasOwn(choices, key) && choices[key].includes(value))
+      valid[key] = value;
+    else if (
+      ["room_name", "aquarium_name"].includes(key) &&
+      typeof value === "string"
+    )
+      valid[key] = value.trim().replace(/\s+/g, " ").slice(0, 48);
+    else if (key === "aquarium_species" && Array.isArray(value)) {
+      valid[key] = [
+        ...new Set(
+          value
+            .slice(0, 4)
+            .filter((id) => ["ember", "mint", "violet", "pearl"].includes(id)),
+        ),
+      ];
+      if (!valid[key].length) valid[key] = ["ember"];
+    } else if (key === "history_limit" && [250, 1000, 5000].includes(value))
+      valid[key] = value;
+    else if (key === "history_days" && [1, 7, 30].includes(value))
+      valid[key] = value;
+    else if (
+      key === "history_max_bytes" &&
+      [1048576, 5242880, 20971520].includes(value)
+    )
+      valid[key] = value;
+    else if (
+      key === "budget_usd" &&
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= 1000000000
+    )
+      valid[key] = value;
+    else if (
+      key === "music_volume" &&
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= 0.5
+    )
+      valid[key] = value;
+    else if (
+      key === "pet_names" &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.entries(value).every(
+        ([id, name]) =>
+          ["cat1", "cat2"].includes(id) && typeof name === "string",
+      )
+    )
+      valid[key] = Object.fromEntries(
+        Object.entries(value)
+          .map(([id, name]) => [
+            id,
+            name.trim().replace(/\s+/g, " ").slice(0, 32),
+          ])
+          .filter(([, name]) => name),
+      );
+    else if (
+      key === "agent_names" &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value).length <= 128 &&
+      Object.entries(value).every(
+        ([id, name]) => id && id.length <= 200 && typeof name === "string",
+      )
+    )
+      valid[key] = Object.fromEntries(
+        Object.entries(value)
+          .map(([id, name]) => [
+            id,
+            name.trim().replace(/\s+/g, " ").slice(0, 48),
+          ])
+          .filter(([, name]) => name),
+      );
     else if (
       ["sound", "show_labels", "decorations"].includes(key) &&
       typeof value === "boolean"

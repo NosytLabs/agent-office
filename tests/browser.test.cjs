@@ -90,13 +90,14 @@ const launch = () =>
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ["--no-sandbox"],
   });
-async function withPage(fn) {
+async function withPage(fn, options = {}) {
   const browser = await launch();
   let page;
   const errors = [];
   try {
     page = await browser.newPage({
       viewport: { width: 1440, height: 900 },
+      ...options,
     });
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(baseURL);
@@ -420,6 +421,82 @@ test("a delayed state response cannot undo a completed settings save", () =>
       await p.unroute("**/state");
     }
   }));
+test("failed queued saves roll back only failed patches and report each result", () =>
+  withPage(async (p) => {
+    await p.evaluate(() =>
+      saveSettings({ theme: "default", ambience: "auto", sound: false }),
+    );
+    await p.route("**/state", (r) => r.abort());
+    await p.route("**/settings", (route) => {
+      const patch = route.request().postDataJSON();
+      return patch.theme === "midnight" || patch.sound === true
+        ? route.fulfill({ status: 503, body: "Unavailable" })
+        : route.continue();
+    });
+    const result = await p.evaluate(async () => {
+      const outcomes = await Promise.all([
+        saveSettings({ theme: "amber" }),
+        saveSettings({ theme: "midnight" }),
+        saveSettings({ ambience: "day" }),
+        saveSettings({ sound: true }),
+      ]);
+      return {
+        outcomes,
+        theme: settings.theme,
+        ambience: settings.ambience,
+        sound: settings.sound,
+      };
+    });
+    assert.equal(result.theme, "amber");
+    assert.equal(result.ambience, "day");
+    assert.equal(result.sound, false);
+    assert.deepEqual(result.outcomes, [true, false, true, false]);
+    assert.match(await p.textContent("#save-status"), /Not saved/);
+    await p.unroute("**/settings");
+    assert.equal(
+      await p.evaluate(() =>
+        saveSettings({ theme: "default", ambience: "auto" }),
+      ),
+      true,
+    );
+    assert.match(await p.textContent("#save-status"), /Saved/);
+  }));
+test("failed earlier saves preserve the latest queued edit", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ theme: "default" }));
+    let release, markFirst;
+    const gate = new Promise((r) => (release = r));
+    const first = new Promise((r) => (markFirst = r));
+    await p.route("**/settings", async (route) => {
+      if (route.request().postDataJSON().theme === "amber") {
+        markFirst();
+        await gate;
+        await route.fulfill({ status: 503, body: "Unavailable" });
+      } else await route.continue();
+    });
+    try {
+      await p.evaluate(() => {
+        window.queuedResults = Promise.all([
+          saveSettings({ theme: "amber" }),
+          saveSettings({ theme: "midnight" }),
+        ]);
+      });
+      await first;
+      assert.equal(await p.getAttribute("html", "data-theme"), "midnight");
+      release();
+      assert.deepEqual(await p.evaluate(() => window.queuedResults), [
+        false,
+        true,
+      ]);
+      assert.equal(await p.getAttribute("html", "data-theme"), "midnight");
+      await p.reload();
+      await p.waitForFunction(() => initialized);
+      assert.equal(await p.getAttribute("html", "data-theme"), "midnight");
+    } finally {
+      release();
+      await p.unroute("**/settings");
+    }
+  }));
 test("focused settings controls update their selected state without losing focus", () =>
   withPage(async (p) => {
     await p.evaluate(() => saveSettings({ theme: "default" }));
@@ -488,7 +565,7 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
 test("all sprite images load and canvas frames stay within room bounds on desktop and mobile", () =>
   withPage(async (p) => {
     await p.waitForFunction(
-      () => officeScene.loadedAssets === 14 && officeScene.sprites.monstera,
+      () => officeScene.loadedAssets === 17 && officeScene.sprites.coatrack,
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
     assert.equal(
@@ -682,6 +759,10 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       "stool",
       "succulent",
       "planter",
+      "whiteboard",
+      "printer",
+      "cart",
+      "coatrack",
     ];
     for (const [i, kind] of kinds.entries()) {
       await p.locator("#settingsbtn").click();
@@ -714,7 +795,7 @@ test("all new furniture can be placed, retained, and removed through the canvas"
       () =>
         initialized &&
         officeScene.sprites.monstera &&
-        settings.furniture.length === 11,
+        settings.furniture.length === 15,
     );
     assert.deepEqual(
       await p.evaluate(() => settings.furniture.map((x) => x.kind)),
@@ -859,7 +940,7 @@ test("readable local fonts, decorative icons, labels, and catalog previews load"
         }
     }
     await p.locator("#settingsbtn").click();
-    assert.equal(await p.locator("#furniture-tools button").count(), 11);
+    assert.equal(await p.locator("#furniture-tools button").count(), 20);
     const populated = await p
       .locator("#furniture-tools canvas")
       .evaluateAll((cs) =>
@@ -950,6 +1031,141 @@ test("furniture supports keyboard placement, collision feedback, undo and Done",
     assert.equal(await p.evaluate(() => officeScene.edit), null);
     await p.evaluate(() => saveSettings({ decorations: true }));
   }));
+test("failed furniture undo and redo retain a retryable history", () =>
+  withPage(async (p) => {
+    await p.evaluate(() => saveSettings({ furniture: [], decorations: false }));
+    await p.click("#settingsbtn");
+    await p.click('#furniture-tools [data-kind="coffee"]');
+    await p.locator("#c").press("ArrowRight");
+    await p.locator("#c").press("Enter");
+    await p.waitForFunction(
+      () => settings.furniture.length === 1 && pendingSaves === 0,
+    );
+    const placed = await p.evaluate(() => structuredClone(settings.furniture));
+    await p.route("**/settings", (route) =>
+      route.fulfill({ status: 503, body: "Unavailable" }),
+    );
+    await p.click("#undo-furniture");
+    await p.waitForFunction(() => pendingSaves === 0);
+    await p.evaluate(async () =>
+      applyState(await (await fetch("state")).json()),
+    );
+    assert.deepEqual(await p.evaluate(() => settings.furniture), placed);
+    assert.equal(await p.locator("#undo-furniture").isDisabled(), false);
+    assert.equal(await p.locator("#redo-furniture").isDisabled(), true);
+    await p.unroute("**/settings");
+    await p.click("#undo-furniture");
+    await p.waitForFunction(
+      () => settings.furniture.length === 0 && pendingSaves === 0,
+    );
+    await p.route("**/settings", (route) =>
+      route.fulfill({ status: 503, body: "Unavailable" }),
+    );
+    await p.click("#redo-furniture");
+    await p.waitForFunction(() => pendingSaves === 0);
+    await p.evaluate(async () =>
+      applyState(await (await fetch("state")).json()),
+    );
+    assert.equal(await p.evaluate(() => settings.furniture.length), 0);
+    assert.equal(await p.locator("#redo-furniture").isDisabled(), false);
+    await p.unroute("**/settings");
+    await p.click("#redo-furniture");
+    await p.waitForFunction(
+      () => settings.furniture.length === 1 && pendingSaves === 0,
+    );
+    assert.deepEqual(await p.evaluate(() => settings.furniture), placed);
+    await p.evaluate(() => saveSettings({ furniture: [], decorations: true }));
+  }));
+test("a failed layout import preserves the current room and undo history", () =>
+  withPage(async (p) => {
+    await p.evaluate(() =>
+      saveSettings({ furniture: [], decorations: false, theme: "default" }),
+    );
+    await p.click("#settingsbtn");
+    await p.click('#furniture-tools [data-kind="coffee"]');
+    await p.locator("#c").press("ArrowRight");
+    await p.locator("#c").press("Enter");
+    await p.waitForFunction(
+      () => settings.furniture.length === 1 && pendingSaves === 0,
+    );
+    await p.click("#catalog-furniture");
+    await p.route("**/settings", (route) =>
+      route.fulfill({ status: 503, body: "Unavailable" }),
+    );
+    await p.setInputFiles("#import-settings", {
+      name: "layout.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          version: 1,
+          settings: { furniture: [], theme: "amber" },
+        }),
+      ),
+    });
+    await p.waitForFunction(
+      () =>
+        pendingSaves === 0 && !document.querySelector("#import-settings").value,
+    );
+    await p.evaluate(async () =>
+      applyState(await (await fetch("state")).json()),
+    );
+    assert.equal(await p.evaluate(() => settings.furniture.length), 1);
+    assert.equal(await p.getAttribute("html", "data-theme"), "default");
+    assert.equal(await p.locator("#undo-furniture").isDisabled(), false);
+    assert.match(await p.textContent("#save-status"), /Not saved/);
+    await p.unroute("**/settings");
+    await p.click("#edit-furniture");
+    await p.click("#undo-furniture");
+    await p.waitForFunction(
+      () => settings.furniture.length === 0 && pendingSaves === 0,
+    );
+    await p.evaluate(() => saveSettings({ decorations: true }));
+  }));
+test("mobile floor swipes scroll at Fit and pan only while zoomed or editing", () =>
+  withPage(
+    async (p) => {
+      const cdp = await p.context().newCDPSession(p);
+      const swipe = async () => {
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [{ x: 190, y: 680 }],
+        });
+        for (let y = 660; y >= 440; y -= 20) {
+          await cdp.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x: 190, y }],
+          });
+          await p.waitForTimeout(20);
+        }
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await p.waitForTimeout(200);
+      };
+      await swipe();
+      assert.ok(
+        await p.evaluate(() => scrollY > 0),
+        "the floor must allow access to controls below the viewport",
+      );
+      await p.click("#zoom-in");
+      await p.evaluate(() => scrollTo(0, 0));
+      await swipe();
+      assert.equal(await p.evaluate(() => scrollY), 0);
+      assert.ok(await p.evaluate(() => officeScene.pan.y < -100));
+      await p.click("#zoom-fit");
+      await p.click("#settingsbtn");
+      await p.click('#furniture-tools [data-kind="coffee"]');
+      await p.evaluate(() => scrollTo(0, 0));
+      await swipe();
+      assert.equal(await p.evaluate(() => scrollY), 0);
+      await p.click("#finish-furniture");
+      await p.evaluate(() => scrollTo(0, 0));
+      await swipe();
+      assert.ok(await p.evaluate(() => scrollY > 0));
+    },
+    { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+  ));
 test("lost connection is visible and polling recovers", () =>
   withPage(async (p) => {
     await p.route("**/state", (r) => r.abort());
@@ -1202,7 +1418,7 @@ test("achievement rewards and XP are searchable without losing focus during poll
   withPage(async (p) => {
     await p.locator("#achbtn").click();
     await p.locator('[data-filter="rewards"]').click();
-    assert.equal(await p.locator(".ach").count(), 8);
+    assert.equal(await p.locator(".ach").count(), 12);
     await p.locator("#badgeSearch").fill("aquarium");
     await p.waitForTimeout(1700);
     assert.equal(await p.locator("#badgeSearch").inputValue(), "aquarium");
@@ -1225,7 +1441,7 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 14 &&
+        officeScene.loadedAssets === 17 &&
         officeScene.sprites.sofa &&
         initialized,
     );
@@ -1270,6 +1486,32 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     });
     await p.locator("#settingsbtn").click();
     await p.screenshot({ path: path.join(dir, "mobile-settings.png") });
+    await p.keyboard.press("Escape");
+    await p.setViewportSize({ width: 1440, height: 900 });
+    await p.evaluate(() =>
+      saveSettings({
+        furniture: [
+          { kind: "whiteboard", x: 0.58, y: 0.94 },
+          { kind: "printer", x: 0.77, y: 0.94 },
+          { kind: "cart", x: 0.84, y: 0.64 },
+          { kind: "coatrack", x: 0.075, y: 0.63 },
+        ],
+      }),
+    );
+    await p.evaluate(() => officeScene.draw(0));
+    await p.screenshot({ path: path.join(dir, "workshop-desktop.png") });
+    await p.locator("#settingsbtn").click();
+    await p
+      .locator('#furniture-tools [data-kind="whiteboard"]')
+      .scrollIntoViewIfNeeded();
+    await p.screenshot({ path: path.join(dir, "workshop-catalog.png") });
+    await p.keyboard.press("Escape");
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.evaluate(() => officeScene.draw(0));
+    await p.screenshot({
+      path: path.join(dir, "workshop-mobile.png"),
+      fullPage: true,
+    });
   }));
 test("confirmed reset clears only progress and events in the isolated test workspace", () =>
   withPage(async (p) => {

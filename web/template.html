@@ -2,16 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Agent Office — A living workspace for your coding agents</title>
+    <title>Agent Office — Local agent status and usage</title>
     <meta
       name="description"
-      content="A local pixel-art workspace for Hermes, Claude Code and OpenCode. See real agent activity, inspect tasks, customize your office and earn achievements."
+      content="A local dashboard for Hermes, OpenCode, Claude Code, and Codex. Inspect observed agent activity, reported usage, and saved history in a customizable pixel office."
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#171e28" />
     <meta
       property="og:title"
-      content="Agent Office — Your agents, in good company"
+      content="Agent Office — Local agent status and usage"
     />
     <meta
       property="og:description"
@@ -25,6 +25,7 @@
       crossorigin
     />
     <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/aquarium.css" />
     <link rel="icon" href="assets/office.svg" />
   </head>
   <body>
@@ -34,7 +35,7 @@
           <img src="assets/office.svg" alt="" width="40" height="40" />
           <div>
             <h1>Agent Office<span class="edition">LOCAL WORKSPACE</span></h1>
-            <span class="tagline">Your agents, in good company.</span>
+            <span class="tagline">Agent status, usage, and activity.</span>
           </div>
         </div>
         <div class="connection">
@@ -104,6 +105,7 @@
             <option value="every">All runtimes</option>
             <option value="hermes">Hermes</option>
             <option value="claude">Claude Code</option>
+            <option value="codex">Codex</option>
             <option value="opencode">OpenCode</option>
             <option value="telegram">Telegram</option>
             <option value="cli">CLI</option>
@@ -130,6 +132,28 @@
           </button>
         </div>
       </nav>
+      <aside
+        id="attention"
+        class="attention"
+        role="status"
+        aria-live="polite"
+        hidden
+      >
+        <div class="attention-copy">
+          <strong id="attention-title"></strong>
+          <p id="attention-detail"></p>
+        </div>
+        <div class="cluster">
+          <button class="btn" id="attention-inspect">Inspect agent</button
+          ><button
+            class="btn"
+            id="attention-dismiss"
+            aria-label="Dismiss attention notice"
+          >
+            Dismiss
+          </button>
+        </div>
+      </aside>
       <main id="workspace">
         <div class="scene-heading">
           <div>
@@ -139,6 +163,8 @@
           <div id="summary">
             <span id="count">Connecting…</span
             ><button class="btn" id="waiting-count" hidden></button>
+            <button class="btn" id="budget-alert" hidden>Usage alert</button>
+            <button class="btn" id="health-alert" hidden>Check observer</button>
           </div>
         </div>
         <div id="stage">
@@ -216,7 +242,17 @@
         aria-label="Filter agents"
       />
       <div id="roster"></div>
-      <h3>Usage</h3>
+      <div class="panel-heading">
+        <h3>Reported usage</h3>
+        <span class="eyebrow">FROM YOUR RUNTIMES</span>
+      </div>
+      <div id="usagebox"></div>
+      <p class="waiting-note" id="budget-warning" role="status" hidden></p>
+      <details class="usage-breakdown">
+        <summary>Usage by model and runtime</summary>
+        <div id="usage-breakdown"></div>
+      </details>
+      <h3>Observed activity</h3>
       <div id="statbox"></div>
       <button class="btn" id="exportTrack">Export CSV ↓</button>
     </section>
@@ -244,7 +280,30 @@
       hidden
     >
       <h2>Activity stream</h2>
-      <p class="h">The latest 30 recorded events. Updates every 1.5 seconds.</p>
+      <p class="h">
+        Follow the live stream or search the event history kept on this
+        computer.
+      </p>
+      <div class="seg" id="event-tabs" role="group" aria-label="Activity view">
+        <button data-event-view="latest" aria-pressed="true">
+          Live · latest 30</button
+        ><button data-event-view="history" aria-pressed="false">
+          Saved history
+        </button>
+      </div>
+      <div class="history-tools">
+        <label for="event-runtime" class="sr-only"
+          >Filter activity runtime</label
+        ><select id="event-runtime" class="txt">
+          <option value="every">All runtimes</option>
+          <option value="hermes">Hermes</option>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex</option>
+          <option value="opencode">OpenCode</option>
+          <option value="telegram">Telegram</option>
+          <option value="cli">CLI</option></select
+        ><button class="btn" id="refresh-history">Refresh history</button>
+      </div>
       <input
         class="txt"
         id="eventSearch"
@@ -252,7 +311,13 @@
         placeholder="Search events…"
         aria-label="Search events"
       />
+      <p id="history-status" class="h" role="status"></p>
+      <button class="btn" id="clear-session-filter" hidden>
+        Show all activity
+      </button>
       <div id="eventbox"></div>
+      <button class="btn" id="history-more" hidden>Show 100 more</button>
+      <button class="btn" id="export-history">Export saved history ↓</button>
     </section>
     <section
       class="sheet"
@@ -288,17 +353,101 @@
       hidden
     >
       <h2>Make yourself at home</h2>
+      <p class="h">
+        Name your office, arrange the room, and decide how much activity to
+        keep.
+      </p>
+      <section class="settings-section" aria-labelledby="identity-heading">
+        <h3 id="identity-heading">Office name</h3>
+        <form id="room-name-form" class="name-form">
+          <label class="sr-only" for="room-name-input">Office name</label
+          ><input
+            class="txt"
+            id="room-name-input"
+            maxlength="48"
+            placeholder="Use the layout name"
+            autocomplete="off"
+          /><button class="btn" id="room-name-save" type="submit">
+            Save name
+          </button>
+        </form>
+        <p class="h">Leave blank to use the selected layout’s name.</p>
+      </section>
+      <h3>Layout &amp; atmosphere</h3>
       <div id="layoutbox"></div>
       <div id="settingsbox"></div>
       <h3>Place furniture</h3>
       <p class="h">
-        Choose from eleven props, then click a free area on the floor. Up to 24
-        custom props.
+        Choose a prop, then click a free area on the floor. Up to 24 custom
+        props.
       </p>
       <div id="furniture-tools" aria-label="Furniture catalog"></div>
       <button class="btn" id="edit-furniture">Arrange custom furniture</button>
       <button class="btn" id="clear-furniture">Clear custom furniture</button>
+      <h3>Room interactions</h3>
+      <div
+        id="room-actions"
+        class="cluster"
+        aria-label="Room interactions"
+      ></div>
+      <form id="pet-name-form" class="settings-section">
+        <h3>Pet names</h3>
+        <label for="pet-cat1-name" class="setting-label">Orange cat</label
+        ><input
+          id="pet-cat1-name"
+          class="txt"
+          maxlength="32"
+          placeholder="Claudio"
+          autocomplete="off"
+        /><label for="pet-cat2-name" class="setting-label">Black cat</label
+        ><input
+          id="pet-cat2-name"
+          class="txt"
+          maxlength="32"
+          placeholder="Gitcat"
+          autocomplete="off"
+        /><button class="btn" type="submit">Save pet names</button>
+        <p class="h">Names appear when you pet a cat.</p>
+      </form>
+      <section class="settings-section" aria-labelledby="retention-heading">
+        <h3 id="retention-heading">History &amp; storage</h3>
+        <p class="h">
+          Keep the most recent events within the size, count and age limits.
+          These limits do not remove XP, reported usage, or unanswered requests.
+        </p>
+        <div id="history-settings"></div>
+        <p class="h" id="tracking-status"></p>
+        <p class="h">
+          The database also stores live sessions and usage totals, outside the
+          event history limit.
+        </p>
+        <button class="btn danger" id="clear-history">
+          Clear saved history
+        </button>
+        <p id="storage-status" class="h" role="status"></p>
+      </section>
       <h3>Your setup</h3>
+      <form id="budget-form" class="settings-section">
+        <h3>Usage alert</h3>
+        <label for="budget-input" class="setting-label"
+          >Runtime cost threshold · USD</label
+        >
+        <div class="name-form">
+          <input
+            id="budget-input"
+            class="txt"
+            type="number"
+            min="0"
+            max="1000000000"
+            step="0.01"
+            value="0"
+          /><button class="btn" type="submit">Save alert</button>
+        </div>
+        <p class="h">
+          0 turns this off. The alert uses reported runtime cost estimates;
+          missing reports and actual billing may differ.
+        </p>
+      </form>
       <button class="btn" data-sheet="sheet-setup">Connection guide</button>
       <div class="cluster">
         <button class="btn" id="export-settings">Export layout ↓</button
@@ -314,8 +463,8 @@
       <p id="save-status" class="h" role="status"></p>
       <h3>Start fresh</h3>
       <p class="h">
-        Reset clears XP, earned badges and event history. Your room settings
-        stay.
+        Reset clears XP, earned badges, reported usage and event history. Your
+        room settings stay.
       </p>
       <button class="btn danger" id="resetbtn">Reset progress</button>
     </section>
@@ -328,7 +477,28 @@
       hidden
     >
       <h2>At this desk</h2>
+      <form id="agent-name-form" class="agent-name-form" hidden>
+        <label for="agent-name-input" class="setting-label"
+          >Local agent name</label
+        >
+        <div class="name-form">
+          <input
+            class="txt"
+            id="agent-name-input"
+            maxlength="48"
+            placeholder="Use the runtime’s name"
+            autocomplete="off"
+          /><button class="btn" id="agent-name-save" type="submit">
+            Save name
+          </button>
+        </div>
+        <button class="btn" id="agent-name-reset" type="button">
+          Use runtime name
+        </button>
+        <p class="h" id="agent-name-status" role="status"></p>
+      </form>
       <div id="inspectorbox"></div>
+      <button class="btn" id="inspect-history">View saved activity</button>
     </section>
     <section
       class="sheet"
@@ -383,8 +553,10 @@
         <option value="telegram">Telegram via Hermes</option>
         <option value="opencode">OpenCode</option>
         <option value="claude">Claude Code</option>
+        <option value="codex">Codex</option>
         <option value="vscode">VS Code</option>
       </select>
+      <div id="setup-brand" class="runtime-badge"></div>
       <div class="setup-status">
         <span class="eyebrow">CONNECTION CHECK</span>
         <p id="setup-observed" role="status"></p>
@@ -432,6 +604,32 @@
           </p>
         </li>
       </ol>
+      <section id="setup-codex-usage" class="settings-section" hidden>
+        <h3>Optional Codex usage reports</h3>
+        <p class="h">
+          From the repository root, import an existing complete
+          <code>codex exec --json</code> capture. Hooks handle lifecycle
+          activity; this importer adds reported token counts.
+        </p>
+        <div class="setup-command">
+          <code id="command-codex-usage"
+            >python3 codex/stream.py --stream-id build-check-01 &lt;
+            build-check-01.jsonl</code
+          >
+          <button
+            class="btn"
+            data-copy-command="command-codex-usage"
+            aria-label="Copy Codex usage import command"
+          >
+            Copy
+          </button>
+        </div>
+        <p class="h">
+          Use one unique name per captured invocation, and reuse it only for the
+          same capture. Include thread and turn boundaries. Interactive
+          transcript usage and cost are not reported by this adapter.
+        </p>
+      </section>
       <p id="setup-copy-status" class="h" role="status"></p>
       <details class="setup-help">
         <summary>No activity yet?</summary>
@@ -461,10 +659,120 @@
       </details>
       <button class="btn" id="setup-done">Got it · back to the office</button>
     </section>
+    <section
+      class="sheet"
+      id="sheet-aquarium"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="aquarium-heading"
+      hidden
+    >
+      <span class="eyebrow">THE AQUARIUM</span>
+      <h2 id="aquarium-heading">A little quiet water</h2>
+      <p class="h aquarium-intro">Feed and collect fish as your agents work.</p>
+      <div class="aquarium-window">
+        <canvas
+          id="aquarium-canvas"
+          width="360"
+          height="210"
+          tabindex="0"
+          role="button"
+          aria-label="Aquarium. Press Enter or Space to feed the fish. Use the collection below to choose residents."
+          >Use Feed fish and the collection below to interact with your
+          aquarium.</canvas
+        >
+        <div class="aquarium-tank-label">
+          <span id="aquarium-summary"></span><span id="aquarium-snacks"></span>
+        </div>
+      </div>
+      <div class="aquarium-controls">
+        <button class="btn" id="aquarium-feed">Feed fish</button
+        ><button class="btn" id="aquarium-motion" aria-pressed="false">
+          Pause fish
+        </button>
+      </div>
+      <p id="aquarium-motion-note" class="h"></p>
+      <p id="aquarium-status" role="status" aria-live="polite"></p>
+      <p id="aquarium-art-status" class="h" role="status" hidden></p>
+      <button class="btn" id="aquarium-retry-art" hidden>
+        Retry fish artwork
+      </button>
+      <h3>Your collection</h3>
+      <p class="h">
+        Choose one to four discovered fish. Every unlock comes from observed
+        runtime activity.
+      </p>
+      <div
+        id="aquarium-collection"
+        role="group"
+        aria-label="Aquarium residents"
+      ></div>
+      <form id="aquarium-name-form" class="aquarium-name">
+        <label for="aquarium-name-input">Name your aquarium</label>
+        <div class="name-form">
+          <input
+            class="txt"
+            id="aquarium-name-input"
+            maxlength="48"
+            placeholder="My aquarium"
+            autocomplete="off"
+          /><button class="btn" id="aquarium-name-save" type="submit">
+            Save name
+          </button>
+        </div>
+      </form>
+      <p class="h aquarium-care-note">
+        Feeding is just for fun: it earns no XP and never changes agent activity
+        or usage. Snacks stay in this browser visit. Your fish need no care
+        while you are away.
+      </p>
+    </section>
+    <section
+      class="sheet"
+      id="sheet-jukebox"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="jukebox-heading"
+      hidden
+    >
+      <span class="eyebrow">OFFICE MUSIC</span>
+      <h2 id="jukebox-heading">Jukebox</h2>
+      <div class="jukebox-art" aria-hidden="true">
+        <div id="jukebox-disc"><span></span></div>
+      </div>
+      <p class="h">
+        Three original, quiet loops. Music plays locally in your browser and
+        stops when you leave this tab.
+      </p>
+      <label class="setting-label" for="jukebox-tracks">Track</label>
+      <select id="jukebox-tracks" class="txt"></select>
+      <div class="jukebox-volume-row">
+        <label for="jukebox-volume">Volume</label
+        ><output id="jukebox-volume-label" for="jukebox-volume">12%</output>
+      </div>
+      <input
+        id="jukebox-volume"
+        type="range"
+        min="0"
+        max="50"
+        step="1"
+        value="12"
+      />
+      <button class="btn" id="jukebox-play" aria-pressed="false">
+        Play music
+      </button>
+      <p id="jukebox-status" class="h" role="status" aria-live="polite"></p>
+      <p class="h">
+        Play enables office sound. The header sound button mutes both music and
+        notifications. Music never starts automatically.
+      </p>
+    </section>
     <script src="js/data.js"></script>
     <script src="js/icons.js"></script>
     <script src="js/scene.js"></script>
     <script src="js/office.js"></script>
     <script src="js/editor.js"></script>
+    <script src="js/aquarium.js"></script>
+    <script src="js/jukebox.js"></script>
   </body>
 </html>

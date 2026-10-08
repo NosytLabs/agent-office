@@ -1,0 +1,24 @@
+{
+  "checked": "2026-10-07",
+  "collection": "https://github.com/pheralb/svgl",
+  "license": "SVGL-LICENSE.txt",
+  "files": {
+    "claude.svg": {
+      "sha256": "0df6dad23995f5a76c6db8cc2a4e646ff45bd7a0626ef98662a7025646e5eea1",
+      "source": "https://github.com/pheralb/svgl/blob/main/static/library/claude-ai-icon.svg"
+    },
+    "codex.svg": {
+      "sha256": "1b156eb915f7e74443f3fc491334f1896b6650e8fb597e2f2cb71c0ff7dd1cb0",
+      "source": "https://github.com/pheralb/svgl/blob/main/static/library/codex_dark.svg"
+    },
+    "opencode.svg": {
+      "sha256": "e29bbe33380ad1c1ada9134b52f229d30e9776d60481512c9d81f2bb6f37def9",
+      "source": "https://github.com/pheralb/svgl/blob/main/static/library/opencode-dark.svg"
+    },
+    "telegram.svg": {
+      "sha256": "05f6898c0c087f84c8bcf65e93721bde65abe34093045d4e9ecddbb8dc9f6a18",
+      "source": "https://github.com/pheralb/svgl/blob/main/static/library/telegram.svg"
+    }
+  },
+  "validation": "Vendored Git blob identities matched the source directory entries on 2026-10-07; SVG source bytes are unmodified."
+}

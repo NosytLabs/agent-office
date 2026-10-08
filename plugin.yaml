@@ -1,7 +1,7 @@
 name: pixel-office
-version: "0.4.0"
-description: "Agent Office — pixel floor for Hermes, OpenCode, Claude Code, Telegram. Ranks, badges, usage."
-author: "NousResearch"
+version: "0.5.0"
+description: "Agent Office — local agent status, saved activity, and reported usage."
+author: "NosytLabs"
 hooks:
   - pre_tool_call
   - post_tool_call

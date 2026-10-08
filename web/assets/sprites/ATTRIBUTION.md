@@ -60,7 +60,7 @@ Logical sizes are 20 × 26 (coffee), 12 × 26 (cooler), 12 × 30 (lamp), and
 10 × 10 (clock). The first three are placeable; the clock decorates the wall.
 See [generated-utilities.json](generated-utilities.json) for the prompt and
 contract, and [asset-checksums.json](asset-checksums.json) for source hashes.
-All eleven placeable props have previews made from the actual runtime sprite.
+All twenty placeable props have previews made from the actual runtime sprite.
 
 ## Matching cafe and plant atlas
 
@@ -73,4 +73,62 @@ See [generated-decor.json](generated-decor.json) for the exact prompt and
 [asset-checksums.json](asset-checksums.json) for the source checksum.
 Source transparency and all four runtime-normalized cells were visually
 inspected. Desktop/mobile scene evidence for this atlas was rendered in a
-CPU canvas; browser integration validation remains pending.
+CPU canvas in the preceding audit. The 2026-10-07 browser pass also verifies
+placement, persistence, removal, and populated catalog previews for these props.
+
+## Workshop atlas
+
+`furniture/workshop-atlas.png` was generated for this project on 2026-10-07
+using OpenAI's built-in image-generation tool. The original **1254 × 1254
+RGBA PNG** is preserved without offline image edits. Its four equal quadrants
+are a planning board, printer cabinet, supply cart, and coat rack. The written
+prompt uses the existing room's navy, walnut, cream, and sage palette; no
+reference-site artwork was supplied to generation.
+
+| Runtime key | Furniture | Logical size |
+| --- | --- | --- |
+| `whiteboard` | Planning board | 34 × 32 |
+| `printer` | Printer cabinet | 24 × 24 |
+| `cart` | Supply cart | 28 × 25 |
+| `coatrack` | Coat rack | 16 × 34 |
+
+The loader uses the same alpha-bound trimming and nearest-neighbor resampling
+as the other atlases. Faint alpha=1 source speckles stay outside the trim
+bounds; all four visible objects fit fully within their cells. The source
+image and normalized in-browser sprites were visually inspected. All four
+props are available in Customize, retain their saved positions after reload,
+and use the existing collision, move, undo/redo, and responsive placement code.
+
+The exact prompt, source dimensions, conservative alpha bounds, and source
+hash are in [generated-workshop.json](generated-workshop.json). The complete
+runtime inventory is recorded in [asset-checksums.json](asset-checksums.json).
+
+## Earned furniture, jukebox, and public aquarium
+
+The four objects in `furniture/rewards-atlas.png` are original generated art:
+an arcade cabinet (24 × 34), record player (28 × 22), desk robot (18 × 28),
+and terrarium (24 × 28). Their placement controls unlock from recorded work.
+Screen, eye/arm, record-player, and firefly motion is drawn by the scene and
+obeys the office pause control. The original atlas is preserved; see
+[generated-rewards.json](generated-rewards.json) for the exact prompt,
+source-reference disclosure, dimensions, alpha bounds, and checksum.
+
+`furniture/jukebox.png` is a separate original generated 1024 × 1536 RGBA
+sprite, normalized to 24 × 36. The jukebox and record player open one shared
+music panel. Its three original melodies are synthesized locally in
+`web/js/jukebox.js`; no third-party recordings are distributed. See
+[generated-jukebox.json](generated-jukebox.json).
+
+`aquarium/original-fish.png` is an original generated 1254 × 1254 RGBA atlas
+containing a goldfish, guppy, betta, and angelfish. The unmodified source is
+sampled through explicit regions in [aquarium/manifest.json](aquarium/manifest.json)
+so that the betta's fins are not clipped by equal-quadrant assumptions. These
+are still sprites; swimming, turns, food chasing, and bubbles are animated
+in code. See [generated-aquarium.json](generated-aquarium.json).
+
+The optional Smallburg art from the owner's Little Current checkout is
+**not distributed here**. Its notice prohibits redistributing asset files.
+The [local importer](../../../docs/aquarium-assets.md) preserves original
+bytes and the accompanying license outside this source tree. Its native
+four-frame animation has been tested separately. Public screenshots and
+the hosted demo use only the original generated fish.

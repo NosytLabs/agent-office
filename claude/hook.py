@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Claude Code → Agent Office observer.
 
-Claude Code pipes hook JSON on stdin. We append one events.jsonl line and
+Claude Code pipes hook JSON on stdin. We publish one immutable inbox event and
 always exit 0 — never block, deny, or print decisions.
 """
 from __future__ import annotations
@@ -11,6 +11,11 @@ import os
 import sys
 import time
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from event_inbox import publish as publish_inbox
 
 ACTIVITY = {
     "Bash": "running",
@@ -27,20 +32,19 @@ ACTIVITY = {
 }
 
 
-def events_path() -> Path:
+def office_dir() -> Path:
     home = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
     d = home / "pixel-office"
     d.mkdir(parents=True, exist_ok=True)
-    return d / "events.jsonl"
+    return d
 
 
 def publish(event: dict) -> None:
+    event = dict(event)
     event.setdefault("ts", time.time())
     event.setdefault("pid", os.getpid())
     event.setdefault("platform", "claude")
-    path = events_path()
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+    publish_inbox(office_dir(), event)
 
 
 def map_hook(raw: dict) -> dict | None:

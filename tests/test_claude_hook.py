@@ -89,6 +89,26 @@ def test_question_hook_records_one_tool_and_one_question_without_decisions(tmp_p
     )
     assert result.returncode == 0
     assert result.stdout == ""
-    events = [json.loads(line) for line in (tmp_path / "pixel-office/events.jsonl").read_text().splitlines()]
+    packets = [json.loads(path.read_text()) for path in sorted((tmp_path / "pixel-office/inbox").glob("*.json"))]
+    events = [packet["event"] for packet in packets]
     assert [ev["event"] for ev in events] == ["tool_start", "input_request"]
     assert all(ev["call_id"] == "q1" for ev in events)
+    assert all(packet["version"] == 1 and packet["epoch"] == "initial" for packet in packets)
+    assert not (tmp_path / "pixel-office/events.jsonl").exists()
+
+
+def test_hook_filesystem_failure_remains_silent_and_does_not_deny(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    (tmp_path / "pixel-office").write_text("occupied by a file")
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parents[1] / "claude/hook.py")],
+        input=json.dumps({"hook_event_name": "SessionStart", "session_id": "s"}),
+        text=True, capture_output=True, env={**os.environ, "HERMES_HOME": str(tmp_path)},
+    )
+    assert result.returncode == 0
+    assert result.stdout == result.stderr == ""

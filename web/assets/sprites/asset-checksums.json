@@ -1,4 +1,5 @@
 {
+  "aquarium/original-fish.png": "058ae4a1ada163943ed711556cf6abd6c900d5ce1d33271c1b5b772e4581fb22",
   "characters/char_0.png": "9ece93c20765abb876e3dacfe01e0cd1801323eff41c1779be0c47369886c09a",
   "characters/char_1.png": "f935f033726b06f73dbbe590db5a23cfb20d2d02c1329fd5d67d57a262e9b05e",
   "characters/char_2.png": "9f63ee7be4577e1d60de3b64d198d387d1c09794bed3a608958e77c7b955575d",
@@ -7,10 +8,13 @@
   "characters/char_5.png": "4b2c639a50e089a4e3b87be440ffb52b5c5c8cfd6473a386f325b25f99db7381",
   "furniture/DOOR.png": "2c69089d0e0b12adeb080e82ad0352fa036fe97fb00e20d153f1e5cbc43d405c",
   "furniture/FISH_TANK.png": "da88823f78e63988640eb1204d81bcbaa9f91d2b0ba9e83bb110fd98edac55c0",
+  "furniture/decor-atlas.png": "6d058f61f4ebfa134a3f3af22186424c08725ba7fa4fb4ed4ab206bc3d48b72b",
+  "furniture/jukebox.png": "a6c2e4bab07ccd9d287b284b400f2f3cfd409752c770003c619088c8a7e7abc3",
+  "furniture/rewards-atlas.png": "810b15a93dd45ea8d855dab7ab3b974cba31dbaeff29e316164a4eb376a7d074",
   "furniture/studio-atlas.png": "0d43e3807ecd5f818001797a43f7f147e381fadd9b46ab8962f301cc1be7f65e",
   "furniture/utilities-atlas.png": "ef94cdbac9a05c0161b8a9872c472dbf1b40df112879b1c4b5bc82d79821e6ad",
+  "furniture/workshop-atlas.png": "268dc583937d280324a419573090765795c90c735e21def6ff611c76031dfc2c",
   "pets/claudio.png": "d410635fa038422a9ceee021abbd1afd57fdf67805966896382e62da447fa67c",
   "pets/gitcat.png": "085980b8d33ddc69911b68177471694481b00d7c863fe4637b90cbbc7fe20bd8",
-  "pets/sleep_cat.png": "5c15415dd1e083b5d3dc9cae1c1d5a31f9356364fff9ac74b618e36242548664",
-  "furniture/decor-atlas.png": "6d058f61f4ebfa134a3f3af22186424c08725ba7fa4fb4ed4ab206bc3d48b72b"
+  "pets/sleep_cat.png": "5c15415dd1e083b5d3dc9cae1c1d5a31f9356364fff9ac74b618e36242548664"
 }
