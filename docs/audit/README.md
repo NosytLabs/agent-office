@@ -17,6 +17,8 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 | New interactive props | [Desktop](../screenshots/signals.png) and [320-pixel mobile reflow](../screenshots/signals-mobile.png) |
 | Pet bed | [Cat resting at the placed bed](../screenshots/pet-bed.png) |
 | Gemini lifecycle | [Mobile inspector with a synthetic hook fixture and unreported usage](../screenshots/gemini-mobile.png) |
+| Narrow office heading | [A 48-character name at 320 pixels](../screenshots/long-office-name-mobile.png) |
+| Keyboard settings | [Visible focused control below the sticky header](../screenshots/keyboard-settings.png) |
 
 See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
 
@@ -24,7 +26,7 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 
 | Layer | What the tests exercise | Main evidence |
 | --- | --- | --- |
-| Event durability | Out-of-order source timestamps, identical event publications, competing consumers, failures before/after commit, receipt cleanup, and raw count/age/byte retention | [`test_event_store.py`](../../tests/test_event_store.py), [`test_event_inbox.py`](../../tests/test_event_inbox.py) |
+| Event durability | Out-of-order source timestamps, identical event publications, competing consumers, failures before/after commit, receipt cleanup, raw count/age/byte retention, and rejection of excessively nested records without blocking healthy neighbors | [`test_event_store.py`](../../tests/test_event_store.py), [`test_event_inbox.py`](../../tests/test_event_inbox.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Settings integrity | Required revisions, stale full-map conflicts, cooperating process concurrency, preserved malformed files, oversized numbers, repair, and suspension of pruning while retention settings are unavailable | [`test_settings_concurrency.py`](../../tests/test_settings_concurrency.py), [`settings-concurrency.test.cjs`](../../tests/settings-concurrency.test.cjs) |
 | Storage health | Fair durable retries, publisher ordering, acknowledged cleanup, temporary/legacy bytes, unavailable measurements, exact usage-record counts, and legacy I/O recovery | [`test_storage_health.py`](../../tests/test_storage_health.py), [`test_event_cache.py`](../../tests/test_event_cache.py) |
 | Physical maintenance | Exact rows and correction baselines through compaction, pending reset/inbox preservation, DELETE/WAL exclusion, busy exits, unknown measurements, and altered/generated schema rejection | [`test_storage_maintenance.py`](../../tests/test_storage_maintenance.py) |
@@ -35,23 +37,23 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Gemini CLI | Four-hook lifecycle mapper, bounded silent input, real official CLI success/error flows with synthetic local responses, source closing-hook omissions, quiet/expiry behavior, and truthful browser coverage | [`test_gemini_hook.py`](../../tests/test_gemini_hook.py), [`test_gemini_native.py`](../../tests/test_gemini_native.py), [`gemini-browser.test.cjs`](../../tests/gemini-browser.test.cjs) |
 | Reported task lists | Valid full snapshots, explicit clearing, atomic invalid-input rejection, stable source/receipt times, eight-capture replay memory, restart, source adapters, historical rows, and unchanged XP/lifecycle | [`test_tasks.py`](../../tests/test_tasks.py), [`test_tasks_integration.py`](../../tests/test_tasks_integration.py), [`tasks-view.test.cjs`](../../tests/tasks-view.test.cjs), [`settings-concurrency.test.cjs`](../../tests/settings-concurrency.test.cjs) |
 | Installation | Runtime detection, additive configuration, malformed configuration preservation, copied Hermes imports/observation without the source checkout, optional hooks, trust boundaries, and extension file selection | [`test_install_config.py`](../../tests/test_install_config.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
-| Achievements | All 37 catalog conditions are reachable; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
+| Achievements | All 37 catalog conditions are reachable; incomplete milestones stay below 100%; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Browser and scene | Real local HTTP routes, polling, disconnected states, furniture/editor persistence, failed queued saves, touch scrolling, focus, search, reset, assets, and downloads | [`browser.test.cjs`](../../tests/browser.test.cjs), [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`product-ui.test.cjs`](../../tests/product-ui.test.cjs) |
 | Editor acknowledgements | Pending move feedback, actual transport failure and stale revision rollback, external furniture replacement, and Done/Escape during a pending save | [`editor-feedback.test.cjs`](../../tests/editor-feedback.test.cjs) |
 | Appearance | All 21 compiled robot poses, roster consistency, grounded crowns, real walk frames/facing in both layouts, desk finishes, save recovery, unlock gates, transformed canvas clicks, and responsive collision bounds | [`appearance.test.cjs`](../../tests/appearance.test.cjs) |
 | Personalization | Canonical-ID desk and character preferences, atomic validation, occupied-seat rejection, deterministic conflicts, stable automatic homes, native save/rollback, filtering and responsive layouts, persistence without fabricated activity | [`personalization.test.cjs`](../../tests/personalization.test.cjs), [`personalization-browser.test.cjs`](../../tests/personalization-browser.test.cjs), [`test_personalization.py`](../../tests/test_personalization.py) |
-| HUD | Visible close controls, preserved scroll and inspector return context, selected history text across polling, contained mobile scrolling, deduplicated notices, safe view persistence, and per-agent usage coverage | [`hud.test.cjs`](../../tests/hud.test.cjs) |
+| HUD | Visible close and keyboard-focused controls, preserved scroll and inspector return context, selected history text across polling, contained mobile scrolling and long names, deduplicated notices, safe view persistence, and per-agent usage coverage | [`hud.test.cjs`](../../tests/hud.test.cjs), [`dashboard-usability.test.cjs`](../../tests/dashboard-usability.test.cjs) |
 | Pets | Bounded movement, collision clearance, idle approaches and active-work avoidance, sleep, click targets, reflow, pause, visibility, and reduced-motion behavior | [`pets.test.cjs`](../../tests/pets.test.cjs), [`pets-browser.test.cjs`](../../tests/pets-browser.test.cjs) |
 | Follow camera | Native follow/stop, panel retention, manual pan/Fit/filter/edit cancellation, and release after actual session-end ingestion and sprite fade | [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`follow-camera.test.cjs`](../../tests/follow-camera.test.cjs) |
 | Interactive props and beds | Native placement/actions/reload, exact sprite pixels, mobile collisions, connected waiting-only beacon, frozen overlays, normal pet motion, accelerated bed arrival, and moved/removed-bed release | [`signals-browser.test.cjs`](../../tests/signals-browser.test.cjs) |
 | Aquarium and music | Fish movement/feeding limits, unlocks, preferences, optional art validation, gesture-started audio, voice cleanup, and muted/hidden behavior | [`aquarium.test.cjs`](../../tests/aquarium.test.cjs), [`jukebox-model.test.cjs`](../../tests/jukebox-model.test.cjs), [`room-interactions.test.cjs`](../../tests/room-interactions.test.cjs), [`test_smallburg_import.py`](../../tests/test_smallburg_import.py) |
-| Public preview | Isolated fixture generation, static build boundaries, synthetic markers, reset/history/preferences, exact-byte concurrency guards for legacy preferences, and exclusion of local data and optional commercial art | [`test_preview_build.py`](../../tests/test_preview_build.py), [`preview.test.cjs`](../../tests/preview.test.cjs) |
-| Product website | Allowlisted public build, safe regeneration, relative paths, real desktop/mobile browser flows, keyboard tabs, actual clipboard and denied-clipboard recovery, reduced motion and no-JavaScript content | [`test_site_build.py`](../../tests/test_site_build.py), [`site.test.cjs`](../../tests/site.test.cjs) |
+| Public preview | Isolated fixture generation, static build boundaries, synthetic markers, reset/history/preferences in secure and ordinary-HTTP browser contexts, exact-byte concurrency guards for legacy preferences, and exclusion of local data and optional commercial art | [`test_preview_build.py`](../../tests/test_preview_build.py), [`preview.test.cjs`](../../tests/preview.test.cjs) |
+| Product website | Allowlisted public build, safe regeneration, relative paths, real desktop/mobile browser flows, visible keyboard focus across viewport changes, menu dismissal on focus exit, actual clipboard and denied-clipboard recovery, reduced motion and no-JavaScript content | [`test_site_build.py`](../../tests/test_site_build.py), [`site.test.cjs`](../../tests/site.test.cjs) |
 | VS Code view | URL validation, actual local HTTP probes, cancellation/race handling, command boundaries, and panel lifecycle | [`vscode-panel.test.cjs`](../../tests/vscode-panel.test.cjs): 11 focused tests passed in this validation environment |
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
 
-### Verified 0.5.0 maintenance update
+### Verified 0.5.0 UI and reliability update
 
 The integrated local run on 8 October 2026 (UTC) used Python **3.12.14**,
 Node **24.19.0**, and Chromium **153.0.8010.0**. CI and Vercel are configured
@@ -59,13 +61,17 @@ for Node 22; local tests do not establish a hosted CI result.
 
 | Command or flow | Result |
 | --- | --- |
-| `GEMINI_TEST_CLI=... python -m pytest -q -o addopts=''` | **520 passed**, including both native CLI cases; 15.88 seconds |
+| `GEMINI_TEST_CLI=... python -m pytest -q -o addopts=''` | **530 passed**, including both native CLI cases; 17.03 seconds |
 | `npm test` | **101 passed** |
-| `npm run test:browser` | **169 passed**, 0 failed, 1 optional local-art check skipped; 81.06 seconds |
+| `npm run test:browser` | **175 passed**, 0 failed, 1 optional local-art check skipped; 80.54 seconds |
 | `npm run check` | Passed |
 | `npm run format:check` and `git diff --check` | Passed |
 | `npm run build:preview` | Built 62 public demo files and 20 product-site files; no local runtime data or Smallburg source sheets |
-| Official `@vscode/vsce` 4.0.0 packaging | Passed; eight expected VSIX entries, 11,505 bytes; manifest and runtime files match source |
+
+The preceding maintenance release also passed official `@vscode/vsce` 4.0.0
+packaging: eight expected VSIX entries, 11,505 bytes, with manifest and runtime
+files matching source. Extension files are unchanged in this update; packaging
+was not repeated. The current run includes all 11 extension contract tests.
 
 Without `GEMINI_TEST_CLI`, the two native cases skip; their eight isolation
 guards still run. The native cases use the actual official Gemini CLI 0.63.0
@@ -76,32 +82,33 @@ start/busy; after five minutes the UI marks that observation quiet, and after
 statistics remain unchanged through those presentation changes. This does
 not establish interactive or paid-provider behavior.
 
-The copied-Hermes regressions first reproduced a missing `settings_store`
-import. Both an existing copied install and the no-symlink fallback now load
-from an isolated Python process, save settings, publish an observation, and
-consume it through SQLite without importing the source checkout.
+Three new ingestion regressions first reproduced a recursion failure from
+deeply nested event payloads. A bounded iterative validation pass now rejects
+those records before state application. Healthy neighboring events commit,
+invalid records are counted, receipts are acknowledged, and restart does not
+replay the healthy events. Legacy source files remain unchanged. Seven new
+progress cases cover milestone boundaries: a displayed 100% now requires the
+threshold to be reached. These fixes change neither XP nor unlock thresholds.
 
-The new maintenance tests verify exact table rows and replay/correction
-baselines before and after rebuilding fragmented storage. They preserve
-pending reset intents, new-epoch inbox files, unresolved approvals, tasks,
-receipts, and retries. Competing readers/writers in both DELETE and WAL mode
-produce bounded busy failures. Altered keys and generated columns are rejected
-without changing the database bytes. Physical compaction is explicit; it does
-not shorten retention or remove accounting identities.
+Real-server Chromium flows verify a saved 48-character unbroken office name at
+320, 375, 667, and 1440 pixels, including an actionable waiting-agent control.
+Keyboard traversal keeps settings links below the sticky header while panel
+close/reopen retains the previous reading position. Site navigation keeps focus
+on visible controls when the viewport changes and closes the mobile disclosure
+when keyboard focus enters page content.
 
-Real-server Chromium flows reproduce and verify pending furniture moves,
-transport failures, actual stale-revision conflicts, replacement layouts,
-Done/Escape while saving, and en-CA timestamps. Legacy demo preferences use
-exact stored bytes to reject stale full-map writes from another view. The
-Gemini browser test follows actual hook publication through the observer,
-checks filters and reload persistence, and verifies the 320-pixel inspector
-shows absent usage as **Not reported**. Its screenshot is labeled synthetic.
+Two preview regressions exercise a native ordinary-HTTP browser context, where
+`crypto.randomUUID()` is unavailable. Settings revisions now use 128 random
+bits from `crypto.getRandomValues()`. Fresh saves, legacy migration, reload, and
+stale-write rejection work without changing the existing exact-byte comparison
+or locking boundaries. See the [MDN API contract](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues)
+and the [W3C disclosure navigation example](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/)
+for the checked browser behavior and keyboard interaction guidance.
 
-Independent reviews found and closed the generated-column guard, malformed
-Gemini hook-group preservation, inherited system-configuration risk in native
-tests, and a Node preload path-space failure. Native fixtures now refuse
-existing or unverifiable system policy and always exercise paths with spaces.
-The reviews found no remaining blocker in this change's scope.
+The full run retains copied-Hermes isolation, SQLite compaction/concurrency,
+queued furniture-save failure recovery, timestamps, and Gemini hook-to-browser
+coverage from the preceding maintenance release. Independent backend and
+frontend reviews found no remaining blocker in this update's scope.
 
 The complete browser gate also retains coverage for aquarium feeding/unlocks,
 audio playback and cleanup, character frames/facing, collisions, pet beds,

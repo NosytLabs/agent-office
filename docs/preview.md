@@ -62,7 +62,7 @@ CHROMIUM_PATH=/absolute/path/to/chrome node --test tests/site.test.cjs
 
 The browser suite serves the website under `/agent-office/` on port 18125.
 It checks desktop, 320/390-pixel mobile and tablet layouts, keyboard tabs,
-mobile focus, actual clipboard copying and denied-clipboard recovery,
+focus across responsive navigation changes, actual clipboard copying and denied-clipboard recovery,
 reduced motion, no-JavaScript content, credits, and local-only asset requests.
 Screenshots are saved in `reports/site/` or `OFFICE_SITE_SCREENSHOTS`.
 
@@ -76,16 +76,13 @@ when comparing a later deployment. Branch-preview URLs retain the project's
 existing deployment protection. The public production address above needs no
 temporary share link.
 
-The last hosted review before this task-reporting update checked merged
-[commit `88727c7`](https://github.com/NosytLabs/agent-office/commit/88727c712950813592b385f402d42c9ef6a1ac56)
-at [its Vercel deployment](https://vercel.com/nosyt/agent-office-preview/6ecQpiU48qmCvapVehpAXr7jeQYF)
-on 8 October 2026. The static build ran on Node **22.23.2**. Checks included
-agent and usage panels, saved theme and pet settings, aquarium feeding,
-gesture-started music, sample lifecycle expiry, and the website's navigation,
-setup content, credits, and image decoding. Local Chromium tests verify copied
-command bytes; the hosted browser could observe copy feedback but could not
-read its virtual clipboard. That previous deployment is separate from the
-current local verification in [the audit record](audit/README.md).
+Use the [merged release pull requests](https://github.com/NosytLabs/agent-office/pulls?q=is%3Apr+is%3Amerged)
+for each reviewed commit's exact deployment and hosted checks. The current
+[audit record](audit/README.md) covers local regression results and remaining
+integration limits. A READY static deployment is not a Python, browser-test,
+or installed-runtime verification result. Hosted checks cover the public
+synthetic application; local Chromium tests additionally verify exact copied
+command bytes and controlled error paths that the public demo cannot create.
 
 GitHub Pages was disabled at review. Its separate publishing workflow can
 successfully build the site while skipping Pages upload and deployment. The
