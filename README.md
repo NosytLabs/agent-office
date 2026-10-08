@@ -111,7 +111,7 @@ Other milestones add ferns, cats, mugs, monitor trim, and room accents. The warm
 
 ### Arcade and room toys
 
-Open **Arcade** below the floor, in Customize → Room interactions, or by clicking a placed arcade cabinet. The cabinet hosts **Duck Hunt**, adapted from [Adi52/duck-hunt](https://github.com/Adi52/duck-hunt), and **Breakout**, adapted from [mazipan/mini-games](https://github.com/mazipan/mini-games). Both run locally. See [game controls, pause behavior, and source credits](docs/arcade.md).
+Open **Arcade** below the floor, in Customize → Room interactions, or by clicking a placed arcade cabinet. The cabinet hosts **Duck Hunt**, adapted from [Adi52/duck-hunt](https://github.com/Adi52/duck-hunt), plus **Breakout** and **Snake**, adapted from [mazipan/mini-games](https://github.com/mazipan/mini-games). All three run locally. Snake supports arrows/WASD, swipes, and labeled touch controls. Breakout and Snake keep separate personal bests. See [game controls, pause behavior, and source credits](docs/arcade.md).
 
 Click a lamp or the small wall switch to toggle the room lighting, or use the labeled **Lights on/off** button. This preference survives reload and is independent of the day/night window setting. Brew coffee, pour water, water plants, wake terrarium fireflies, greet a desk robot, or take a sofa break. Customize → Room interactions provides the same actions as buttons; actions for absent objects stay disabled. Room animation pauses with the office motion control. These toys never award work XP or send runtime commands.
 

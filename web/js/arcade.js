@@ -618,7 +618,7 @@
     userPaused = true;
     localMotionOptIn = false;
     status = nativeSelected()
-      ? `${gameTitle()} selected. Press Start when you are ready.`
+      ? `${gameTitle()} selected. Press ${nativeGame().state === "playing" ? "Resume" : "Start"} when you are ready.`
       : "Duck Hunt selected. Press Load & start; the game stays stopped until then.";
     render();
     drawNative();
@@ -780,9 +780,11 @@
   canvas.addEventListener("keydown", (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey || lifecycleBlocked())
       return;
-    if (selected === "snake" && SNAKE_KEYS[event.key]) {
+    const snakeDirection =
+      SNAKE_KEYS[event.key] || SNAKE_KEYS[event.key.toLowerCase()];
+    if (selected === "snake" && snakeDirection) {
       event.preventDefault();
-      if (!userPaused && !event.repeat) snake.turn(...SNAKE_KEYS[event.key]);
+      if (!userPaused && !event.repeat) snake.turn(...snakeDirection);
       return;
     }
     if (

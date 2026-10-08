@@ -235,3 +235,37 @@ test("Snake direction buttons do not resume a paused game", () => {
   assert.deepEqual(h.snapshot(), before);
   assert.equal(button.disabled, true);
 });
+
+test("reselecting a paused native game tells the player to resume", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-snake");
+  h.click("arcade-start");
+  h.click("arcade-exit");
+  h.click("arcade-game-snake");
+  assert.equal(h.get("arcade-start").hidden, true);
+  assert.equal(h.get("arcade-pause").textContent, "Resume");
+  assert.equal(
+    h.get("arcade-status").textContent,
+    "Snake selected. Press Resume when you are ready.",
+  );
+  assert.equal(h.document.activeElement.id, "arcade-pause");
+});
+
+test("Snake accepts uppercase WASD without leaking the key to the page", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-snake");
+  h.click("arcade-start");
+  let prevented = false;
+  h.get("arcade-canvas").events.keydown({
+    key: "W",
+    shiftKey: true,
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
+  for (let time = 1000; time <= 1500; time += 50) h.tick(time);
+  assert.equal(prevented, true);
+  assert.deepEqual(h.snapshot().snake.body[0], { x: 12, y: 8 });
+});

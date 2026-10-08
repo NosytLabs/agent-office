@@ -20,6 +20,7 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 | Narrow office heading | [A 48-character name at 320 pixels](../screenshots/long-office-name-mobile.png) |
 | Keyboard settings | [Visible focused control below the sticky header](../screenshots/keyboard-settings.png) |
 | Arcade | [Duck Hunt with a scored hit](../screenshots/arcade-duck-hunt.png) and [Breakout in play](../screenshots/arcade-breakout.png) |
+| Snake | [Desktop play](../screenshots/arcade-snake-desktop.png) and [mobile controls](../screenshots/arcade-snake-mobile.png) |
 | Room toys and characters | [Moss engineer and Orbit courier in the office](../screenshots/office-toys.png) and [saved room lighting](../screenshots/room-lights.png) |
 | Aquarium interactions | [Public fish, tank lighting, and visible artwork source](../screenshots/aquarium-interactions.png) |
 | Local task runs | [Desktop form](../screenshots/local-runs-desktop.png), [completed fixture output](../screenshots/local-runs-output.png), and [320-pixel mobile output](../screenshots/local-runs-mobile.png) |
@@ -59,6 +60,61 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | VS Code view | URL validation, actual local HTTP probes, cancellation/race handling, command boundaries, and panel lifecycle | [`vscode-panel.test.cjs`](../../tests/vscode-panel.test.cjs): 11 focused tests passed in this validation environment |
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
+
+### Arcade controls and branch reconciliation — 8 October 2026
+
+The arcade now includes the pinned MIT-source Snake adaptation alongside
+Breakout and Duck Hunt. The model checks cover directional queuing, reversals,
+wall/body collisions, departing-tail movement, food placement, a full board,
+scoring, level timing, and the reproduced Breakout armored-corner contact.
+Controller checks cover game selection, shared lifecycle, stored scores,
+paused controls, and operation when storage is unavailable.
+
+Review reproduced two additional interface defects: a previously started game
+said "Press Start" when its visible control was Resume, and Shift/Caps Lock
+caused WASD input to be ignored. Both have focused regressions, including
+Shift+W through real Chromium. The focused model/controller run passed all
+19 cases, and the real arcade/Snake browser run passed all nine cases.
+Desktop and mobile captures show actual local game motion in isolated office
+fixtures; the mobile capture used trusted touch input to swipe the canvas.
+
+The combined revision was verified on Linux with Python 3.12.14, Node 24.19.0,
+and Chromium 153.0.8010.0:
+
+| Check | Result |
+| --- | --- |
+| Full Python suite, including native Gemini fixtures | **579 passed**, 32.94 seconds |
+| `npm test` | **120 passed** |
+| `npm run test:browser` | **213 passed**, 0 failed, 1 optional private-art case skipped; 163.25 seconds |
+| Syntax, formatting, and Git diff checks | Passed |
+| Public preview and product-site builds | **104 demo files** and **20 product-site files** |
+| Authoritative progression and SQLite tests after branch reconciliation | **62 passed** |
+
+The full browser run includes all 214 cases, including the existing local task
+runner, settings, appearance, room interactions, and public fallback coverage.
+The skipped optional Smallburg artwork case is unchanged. These are local
+results; the configured CI workflow and Vercel deployment are separate checks.
+
+The arcade integration includes the current `main` task runner and the reviewed
+history of `codex/office-integrity` at `897d3e0`. That older branch had one unique
+commit and no production changes: its only addition was
+`tests/test_progress_policy.py`. A direct probe against current `main` passed
+three cases and failed three because they called a removed theme-XP helper or
+required a superseded `lounge_lamp` achievement and five-session reward policy.
+
+The merge deliberately keeps the authoritative coverage in
+[`test_progress.py`](../../tests/test_progress.py) and
+[`test_event_store.py`](../../tests/test_event_store.py), without adding that
+obsolete duplicate file. Existing tests cover retired achievements, errors
+without XP, theme changes through actual settings storage, legacy lamp
+preservation without inventing a replacement achievement, the current
+50-observed-tool lamp reward, and milestone percentages below 100 until earned.
+This resolves the branch's history without changing users' XP or rewards.
+
+Issue [#18](https://github.com/NosytLabs/agent-office/issues/18) is reconciled
+separately with the shipped fresh-process runner. Existing-session OpenCode
+handoff and durable delivery receipts remain distinct, unimplemented scope;
+neither a successful process exit nor an in-memory request ID establishes them.
 
 ### Local task control and console update — 8 October 2026
 

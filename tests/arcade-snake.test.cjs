@@ -107,7 +107,7 @@ test("Snake supports keyboard, pause and restart without awarding work XP", asyn
   await withPage(async (page) => {
     const before = await progressXP();
     await selectSnake(page);
-    await page.locator("#arcade-canvas").press("ArrowUp");
+    await page.locator("#arcade-canvas").press("Shift+W");
     await page.waitForFunction(
       () => window.officeArcade.snapshot().snake.body[0].y < 9,
     );
@@ -183,7 +183,10 @@ test("Snake and Breakout read independent, namespaced personal bests", async () 
     await page.evaluate(() => {
       for (const mode of ["preview", "observer"]) {
         localStorage.setItem(`agent-office:${mode}:arcade:snake-best`, "80");
-        localStorage.setItem(`agent-office:${mode}:arcade:breakout-best`, "170");
+        localStorage.setItem(
+          `agent-office:${mode}:arcade:breakout-best`,
+          "170",
+        );
       }
     });
     await page.locator("#arcade-game-snake").click();
