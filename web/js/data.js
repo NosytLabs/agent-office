@@ -426,7 +426,9 @@ function hash(text) {
 function platOf(a) {
   const p = String(a.platform || "").toLowerCase();
   if (p.includes("claude")) return "claude";
-  return ["opencode", "codex", "telegram", "cli"].includes(p) ? p : "hermes";
+  return ["opencode", "codex", "gemini", "telegram", "cli"].includes(p)
+    ? p
+    : "hermes";
 }
 function isNight(settings) {
   const h = new Date().getHours();

@@ -74,7 +74,7 @@ const inputs = new Map([
     "web/assets/sprites/PIXEL-AGENTS-LICENSE.txt",
   ],
 ]);
-for (const brand of ["claude", "codex", "opencode"]) {
+for (const brand of ["claude", "codex", "opencode", "gemini"]) {
   inputs.set(`assets/brands/${brand}.svg`, `web/assets/brands/${brand}.svg`);
 }
 for (const shot of ["appearance", "usage", "settings", "aquarium"]) {

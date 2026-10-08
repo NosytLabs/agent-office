@@ -414,3 +414,97 @@ def test_first_install_without_runtimes_does_not_create_agent_configuration(tmp_
     assert install.main() == 0
     assert not (tmp_path / ".claude").exists()
     assert not (tmp_path / ".config/opencode").exists()
+
+
+def test_gemini_install_honors_parent_home_preserves_disabled_hooks_and_is_idempotent(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path / "normal-home")
+    monkeypatch.setenv("GEMINI_CLI_HOME", str(tmp_path / "isolated-home"))
+    monkeypatch.setattr(install, "have", lambda cmd: False)
+    path = tmp_path / "isolated-home/.gemini/settings.json"
+    path.parent.mkdir(parents=True)
+    original = {"hooks": {"enabled": False, "disabled": ["agent-office-observer"],
+                           "BeforeTool": [{"matcher": "read_file", "hooks": [{"type": "command", "command": "keep"}]}]},
+                "security": {"auth": {"selectedType": "keep"}, "folderTrust": {"enabled": True}}, "model": {"name": "keep"}}
+    path.write_text(json.dumps(original))
+    assert install.detect().get("gemini") is True
+    assert callable(getattr(install, "enable_gemini", None))
+    assert "skip" not in install.enable_gemini()
+    first = path.read_text()
+    result = json.loads(first)
+    assert result["security"] == original["security"] and result["model"] == original["model"]
+    for key in ("enabled", "disabled", "BeforeTool"):
+        assert result["hooks"][key] == original["hooks"][key]
+    for name in ("SessionStart", "BeforeAgent", "AfterAgent", "SessionEnd"):
+        handler = result["hooks"][name][0]["hooks"][0]
+        assert handler["type"] == "command" and handler["timeout"] == 3000
+        assert handler["name"] == "agent-office-observer"
+        assert "gemini/hook.py" in handler["command"]
+    assert "already wired" in install.enable_gemini()
+    assert path.read_text() == first
+    assert not (tmp_path / "normal-home/.gemini").exists()
+
+
+@pytest.mark.parametrize("raw", ['// keep comments\n{"hooks": {}}', '{"hooks": {"AfterAgent": [null]}}', '{"hooks": false}', '[]'])
+def test_gemini_invalid_or_jsonc_settings_are_preserved(tmp_path, monkeypatch, raw):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    path = tmp_path / ".gemini/settings.json"
+    path.parent.mkdir()
+    path.write_text(raw)
+    assert callable(getattr(install, "enable_gemini", None))
+    assert "skip" in install.enable_gemini()
+    assert path.read_text() == raw
+
+
+def test_gemini_cli_detection_wires_only_installed_runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setattr(install, "have", lambda cmd: cmd == "gemini")
+    assert install.main() == 0
+    path = tmp_path / ".gemini/settings.json"
+    assert path.is_file()
+    assert set(json.loads(path.read_text())["hooks"]) == {"SessionStart", "BeforeAgent", "AfterAgent", "SessionEnd"}
+
+
+@pytest.mark.parametrize("group", [
+    {}, {"hooks": [{}]}, {"hooks": [], "matcher": []},
+    {"hooks": [], "sequential": "false"},
+    {"hooks": [{"type": "command", "command": 7}]},
+    {"hooks": [{"type": "runtime", "name": "embedded", "action": None}]},
+    {"hooks": [{"type": "command", "command": "keep", "name": []}]},
+    {"hooks": [{"type": "command", "command": "keep", "timeout": True}]},
+    {"hooks": [{"type": "command", "command": "keep", "timeout": float("inf")}]},
+    {"hooks": [{"type": "command", "command": "keep", "env": {"FLAG": False}}]},
+    {"hooks": [{"type": "command", "command": "keep", "source": "unsupported"}]},
+    {"hooks": [{"type": "command", "command": "keep", "action": None}]},
+])
+def test_gemini_preserves_invalid_existing_target_definition_byte_for_byte(tmp_path, monkeypatch, group):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    path = tmp_path / ".gemini/settings.json"
+    path.parent.mkdir()
+    original = json.dumps({"hooks": {"AfterAgent": [group]}, "other": "preserve"}, indent=4) + "\n\n"
+    path.write_text(original)
+    assert "skip" in install.enable_gemini()
+    assert path.read_text() == original
+
+
+def test_gemini_preserves_valid_target_and_unrelated_hook_fields(tmp_path, monkeypatch):
+    monkeypatch.setattr(install, "HOME", tmp_path)
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    path = tmp_path / ".gemini/settings.json"
+    path.parent.mkdir()
+    group = {"matcher": "*", "sequential": True, "hooks": [{
+        "type": "command", "command": "keep-command", "name": "existing", "description": "keep description",
+        "timeout": 250.5, "source": "user", "env": {"FLAG": "value"}, "future_field": {"keep": True},
+    }]}
+    other = [{"matcher": "read_file", "hooks": [{"type": "command", "command": "keep-tool"}]}]
+    original = {"hooks": {"AfterAgent": [group, {"hooks": []}], "BeforeTool": other}, "security": {"keep": True}}
+    path.write_text(json.dumps(original))
+    assert "skip" not in install.enable_gemini()
+    result = json.loads(path.read_text())
+    assert result["hooks"]["AfterAgent"][:2] == [group, {"hooks": []}]
+    assert result["hooks"]["BeforeTool"] == other and result["security"] == {"keep": True}
+    assert len(result["hooks"]["AfterAgent"]) == 3

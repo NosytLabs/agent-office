@@ -132,7 +132,7 @@
             ><small>No frontend build to run the app</small></span
           >
           <span
-            ><b>Four runtime adapters</b
+            ><b>Five runtime adapters</b
             ><small>With explicit coverage and limits</small></span
           >
           <span
@@ -478,6 +478,22 @@
               >Optional usage from a captured exec JSON stream</span
             >
           </article>
+          <article class="connection-card">
+            <div class="runtime-mark">
+              <img
+                src="assets/brands/gemini.svg"
+                alt=""
+                width="32"
+                height="32"
+                loading="lazy"
+              />
+            </div>
+            <h3>Gemini CLI</h3>
+            <p>Session start/end and agent-loop busy/idle observations.</p>
+            <span class="coverage-label"
+              >Lifecycle only; tools and usage are not reported</span
+            >
+          </article>
         </div>
         <div class="editor-callout">
           <div class="editor-symbol" aria-hidden="true">&lt;/&gt;</div>
@@ -495,9 +511,10 @@
           >
         </div>
         <p class="coverage-note">
-          Adapter contracts, ingestion, and browser flows are tested. Installed
-          CLI and VS Code extension-host sessions still need host-level
-          validation.
+          Adapter contracts, ingestion, and browser flows are tested. Gemini CLI
+          0.63.0 was also tested with a synthetic local provider. Other
+          installed CLI sessions and the VS Code extension host still need
+          host-level validation.
           <a
             href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
             >See the evidence and remaining checks.</a

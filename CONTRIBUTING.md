@@ -55,6 +55,14 @@ SCENE_CANVAS_MODULE=/absolute/path/to/skia-canvas node tests/render-scene.cjs
 
 This produces images under `reports/scene-render` and does not replace browser interaction tests or add a production dependency. The [CI workflow](.github/workflows/ci.yml) defines Python, Node, syntax, formatting, and browser checks; documentation-only changes are excluded from its automatic triggers.
 
+An opt-in integration check uses an already installed official Gemini CLI **0.63.0**:
+
+```sh
+GEMINI_TEST_CLI=/absolute/path/to/gemini python -m pytest tests/test_gemini_native.py
+```
+
+It creates its own empty workspace and Gemini configuration, installs the actual observer hook, and uses a synthetic loopback provider with a fake key and external connections rejected. The per-invocation trust acknowledgement applies only to that new test directory. It verifies both successful and failed provider responses, source hook omissions, quiet-state expiry, and unchanged accounting. It does not install a CLI, use a provider account, or alter an existing workspace's trust. Without the explicit executable path, these two tests are skipped.
+
 Build the shareable demonstration with `npm run build:preview`. It packages the reviewed public fixture and assets into `dist/` and the product website into `dist/about/`. `npm run build:site` builds the website alone in `site-dist/`, suitable for GitHub Pages. These commands do not start a live observer or deploy a site. [The preview guide](docs/preview.md) explains fixture regeneration, local checks, and deployment settings.
 
 ## Change boundaries
@@ -70,6 +78,8 @@ Publish through the immutable inbox protocol. Do not append to or truncate `even
 [`event_store.py`](event_store.py) owns the SQLite writer transaction. Live state, progress, usage changes, and receipt acknowledgment commit together; file cleanup follows commit. Keep background ingestion working without a browser. A retention change must preserve unanswered prompts, aggregate counters, and later usage corrections. Test failures on both sides of a commit or reset boundary when changing that protocol.
 
 Keep unreadable inputs retryable without starving other publishers or overtaking earlier records from the same writer. A failed or partial legacy read must preserve its cursor and live state, including during reset preparation. Storage measurements distinguish pending input, acknowledged cleanup, temporary files, history bytes, and database size; a failed measurement is `null`, not zero or a partial sum. Automatic retention must suspend when preferences are unavailable or contain an unsupported retention value instead of applying destructive defaults.
+
+Physical compaction is explicit maintenance through `tools/maintain.py`, never part of polling, pruning, or reset. Preserve logical rows, declared IDs, accounting correction baselines, and pending input. Validate an existing office schema before rebuilding; report busy locks and unavailable measurements accurately. The [maintenance regressions](tests/test_storage_maintenance.py) cover exclusive locking, WAL sidecars, altered schemas, and reset recovery.
 
 Usage events require a stable source `usage_id`, platform, and session. They are complete replacement snapshots. Input/output are inclusive; cached/reasoning values are subsets. Preserve source totals and missing values, report only observed cost with its source, and avoid counting both a component and a total containing it. Never add speculative model price tables or replace unavailable metrics with zero. The compact unit ledger remains necessary for replay/corrections even when raw history is pruned.
 

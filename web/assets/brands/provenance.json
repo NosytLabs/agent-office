@@ -18,7 +18,13 @@
     "telegram.svg": {
       "sha256": "05f6898c0c087f84c8bcf65e93721bde65abe34093045d4e9ecddbb8dc9f6a18",
       "source": "https://github.com/pheralb/svgl/blob/main/static/library/telegram.svg"
+    },
+    "gemini.svg": {
+      "sha256": "c11d94a9e3ecb32f67dd9350848cf3124d617680533275c672e1e6bf61ce8cd4",
+      "source": "https://github.com/pheralb/svgl/blob/main/static/library/gemini.svg",
+      "checked": "2026-10-08",
+      "git_blob": "f8d7189dc67dcfef4ea88c516eab537a75f4f24c"
     }
   },
-  "validation": "Vendored Git blob identities matched the source directory entries on 2026-10-07; SVG source bytes are unmodified."
+  "validation": "Vendored Git blob identities matched source directory entries on 2026-10-07 unless noted per file; SVG source bytes are unmodified."
 }

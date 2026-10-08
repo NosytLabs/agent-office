@@ -165,6 +165,7 @@ function runtimeName(a) {
       hermes: "Hermes",
       claude: "Claude Code",
       opencode: "OpenCode",
+      gemini: "Gemini CLI",
       telegram: "Telegram",
       cli: "CLI",
     }[platOf(a)] ||
@@ -180,7 +181,7 @@ function runtimeBadge(a) {
     ? "claude"
     : runtime.includes("codex")
       ? "codex"
-      : ["opencode", "telegram"].includes(runtime)
+      : ["opencode", "gemini", "telegram"].includes(runtime)
         ? runtime
         : null;
   if (mark) {
@@ -660,6 +661,8 @@ function fillSetup() {
       "The installer adds observer hooks to ~/.claude/settings.json and creates missing settings. Rerun it after upgrading to add session, prompt, completion, and permission hooks. Existing unrelated hooks are preserved. Restart Claude Code and keep run.py running.",
     codex:
       "The installer detects an existing Codex installation and adds local observer commands to hooks.json in CODEX_HOME or ~/.codex. Restart Codex, then open /hooks to review and trust the new definitions. Keep run.py running. These synchronous hooks have a three-second timeout and report lifecycle activity; token usage is optional below.",
+    gemini:
+      "The installer adds four session hooks to ~/.gemini/settings.json, or .gemini/settings.json under GEMINI_CLI_HOME. Restart Gemini CLI and keep run.py running. These hooks observe lifecycle only: session start, thinking, idle, and session end. They do not report tokens, cost, tools, approvals, or subagents. Provider errors can omit idle and end hooks; a quiet session is not proof that work completed. Existing disabled hooks, trust, and authentication settings stay unchanged.",
     vscode:
       "The installer copies the local extension. Reload VS Code and run Agent Office: Open Floor. Keep the observer running; if using a different port, update hermesPixelOffice.stateUrl to its /state URL.",
   };

@@ -6,6 +6,7 @@ window.officeViewState = (() => {
     "hermes",
     "claude",
     "codex",
+    "gemini",
     "opencode",
     "telegram",
     "cli",

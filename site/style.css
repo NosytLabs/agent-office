@@ -716,7 +716,7 @@ h1 span {
 }
 .connection-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
@@ -1315,11 +1315,14 @@ h1 span {
   .connection-card {
     padding: 25px;
   }
-  .connection-card:nth-child(2) {
+  .connection-card:nth-child(even) {
     border-right: 0;
   }
-  .connection-card:nth-child(-n + 2) {
+  .connection-card:not(:last-child) {
     border-bottom: 1px solid var(--line);
+  }
+  .connection-card:last-child {
+    grid-column: 1 / -1;
   }
   .editor-callout {
     flex-wrap: wrap;
