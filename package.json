@@ -5,7 +5,7 @@
   "description": "Development checks for the dependency-free Agent Office frontend",
   "scripts": {
     "test": "node --test tests/opencode-bridge.test.mjs tests/vscode-panel.test.cjs tests/scene-model.test.cjs tests/jukebox-model.test.cjs",
-    "test:browser": "node --test tests/browser.test.cjs tests/product-ui.test.cjs tests/aquarium.test.cjs tests/room-interactions.test.cjs tests/preview.test.cjs",
+    "test:browser": "node --test tests/browser.test.cjs tests/product-ui.test.cjs tests/aquarium.test.cjs tests/room-interactions.test.cjs tests/preview.test.cjs tests/appearance.test.cjs",
     "check": "node tools/check_js.mjs",
     "format": "prettier --write \"web/**/*.{js,css,html}\" \"vscode/*.{js,json}\" \"tests/*.{cjs,mjs}\" package.json .github/workflows/ci.yml",
     "format:check": "prettier --check \"web/**/*.{js,css,html}\" \"vscode/*.{js,json}\" \"tests/*.{cjs,mjs}\" package.json .github/workflows/ci.yml",

@@ -24,6 +24,99 @@ from progress import (  # noqa: E402
     snapshot,
 )
 
+RETIRED = {"oops", "weather_storm", "weather_sun", "deep_work",
+           "theme_designer", "night_owl", "early_bird"}
+
+
+def test_active_catalog_retires_error_time_and_appearance_badges():
+    ids = {badge["id"] for badge in progress.CATALOG}
+    assert len(ids) == 37
+    assert not RETIRED & ids
+
+
+def test_retired_lamp_migration_preserves_earned_xp_statistics_and_cursors(tmp_path):
+    data = progress._empty()
+    data.update(xp=450, last_ts=100, last_ts_counts={"legacy boundary": 2})
+    data["stats"].update(errors=12, theme_switches=8, custom_counter=7)
+    data["unlocks"] = {aid: {"at": 1, "name": "Previous label"} for aid in RETIRED}
+    data["unlocks"]["first_shift"] = {"at": 2, "name": "First day"}
+    data["recent"] = [{"id": aid, "at": 1, "name": "Previous label"} for aid in RETIRED]
+    data["recent"].append({"id": "first_shift", "at": 2})
+    original = deepcopy(data)
+    path = tmp_path / "progress.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    restored = load(path)
+    assert restored["xp"] == 450
+    assert restored["stats"] == original["stats"]
+    assert restored["last_ts"] == 100 and restored["last_ts_counts"] == {"legacy boundary": 2}
+    assert set(restored["unlocks"]) == {"first_shift"}
+    assert [badge["id"] for badge in restored["recent"]] == ["first_shift"]
+    assert restored["legacy_cosmetics"] == ["storm_lamp"]
+    assert progress.normalize_achievements(restored) is False
+    view = snapshot(restored)
+    assert view["cosmetics"].count("storm_lamp") == 1
+    lamp = next(badge for badge in view["catalog"] if badge["id"] == "coffee_break")
+    assert lamp["have"] is False and lamp["progress"] == 0
+    assert not RETIRED & {badge["id"] for badge in view["catalog"]}
+
+    save(path, restored)
+    assert load(path) == restored
+    assert data == original
+
+
+@pytest.mark.parametrize("saved,expected", [
+    (None, []),
+    ("storm_lamp", []),
+    ({"storm_lamp": True}, []),
+    (["fish_tank", "unknown"], []),
+    (["storm_lamp", "storm_lamp", "fish_tank", None, ["storm_lamp"]], ["storm_lamp"]),
+])
+def test_legacy_cosmetics_accepts_only_the_existing_lamp_record(saved, expected):
+    data = progress._empty()
+    data["legacy_cosmetics"] = saved
+    progress.normalize_achievements(data)
+    assert data["legacy_cosmetics"] == expected
+    assert snapshot(data)["cosmetics"] == expected
+    assert data["xp"] == 0 and not data["unlocks"]
+    assert progress.normalize_achievements(data) is False
+
+
+def test_tool_errors_remain_recorded_without_awarding_xp_or_room_rewards():
+    data = progress._empty()
+    ingest(data, [{"event": "tool_end", "status": "error", "ts": 100 + i,
+                   "call_id": str(i)} for i in range(10)], new_batch=True)
+    assert data["stats"]["errors"] == 10
+    assert data["xp"] == 0
+    assert not data["unlocks"]
+    assert snapshot(data)["cosmetics"] == []
+
+
+@pytest.mark.parametrize("hour", [1, 6, 13])
+def test_session_start_awards_the_same_work_xp_at_any_time(hour):
+    data = progress._empty()
+    ts = time.mktime((2026, 1, 15, hour, 0, 0, 0, 0, -1))
+    ingest(data, [{"event": "session_start", "ts": ts}], new_batch=True)
+    assert data["stats"]["sessions"] == 1
+    assert data["xp"] == 15
+    assert set(data["unlocks"]) == {"first_shift", "pet_plant"}
+
+
+def test_warm_lamp_unlocks_at_fifty_observed_tools_without_duplicate_legacy_reward():
+    data = progress._empty()
+    ingest(data, [{"event": "tool_start", "ts": 100 + i,
+                   "tool_name": f"tool-{i % 9}"} for i in range(49)], new_batch=True)
+    assert "storm_lamp" not in snapshot(data)["cosmetics"]
+    ingest(data, [{"event": "tool_start", "ts": 150, "tool_name": "tool-4"}], new_batch=True)
+    view = snapshot(data)
+    lamp = next(badge for badge in view["catalog"] if badge["id"] == "coffee_break")
+    assert lamp["have"] is True and lamp["progress"] == 100
+    assert lamp["reward"] == "Warm lounge lamp accent"
+    assert data["xp"] == 70 and data["stats"]["tools"] == 50
+    assert view["cosmetics"].count("storm_lamp") == 1
+    data["legacy_cosmetics"] = ["storm_lamp"]
+    assert snapshot(data)["cosmetics"].count("storm_lamp") == 1
+
 
 def test_new_batch_does_not_serialize_or_retain_event_bodies(monkeypatch):
     data = progress._empty()
@@ -146,7 +239,7 @@ def test_snapshot_catalog_flags():
 
 def test_catalog_exposes_xp_and_only_real_room_rewards():
     catalog = snapshot(load(Path("/nope")))["catalog"]
-    assert sum(bool(c["reward"]) for c in catalog) == 12
+    assert sum(bool(c["reward"]) for c in catalog) == 14
     fish = next(c for c in catalog if c["id"] == "pet_fish")
     assert fish["reward"] == "Lounge aquarium"
     assert fish["xp"] == 20
@@ -253,25 +346,22 @@ def test_runtime_alias_fix_preserves_an_already_earned_badge_and_xp():
 
 def test_every_declared_achievement_has_a_reachable_condition():
     data = progress._empty()
-    night = time.mktime((2026, 1, 15, 1, 0, 0, 0, 0, -1))
-    morning = time.mktime((2026, 1, 15, 6, 0, 0, 0, 0, -1))
+    timestamp = 1000
     platforms = ("cli", "opencode", "claude", "codex", "telegram")
     tools = ("read_file", "search_files", "Read", "write_file", "Edit",
              "web_search", "WebFetch", "terminal", "Bash", "custom")
     events = [{"event": "session_start", "platform": platforms[i % len(platforms)],
-               "ts": night if i % 2 else morning} for i in range(100)]
-    events.extend({"event": "tool_start", "tool_name": tools[i % len(tools)], "ts": morning}
+               "ts": timestamp} for i in range(100)]
+    events.extend({"event": "tool_start", "tool_name": tools[i % len(tools)], "ts": timestamp}
                   for i in range(10000))
-    events.extend({"event": "subagent_start", "ts": morning} for _ in range(10))
-    events.extend({"event": "tool_end", "status": "error", "ts": morning} for _ in range(10))
-    events.append({"event": "approval_request", "ts": morning})
+    events.extend({"event": "subagent_start", "ts": timestamp} for _ in range(10))
+    events.append({"event": "approval_request", "ts": timestamp})
     # EventStore supplies the deduplicated ledger count, checked separately in
     # test_usage_duplicate_correction_prune_and_reset_share_event_transaction.
     data["stats"]["usage_reports"] = 1
     ingest(data, events, new_batch=True)
     apply_live(data, 5)
-    for _ in range(5):
-        progress.record_theme_switch_data(data)
+    assert len(progress.CATALOG) == 37
     assert set(data["unlocks"]) == {badge["id"] for badge in progress.CATALOG}
     assert all(badge["have"] and badge["progress"] == 100
                for badge in snapshot(data)["catalog"])

@@ -34,6 +34,22 @@ const THEMES = [
     rug: "#53675c",
     accent: "#e6c489",
   },
+  {
+    id: "juniper",
+    name: "Juniper",
+    floor: "#4a675c",
+    plank: "#527263",
+    seam: "#385247",
+    wall: "#b5c1af",
+    trim: "#738a77",
+    rug: "#3c4c51",
+    accent: "#c8d7ab",
+  },
+];
+const DESK_STYLES = [
+  { id: "classic", name: "Classic" },
+  { id: "walnut", name: "Walnut" },
+  { id: "slate", name: "Slate" },
 ];
 const LAYOUTS = [
   { id: "open", name: "The studio", hint: "Open desks and a quiet corner." },
@@ -47,6 +63,8 @@ const LAYOUTS = [
 const DEFAULT_SETTINGS = Object.freeze({
   layout: "open",
   theme: "default",
+  desk_style: "walnut",
+  subagent_style: "robot",
   sound: false,
   music_track: "window-seat",
   music_volume: 0.12,
@@ -126,6 +144,8 @@ const PROP_SIZES = {
   robot: [18, 28],
   terrarium: [24, 28],
   jukebox: [24, 36],
+  focusbooth: [30, 38],
+  filingcabinet: [22, 26],
 };
 const PROP_NAMES = {
   sofa: "Sofa",
@@ -148,12 +168,16 @@ const PROP_NAMES = {
   robot: "Desk robot",
   terrarium: "Terrarium",
   jukebox: "Jukebox",
+  focusbooth: "Focus booth",
+  filingcabinet: "Filing cabinet",
 };
 const PROP_REWARDS = {
   arcade: "arcade_break",
   recordplayer: "listening_room",
   robot: "helping_hand",
   terrarium: "green_thumb",
+  focusbooth: "workhorse",
+  filingcabinet: "toolkit",
 };
 function propBounds(item, grid) {
   const [w, h] = PROP_SIZES[item.kind];
@@ -402,12 +426,20 @@ function characterFrame(agent, character, time) {
     /read|search|grep|glob|fetch|browse/i.test(agent.tool || "");
   return (reading ? 5 : 3) + (Math.floor(time * 3) % 2);
 }
+function characterSpriteKey(agent, settings = {}) {
+  const style = settings.subagent_style || DEFAULT_SETTINGS.subagent_style;
+  if (style === "robot" && (agent.kind === "subagent" || agent.parent))
+    return "studio-assistant";
+  return "char" + (hash(agent.id) % 6);
+}
 function normalizeSettings(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};
   const valid = {};
   const choices = {
     layout: ["open", "bullpen"],
     theme: THEMES.map((t) => t.id),
+    desk_style: DESK_STYLES.map((style) => style.id),
+    subagent_style: ["robot", "people"],
     ambience: ["auto", "day", "night"],
     music_track: ["window-seat", "night-shift", "rainy-break"],
   };

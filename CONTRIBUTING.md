@@ -71,7 +71,7 @@ Publish through the immutable inbox protocol. Do not append to or truncate `even
 
 Usage events require a stable source `usage_id`, platform, and session. They are complete replacement snapshots. Input/output are inclusive; cached/reasoning values are subsets. Preserve source totals and missing values, report only observed cost with its source, and avoid counting both a component and a total containing it. Never add speculative model price tables or replace unavailable metrics with zero. The compact unit ledger remains necessary for replay/corrections even when raw history is pruned.
 
-The active achievement catalog has 44 entries. Add a reachable condition and meaningful coverage before declaring any new achievement. Preserve earned XP when retiring an ID; filter obsolete unlock/recent records through `normalize_achievements`. Display-only label changes must not revoke rewards. Runtime aliases should not create additional runtime families.
+The active achievement catalog has 37 entries. Add a reachable condition and meaningful coverage before declaring any new achievement. Preserve earned XP when retiring an ID; filter obsolete unlock/recent records through `normalize_achievements`. Display-only label changes must not revoke rewards. Runtime aliases should not create additional runtime families.
 
 ### Frontend and room interactions
 

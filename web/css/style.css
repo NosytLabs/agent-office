@@ -32,6 +32,13 @@
   --line: #554737;
   --gold: #eec58d;
 }
+[data-theme="juniper"] {
+  --bg: #14211d;
+  --panel: #1c2d27;
+  --panel2: #293e34;
+  --line: #456052;
+  --gold: #d0dab0;
+}
 * {
   box-sizing: border-box;
 }

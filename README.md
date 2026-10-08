@@ -49,14 +49,15 @@ The in-app **Connection guide** provides setup and troubleshooting. A reachable 
 - **Watch work:** tool activity, parallel calls, parent/child relationships, status filters, custom display names, and an observed task board. The needs-input control cycles through waiting sessions. A quiet-agent notice opens its last reported status and tool; silence alone does not establish that work is stuck or finished.
 - **Inspect history:** search retained events, focus on a session, inspect current activity, and export recorded data. The UI reconnects automatically and labels a retained scene when disconnected.
 - **Read reported usage:** token totals by runtime and model, plus usage for visible sessions. Missing values say **Not reported**; partial coverage remains visible. Dollar amounts are labeled runtime estimates, with their source. An optional cost threshold shows an alert without stopping a runtime.
-- **Arrange the room:** choose among **20 props**, move or remove custom furniture, undo/redo edits, and import/export preferences. Saves enter history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
+- **Arrange the room:** choose among **22 props**, move or remove custom furniture, undo/redo edits, and import/export preferences. Saves enter history after server confirmation; a failed save preserves retryable edits. Layout reflow keeps saved positions intact.
+- **Make it yours:** choose a room theme, including Juniper, and classic, walnut, or slate desks. Delegated sessions can use the animated studio robot or the existing people sprites. Appearance settings do not create activity or change XP.
 - **Use the camera:** zoom, drag while zoomed, return to Fit, pause animation, or save a scene image. At Fit, mobile swipes scroll the page. Reduced-motion preferences pause motion without stopping tracking.
 
 Claude hooks do not report token usage. Hermes reports supported main-loop API attempts. OpenCode reports assistant-message counters and runtime cost estimates. Codex usage can be imported from an already captured `codex exec --json` stream with a stable capture ID. See [exact usage semantics and commands](docs/runtime-observers.md); the office does not infer pricing or present these values as an invoice.
 
 ### Earned room rewards
 
-The catalog contains **44 reachable achievements**, with XP, progress, and visible reward descriptions. Four furniture choices unlock through observed activity:
+The catalog contains **37 reachable achievements**, with XP, progress, and visible reward descriptions. Six furniture choices unlock through observed activity:
 
 | Activity | Placeable reward |
 | --- | --- |
@@ -64,8 +65,10 @@ The catalog contains **44 reachable achievements**, with XP, progress, and visib
 | 5 sessions | Record player |
 | 1 subagent start | Desk robot |
 | 25 read/search tools | Terrarium |
+| 500 tool starts | Focus booth; opens the task board |
+| 10 distinct tools | Filing cabinet; opens saved history |
 
-Other milestones add ferns, cats, mugs, monitor trim, and room accents. XP records observed events and achievements; it does not measure code quality or task completion. Retired achievement entries are removed while their earned XP and statistics remain. Runtime aliases count as one runtime family for achievements.
+Other milestones add ferns, cats, mugs, monitor trim, and room accents. The warm lamp unlocks after 50 observed tool calls. XP records observed events and achievements; it does not measure code quality or task completion. Error events remain in statistics, while errors, theme changes, and session time of day do not award XP. Retired achievement entries are removed while earned XP, existing statistics, and previously earned lamp appearances remain. Runtime aliases count as one runtime family for achievements.
 
 ### Aquarium and jukebox
 

@@ -565,7 +565,7 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
 test("all sprite images load and canvas frames stay within room bounds on desktop and mobile", () =>
   withPage(async (p) => {
     await p.waitForFunction(
-      () => officeScene.loadedAssets === 17 && officeScene.sprites.coatrack,
+      () => officeScene.loadedAssets === 19 && officeScene.sprites.coatrack,
     );
     assert.deepEqual(await p.evaluate(() => officeScene.assetErrors), []);
     assert.equal(
@@ -940,7 +940,7 @@ test("readable local fonts, decorative icons, labels, and catalog previews load"
         }
     }
     await p.locator("#settingsbtn").click();
-    assert.equal(await p.locator("#furniture-tools button").count(), 20);
+    assert.equal(await p.locator("#furniture-tools button").count(), 22);
     const populated = await p
       .locator("#furniture-tools canvas")
       .evaluateAll((cs) =>
@@ -1418,7 +1418,7 @@ test("achievement rewards and XP are searchable without losing focus during poll
   withPage(async (p) => {
     await p.locator("#achbtn").click();
     await p.locator('[data-filter="rewards"]').click();
-    assert.equal(await p.locator(".ach").count(), 12);
+    assert.equal(await p.locator(".ach").count(), 14);
     await p.locator("#badgeSearch").fill("aquarium");
     await p.waitForTimeout(1700);
     assert.equal(await p.locator("#badgeSearch").inputValue(), "aquarium");
@@ -1441,7 +1441,7 @@ test("capture reviewed desktop, mobile, settings, badges, and night scenes", () 
     await p.reload();
     await p.waitForFunction(
       () =>
-        officeScene.loadedAssets === 17 &&
+        officeScene.loadedAssets === 19 &&
         officeScene.sprites.sofa &&
         initialized,
     );

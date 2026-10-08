@@ -21,8 +21,8 @@ RANKS = (
 )
 
 CATALOG = [
-    {"id": "first_shift", "name": "First day", "hint": "clock in once", "xp": 10},
-    {"id": "open_floor", "name": "Open floor", "hint": "an OpenCode session walks in", "xp": 25},
+    {"id": "first_shift", "name": "First day", "hint": "observe a session start", "xp": 10},
+    {"id": "open_floor", "name": "Open floor", "hint": "observe an OpenCode session", "xp": 25},
     {"id": "telegram_desk", "name": "Telegram desk", "hint": "observe a Telegram session", "xp": 15},
     {"id": "claude_desk", "name": "Claude Code desk", "hint": "observe a Claude Code session", "xp": 25},
     {"id": "two_houses", "name": "Two runtimes", "hint": "observe Hermes and OpenCode activity", "xp": 40},
@@ -32,7 +32,7 @@ CATALOG = [
     {"id": "full_floor", "name": "Full floor", "hint": "5 agents on the floor", "xp": 30},
     {"id": "gold_collar", "name": "First subagent", "hint": "observe a subagent starting", "xp": 20},
     {"id": "swarm", "name": "Swarm", "hint": "10 subagents lifetime", "xp": 40},
-    {"id": "coffee_break", "name": "Coffee break", "hint": "50 tools fired", "xp": 20},
+    {"id": "coffee_break", "name": "Coffee break", "hint": "50 observed tool calls", "xp": 20},
     {"id": "centurion", "name": "Centurion", "hint": "100 tools", "xp": 30},
     {"id": "thousand_cuts", "name": "Thousand cuts", "hint": "1000 tools", "xp": 80},
     {"id": "five_k", "name": "Five thousand", "hint": "5000 tools", "xp": 120},
@@ -42,10 +42,7 @@ CATALOG = [
     {"id": "shell_jockey", "name": "Shell jockey", "hint": "25 terminal/bash tools", "xp": 15},
     {"id": "toolkit", "name": "Toolkit", "hint": "10 distinct tools used", "xp": 25},
     {"id": "specialist", "name": "Specialist", "hint": "one tool 50 times", "xp": 25},
-    {"id": "oops", "name": "Oops", "hint": "10 tool errors", "xp": 10},
-    {"id": "red_alert", "name": "Red alert", "hint": "an approval pops", "xp": 10},
-    {"id": "night_owl", "name": "Night owl", "hint": "start a session between 00:00–05:00", "xp": 20},
-    {"id": "early_bird", "name": "Early bird", "hint": "start a session between 05:00–08:00", "xp": 15},
+    {"id": "red_alert", "name": "Red alert", "hint": "observe an approval request", "xp": 10},
     {"id": "fashion", "name": "Coffee mugs", "hint": "reach staff rank", "xp": 0},
     {"id": "corner_office", "name": "Corner office", "hint": "hit principal rank", "xp": 0},
     {"id": "layout_bullpen", "name": "Bullpen layout", "hint": "10 sessions ever", "xp": 25},
@@ -53,11 +50,7 @@ CATALOG = [
     {"id": "pet_plant", "name": "Office fern", "hint": "first session", "xp": 0},
     {"id": "pet_dog", "name": "Midnight cat", "hint": "100 sessions + 50 tools", "xp": 30},
     {"id": "pet_fish", "name": "Office fish", "hint": "25 browse tools", "xp": 20},
-    {"id": "weather_storm", "name": "Warm lamp", "hint": "5 tool errors lifetime", "xp": 15},
-    {"id": "weather_sun", "name": "Hundred sessions", "hint": "100 sessions", "xp": 25},
     {"id": "workhorse", "name": "Workhorse", "hint": "500 tools", "xp": 50},
-    {"id": "deep_work", "name": "Deep work", "hint": "50 sessions", "xp": 40},
-    {"id": "theme_designer", "name": "Theme designer", "hint": "switch theme 5 times", "xp": 20},
     {"id": "marathon", "name": "Marathon", "hint": "10k tools", "xp": 80},
     {"id": "codex_desk", "name": "Codex desk", "hint": "observe a Codex session", "xp": 25},
     {"id": "arcade_break", "name": "Arcade cabinet", "hint": "100 observed tool calls", "xp": 0},
@@ -76,11 +69,13 @@ REWARDS = {
     "pet_plant": "Desk ferns",
     "pet_dog": "A second interactive cat",
     "pet_fish": "Lounge aquarium",
-    "weather_storm": "Warm lounge lamp accent",
+    "coffee_break": "Warm lounge lamp accent",
     "arcade_break": "Animated arcade screen",
     "listening_room": "Record-player visualizer",
     "helping_hand": "Desk robot wave",
     "green_thumb": "Terrarium fireflies",
+    "workhorse": "Focus booth with task-board access",
+    "toolkit": "Filing cabinet with saved history",
 }
 
 
@@ -103,6 +98,7 @@ def _empty() -> Dict[str, Any]:
             "by_platform": {},
         },
         "unlocks": {},
+        "legacy_cosmetics": [],
         "last_ts": 0.0,
         "last_ts_counts": {},
         "recent": [],
@@ -114,10 +110,16 @@ def normalize_achievements(data: Dict[str, Any]) -> bool:
 
     Active IDs remain earned even when an old display record is incomplete.
     Names and hints come from the current catalog; acquisition times are kept.
+    A retired weather_storm unlock keeps its lamp appearance without granting
+    the replacement work milestone. No other legacy cosmetic is admitted.
     The caller persists changes in its existing transaction.
     """
     catalog = {badge["id"]: badge for badge in CATALOG}
     previous = data.get("unlocks")
+    previous_cosmetics = data.get("legacy_cosmetics")
+    had_lamp = isinstance(previous, dict) and "weather_storm" in previous
+    kept_lamp = isinstance(previous_cosmetics, list) and "storm_lamp" in previous_cosmetics
+    legacy_cosmetics = ["storm_lamp"] if had_lamp or kept_lamp else []
     unlocks = {}
     for aid, record in (previous.items() if isinstance(previous, dict) else []):
         if aid not in catalog:
@@ -142,10 +144,12 @@ def normalize_achievements(data: Dict[str, Any]) -> bool:
         if len(recent) == 8:
             break
     recent.reverse()
-    changed = previous != unlocks or previous_recent != recent
+    changed = (previous != unlocks or previous_recent != recent
+               or previous_cosmetics != legacy_cosmetics)
     if changed:
         data["unlocks"] = unlocks
         data["recent"] = recent
+        data["legacy_cosmetics"] = legacy_cosmetics
     return changed
 
 
@@ -202,7 +206,7 @@ def cosmetics_for(xp: int, unlocks: Dict[str, Any]) -> List[str]:
         out.append("fish_tank")
     if "pet_cat" in unlocks:
         out.append("office_cat")
-    if "weather_storm" in unlocks:
+    if "coffee_break" in unlocks:
         out.append("storm_lamp")
     for badge, cosmetic in (("arcade_break", "arcade_glow"),
                             ("listening_room", "vinyl_spin"),
@@ -225,15 +229,6 @@ def _unlock(data: Dict[str, Any], aid: str) -> None:
     rec = data.setdefault("recent", [])
     rec.append({"id": aid, "name": meta["name"], "hint": meta["hint"], "at": now})
     data["recent"] = rec[-8:]
-
-
-def record_theme_switch_data(data: Dict[str, Any]) -> None:
-    """Update the aggregate inside the caller's persistence transaction."""
-    stats = data["stats"]
-    stats["theme_switches"] = int(stats.get("theme_switches") or 0) + 1
-    n = stats["theme_switches"]
-    if n >= 5:
-        _unlock(data, "theme_designer")
 
 
 def _runtime_family(platform: str) -> str:
@@ -301,15 +296,6 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
             runtime = _runtime_family(plat)
             stats["sessions"] = int(stats.get("sessions") or 0) + 1
             data["xp"] = int(data.get("xp") or 0) + 5
-            try:
-                hour = time.localtime(ts).tm_hour
-            except (ValueError, OverflowError, OSError):
-                hour = None  # An invalid source clock cannot earn a time badge.
-            if hour is not None:
-                if 0 <= hour < 5:
-                    _unlock(data, "night_owl")
-                if 5 <= hour < 8:
-                    _unlock(data, "early_bird")
             _unlock(data, "first_shift")
             if runtime == "opencode":
                 _unlock(data, "open_floor")
@@ -382,8 +368,6 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
         _unlock(data, "toolkit")
     if any(int(v) >= 50 for v in by_tool.values()):
         _unlock(data, "specialist")
-    if int(stats.get("errors") or 0) >= 10:
-        _unlock(data, "oops")
     rk = rank_for(int(data.get("xp") or 0))
     if rk in ("staff", "principal", "distinguished"):
         _unlock(data, "fashion")
@@ -393,15 +377,10 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
         _unlock(data, "layout_bullpen")
     if int(stats.get("sessions") or 0) >= 50:
         _unlock(data, "pet_cat")
-        _unlock(data, "deep_work")
     if int(stats.get("tools") or 0) >= 10000:
         _unlock(data, "marathon")
     if int(stats.get("sessions") or 0) >= 1:
         _unlock(data, "pet_plant")
-    if int(stats.get("sessions") or 0) >= 100:
-        _unlock(data, "weather_sun")
-    if int(stats.get("errors") or 0) >= 5:
-        _unlock(data, "weather_storm")
     for badge, stat, threshold in (("arcade_break", "tools", 100),
                                    ("listening_room", "sessions", 5),
                                    ("helping_hand", "subagents", 1),
@@ -441,12 +420,14 @@ def snapshot(data: Dict[str, Any]) -> Dict[str, Any]:
     stats = data.get("stats") or {}
     by_tool = stats.get("by_tool") or {}
     plats = set(stats.get("platforms") or [])
+    cosmetics = cosmetics_for(xp, data.get("unlocks") or {})
+    cosmetics.extend(item for item in data["legacy_cosmetics"] if item not in cosmetics)
     return {
         "xp": xp,
         "rank": rank_for(xp),
         "next": nxt,
         "stats": stats,
-        "cosmetics": cosmetics_for(xp, data.get("unlocks") or {}),
+        "cosmetics": cosmetics,
         "unlocks": [
             {"id": k, "name": v.get("name") or k, "at": v.get("at")}
             for k, v in sorted((data.get("unlocks") or {}).items(), key=lambda kv: kv[1].get("at") or 0)
@@ -475,7 +456,6 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
     browses = int(stats.get("browses") or 0)
     shells = int(stats.get("shells") or 0)
     subs = int(stats.get("subagents") or 0)
-    errors = int(stats.get("errors") or 0)
     rk = rank_for(xp)
     runtimes = {_runtime_family(platform) for platform in plats} - {""}
     return {
@@ -500,11 +480,7 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "shell_jockey": pct(shells,25),
         "toolkit": pct(len(by_tool),10),
         "specialist": pct(max(int(v) for v in by_tool.values()) if by_tool else 0, 50),
-        "oops": pct(errors,10),
         "red_alert": pct(int(stats.get("approvals") or 0),1),
-        # An earned time badge is handled by snapshot's unlock lookup.
-        "night_owl": 0,
-        "early_bird": 0,
         "fashion": 100 if rk in ("staff","principal","distinguished") else pct(xp,150),
         "corner_office": 100 if rk in ("principal","distinguished") else pct(xp,400),
         "layout_bullpen": pct(sessions,10),
@@ -512,11 +488,7 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
         "pet_plant": 100 if sessions >= 1 else 0,
         "pet_dog": min(pct(sessions,100), pct(tools,50)),
         "pet_fish": pct(browses,25),
-        "weather_storm": pct(errors,5),
-        "weather_sun": pct(sessions,100),
         "workhorse": pct(tools,500),
-        "deep_work": pct(sessions,50),
-        "theme_designer": pct(int(stats.get("theme_switches") or 0), 5),
         "marathon": pct(tools,10000),
         "codex_desk": 100 if "codex" in runtimes else 0,
         "arcade_break": pct(tools,100),

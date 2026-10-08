@@ -1,0 +1,142 @@
+{
+  "created": "2026-10-08",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/workstations-atlas.png",
+  "source_preserved_unmodified": true,
+  "prompt": "Use case: stylized-concept.\nAsset type: production pixel-art furniture sprite atlas for Agent Office, an original office dashboard game.\nCreate one BRAND NEW square transparent PNG containing exactly FOUR independent office furniture sprites in a regular TWO by TWO equal-quadrant grid. One complete centered object per quadrant, at least 15 percent empty transparent padding all around, no overlap between quadrants. All objects viewed from the same shallow elevated front angle, with their front edges horizontal, suitable for a top-down 2D office scene. Crisp chunky pixel-art clusters, dark navy outlines, walnut/cream/sage/slate palette, subdued highlights, no noisy texture or painterly gradients. Designed to remain clear at small game sizes.\n\nTOP LEFT: A single warm WALNUT DESKTOP SLAB and its slim front apron ONLY. It is a wide, shallow horizontal desk top, warm brown upper face, dark walnut front edge/apron, squared softened corners. Its total silhouette is roughly 40 wide by 14 high logical pixels. View from slightly above so the upper slab face is visible as a shallow trapezoid with horizontal front edge. Crucially NO LEGS, NO SUPPORTS, NO CHAIR, NO MONITOR, NO BOOKS, NO PLANT, and no accessories. It will be layered over existing game legs later.\n\nTOP RIGHT: A single SLATE AND CREAM DESKTOP SLAB and slim front apron ONLY. Exactly the same dimensions, shallow elevated front camera and overall 40 by 14 silhouette as top left. Muted slate blue upper surface, warm cream front apron with a thin navy lower edge. No legs or supports, chair, monitor or accessories.\n\nBOTTOM LEFT: A compact ACOUSTIC FOCUS BOOTH, approximately 30 wide by 38 high logical pixels. One small freestanding office privacy pod with a muted sage outer frame, cream top trim and side panels, deep dark navy recessed open front doorway, muted sage acoustic wall panels visible inside. Clear empty doorway wide enough for one character; no door handle across the opening, no figure, no furniture inside. Simple professional form, tall upright object. The interior can be dark and visually recessed; only the surrounding exterior background is transparent. The entire booth is isolated without an outside floor slab.\n\nBOTTOM RIGHT: A compact TWO-DRAWER FILING CABINET, approximately 22 wide by 26 high logical pixels. Warm cream drawer fronts with small simple navy horizontal pull handles, walnut sides and top, two short navy feet, restrained shading. Exactly two drawers, no books or accessories on top.\n\nConstraints: EXACT 2 by 2 atlas, exactly these four objects, each fits entirely inside its own equal quadrant with generous gaps. Same understated pixel-art style and camera throughout. Full clean object silhouettes, no cropping. Genuinely transparent surrounding background and gaps, no fake checkerboard, no scenery, no floor, no ground shadows, no outer glow, no text, no labels, no grid lines, no logo, no watermark. All artwork is original and may be included in a public open-source game. Do not copy existing third-party sprite packs.",
+  "edit_prompt": "Use case: precise-object-edit. This image is an original four-object pixel-art atlas. Change ONLY the POSITION and uniform SCALE of the bottom-left sage acoustic focus booth to correct its atlas packing. Keep the original desktop slabs and the two-drawer cabinet unchanged. Keep all artwork, proportions, palette, camera angle, pixel style, real transparency, and the original square canvas.\nThe existing booth crosses the horizontal halfway line and gets cut by a 2x2 equal-cell loader. It MUST be entirely within the LOWER LEFT quadrant. Shrink that whole booth uniformly just enough and move it down so there is at least 60 pixels of empty alpha between the horizontal halfway line and its topmost pixel, and at least 60 pixels of empty alpha between its bottom and the bottom canvas edge. Center it horizontally in the lower-left quadrant. On a 1254x1254 canvas its full silhouette should lie approximately inside x=110..520 and y=690..1190. Keep its complete cream roof, sage frame, recessed empty doorway and entire base.\nDo not change or add any object. Exactly four sprites, one wholly inside each quadrant: walnut desktop only top left, slate/cream desktop only top right, focus booth bottom left, two-drawer cabinet bottom right. Do not add desk legs, floor, shadows, text, labels, checkerboard or grid lines. Preserve the genuinely fully transparent background and all transparent gaps. This is a targeted atlas layout correction, not a new composition.",
+  "edit_reason": "Initial booth crossed the horizontal quadrant boundary. A targeted ImageGen edit moved and reduced the booth into the lower-left cell. The corrected output is the preserved production source.",
+  "layout": {
+    "columns": 2,
+    "rows": 2,
+    "row_major": [
+      "desk_walnut",
+      "desk_slate",
+      "focus_booth",
+      "filing_cabinet"
+    ]
+  },
+  "logical_sizes": {
+    "desk_walnut": [
+      40,
+      14
+    ],
+    "desk_slate": [
+      40,
+      14
+    ],
+    "focus_booth": [
+      30,
+      38
+    ],
+    "filing_cabinet": [
+      22,
+      26
+    ]
+  },
+  "normalization": "Keep the source PNG unchanged. Trim each recorded equal quadrant at alpha > 32 and resample once at the shared logical object size. Desk slabs contain no legs or accessories and must be layered over the existing desk supports. Collision geometry uses logical furniture dimensions.",
+  "visual_review": "All four final cells inspected. Both desk slabs have a matching shallow elevated front angle and no legs, monitor, chair or accessories. The sage booth has a complete roof and base around its empty recessed doorway. The cabinet has exactly two drawers. All four silhouettes are entirely contained in their cells with surrounding alpha; no floor, ground shadow, labels or grid.",
+  "reference": "Original artwork, generated without an external image reference. The targeted layout edit referenced only its own first generated version.",
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "dae399bbf0b76d1862f066902407e14ad0ab04b665e0d32f4a6162fa411b089f",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_file_bytes": 515530,
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "nonzero_alpha_pixels": 443204,
+    "fully_transparent_pixels": 1129312,
+    "threshold": 32,
+    "cell_count": 4,
+    "all_cells_contain_pixels": true,
+    "all_silhouettes_within_cells": true,
+    "raw_bytes_equal_generated_source": true,
+    "cell_regions_and_bounds": [
+      {
+        "row": 0,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_xywh": [
+          36,
+          203,
+          558,
+          171
+        ],
+        "alpha_gt_32_bottom_center": [
+          315.0,
+          374
+        ]
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "source_region_xywh": [
+          627,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_xywh": [
+          33,
+          203,
+          559,
+          171
+        ],
+        "alpha_gt_32_bottom_center": [
+          312.5,
+          374
+        ]
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "source_region_xywh": [
+          0,
+          627,
+          627,
+          627
+        ],
+        "content_bounds_xywh": [
+          165,
+          99,
+          322,
+          399
+        ],
+        "alpha_gt_32_bottom_center": [
+          326.0,
+          498
+        ]
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "source_region_xywh": [
+          627,
+          627,
+          627,
+          627
+        ],
+        "content_bounds_xywh": [
+          141,
+          99,
+          348,
+          367
+        ],
+        "alpha_gt_32_bottom_center": [
+          315.0,
+          466
+        ]
+      }
+    ]
+  }
+}

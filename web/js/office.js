@@ -79,10 +79,16 @@ scene.onProp = (kind) => {
   if (kind === "FISH_TANK" || kind === "terrarium") window.openAquarium?.();
   else if (kind === "jukebox" || kind === "recordplayer")
     window.officeJukebox?.open();
-  else if (kind === "whiteboard") openSheet("sheet-tasks");
+  else if (kind === "whiteboard" || kind === "focusbooth")
+    openSheet("sheet-tasks");
   else if (kind === "server" || kind === "robot") openSheet("sheet-floor");
   else if (kind === "printer") openSheet("sheet-events");
-  else if (kind === "arcade")
+  else if (kind === "filingcabinet") {
+    eventMode = "history";
+    eventSession = null;
+    eventPageSize = 100;
+    openSheet("sheet-events");
+  } else if (kind === "arcade")
     toast("You found the break room. No tickets required.");
   else if (kind === "coffee") toast("Coffee break.");
 };
@@ -407,7 +413,9 @@ function agentCard(a, existing) {
   portrait.height = 24;
   portrait.className = "portrait";
   portrait.setAttribute("aria-hidden", "true");
-  const image = scene.sprites["char" + (hash(a.id) % 6)];
+  const image =
+    scene.sprites[characterSpriteKey(a, settings)] ||
+    scene.sprites["char" + (hash(a.id) % 6)];
   if (image)
     portrait.getContext("2d").drawImage(image, 0, 8, 16, 24, 0, 0, 16, 24);
   const body =
@@ -1480,6 +1488,15 @@ function fillSettings() {
         "theme",
         THEMES.map((t) => [t.id, t.name]),
       ),
+      segmented(
+        "Desk finish",
+        "desk_style",
+        DESK_STYLES.map((style) => [style.id, style.name]),
+      ),
+      segmented("Delegated agents", "subagent_style", [
+        ["robot", "Studio robot"],
+        ["people", "People"],
+      ]),
       segmented("Lighting", "ambience", [
         ["auto", "Auto"],
         ["day", "Day"],

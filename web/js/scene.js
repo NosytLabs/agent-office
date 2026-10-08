@@ -10,6 +10,7 @@ class OfficeScene {
     this.settings = { ...DEFAULT_SETTINGS };
     this.cosmetics = [];
     this.sprites = {};
+    this.spriteFrameTops = {};
     this.chars = new Map();
     this.assetErrors = [];
     this.loadedAssets = 0;
@@ -48,6 +49,9 @@ class OfficeScene {
         if (im.width !== 112 || im.height !== 96)
           this.assetErrors.push("Invalid character dimensions: " + i);
       });
+    load("studio-assistant-source", "characters/studio-assistant.png", (im) => {
+      this.normalizeCharacter(im, "studio-assistant");
+    });
     for (const n of ["DOOR", "FISH_TANK"]) load(n, "furniture/" + n + ".png");
     load("cat", "pets/claudio.png");
     load("blackcat", "pets/gitcat.png");
@@ -62,6 +66,10 @@ class OfficeScene {
       ["decor", ["roundtable", "stool", "succulent", "planter"]],
       ["workshop", ["whiteboard", "printer", "cart", "coatrack"]],
       ["rewards", ["arcade", "recordplayer", "robot", "terrarium"]],
+      [
+        "workstations",
+        ["desk-walnut", "desk-slate", "focusbooth", "filingcabinet"],
+      ],
     ])
       load(atlas, "furniture/" + atlas + "-atlas.png", (im) => {
         // Normalize once; source image pixels never drive collision geometry.
@@ -77,6 +85,74 @@ class OfficeScene {
         }
         this.canvas.dispatchEvent(new Event("spritesready"));
       });
+  }
+  normalizeCharacter(image, key) {
+    // Generated poses share one scale and a grounded bottom-center anchor.
+    // Keep source pixels intact; the renderer builds the native atlas once.
+    const frames = [];
+    let widest = 0,
+      tallest = 0;
+    for (let row = 0; row < 3; row++)
+      for (let column = 0; column < 7; column++) {
+        const sx = Math.round((column * image.width) / 7),
+          sy = Math.round((row * image.height) / 3),
+          width = Math.round(((column + 1) * image.width) / 7) - sx,
+          height = Math.round(((row + 1) * image.height) / 3) - sy,
+          sample = document.createElement("canvas");
+        sample.width = width;
+        sample.height = height;
+        const context = sample.getContext("2d", { willReadFrequently: true });
+        context.drawImage(image, sx, sy, width, height, 0, 0, width, height);
+        const rgba = context.getImageData(0, 0, width, height).data;
+        let left = width,
+          right = -1,
+          top = height,
+          bottom = -1;
+        for (let y = 0; y < height; y++)
+          for (let x = 0; x < width; x++) {
+            if (rgba[(y * width + x) * 4 + 3] <= 32) continue;
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+        if (right < left) {
+          this.assetErrors.push(
+            "Empty character frame: " + key + ":" + frames.length,
+          );
+          return;
+        }
+        const w = right - left + 1,
+          h = bottom - top + 1;
+        widest = Math.max(widest, w);
+        tallest = Math.max(tallest, h);
+        frames.push({ sample, left, top, w, h, row, column });
+      }
+    const normalized = document.createElement("canvas"),
+      scale = Math.min(14 / widest, 28 / tallest);
+    normalized.width = 112;
+    normalized.height = 96;
+    const context = normalized.getContext("2d");
+    context.imageSmoothingEnabled = false;
+    const frameTops = [];
+    for (const frame of frames) {
+      const width = Math.max(1, Math.round(frame.w * scale)),
+        height = Math.max(1, Math.round(frame.h * scale));
+      frameTops.push(31 - height);
+      context.drawImage(
+        frame.sample,
+        frame.left,
+        frame.top,
+        frame.w,
+        frame.h,
+        frame.column * 16 + Math.floor((16 - width) / 2),
+        frame.row * 32 + 31 - height,
+        width,
+        height,
+      );
+    }
+    this.sprites[key] = normalized;
+    this.spriteFrameTops[key] = frameTops;
   }
   normalizeProp(image, key, region) {
     const [sx, sy, width, height] = region,
@@ -104,7 +180,13 @@ class OfficeScene {
     }
     const normalized = document.createElement("canvas");
     // The wall clock is built-in scenery, not an editable furniture item.
-    const size = PROP_SIZES[key] || (key === "clock" ? [10, 10] : null);
+    const size =
+      PROP_SIZES[key] ||
+      (key === "clock"
+        ? [10, 10]
+        : key === "desk-walnut" || key === "desk-slate"
+          ? [40, 14]
+          : null);
     if (!size) {
       this.assetErrors.push("Unknown prop dimensions: " + key);
       return;
@@ -209,6 +291,8 @@ class OfficeScene {
         "robot",
         "terrarium",
         "coffee",
+        "focusbooth",
+        "filingcabinet",
       ].includes(kind)
     )
       this.propHits.push({ kind, x, y, w, h });
@@ -370,8 +454,10 @@ class OfficeScene {
       r(x - 4, y - 12, 2, 36, t.trim);
     }
     this.shadow(x, y + 21, 42);
-    r(x + 3, y + 10, 3, 11, "#453b3b");
-    r(x + 34, y + 10, 3, 11, "#453b3b");
+    const deskStyle = this.settings.desk_style || DEFAULT_SETTINGS.desk_style;
+    const deskLeg = deskStyle === "slate" ? "#525e65" : "#453b3b";
+    r(x + 3, y + 10, 3, 11, deskLeg);
+    r(x + 34, y + 10, 3, 11, deskLeg);
     // Chair and backrest precede the character; desktop occludes the legs.
     r(x + 9, y - 3, 14, 13, "#303a43");
     r(x + 11, y - 5, 10, 3, "#596570");
@@ -461,10 +547,14 @@ class OfficeScene {
     // Characters at the station always use the idle frame; moving sprites use
     // distance travelled, not refresh rate, for the four-frame walk cycle.
     if (!c.moving) this.character(a, c.x, c.y, c);
-    r(x, y + 7, 40, 2, "#d6b17b");
-    r(x, y + 9, 40, 8, "#b18b63");
-    r(x, y + 17, 40, 3, "#795b4b");
-    r(x + 1, y + 10, 38, 1, "#c39a6b");
+    const desktop = this.sprites["desk-" + deskStyle];
+    if (desktop) g.drawImage(desktop, x, y + 7, 40, 14);
+    else {
+      r(x, y + 7, 40, 2, "#d6b17b");
+      r(x, y + 9, 40, 8, "#b18b63");
+      r(x, y + 17, 40, 3, "#795b4b");
+      r(x + 1, y + 10, 38, 1, "#c39a6b");
+    }
     r(x + 9, y + 8, 13, 4, "#343c46");
     r(x + 10, y + 9, 10, 1, "#829091");
     r(x + 25, y + 10, 3, 3, "#ded6bb");
@@ -509,7 +599,11 @@ class OfficeScene {
     if (c.moving) this.walking.push({ a, c });
   }
   character(a, x, y, c) {
-    const im = this.sprites["char" + (hash(a.id) % 6)];
+    const requestedKey = characterSpriteKey(a, this.settings),
+      key = this.sprites[requestedKey]
+        ? requestedKey
+        : "char" + (hash(a.id) % 6),
+      im = this.sprites[key];
     if (!im) return;
     const row = c.moving ? (c.dir === "up" ? 1 : c.dir === "down" ? 0 : 2) : 0;
     const f = characterFrame(a, c, this.time);
@@ -544,10 +638,11 @@ class OfficeScene {
         32,
       );
     if (this.cosmetics.includes("crown") && !c.moving) {
-      this.rect(x + 3, y + 4, 10, 3, "#dfbb68");
-      this.rect(x + 3, y + 2, 2, 2, "#dfbb68");
-      this.rect(x + 7, y + 1, 2, 3, "#dfbb68");
-      this.rect(x + 11, y + 2, 2, 2, "#dfbb68");
+      const crownY = y + (this.spriteFrameTops?.[key]?.[row * 7 + f] ?? 2) - 2;
+      this.rect(x + 3, crownY + 4, 10, 3, "#dfbb68");
+      this.rect(x + 3, crownY + 2, 2, 2, "#dfbb68");
+      this.rect(x + 7, crownY + 1, 2, 3, "#dfbb68");
+      this.rect(x + 11, crownY + 2, 2, 2, "#dfbb68");
     }
     g.restore();
   }

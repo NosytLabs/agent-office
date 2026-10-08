@@ -94,6 +94,8 @@ def _settings_path() -> Path:
 _DEFAULTS = {
     "layout": "open",
     "theme": "default",
+    "desk_style": "walnut",
+    "subagent_style": "robot",
     "sound": False,
     "music_track": "window-seat",
     "music_volume": 0.12,
@@ -118,7 +120,9 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     out = {}
-    choices = {"layout": {"open", "bullpen"}, "theme": {"default", "midnight", "amber"},
+    choices = {"layout": {"open", "bullpen"}, "theme": {"default", "midnight", "amber", "juniper"},
+               "desk_style": {"classic", "walnut", "slate"},
+               "subagent_style": {"robot", "people"},
                "ambience": {"auto", "day", "night"},
                "music_track": {"window-seat", "night-shift", "rainy-break"}}
     for key, value in data.items():
@@ -157,7 +161,7 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
                 if (isinstance(item, dict) and item.get("kind") in (
                     "sofa", "server", "shelf", "monstera", "coffee", "cooler", "lamp",
                     "roundtable", "stool", "succulent", "planter", "whiteboard",
-                    "printer", "cart", "coatrack", "arcade", "recordplayer", "robot", "terrarium", "jukebox")
+                    "printer", "cart", "coatrack", "arcade", "recordplayer", "robot", "terrarium", "jukebox", "focusbooth", "filingcabinet")
                     and all(type(item.get(k)) in (int, float) and math.isfinite(item[k]) and 0 <= item[k] <= 1 for k in ("x", "y"))):
                     items.append({k: item[k] for k in ("kind", "x", "y")})
             out[key] = items
@@ -185,7 +189,6 @@ def _save_settings(payload: Dict[str, Any]) -> None:
 
 def _save_settings_locked(payload: Dict[str, Any]) -> None:
     cur = _load_settings()
-    prev_theme = cur.get("theme")
     cur.update(_valid_settings(payload))
     try:
         path = _settings_path()
@@ -195,11 +198,6 @@ def _save_settings_locked(payload: Dict[str, Any]) -> None:
     except Exception:
         logger.debug("pixel-office settings save failed", exc_info=True)
         raise
-    if cur.get("theme") != prev_theme:
-        try:
-            _store().record_theme_switch()
-        except Exception:
-            logger.debug("pixel-office theme switch tracking failed", exc_info=True)
 
 
 def _asset_manifest() -> Dict[str, Any]:
