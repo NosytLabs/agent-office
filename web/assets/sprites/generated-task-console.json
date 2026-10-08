@@ -1,0 +1,129 @@
+{
+  "created": "2026-10-08",
+  "tool": "Built-in ImageGen",
+  "source": "furniture/task-console-atlas.png",
+  "source_preserved_unmodified": true,
+  "prompt": "Use case: stylized-concept.\nAsset type: production pixel-art animation/state atlas for Agent Office's local task console.\nCreate a BRAND NEW transparent RGBA square PNG with an exact TWO BY TWO equal-quadrant grid. Each quadrant contains the SAME complete compact standing retro computer terminal, seen from a shallow elevated FRONT view, centered with 15% transparent padding on every edge. The four silhouettes, heights, camera, keyboard positions, feet and color palette must match exactly. The only differences are the screen pixels and a tiny status lamp. This is for a cozy pixel office in navy, cream, walnut and sage green. Very crisp chunky pixel clusters, dark navy outlines, restrained 3-tone shading, no blur, no photorealism. The whole terminal should read at 24 wide by 34 high logical pixels. A cream rounded-square CRT monitor on a short walnut podium, dark teal screen, small cream keyboard ledge, sturdy feet. No cables or extra props.\nTOP LEFT: idle console, mostly dark teal screen with a tiny pale mint horizontal cursor, small neutral cream status light.\nTOP RIGHT: running console, screen has three simple mint horizontal progress bars of different lengths and a mint status light. No words or numbers.\nBOTTOM LEFT: finished console, screen has one modest mint check shape on dark teal, pale mint steady status light. Same unchanged terminal geometry.\nBOTTOM RIGHT: disconnected console, screen very dark charcoal and tiny muted gray status light, monitor and podium otherwise unchanged.\nConstraints: FOUR complete separate terminal sprites, no object crossing canvas midlines, generous transparent gaps, same size and grounded baseline within each equal cell, consistent viewpoint. Real transparent background with zero-alpha outside silhouettes; no checkerboard or floor, no ground shadows, no glow rays, no particles, no labels/text/watermarks/logos. This is entirely original artwork; no external product artwork or sprite pack is being referenced.",
+  "reference": "Original artwork generated from a written prompt. No external image or product artwork supplied.",
+  "layout": {
+    "columns": 2,
+    "rows": 2,
+    "row_major": [
+      "idle",
+      "running",
+      "finished",
+      "disconnected"
+    ]
+  },
+  "logical_size": [
+    24,
+    34
+  ],
+  "normalization": "Preserve the source PNG. Trim each equal quadrant at alpha > 32 and normalize once to a 24 × 34 logical canvas using nearest-neighbor sampling. Collision and placement continue to use the existing taskterminal logical dimensions.",
+  "state_semantics": {
+    "idle": "The optional local runner is enabled and connected with no recorded runs, or its newest completed run was cancelled or interrupted.",
+    "running": "At least one local process reports status running. Cancellation and shutdown remain running until the process is reaped.",
+    "finished": "The newest completed local process exited successfully; this does not claim its work was reviewed or verified.",
+    "disconnected": "The optional local runner is enabled but its capability endpoint is disconnected.",
+    "failed": "A newest failed exit uses the neutral idle source cell with one steady coral error lamp; older successes cannot override it."
+  },
+  "fallback": "If this atlas is unavailable, taskterminal uses original signals-atlas.png artwork. Routing remains based on the local-run capability: enabled opens Local runs; disabled opens Reported tasks.",
+  "source_dimensions": {
+    "width": 1254,
+    "height": 1254
+  },
+  "sha256": "1b05554c43f5fb8a5122bda0343bf705041bd2c60e826b47bc1ec11766327158",
+  "validation": {
+    "color_mode": "RGBA",
+    "source_file_bytes": 845099,
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "threshold": 32,
+    "all_silhouettes_within_cells": true,
+    "raw_bytes_equal_generated_source": true,
+    "cell_regions_and_bounds": [
+      {
+        "row": 0,
+        "column": 0,
+        "state": "idle",
+        "source_region_xyxy": [
+          0,
+          0,
+          627,
+          627
+        ],
+        "content_bounds_xyxy": [
+          146,
+          77,
+          548,
+          591
+        ]
+      },
+      {
+        "row": 0,
+        "column": 1,
+        "state": "running",
+        "source_region_xyxy": [
+          627,
+          0,
+          1254,
+          627
+        ],
+        "content_bounds_xyxy": [
+          79,
+          77,
+          481,
+          591
+        ]
+      },
+      {
+        "row": 1,
+        "column": 0,
+        "state": "finished",
+        "source_region_xyxy": [
+          0,
+          627,
+          627,
+          1254
+        ],
+        "content_bounds_xyxy": [
+          146,
+          51,
+          548,
+          565
+        ]
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "state": "disconnected",
+        "source_region_xyxy": [
+          627,
+          627,
+          1254,
+          1254
+        ],
+        "content_bounds_xyxy": [
+          80,
+          50,
+          481,
+          565
+        ]
+      }
+    ],
+    "visual_review": {
+      "date": "2026-10-08",
+      "method": "Rendered through the actual scene in Chromium after runtime alpha trimming and nearest-neighbor normalization.",
+      "views": [
+        "1440 by 1000 desktop",
+        "320-pixel mobile"
+      ],
+      "result": "All four normalized states are distinct and readable at 24 × 34. The terminal stays grounded inside its existing collision box on desktop and mobile with no overlap or clipping. The running state adds only a two-frame activity lamp, which freezes with Pause and reduced motion.",
+      "evidence": [
+        "docs/screenshots/task-console-running.png"
+      ]
+    }
+  }
+}

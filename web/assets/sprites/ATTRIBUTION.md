@@ -201,3 +201,25 @@ animation overlays. Placement uses the shared collision and responsive layout
 rules; pet routing admits the bed surface while retaining other obstacles.
 The exact prompt, source checksum, alpha bounds, and normalization contract
 are recorded in [generated-signals.json](generated-signals.json).
+
+## Local task console states
+
+`furniture/task-console-atlas.png` is an original **1254 × 1254 RGBA**
+state atlas generated on 2026-10-08 with OpenAI's built-in image-generation
+tool. Its equal quadrants contain the same standing retro task console in
+idle, running, finished, and disconnected states. The generated PNG is
+preserved without raster edits and no third-party artwork was supplied.
+At runtime each cell is trimmed at alpha > 32 and normalized once to the
+existing task terminal's 24 × 34 logical canvas. The original
+`signals-atlas.png` terminal remains the deterministic artwork fallback if the
+four-state image cannot load. Local-run routing still follows the reported
+capability state. When local execution is disabled, observer-only offices use
+the original art and continue to open Reported tasks. “Finished” records only
+that the newest completed local process exited successfully; it does not imply
+that the resulting work was reviewed or verified. Failed exits keep the neutral
+console with a steady error lamp, while cancelled and interrupted exits return
+to idle. The source states are steady sprites. A running process gets a small
+two-frame activity lamp that obeys Pause and reduced motion; there is no
+celebration or perpetual success effect.
+See [generated-task-console.json](generated-task-console.json) for the exact
+prompt, source bounds, state semantics, normalization contract, and checksum.

@@ -68,6 +68,11 @@
       " and review the project, session and permissions there. Choosing a destination does not install or connect it.";
     byId("task-draft-count").textContent =
       text.value.length.toLocaleString() + " / 8,192 characters";
+    window.dispatchEvent(
+      new CustomEvent("agent-office:task-draft-change", {
+        detail: { hasText: !empty, length: text.value.length },
+      }),
+    );
   }
   try {
     const draft = JSON.parse(sessionStorage.getItem(key));

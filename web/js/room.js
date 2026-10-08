@@ -47,8 +47,11 @@
       window.officeJukebox?.open();
     else if (Object.hasOwn(reactions, kind)) react(kind, target);
     else if (kind === "taskterminal") {
-      taskMode = "reported";
-      openSheet("sheet-tasks");
+      if (scene.taskRunner?.enabled) window.officeTaskRunner?.open();
+      else {
+        taskMode = "reported";
+        openSheet("sheet-tasks");
+      }
     } else if (["whiteboard", "focusbooth", "statusbeacon"].includes(kind)) {
       taskMode = "activity";
       openSheet("sheet-tasks");
@@ -71,6 +74,7 @@
     ["Arcade", () => window.officeArcade?.open()],
     ["Aquarium", () => window.openAquarium?.()],
     ["Jukebox", () => window.officeJukebox?.open()],
+    ["Open task terminal", () => interact("taskterminal"), "taskterminal"],
     ["Switch room lights", lights],
     ["Brew coffee", () => floorReaction("coffee"), "coffee"],
     ["Pour water", () => floorReaction("cooler"), "cooler"],
@@ -149,6 +153,10 @@
     }
   }
   scene.onProp = interact;
+  window.addEventListener("agent-office:task-runs", (event) => {
+    scene.setTaskRunnerState(event.detail);
+    sync();
+  });
   scene.onPet = (key) => {
     const name =
       settings.pet_names?.[key === "blackcat" ? "cat2" : "cat1"] ||

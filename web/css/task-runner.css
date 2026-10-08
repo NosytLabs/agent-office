@@ -1,0 +1,160 @@
+.task-runner {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.task-runner-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+#sheet-tasks.task-runs-active {
+  width: min(820px, calc(100% - 36px));
+}
+
+.task-run-form,
+.task-run-history,
+.task-run-detail,
+.task-run-enable {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.task-run-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.task-run-form > .setting-label,
+.task-run-form > .txt {
+  margin: 0;
+}
+
+.task-run-form textarea {
+  width: 100%;
+  min-height: 10rem;
+  resize: vertical;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.task-run-form select,
+.task-run-form textarea,
+.task-run-form button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.task-run-history h3,
+.task-run-detail h3 {
+  margin-top: 0;
+}
+
+.task-run-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: min(44vh, 26rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.task-run-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  padding: 0.65rem;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.task-run-card small {
+  grid-column: 1 / -1;
+}
+
+.task-run-card[aria-pressed="true"] {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.task-run-detail {
+  margin-top: 1rem;
+}
+
+.task-run-output {
+  max-width: 100%;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  background: #10151d;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.task-run-enable code {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.65rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.task-run-status-running {
+  color: var(--gold);
+}
+.task-run-status-failed {
+  color: var(--danger);
+}
+.task-run-status-succeeded {
+  color: var(--ok);
+}
+.task-run-status-cancelled,
+.task-run-status-interrupted {
+  color: var(--dim);
+}
+
+@container (min-width: 650px) {
+  .task-runner-grid {
+    grid-template-columns: minmax(20rem, 1.1fr) minmax(16rem, 0.9fr);
+  }
+}
+
+@media (max-width: 600px) {
+  #sheet-tasks.task-runs-active {
+    inset: 8px;
+    width: auto;
+  }
+
+  .task-run-form,
+  .task-run-history,
+  .task-run-detail,
+  .task-run-enable {
+    padding: 0.75rem;
+  }
+  .task-run-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-runner *,
+  .task-runner *::before,
+  .task-runner *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

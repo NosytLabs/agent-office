@@ -385,6 +385,8 @@ function syncPanelNavigation() {
   }
 }
 function displayPanel(id) {
+  if (opened === "sheet-tasks" && id !== "sheet-tasks")
+    window.officeTaskRunner?.close();
   for (const panel of document.querySelectorAll(".sheet"))
     panel.hidden = panel.id !== id;
   opened = id;
@@ -411,6 +413,7 @@ function displayPanel(id) {
 }
 function closeSheets() {
   rememberPanel();
+  if (opened === "sheet-tasks") window.officeTaskRunner?.close();
   for (const panel of document.querySelectorAll(".sheet")) panel.hidden = true;
   $("backdrop").hidden = true;
   $("wrap").inert = false;
@@ -812,15 +815,19 @@ function fillTasks() {
   $("taskboard").hidden = taskMode !== "activity";
   $("reported-taskboard").hidden = taskMode !== "reported";
   $("task-draft").hidden = taskMode !== "draft";
+  window.officeTaskRunner?.setActive(taskMode === "local-runs");
   for (const button of $("task-tabs").children)
     button.setAttribute(
       "aria-pressed",
       String(button.dataset.taskView === taskMode),
     );
   $("task-description").textContent =
-    taskMode === "reported"
-      ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
-      : "Observed session activity. Assign and approve work in your agent’s own terminal.";
+    taskMode === "local-runs"
+      ? "Start an explicit new CLI run in a server-configured project. Local runs do not create observed tasks, XP, or activity."
+      : taskMode === "reported"
+        ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
+        : "Observed session activity. Assign and approve work in your agent’s own terminal.";
+  if (taskMode === "local-runs") return;
   if (taskMode === "draft") {
     $("task-description").textContent =
       "Prepare a task without changing live agent activity. Copy or export when you are ready.";
@@ -873,7 +880,7 @@ function fillTasks() {
 }
 for (const button of $("task-tabs").children)
   button.onclick = () => {
-    taskMode = ["activity", "reported", "draft"].includes(
+    taskMode = ["activity", "reported", "draft", "local-runs"].includes(
       button.dataset.taskView,
     )
       ? button.dataset.taskView
