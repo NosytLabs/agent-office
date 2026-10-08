@@ -30,7 +30,7 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Achievements | All 37 catalog conditions are reachable; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Browser and scene | Real local HTTP routes, polling, disconnected states, furniture/editor persistence, failed queued saves, touch scrolling, focus, search, reset, assets, and downloads | [`browser.test.cjs`](../../tests/browser.test.cjs), [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`product-ui.test.cjs`](../../tests/product-ui.test.cjs) |
 | Appearance | All 21 compiled robot poses, roster consistency, grounded crowns, real walk frames/facing in both layouts, desk finishes, save recovery, unlock gates, transformed canvas clicks, and responsive collision bounds | [`appearance.test.cjs`](../../tests/appearance.test.cjs) |
-| Personalization | Canonical-ID desk and character preferences, atomic validation, occupied-seat rejection, deterministic conflicts, filtering and responsive layouts, persistence without fabricated activity | [`personalization.test.cjs`](../../tests/personalization.test.cjs), [`test_personalization.py`](../../tests/test_personalization.py) |
+| Personalization | Canonical-ID desk and character preferences, atomic validation, occupied-seat rejection, deterministic conflicts, stable automatic homes, native save/rollback, filtering and responsive layouts, persistence without fabricated activity | [`personalization.test.cjs`](../../tests/personalization.test.cjs), [`personalization-browser.test.cjs`](../../tests/personalization-browser.test.cjs), [`test_personalization.py`](../../tests/test_personalization.py) |
 | HUD | Visible close controls, preserved scroll and inspector return context, selected history text across polling, contained mobile scrolling, deduplicated notices, safe view persistence, and per-agent usage coverage | [`hud.test.cjs`](../../tests/hud.test.cjs) |
 | Pets | Bounded movement, collision clearance, idle approaches and active-work avoidance, sleep, click targets, reflow, pause, visibility, and reduced-motion behavior | [`pets.test.cjs`](../../tests/pets.test.cjs), [`pets-browser.test.cjs`](../../tests/pets-browser.test.cjs) |
 | Aquarium and music | Fish movement/feeding limits, unlocks, preferences, optional art validation, gesture-started audio, voice cleanup, and muted/hidden behavior | [`aquarium.test.cjs`](../../tests/aquarium.test.cjs), [`jukebox-model.test.cjs`](../../tests/jukebox-model.test.cjs), [`room-interactions.test.cjs`](../../tests/room-interactions.test.cjs), [`test_smallburg_import.py`](../../tests/test_smallburg_import.py) |
@@ -49,8 +49,8 @@ the local run is not evidence of that separate environment.
 | Command or flow | Result |
 | --- | --- |
 | `python -m pytest -q -o addopts=''` | 337 passed |
-| `npm test` | 80 passed |
-| `npm run test:browser` | 127 passed, 0 failed, 1 optional local-art check skipped |
+| `npm test` | 88 passed |
+| `npm run test:browser` | 134 passed, 0 failed, 1 optional local-art check skipped |
 | Optional local-art browser check with the verified Smallburg pack | 1 passed; all four fish decoded their four native frames |
 | `npm run check` and `npm run format:check` | Passed |
 | `npm run build:preview` | Built 58 public demo files and 19 product-site files; no local runtime data or Smallburg sheets |
@@ -64,8 +64,9 @@ observed actual canvas drawing, rather than substituting pixels or animation
 timing. They reproduced and then verified fixes for unreachable furniture hit
 areas, mismatched roster portraits, and crowns above the shorter robot.
 
-The final integrated browser run completed in 70.6 seconds. It includes 23 HUD
-flows, four real-floor pet flows, and eight product-site flows. Independent
+The final integrated browser run completed in 71.5 seconds. It includes 27 HUD
+flows, two native desk-save flows, four real-floor pet flows, and eight
+product-site flows. Independent
 review also reproduced incorrect usage-alias selection, delayed-history scroll
 loss, focused-notice eviction, and preference draft races; their regressions
 passed in the integrated run. Notification layout originally resized the canvas
@@ -80,6 +81,26 @@ duration, and expiry while retaining the late error in history. The four
 regressions in [`test_terminal_callbacks.py`](../../tests/test_terminal_callbacks.py)
 include a restart and the actual inbox/database path.
 
+The post-deployment audit found two further correctness failures. Before the
+first state response, placing an ordinary stool could replace a saved furniture
+collection, and an untouched blank pet or aquarium name could erase the stored
+name. Settings now wait for initial hydration, with a shared write guard and
+disabled editing controls. Regressions hold the first HTTP response, attempt
+native and programmatic writes, release the response, and verify a normal retry
+preserves the existing data. A failed initial request remains guarded until a
+later successful response.
+
+Moving an automatically seated actor also compacted its peers into different
+desks. The scene now retains automatic homes for the open view and uses the same
+full-roster allocation for rendering, choices, and occupied-seat validation.
+Native tests against the real observer confirm that successful and rejected
+saves keep all five actor identities, peer desks, XP, statistics, received-event
+counts, and usage unchanged. Model regressions additionally cover departures,
+new arrivals, reordered snapshots, filtering, imported conflicts, and reset.
+Explicit choices persist across reload; automatic homes are rebuilt for a new
+view. These two failures were reproduced before their fixes and independently
+reviewed after correction.
+
 The [hosted demo](../preview.md#hosted-review) also built successfully under
 Node **22.23.2** and passed the recorded deployed UI checks on 8 October 2026,
 including the merged build at the existing public production address.
@@ -87,9 +108,12 @@ This confirms the static build on Node 22; it does not substitute for running
 the complete test suite on that version.
 
 At release review, the [GitHub CI workflow page](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml)
-reported **“This workflow was disabled manually.”** No hosted Actions run exists
-for the reviewed commit. The local test results above and the Vercel build are
-separate evidence. Re-enable the existing workflow through repository settings
+reported **“This workflow was disabled manually.”** No hosted CI run exists
+for the reviewed commit. The separate [Product website run](https://github.com/NosytLabs/agent-office/actions/runs/37716331937)
+built merged commit `8d68a4f` successfully; Pages upload and deployment were
+skipped because the repository had Pages disabled. That website build is not
+the test suite. The local test results above and the Vercel build are separate
+evidence. Re-enable the existing CI workflow through repository settings
 to restore hosted checks; its disabled state was not bypassed by creating a
 replacement workflow.
 

@@ -68,19 +68,36 @@ Screenshots are saved in `reports/site/` or `OFFICE_SITE_SCREENSHOTS`.
 
 ## Hosted review
 
-[Open the live demo](https://agent-office-preview-seven.vercel.app/).
-The existing production address serves the public, synthetic office. The merged
-UI was verified from [commit `1b9884c`](https://github.com/NosytLabs/agent-office/commit/1b9884c637c719ef7e48b00bffe524dfca5050c9),
-which Vercel built with Node **22.23.2**, producing **52 public files**. Generated
+[Open the product website](https://agent-office-preview-seven.vercel.app/about/)
+or [try the live demo](https://agent-office-preview-seven.vercel.app/).
+The existing production address serves the public, synthetic office. The
+rollout after [PR #11](https://github.com/NosytLabs/agent-office/pull/11) was
+verified from [commit `8d68a4f`](https://github.com/NosytLabs/agent-office/commit/8d68a4f7d86ec5daebd17472434e7da2e97612d9).
+Its [Vercel deployment](https://vercel.com/nosyt/agent-office-preview/3tnEJFT7qZtQChmt43avyqAxubWZ)
+used Node **22.23.2**, producing **58 public demo files and 19 product-site files**. Generated
 branch-preview URLs retain the project's existing deployment protection; the
 public production address above needs no temporary share link.
 
 The deployed UI was checked on 8 October 2026: agent and partial-usage panels,
-room settings, loaded aquarium art and feeding, and jukebox play/stop. Usage
-labels and feeding were checked again on the merged production build. The
-completed sample subagent left the floor after its normal display window. No
+room theme and pet settings saved across reload, loaded aquarium art and
+feeding, and gesture-started jukebox play/stop. The product website's keyboard
+tour, setup content, FAQ, credits, and image decoding were checked on the same
+deployment. Local Chromium tests verify copied command bytes; the hosted browser
+tool could observe the copy feedback but could not read its virtual clipboard.
+The completed sample subagent left the roster after its normal display window;
+quiet actors became idle while an unresolved approval remained visible. No
 application-origin warnings or errors appeared in the browser's captured log;
 separate browser-extension metadata errors were excluded.
+
+The post-deployment audit also reproduced two bugs: editing before the first
+settings response could replace saved collections with placeholder defaults,
+and moving one automatic actor renumbered its peers' desks. The follow-up
+regressions and fixes are recorded in [validation evidence](audit/README.md).
+
+The [Product website Actions run](https://github.com/NosytLabs/agent-office/actions/runs/37716331937)
+successfully built the same source commit. Its Pages configuration, upload,
+and deployment steps were skipped because Pages was disabled. The working
+website address above is the Vercel deployment, not a GitHub Pages URL.
 
 ![Aquarium on the deployed public-art demo](screenshots/preview.jpg)
 
