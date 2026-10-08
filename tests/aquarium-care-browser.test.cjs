@@ -130,7 +130,10 @@ test("keyboard and touch-friendly greetings work with reduced motion and do not 
       assert.equal(tank.inspectedFish, "ember");
       assert.equal(tank.running, false);
       assert.equal(tank.eaten, 0);
-      const greet = page.getByRole("button", { name: "Greet fish", exact: true });
+      const greet = page.getByRole("button", {
+        name: "Greet fish",
+        exact: true,
+      });
       await greet.click();
       tank = await page.evaluate(() => officeAquarium.snapshot());
       assert.equal(tank.inspectedFish, "ember");

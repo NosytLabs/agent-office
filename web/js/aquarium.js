@@ -842,7 +842,7 @@
   byId("aquarium-motion").before(greetButton);
   canvas.setAttribute(
     "aria-label",
-    "Aquarium. Tap open water or press Space or Enter to feed. Use Left and Right arrows to greet fish.",
+    "Aquarium. Select a fish to say hello, or use Left and Right arrows. Tap open water or press Space or Enter to feed.",
   );
   byId("aquarium-feed").onclick = () => feed(WIDTH / 2);
   canvas.onclick = (event) => {
