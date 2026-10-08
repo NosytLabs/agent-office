@@ -101,6 +101,94 @@ The `tracking` object reports the following independent measurements:
 
 Known absence is zero; a failed measurement is `null`, never a plausible partial total. Directory scans use entry metadata without opening symlink targets. A disappearing entry is omitted, while a failed scan invalidates the affected totals. A legacy file can have a known byte size but an unreadable body; `legacy_log_read` reports that separate failure. UI warnings must preserve these distinctions.
 
+### Explicit SQLite maintenance
+
+From the repository checkout, inspect an existing office without starting the
+server or draining its inbox:
+
+```sh
+python tools/maintain.py
+python tools/maintain.py --directory /path/to/pixel-office
+```
+
+The default directory is `$HERMES_HOME/pixel-office`, or
+`~/.hermes/pixel-office` when `HERMES_HOME` is unset. A missing directory or
+database is reported without creating one. The JSON report measures the main
+database and its `-wal`, `-shm`, and `-journal` files separately. Their summed
+file-entry lengths are `database_total_bytes`; this excludes inbox files,
+legacy logs, user art, and other directory contents. Unknown measurements are
+`null` and make the sum unavailable. Nonregular database files or sidecars are
+reported as unavailable without following their links.
+
+The `sqlite` object reports the journal mode, auto-vacuum mode, page size,
+logical page count, and whole free pages. `logical_bytes` includes committed
+database pages that may currently reside in the WAL; it is not another file to
+add to the measured total. `freelist_bytes` counts reusable whole pages, not
+all space a rebuild could reclaim. A zero freelist can still accompany
+partially filled pages. These are observed sizes, not a directory quota or a
+prediction of space savings.
+
+To explicitly rebuild an existing, recognized office database:
+
+```sh
+python tools/maintain.py --compact
+python tools/maintain.py --directory /path/to/pixel-office --compact --timeout 1
+```
+
+Compaction runs SQLite `VACUUM`; it does not trim retained history or change
+retention settings. It preserves declared event IDs, usage identities and
+correction baselines, XP, task checkpoints, receipts, retries, and reset
+recovery state. It neither consumes nor deletes pending inbox publications,
+temporary publisher files, legacy logs, settings, or unknown sidecars. An
+unreadable settings file does not prevent physical compaction: no retention
+policy is used. Ordinary ingestion, Clear history, and Reset progress never
+invoke this rebuild automatically.
+
+New office databases use FULL auto-vacuum, which already returns whole freed
+pages after commits. VACUUM also repacks partially filled pages. In an isolated
+usage-correction workload, Clear history left a FULL-mode database with 1,800
+usage identities at 1,105,920 bytes and zero free pages. Explicit VACUUM
+reduced it to 622,592 bytes while preserving every logical table row. This is
+one measured example, not a promised compression ratio. Accounting storage
+still grows with unique usage units because exact arbitrary replay and later
+corrections require those identities.
+
+Maintenance obtains an exclusive SQLite lock and retains it across schema
+validation, the rebuild, and integrity checks. VACUUM runs outside an explicit
+transaction. For an existing WAL-mode database, SQLite checkpoints and
+truncates its own WAL under that same exclusive lock; the tool never unlinks a
+WAL or switches journal modes. The app itself does not enable WAL. Active
+readers or writers can prevent maintenance, so stop office servers and other
+database tools before a large rebuild. Immutable inbox publishers can continue
+writing; their observations wait for the next normal drain.
+
+`--timeout` bounds the lock wait to 0–5 seconds (default one second), not the
+duration of a successfully started rebuild. VACUUM scans and rewrites the
+database and may require up to twice its size in additional free disk space.
+Logical rows are not copied into a Python collection. SQLite owns transaction
+rollback and journal recovery on failure. The result includes observed
+`before` and `after` reports and their net `reclaimed_bytes`; that value can be
+zero, negative, or unavailable, and activity after the lock is released can
+change file sizes again. A failed final measurement is not reported as zero.
+
+Exit status is **0** for a successful report or compaction, **1** for an
+unavailable measurement, invalid target, or failed operation, and **2** for a
+busy database or invalid command-line arguments. A busy run can be retried
+after the other connection closes. A compaction error can occur during final
+verification after the rebuild committed; inspect the error rather than
+assuming either a completed maintenance operation or a reverted physical file.
+Schema and integrity checks reject unknown or damaged databases rather than
+initializing or repairing them.
+
+The concurrency and disk-space contracts follow the official
+[SQLite VACUUM](https://www.sqlite.org/lang_vacuum.html),
+[locking-mode](https://www.sqlite.org/pragma.html#pragma_locking_mode),
+[auto-vacuum](https://www.sqlite.org/pragma.html#pragma_auto_vacuum), and
+[WAL](https://www.sqlite.org/wal.html) documentation. Regression coverage is in
+[`test_storage_maintenance.py`](../tests/test_storage_maintenance.py), including
+pending reset recovery, live WAL readers, busy retries, unavailable sizes,
+preserved ancillary files, and replay/corrections after compaction.
+
 ### Legacy migration
 
 On first database creation, `progress.json` supplies existing XP and statistics. The original timestamp boundary is used only for this otherwise unidentified historical progress; it cannot establish exact identity for every old event. Subsequent legacy appends use their verified prefix and position, so a new line with an older timestamp still counts.
