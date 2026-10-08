@@ -59,43 +59,50 @@ function renderFurniturePreviews() {
 }
 $("c").addEventListener("spritesready", renderFurniturePreviews);
 renderFurniturePreviews();
+syncFurnitureControls();
 
 function syncFurnitureControls() {
-  $("undo-furniture").disabled = furnitureSaving || !furnitureHistory.length;
-  $("redo-furniture").disabled = furnitureSaving || !furnitureFuture.length;
-  $("delete-furniture").disabled =
-    furnitureSaving || scene.movingIndex === null;
+  const unavailable = !settingsReady || furnitureSaving;
+  $("undo-furniture").disabled = unavailable || !furnitureHistory.length;
+  $("redo-furniture").disabled = unavailable || !furnitureFuture.length;
+  $("delete-furniture").disabled = unavailable || scene.movingIndex === null;
   for (const id of [
     "arrange-furniture",
     "edit-furniture",
     "clear-furniture",
     "import-settings",
+    "export-settings",
   ])
-    $(id).disabled = furnitureSaving;
+    $(id).disabled = unavailable;
   for (const button of $("furniture-tools").children) {
     const reward = PROP_REWARDS[button.dataset.kind],
       locked = reward && !haveUnlock(reward);
-    button.disabled = furnitureSaving || !!locked;
+    button.disabled = unavailable || !!locked;
     let note = button.querySelector("small");
-    if (reward && !note) {
+    if ((!settingsReady || reward) && !note) {
       note = document.createElement("small");
       button.append(note);
     }
     if (note) {
       const badge = progress?.catalog?.find((item) => item.id === reward);
-      note.textContent = locked
-        ? badge?.hint || "Unlock through recorded activity"
-        : "Unlocked";
+      note.textContent = !settingsReady
+        ? "Loading office settings…"
+        : locked
+          ? badge?.hint || "Unlock through recorded activity"
+          : reward
+            ? "Unlocked"
+            : "";
+      if (settingsReady && !reward) note.remove();
     }
   }
-  $("c").setAttribute("aria-busy", String(furnitureSaving));
+  $("c").setAttribute("aria-busy", String(unavailable));
   $("arrange-furniture").setAttribute(
     "aria-pressed",
     String(scene.edit === "move"),
   );
 }
 function startFurniture(kind) {
-  if (furnitureSaving) return;
+  if (!settingsReady || furnitureSaving) return;
   if (PROP_REWARDS[kind] && !haveUnlock(PROP_REWARDS[kind])) return;
   scene.edit = kind;
   scene.movingIndex = null;
@@ -151,6 +158,12 @@ async function persistFurniture(
   action = "edit",
   patch = { furniture: items },
 ) {
+  if (!settingsReady) {
+    toast(
+      "Loading office settings. Nothing was saved; try again when loading finishes.",
+    );
+    return false;
+  }
   if (furnitureSaving) return false;
   const previous = structuredClone(settings.furniture),
     expected = JSON.stringify(items);
@@ -224,6 +237,7 @@ $("redo-furniture").onclick = () => {
   persistFurniture(furnitureFuture.at(-1), "redo");
 };
 function placeFurniture(p) {
+  if (!settingsReady) return;
   if (furnitureSaving) {
     toast("Wait for the current furniture change to save.");
     return;
@@ -273,14 +287,24 @@ $("clear-furniture").onclick = () => {
     saveFurniture([]);
   }
 };
-$("export-settings").onclick = () =>
+$("export-settings").onclick = () => {
+  if (!settingsReady) {
+    toast("Loading office settings. Wait before exporting your layout.");
+    return;
+  }
   downloadBlob(
     new Blob([JSON.stringify({ version: 1, settings }, null, 2)], {
       type: "application/json",
     }),
     "agent-office-layout.json",
   );
+};
 $("import-settings").onchange = async (e) => {
+  if (!settingsReady) {
+    toast("Loading office settings. Wait before importing a layout.");
+    e.target.value = "";
+    return;
+  }
   try {
     const file = e.target.files[0];
     if (!file) return;

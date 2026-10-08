@@ -729,6 +729,12 @@
   byId("pausebtn")?.addEventListener("click", refresh);
   buildCollection();
   window.openAquarium = () => {
+    if (!settingsReady) {
+      toast(
+        "Loading office settings. Your aquarium will be ready after the observer responds.",
+      );
+      return;
+    }
     if (panel.hidden) openSheet("sheet-aquarium");
     loadSprites();
     refresh();

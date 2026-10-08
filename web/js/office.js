@@ -21,7 +21,8 @@ let trackQuery = "",
   badgeFilter = "all",
   opened = null,
   returnFocus = null,
-  initialized = false;
+  initialized = false,
+  settingsReady = false;
 let pendingSaves = 0,
   settingsRevision = 0,
   saveQueue = Promise.resolve(),
@@ -44,6 +45,7 @@ let eventMode = "latest",
 const seenAttention = new Set();
 const seenUnlocks = new Set();
 const settingsDrafts = new Set();
+const loadingDisabledControls = new Map();
 const settingsDraftVersions = new Map();
 const panelViews = new Map(),
   panelStack = [],
@@ -1653,6 +1655,12 @@ $("attention-inspect").onclick = () => {
 function applyState(state, pollRevision = settingsRevision) {
   if (!state || !Array.isArray(state.agents) || !Array.isArray(state.events))
     throw new Error("Invalid office state");
+  const hasSettings =
+    state.settings &&
+    typeof state.settings === "object" &&
+    !Array.isArray(state.settings);
+  if (!settingsReady && !hasSettings)
+    throw new Error("Office settings have not loaded");
   const previousState = window._state;
   window._state = state;
   offline = false;
@@ -1668,9 +1676,10 @@ function applyState(state, pollRevision = settingsRevision) {
     ]),
   );
   const restoredView = !viewRestored ? restoreViewState() : null;
-  if (state.settings && !pendingSaves && pollRevision === settingsRevision) {
+  if (hasSettings && !pendingSaves && pollRevision === settingsRevision) {
     Object.assign(confirmedSettings, normalizeSettings(state.settings));
     Object.assign(settings, confirmedSettings);
+    settingsReady = true;
   }
   applyTheme();
   updateScene();
@@ -1680,7 +1689,6 @@ function applyState(state, pollRevision = settingsRevision) {
     syncPause();
   }
   if (typeof reconcileFurniture === "function") reconcileFurniture();
-  if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   document.body.classList.remove("offline");
   $("connection").textContent = "Connected";
   $("mode").hidden = state.mode !== "demo";
@@ -1754,6 +1762,7 @@ function applyState(state, pollRevision = settingsRevision) {
     fillSettings();
   } else if (opened === "sheet-settings") fillInactivePreferences();
   initialized = true;
+  if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   fillTrackingStatus();
   syncBudget();
   if (restoredView?.panel) openSheet(restoredView.panel);
@@ -1784,6 +1793,14 @@ function updateSetting(key, value) {
   return saveSettings({ [key]: value });
 }
 function saveSettings(patch) {
+  if (!settingsReady) {
+    $("save-status").textContent =
+      "Loading office settings. Nothing was saved; try again when loading finishes.";
+    toast(
+      "Loading office settings. Nothing was saved; try again when loading finishes.",
+    );
+    return Promise.resolve(false);
+  }
   patch = normalizeSettings(patch);
   queuedSettings.push(patch);
   Object.assign(settings, patch);
@@ -1997,6 +2014,33 @@ $("clear-history").onclick = async () => {
     $("clear-history").disabled = false;
   }
 };
+function syncSettingsReadiness() {
+  let notice = $("settings-loading-status");
+  if (!notice) {
+    notice = document.createElement("p");
+    notice.id = "settings-loading-status";
+    notice.className = "h";
+    notice.setAttribute("role", "status");
+    notice.textContent =
+      "Loading saved office settings. Editing is available after the observer responds.";
+    $("sheet-settings").querySelector(".sheet-body").prepend(notice);
+  }
+  notice.hidden = settingsReady;
+  $("sheet-settings").setAttribute("aria-busy", String(!settingsReady));
+  if (!settingsReady) {
+    for (const control of document.querySelectorAll(
+      "#sheet-settings form input, #sheet-settings form button, #mc",
+    )) {
+      if (!loadingDisabledControls.has(control))
+        loadingDisabledControls.set(control, control.disabled);
+      control.disabled = true;
+    }
+  } else {
+    for (const [control, disabled] of loadingDisabledControls)
+      control.disabled = disabled;
+    loadingDisabledControls.clear();
+  }
+}
 function fillSettings() {
   fillInactivePreferences();
   for (const [id, value] of [
@@ -2026,13 +2070,15 @@ function fillSettings() {
         [20971520, "20 MiB"],
       ]),
     );
-  for (const button of retention.querySelectorAll("[data-setting]"))
+  for (const button of retention.querySelectorAll("[data-setting]")) {
+    button.disabled = !settingsReady;
     button.setAttribute(
       "aria-pressed",
       String(
         settings[button.dataset.setting] === JSON.parse(button.dataset.value),
       ),
     );
+  }
   fillTrackingStatus();
   syncBudget();
   const layout = $("layoutbox");
@@ -2052,7 +2098,7 @@ function fillSettings() {
   for (const l of LAYOUTS) {
     const b = layout.querySelector(`[data-layout="${l.id}"]`);
     const locked = l.require && !haveUnlock(l.require);
-    b.disabled = !!locked;
+    b.disabled = !settingsReady || !!locked;
     b.textContent = locked
       ? "Locked"
       : settings.layout === l.id
@@ -2112,12 +2158,15 @@ function fillSettings() {
       );
     box.append(row);
   }
-  for (const b of box.querySelectorAll("[data-setting]"))
+  for (const b of box.querySelectorAll("[data-setting]")) {
+    b.disabled = !settingsReady;
     b.setAttribute(
       "aria-pressed",
       String(settings[b.dataset.setting] === JSON.parse(b.dataset.value)),
     );
+  }
   if (document.activeElement !== $("mc")) $("mc").value = settings.max_chars;
+  syncSettingsReadiness();
 }
 $("exportTrack").onclick = () => {
   const cell = (v) =>
