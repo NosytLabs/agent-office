@@ -5,7 +5,9 @@
     HEIGHT = 210,
     MAX_PELLETS = 12,
     FEED_COOLDOWN = 1600,
-    REACTION_DURATION = 0.72;
+    REACTION_DURATION = 0.72,
+    RIPPLE_DURATION = 0.85,
+    IMAGE_TIMEOUT_MS = 5000;
   const SPECIES = [
     {
       id: "ember",
@@ -47,6 +49,7 @@
     constructor() {
       this.fish = [];
       this.pellets = [];
+      this.ripples = [];
       this.time = 0;
       this.lastFeedAt = -Infinity;
       this.eaten = 0;
@@ -70,7 +73,10 @@
           );
         },
       );
-      if (!this.fish.length) this.pellets = [];
+      if (!this.fish.length) {
+        this.pellets = [];
+        this.ripples = [];
+      }
     }
     fishAt(x, y) {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
@@ -96,7 +102,8 @@
       if (!this.fish.length) return "empty";
       x = Number.isFinite(x) ? x : WIDTH / 2;
       if (now - this.lastFeedAt < FEED_COOLDOWN) return "cooldown";
-      if (this.pellets.length + 3 > MAX_PELLETS) return "full";
+      // Still-mode care adds no falling food, even when the paused queue is full.
+      if (!instant && this.pellets.length + 3 > MAX_PELLETS) return "full";
       this.lastFeedAt = now;
       if (instant) {
         for (const fish of this.fish) {
@@ -105,6 +112,8 @@
           this.eaten++;
         }
       } else {
+        this.ripples.push({ x: clamp(x, 24, WIDTH - 24), age: 0 });
+        this.ripples = this.ripples.slice(-4);
         for (let index = -1; index <= 1; index++)
           this.pellets.push({
             x: clamp(x + index * 7, 24, WIDTH - 24),
@@ -117,6 +126,10 @@
     step(seconds) {
       const dt = clamp(Number(seconds) || 0, 0, 0.08);
       this.time += dt;
+      for (const ripple of this.ripples) ripple.age += dt;
+      this.ripples = this.ripples.filter(
+        (ripple) => ripple.age < RIPPLE_DURATION,
+      );
       for (const pellet of this.pellets) {
         pellet.y += dt * 8;
         pellet.age += dt;
@@ -175,6 +188,7 @@
       return {
         fish: this.fish.map((fish) => ({ ...fish })),
         pellets: this.pellets.map((pellet) => ({ ...pellet })),
+        ripples: this.ripples.map((ripple) => ({ ...ripple })),
         time: this.time,
         eaten: this.eaten,
       };
@@ -320,6 +334,25 @@
       ctx.strokeStyle = "#addbd244";
       ctx.strokeRect(x, Math.round(y), 2 + (i % 2), 2 + (i % 2));
     }
+    // Surface ripples share the habitat clock, including every pause state.
+    ctx.save();
+    for (const ripple of habitat.ripples) {
+      const phase = ripple.age / RIPPLE_DURATION;
+      ctx.globalAlpha = (1 - phase) * 0.6;
+      ctx.strokeStyle = "#b0e1d1";
+      ctx.beginPath();
+      ctx.ellipse(
+        ripple.x,
+        27,
+        3 + phase * 16,
+        1 + phase * 3,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+    ctx.restore();
     for (const pellet of habitat.pellets) {
       ctx.fillStyle = "#e8c884";
       ctx.fillRect(Math.round(pellet.x), Math.round(pellet.y), 2, 2);
@@ -351,8 +384,24 @@
         src,
         new Promise((resolve, reject) => {
           const image = new Image();
-          image.onload = () => resolve(image);
-          image.onerror = () => reject(new Error("Fish image unavailable"));
+          const cleanup = () => {
+            clearTimeout(timeout);
+            image.onload = null;
+            image.onerror = null;
+          };
+          const timeout = setTimeout(() => {
+            cleanup();
+            image.removeAttribute("src");
+            reject(new Error("Fish image timed out"));
+          }, IMAGE_TIMEOUT_MS);
+          image.onload = () => {
+            cleanup();
+            resolve(image);
+          };
+          image.onerror = () => {
+            cleanup();
+            reject(new Error("Fish image unavailable"));
+          };
           image.src = src;
         }),
       );
@@ -678,7 +727,7 @@
         ? "Office motion is paused. Feeding still works."
         : localPause
           ? "Fish motion is paused. Feeding still works."
-          : "Tap a fish to say hello, or tap open water to feed.";
+          : "Tap a fish or use Left/Right to say hello. Tap open water to feed.";
     byId("aquarium-motion-note").textContent = pausedReason;
     byId("aquarium-motion").textContent = localPause
       ? "Resume fish"
@@ -692,6 +741,7 @@
       : "Tank light off";
     byId("aquarium-light").setAttribute("aria-pressed", String(light));
     byId("aquarium-light").disabled = savingLight;
+    byId("aquarium-greet").disabled = !habitat.fish.length;
     updateFeeding();
   }
   function updateFeeding() {
@@ -699,7 +749,7 @@
     byId("aquarium-feed").disabled =
       !habitat.fish.length ||
       cooling ||
-      habitat.pellets.length + 3 > MAX_PELLETS;
+      (moving() && habitat.pellets.length + 3 > MAX_PELLETS);
     byId("aquarium-feed").textContent = cooling ? "Snack time…" : "Feed fish";
     byId("aquarium-snacks").textContent = habitat.eaten
       ? `${habitat.eaten} snack${habitat.eaten === 1 ? "" : "s"} enjoyed this visit`
@@ -719,13 +769,8 @@
     updateFeeding();
     paint();
   }
-  function inspectOrFeed(x, y) {
-    const fish = habitat.fishAt(x, y);
-    if (!fish) {
-      inspectedFish = "";
-      feed(x);
-      return;
-    }
+  function greetFish(fish) {
+    if (!active() || !fish) return;
     inspectedFish = fish.id;
     habitat.react(fish.id, moving());
     const species = SPECIES.find((item) => item.id === fish.id),
@@ -735,6 +780,23 @@
     byId("aquarium-status").textContent =
       `${species.name} · ${species.kind} · ${snackCopy}.`;
     paint();
+  }
+  function inspectOrFeed(x, y) {
+    if (!active()) return;
+    const fish = habitat.fishAt(x, y);
+    if (fish) greetFish(fish);
+    else {
+      inspectedFish = "";
+      feed(x);
+    }
+  }
+  function greetNext(direction = 1) {
+    const fish = habitat.fish;
+    if (!active() || !fish.length) return;
+    const current = fish.findIndex((item) => item.id === inspectedFish);
+    let next = (current + direction + fish.length) % fish.length;
+    if (current < 0) next = direction > 0 ? 0 : fish.length - 1;
+    greetFish(fish[next]);
   }
   function tick(now) {
     frame = 0;
@@ -771,6 +833,17 @@
     if (!timer) timer = setInterval(refresh, 500);
     paint();
   }
+  const greetButton = document.createElement("button");
+  greetButton.id = "aquarium-greet";
+  greetButton.type = "button";
+  greetButton.className = "btn";
+  greetButton.textContent = "Greet fish";
+  greetButton.onclick = () => greetNext();
+  byId("aquarium-motion").before(greetButton);
+  canvas.setAttribute(
+    "aria-label",
+    "Aquarium. Select a fish to say hello, or use Left and Right arrows. Tap open water or press Space or Enter to feed.",
+  );
   byId("aquarium-feed").onclick = () => feed(WIDTH / 2);
   canvas.onclick = (event) => {
     const rect = canvas.getBoundingClientRect();
@@ -780,7 +853,12 @@
     );
   };
   canvas.onkeydown = (event) => {
-    if ([" ", "Enter"].includes(event.key)) {
+    if (!active() || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) greetNext(event.key === "ArrowLeft" ? -1 : 1);
+    } else if ([" ", "Enter"].includes(event.key)) {
       event.preventDefault();
       event.stopPropagation();
       feed(WIDTH / 2);
