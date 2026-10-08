@@ -2,7 +2,15 @@
 
 This review separates implemented additions from remaining recommendations for Agent Office's local observer. Sources were read through GitHub, Firecrawl, and Context7; source code links are pinned where a revision was available. No third-party code or artwork was imported by this research step.
 
+For current behavior, use the [runtime coverage](runtime-observers.md),
+[local task runner](local-task-runner.md), [arcade guide](arcade.md), and
+[validation report](audit/README.md). The dated sections below preserve the
+original review and subsequent implementation decisions.
+
 ## Recommended implementation order
+
+This table records the initial plan. The implementation status below and the
+current guides identify what shipped.
 
 | Priority | Addition | Bounded implementation | Acceptance evidence |
 | --- | --- | --- | --- |
@@ -13,7 +21,7 @@ This review separates implemented additions from remaining recommendations for A
 | 3 | Optional earned animations | Tie a lamp glow, coffee animation, or pet interaction variant to existing recorded milestones. Preserve all already-placeable props and keep the normal navigation available. | Unlocks survive reload and migration; replaying events cannot earn rewards twice; reduced-motion behavior remains respected. |
 | 3 | Context display with known limits | Show the latest reported context snapshot separately from lifetime usage. Show a percentage only when the runtime supplies a verified context limit. | Compaction can lower the context gauge without lowering lifetime usage; unknown limits do not become invented percentages. |
 
-The furniture and reward choices above are proposed product decisions. They reuse this repository's generated assets and existing panels rather than requiring an agent execution service.
+The furniture and reward proposals use this repository's generated assets and existing panels. Runtime observation and optional task execution have separate contracts.
 
 ### Implementation outcome
 
@@ -288,7 +296,7 @@ guidelines prohibit alterations. This review did not itself import icon files.
 - [OpenCode's official brand page](https://opencode.ai/brand) publishes light/dark and square logo assets. Prefer those original variants, recording the downloaded file's source and checksum. Its [repository license](https://github.com/anomalyco/opencode/blob/a697115b203395c54a7496dc3d1863fe7b319c0c/LICENSE) is MIT; copyright licensing does not establish affiliation.
 - The attempted `anthropic.com/brand` URL returned 404. The implementation uses the unmodified Claude icon distributed by the MIT-licensed SVGL collection, with its exact source, checksum, and notice recorded in [the asset credits](../web/assets/ATTRIBUTION.md). This is collection provenance, not a claim of an additional trademark grant or Anthropic endorsement. Hermes remains a text label because a suitable asset source was not verified.
 
-## Implementation outcome
+## Implementation details
 
 The review led to durable per-source usage accounting, a Codex lifecycle and
 captured-stream adapter, a shared-dashboard VS Code view, and independently
@@ -339,7 +347,7 @@ Read-only GitHub connector queries on 7 October 2026 returned **no open pull req
 
 A later inventory on 8 October found new work on [`codex/office-integrity` at `897d3e0`](https://github.com/NosytLabs/agent-office/commit/897d3e0b7ad4977217b5f6664dfe48c832e765e2), based on published main `0aec140`. The first two commits add [four terminal-callback regressions](https://github.com/NosytLabs/agent-office/commit/8d4cf0efb1b50dafc1f87540b30cb938a9c86a75) and [preserve completed agents when late errors arrive](https://github.com/NosytLabs/agent-office/commit/f71ebfed5acddf9924bd8a3218cde6095d3ca35a). Both were incorporated unchanged after reproducing three failures, then running the full integrated checks. The third, test-only commit assumes a different five-session lamp reward and was not imported wholesale.
 
-The final test-only commit also contained a valid missing regression: the current percentage display rounded 995 or 999 tools to 100% before the 1,000-tool badge was earned. That intent was recovered using the current catalog, with incomplete/complete boundary tests for the 500-, 1,000-, 5,000-, and 10,000-tool milestones. Integer-floor percentages now reach 100 only at the threshold. The other test intents are already covered or rely on removed APIs and the incompatible five-session lamp policy; the old branch is superseded by the reviewed implementation and current regressions.
+The final test-only commit also contained a valid missing regression: the then-current percentage display rounded 995 or 999 tools to 100% before the 1,000-tool badge was earned. That intent was recovered using the current catalog, with incomplete/complete boundary tests for the 500-, 1,000-, 5,000-, and 10,000-tool milestones. Integer-floor percentages now reach 100 only at the threshold. The other test intents are already covered or rely on removed APIs and the incompatible five-session lamp policy. [PR #20](https://github.com/NosytLabs/agent-office/pull/20) subsequently reconciled the old branch's history using the reviewed implementation and current regressions; the obsolete duplicate test file was omitted.
 
 The current catalog policy retires `oops`, `weather_storm`, `weather_sun`, `deep_work`, `theme_designer`, `night_owl`, and `early_bird`. It preserves earned XP and statistics, awards no XP for errors, appearance changes, or time of day, and keeps existing lamp appearances while assigning the lamp to the 50-tool milestone. This leaves 37 reachable active achievements. An earlier snapshot of the preparation branch contained an obsolete source-replacement script and self-writing workflow; neither was imported. Branch contents were rechecked before deciding what to integrate.
 
@@ -366,9 +374,11 @@ destination is a label for the user's handoff, not a support or connection claim
 
 [OpenCode's server documentation](https://opencode.ai/docs/server/) and Context7's
 `/anomalyco/opencode` SDK reference document `POST /session/:id/prompt_async` and
-HTTP Basic authentication. Direct submission was investigated but is not shipped:
-the attempted implementation was blocked by the execution tool's safety checks.
-There is no generic shell, scheduler, credential store, automatic approval, or
-new execution endpoint in this change. A future control layer needs independent
-review of opt-in activation, exact project/session verification, same-origin
-protection, bounded transport, and ambiguous-delivery handling before deployment.
+HTTP Basic authentication. That draft-only increment did not implement the
+proposed OpenCode session adapter. The later [local task runner](local-task-runner.md)
+ships fresh Codex and Claude Code processes with explicit startup enablement,
+project selection, and process-scoped cancellation. It does not attach to an
+existing OpenCode session or retain delivery receipts across restart.
+[Issue #18](https://github.com/NosytLabs/agent-office/issues/18) tracks those
+remaining session-handoff requirements, including exact destination checks and
+reconciliation of uncertain delivery.
