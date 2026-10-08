@@ -32,6 +32,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 MAX_RECORD_BYTES = 256 * 1024
+MAX_EVENT_DEPTH = 128
 MAX_BATCH = 2048
 READ_RETRY_SECONDS = 5
 _PUBLISHER_NAME = re.compile(r"^\d{20,}-([a-f0-9]{32})-\d{12,}\.json$")
@@ -52,6 +53,18 @@ def valid_event(event):
     except (ValueError, TypeError, OverflowError):
         return None
     normalized = {**event, "ts": timestamp}
+    # JSON's decoder/encoder accepts deeper trees than the state model's
+    # deepcopy operations. Bound container depth before applying any receipt;
+    # otherwise one valid JSON record can keep an entire batch from committing.
+    pending = [(normalized, 0)]
+    while pending:
+        value, depth = pending.pop()
+        if not isinstance(value, (dict, list)):
+            continue
+        if depth > MAX_EVENT_DEPTH:
+            return None
+        children = value.values() if isinstance(value, dict) else value
+        pending.extend((child, depth + 1) for child in children if isinstance(child, (dict, list)))
     try:
         # Python accepts NaN and lone surrogates while the browser's JSON/UTF-8
         # boundary does not. Quarantine a malformed record before the commit.
