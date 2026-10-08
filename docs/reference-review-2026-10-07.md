@@ -1,4 +1,4 @@
-# Reference review — 7 October 2026
+# Reference review — 7–8 October 2026
 
 This review identifies concrete additions for Agent Office's local observer. It is a research and implementation recommendation, not a claim that the features below have shipped. Sources were read through GitHub, Firecrawl, and Context7; source code links are pinned where a revision was available. No third-party code or artwork was imported by this research step.
 
@@ -14,6 +14,18 @@ This review identifies concrete additions for Agent Office's local observer. It 
 | 3 | Context display with known limits | Show the latest reported context snapshot separately from lifetime usage. Show a percentage only when the runtime supplies a verified context limit. | Compaction can lower the context gauge without lowering lifetime usage; unknown limits do not become invented percentages. |
 
 The furniture and reward choices above are proposed product decisions. They reuse this repository's generated assets and existing panels rather than requiring an agent execution service.
+
+### Implementation outcome
+
+| Area | Current state |
+| --- | --- |
+| Runtime usage and Codex observation | Implemented with source-aware accounting, lifecycle hooks, and the optional captured Codex stream reader. [Runtime coverage](runtime-observers.md) distinguishes supported fields from unknown values and installation limits. |
+| Office interactions and earned content | Implemented furniture actions, aquarium feeding/species, original music, earned room props, and individual desk/appearance preferences. Rewards follow observed counters; animation does not create work records. |
+| Hootbu-inspired quality-of-life changes | Implemented per-agent usage summaries, safe view persistence, panel return context, stable desk choices, character selection, and roaming cats using this project's own state and assets. See the source-by-source decisions below. |
+| Product website | Implemented a separate allowlisted static site, accessible feature tour, setup commands, and credits. [Hosting instructions](preview.md) cover the public demo and the owner-controlled GitHub Pages activation step. |
+| Observed source TODO snapshots and current-context gauge | Still future work. The task panel shows observed session/tool activity; it does not claim to reconcile OpenCode/Codex task arrays or infer a model context limit. |
+
+[Validation evidence](audit/README.md) records tested flows and the remaining installed-runtime and VS Code host checks. The sections below retain the checked source contracts and explain why some reference capabilities were deliberately kept outside the local observer.
 
 ## Runtime contracts and accounting
 
@@ -67,6 +79,51 @@ Usage records should retain source identity, aggregation scope (message, API att
 | [Star Office UI](https://github.com/ringhyacinth/Star-Office-UI) | Previously cited setup and session-status direction. | [License separates MIT logic from noncommercial artwork](https://github.com/ringhyacinth/Star-Office-UI/blob/master/LICENSE). Keep any future code attribution separate; use this project's generated art. |
 
 ## Additional product references
+
+### Hootbu's Pixel Agents
+
+The user-requested [fork](https://github.com/hootbu/pixel-agents) was checked at
+[`a6c4d85`](https://github.com/hootbu/pixel-agents/commit/a6c4d85df1266ed43fa7d0ef70525475248fafc3).
+Its [MIT license](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/LICENSE)
+retains Pablo De Lucca's copyright and identifies Hootbu's modifications. Those
+notices would both need to accompany copied portions. Its README separately
+identifies paid Donarg office art; a code license is not permission to copy that
+pack. Original supplier provenance for its converted pet sheets was not
+established, so those images were not imported.
+
+| Observed feature and source | Gap in this office | Implementation decision |
+| --- | --- | --- |
+| [UsagePanel](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/components/UsagePanel.tsx): per-agent colored token buckets | The roster required an extra inspection step to see usage | Add compact per-agent reported usage from this project's canonical ledger. Do not copy the upstream summation: cache/reasoning counters here are subsets. The upstream panel does not establish a USD cost implementation. |
+| [View provider](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/src/PixelAgentsViewProvider.ts) and [editor actions](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/hooks/useEditorActions.ts): retained view/camera state | Browser reload reset the view and opening panels lost reading context | Preserve safe browser view state and panel scroll. The existing VS Code view already used `retainContextWhenHidden`; that is not a newly added capability. |
+| [Office state](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/office/engine/officeState.ts) and [layout serializer](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/office/layout/layoutSerializer.ts): explicit seat assignment | Desks were derived only from input order | Add preferences keyed by canonical session identity. Validate the destination before releasing the old assignment; keep hidden agents in occupancy checks and resolve imported conflicts deterministically. |
+| [CostumePanel](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/components/CostumePanel.tsx): six appearances and hue controls | Appearance was derived from ID or the global subagent setting | Add individual default/person/robot choices using existing licensed and original art. Share the resolver across floor, portraits, and crown placement. Hue adjustment remains future work. |
+| [Pet state machine](https://github.com/hootbu/pixel-agents/blob/a6c4d85df1266ed43fa7d0ef70525475248fafc3/webview-ui/src/office/engine/pets.ts): wander, sit, sleep, approach, and flee | Existing cats were mainly ambient decorations | Add bounded state-machine movement for this project's existing cats, with collision-aware paths, pause/reduced-motion rules, and opt-out settings. These behaviors do not call an AI model. The larger dog/five-pet manager is not included. |
+
+These are independent implementations of compatible concepts. No Hootbu code
+or artwork is copied into this repository. Its full layout editor, arbitrary
+wall text/z-layers, and hue editor are separate future additions. Its event
+reactions should also be understood as reactions to observed events, not
+measurements of an agent's emotions or proof of successful task completion.
+
+### Product website references
+
+[Handy](https://handy.computer/) was read live with Firecrawl for its focused
+product promise, immediate primary action, short demonstration, and concrete
+benefit sections. [The Pixel Office](https://thepixeloffice.ai/) was reviewed
+for its visual office introduction and feature cards. The resulting `site/`
+uses original layout/copy, the existing licensed Geist font, and this project's
+actual synthetic-fixture screenshots. No reference-site artwork, customer
+claims, or autonomous-workforce claims are inherited.
+
+The landing page's keyboard tabs follow the
+[W3C tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) with manual
+activation; content and install instructions remain available without JavaScript.
+GitHub Pages setup follows the
+[official custom-workflow guide](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+The checked action revisions are pinned in the workflow. The
+[configure-pages action](https://github.com/actions/configure-pages/blob/45bfe0192ca1faeb007ade9deae92b16b8254a0d/action.yml)
+does not auto-enable Pages with the ordinary workflow token; publishing-source
+configuration remains an explicit repository setting.
 
 **Claw3D.** The [feature page](https://www.claw3d.ai/#features) links its public
 [repository](https://github.com/iamlukethedev/Claw3D), whose

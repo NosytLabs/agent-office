@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A local pixel office for your coding agents. See who needs input, inspect sessions and subagents, and understand reported token usage. Free, open source, and yours to customize."
+    />
+    <meta name="theme-color" content="#163b30" />
+    <meta
+      property="og:title"
+      content="Agent Office — A clearer view of your coding agents"
+    />
+    <meta
+      property="og:description"
+      content="A useful little office for the work happening in your terminals. Local activity, reported usage, and a room that grows with you."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Agent Office — A clearer view of your coding agents</title>
+    <link rel="icon" type="image/svg+xml" href="assets/office.svg" />
+    <link
+      rel="preload"
+      href="assets/fonts/geist-latin-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="nav-wrap shell">
+        <a class="brand" href="#top" aria-label="Agent Office home">
+          <img src="assets/office.svg" alt="" width="40" height="40" />
+          <span>Agent Office<small>by Nosyt Labs</small></span>
+        </a>
+        <button
+          class="menu-toggle enhanced-only"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-nav"
+        >
+          Menu <span aria-hidden="true">＋</span>
+        </button>
+        <nav id="site-nav" aria-label="Main navigation">
+          <a href="#tour">The office</a>
+          <a href="#connections">Connections</a>
+          <a href="#questions">Questions</a>
+          <a class="nav-source" href="https://github.com/NosytLabs/agent-office"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <a class="button button-small" href="#get-started"
+            >Get started <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section id="top" class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="pixel-mark" aria-hidden="true"></span> A local home for
+            your coding agents
+          </p>
+          <h1 id="hero-title">
+            Know what<br class="desktop-break" />
+            your agents<br class="desktop-break" />
+            <span>are up to.</span>
+          </h1>
+          <p class="hero-description">
+            Your terminals are busy. Get a clearer view. See who’s working, who
+            needs your input, and what your runtimes report spending—all in a
+            little office you can make your own.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#get-started"
+              >Run locally <span aria-hidden="true">↗</span></a
+            >
+            <a
+              class="button button-light"
+              href="https://agent-office-preview-seven.vercel.app/"
+              >Explore the demo <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-note">
+            Free &amp; open source. No account needed for the office.
+          </p>
+        </div>
+        <figure class="hero-visual">
+          <div class="window-label">
+            <span
+              ><i aria-hidden="true"></i> A room for the work in your
+              terminals</span
+            ><span class="version">v0.5.0</span>
+          </div>
+          <div class="hero-image-wrap">
+            <img
+              class="hero-image"
+              src="assets/screenshots/appearance.png"
+              alt="Agent Office in the green Juniper theme, with people and a robot at walnut desks, a lounge, and room controls."
+              width="1440"
+              height="1000"
+              fetchpriority="high"
+            />
+          </div>
+          <figcaption>
+            <span class="caption-tag">Actual app</span> Screenshot with
+            synthetic example sessions
+          </figcaption>
+          <div class="paper-note" aria-hidden="true">
+            <span>less tab hunting.</span><strong>more context.</strong><b>↖</b>
+          </div>
+        </figure>
+      </section>
+
+      <div class="foundation-strip" aria-label="Product foundations">
+        <div class="shell foundation-inner">
+          <span
+            ><b>Local by default</b
+            ><small>Your observer runs on your computer</small></span
+          >
+          <span
+            ><b>Python 3.10+</b
+            ><small>No frontend build to run the app</small></span
+          >
+          <span
+            ><b>Four runtime adapters</b
+            ><small>With explicit coverage and limits</small></span
+          >
+          <span
+            ><b>MIT code</b
+            ><small>Read it, change it, make it yours</small></span
+          >
+        </div>
+      </div>
+
+      <section class="section shell" aria-labelledby="why-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="eyebrow">A useful view, with a little personality</p>
+            <h2 id="why-title">Less checking.<br />More knowing.</h2>
+          </div>
+          <p>
+            When several agents are working at once, the hard part is keeping
+            context. Agent Office brings their observed activity into one place,
+            while you keep using the tools you already know.
+          </p>
+        </div>
+        <div class="benefit-grid">
+          <article class="benefit-card attention-card">
+            <div class="card-kicker">
+              <span class="mini-icon" aria-hidden="true">!</span
+              ><span>01 / Attention</span>
+            </div>
+            <h3>Find the session<br />that needs you.</h3>
+            <p>
+              Questions and permission requests stay visible. Jump to the
+              relevant session details, then respond in the original runtime.
+            </p>
+            <div class="example-signal">
+              <span class="signal-dot" aria-hidden="true"></span>
+              <div>
+                <strong>Waiting for input</strong
+                ><small>A clear cue, tied to a reported event</small>
+              </div>
+              <span aria-hidden="true">↗</span>
+            </div>
+          </article>
+          <article class="benefit-card ledger-card">
+            <div class="card-kicker">
+              <span class="mini-icon" aria-hidden="true">≡</span
+              ><span>02 / Context</span>
+            </div>
+            <h3>A record you can<br />actually inspect.</h3>
+            <p>
+              Read retained events, follow parent and child sessions, and
+              inspect token usage with its source. Missing data stays clearly
+              marked.
+            </p>
+            <div class="detail-list" aria-label="Available detail">
+              <span>Current tools</span><span>Session history</span
+              ><span>Reported usage</span>
+            </div>
+          </article>
+          <article class="benefit-card room-card">
+            <div class="card-kicker">
+              <span class="mini-icon" aria-hidden="true">⌑</span
+              ><span>03 / Your space</span>
+            </div>
+            <h3>A room that feels<br />like your room.</h3>
+            <p>
+              Name your agents, choose their characters, assign desks, and
+              arrange furniture. Earn useful room additions through observed
+              activity.
+            </p>
+            <div class="swatch-row" aria-label="A selection of room colors">
+              <span class="swatch swatch-green"></span
+              ><span class="swatch swatch-gold"></span
+              ><span class="swatch swatch-clay"></span
+              ><span class="swatch swatch-night"></span
+              ><small>Make space for your style.</small>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="tour" class="tour-section" aria-labelledby="tour-title">
+        <div class="shell">
+          <div class="section-heading tour-heading">
+            <div>
+              <p class="eyebrow">Take a look around</p>
+              <h2 id="tour-title">
+                A dashboard.<br /><span>With a door and a fish tank.</span>
+              </h2>
+            </div>
+            <a
+              class="text-link"
+              href="https://agent-office-preview-seven.vercel.app/"
+              >Try the interactive demo <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="tour" data-tab-group="tour">
+            <div
+              class="tour-tabs tab-controls enhanced-only"
+              data-tab-list
+              aria-label="Office feature tour"
+            >
+              <button
+                type="button"
+                id="tour-tab-floor"
+                data-tab-button="tour-floor"
+              >
+                <span>01</span> The floor
+              </button>
+              <button
+                type="button"
+                id="tour-tab-usage"
+                data-tab-button="tour-usage"
+              >
+                <span>02</span> Reported usage
+              </button>
+              <button
+                type="button"
+                id="tour-tab-room"
+                data-tab-button="tour-room"
+              >
+                <span>03</span> Your room
+              </button>
+              <button
+                type="button"
+                id="tour-tab-aquarium"
+                data-tab-button="tour-aquarium"
+              >
+                <span>04</span> A little downtime
+              </button>
+            </div>
+            <div id="tour-floor" class="tour-panel" data-tab-panel>
+              <div class="tour-image">
+                <img
+                  src="assets/screenshots/appearance.png"
+                  alt="A Juniper-themed office with working agents, a delegated robot, and clickable furniture."
+                  width="1440"
+                  height="1000"
+                  loading="lazy"
+                />
+              </div>
+              <div class="tour-text">
+                <span class="tour-number">01 / The floor</span>
+                <h3>Work has a place.</h3>
+                <p>
+                  Every observed session gets a character. Tools, input
+                  requests, and delegated work have visible states, so you can
+                  inspect the activity behind the animation.
+                </p>
+                <ul>
+                  <li>Parent and child session relationships</li>
+                  <li>Named agents and preferred desk assignments</li>
+                  <li>Zoom, pause, and a snapshot of your scene</li>
+                </ul>
+                <a
+                  href="https://github.com/NosytLabs/agent-office/blob/main/docs/architecture.md"
+                  >How the observer works <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </div>
+            <div id="tour-usage" class="tour-panel" data-tab-panel>
+              <div class="tour-image">
+                <img
+                  src="assets/screenshots/usage.png"
+                  alt="Agent Office's usage panel with token totals, runtime estimates, coverage, and source details from synthetic sessions."
+                  width="1440"
+                  height="1000"
+                  loading="lazy"
+                />
+              </div>
+              <div class="tour-text">
+                <span class="tour-number">02 / Reported usage</span>
+                <h3>Numbers with context.</h3>
+                <p>
+                  Inspect usage by runtime, model, and session. See which
+                  counters were reported and where a cost estimate came from.
+                  Unknown values never turn into a reassuring zero.
+                </p>
+                <ul>
+                  <li>Per-agent usage details</li>
+                  <li>Retained accounting through history pruning</li>
+                  <li>Optional cost threshold notices</li>
+                </ul>
+                <p class="tour-fineprint">
+                  Coverage depends on the runtime. Estimates are not provider
+                  invoices.
+                </p>
+                <a
+                  href="https://github.com/NosytLabs/agent-office/blob/main/docs/runtime-observers.md"
+                  >Read the coverage details
+                  <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </div>
+            <div id="tour-room" class="tour-panel" data-tab-panel>
+              <div class="tour-image">
+                <img
+                  src="assets/screenshots/settings.png"
+                  alt="The Agent Office customization panel over the office floor, with room and appearance settings."
+                  width="1440"
+                  height="1000"
+                  loading="lazy"
+                />
+              </div>
+              <div class="tour-text">
+                <span class="tour-number">03 / Your room</span>
+                <h3>Make it feel familiar.</h3>
+                <p>
+                  Pick a theme, choose a desk finish, and give agents a
+                  recognizable appearance. Arrange the space with furniture that
+                  opens useful views when you click it.
+                </p>
+                <ul>
+                  <li>22 placeable props, including earned additions</li>
+                  <li>Undo, redo, and portable room preferences</li>
+                  <li>37 activity-based achievements</li>
+                </ul>
+                <p class="tour-fineprint">
+                  Appearance changes never inflate work XP. XP represents
+                  observed activity, not work quality.
+                </p>
+                <a
+                  href="https://github.com/NosytLabs/agent-office#earned-room-rewards"
+                  >Explore earned rewards <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </div>
+            <div id="tour-aquarium" class="tour-panel" data-tab-panel>
+              <div class="tour-image">
+                <img
+                  src="assets/screenshots/aquarium.png"
+                  alt="An interactive aquarium with colorful pixel fish, feeding controls, and a species collection."
+                  width="1440"
+                  height="1000"
+                  loading="lazy"
+                />
+              </div>
+              <div class="tour-text">
+                <span class="tour-number">04 / A little downtime</span>
+                <h3>Enjoy the room.</h3>
+                <p>
+                  Feed your fish, unlock species, and choose the aquarium’s
+                  residents. Let the cats roam, or put on one of three original
+                  jukebox loops.
+                </p>
+                <ul>
+                  <li>Four collectible fish species</li>
+                  <li>Named pets with optional movement</li>
+                  <li>Audio starts only when you press Play</li>
+                </ul>
+                <p class="tour-fineprint">
+                  Motion can be paused. Your reduced-motion preference is
+                  respected.
+                </p>
+                <a
+                  href="https://github.com/NosytLabs/agent-office#aquarium-and-jukebox"
+                  >About the aquarium and music
+                  <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </div>
+          </div>
+          <p class="tour-caption">
+            These are screenshots of the actual app using synthetic test
+            sessions. The public demo is an isolated example; it cannot see your
+            local agents.
+          </p>
+        </div>
+      </section>
+
+      <section
+        id="connections"
+        class="section shell"
+        aria-labelledby="connections-title"
+      >
+        <div class="section-heading split-heading">
+          <div>
+            <p class="eyebrow">Keep your tools. Add a view.</p>
+            <h2 id="connections-title">
+              Meet your agents<br />where they work.
+            </h2>
+          </div>
+          <p>
+            Agent Office reads local observer events. Each adapter has a defined
+            scope, and the interface shows when a runtime hasn’t supplied a
+            value.
+          </p>
+        </div>
+        <div class="connection-grid">
+          <article class="connection-card">
+            <div class="runtime-mark hermes-mark" aria-hidden="true">H</div>
+            <h3>Hermes</h3>
+            <p>CLI and Telegram sessions, tools, approvals, and subagents.</p>
+            <span class="coverage-label"
+              >API usage when the installed hook supports it</span
+            >
+          </article>
+          <article class="connection-card">
+            <div class="runtime-mark">
+              <img
+                src="assets/brands/opencode.svg"
+                alt=""
+                width="32"
+                height="32"
+                loading="lazy"
+              />
+            </div>
+            <h3>OpenCode</h3>
+            <p>Sessions, tools, permissions, questions, and child sessions.</p>
+            <span class="coverage-label"
+              >Assistant-message tokens and runtime estimates</span
+            >
+          </article>
+          <article class="connection-card">
+            <div class="runtime-mark">
+              <img
+                src="assets/brands/claude.svg"
+                alt=""
+                width="32"
+                height="32"
+                loading="lazy"
+              />
+            </div>
+            <h3>Claude Code</h3>
+            <p>
+              Session, prompt, tool, approval, question, and subagent hooks.
+            </p>
+            <span class="coverage-label"
+              >Token usage is not supplied by these hooks</span
+            >
+          </article>
+          <article class="connection-card">
+            <div class="runtime-mark runtime-mark-dark">
+              <img
+                src="assets/brands/codex.svg"
+                alt=""
+                width="32"
+                height="32"
+                loading="lazy"
+              />
+            </div>
+            <h3>Codex</h3>
+            <p>Lifecycle and subagent hooks, with explicit local hook trust.</p>
+            <span class="coverage-label"
+              >Optional usage from a captured exec JSON stream</span
+            >
+          </article>
+        </div>
+        <div class="editor-callout">
+          <div class="editor-symbol" aria-hidden="true">&lt;/&gt;</div>
+          <div>
+            <h3>Keep the office beside your code.</h3>
+            <p>
+              The included VS Code view opens the same local dashboard inside
+              your editor.
+            </p>
+          </div>
+          <a
+            class="text-link"
+            href="https://github.com/NosytLabs/agent-office/blob/main/vscode/README.md"
+            >VS Code setup <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <p class="coverage-note">
+          Adapter contracts, ingestion, and browser flows are tested. Installed
+          CLI and VS Code extension-host sessions still need host-level
+          validation.
+          <a
+            href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
+            >See the evidence and remaining checks.</a
+          >
+        </p>
+      </section>
+
+      <section
+        id="get-started"
+        class="setup-section"
+        aria-labelledby="setup-title"
+      >
+        <div class="shell setup-grid">
+          <div class="setup-copy">
+            <p class="eyebrow">Move in</p>
+            <h2 id="setup-title">Your office.<br />Your machine.</h2>
+            <p>
+              Start the local observer, connect the runtimes you already use,
+              and open your floor. The app needs Python 3.10 or later. Git is
+              used for the checkout below.
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/NosytLabs/agent-office#start-locally"
+              >Full installation guide <span aria-hidden="true">↗</span></a
+            >
+            <div class="local-note">
+              <span aria-hidden="true">⌂</span>
+              <p>
+                The server binds to <code>127.0.0.1</code>. The office serves
+                local assets and makes no analytics or model-provider requests.
+              </p>
+            </div>
+          </div>
+          <div class="setup-terminal" data-tab-group="setup">
+            <div class="terminal-chrome">
+              <div aria-hidden="true"><i></i><i></i><i></i></div>
+              <span>Make yourself at home</span>
+            </div>
+            <div
+              class="setup-tabs tab-controls enhanced-only"
+              data-tab-list
+              aria-label="Installation steps"
+            >
+              <button
+                type="button"
+                id="setup-tab-start"
+                data-tab-button="setup-start"
+              >
+                1. Start</button
+              ><button
+                type="button"
+                id="setup-tab-connect"
+                data-tab-button="setup-connect"
+              >
+                2. Connect</button
+              ><button
+                type="button"
+                id="setup-tab-editor"
+                data-tab-button="setup-editor"
+              >
+                3. Editor
+              </button>
+            </div>
+            <div id="setup-start" class="setup-panel" data-tab-panel>
+              <h3>Start the office</h3>
+              <p>In a terminal, clone the repo and start the server:</p>
+              <div class="code-block">
+                <pre
+                  id="command-start"
+                  tabindex="0"
+                ><code>git clone https://github.com/NosytLabs/agent-office.git
+cd agent-office
+python3 run.py</code></pre>
+                <button
+                  type="button"
+                  class="copy-button enhanced-only"
+                  data-copy-target="command-start"
+                  aria-label="Copy start commands"
+                >
+                  Copy
+                </button>
+              </div>
+              <p>
+                Then open
+                <a href="http://127.0.0.1:8113">http://127.0.0.1:8113</a>. Keep
+                this terminal running.
+              </p>
+            </div>
+            <div id="setup-connect" class="setup-panel" data-tab-panel>
+              <h3>Connect existing runtimes</h3>
+              <p>From the same checkout, in a second terminal:</p>
+              <div class="code-block">
+                <pre
+                  id="command-connect"
+                  tabindex="0"
+                ><code>python3 install.py</code></pre>
+                <button
+                  type="button"
+                  class="copy-button enhanced-only"
+                  data-copy-target="command-connect"
+                  aria-label="Copy connection command"
+                >
+                  Copy
+                </button>
+              </div>
+              <p>
+                The installer adds observer definitions for detected tools and
+                preserves unrelated configuration. Restart connected runtimes
+                after installation. It does not install those runtimes.
+              </p>
+              <p>
+                For Codex, review and trust the hook through
+                <code>/hooks</code>. Existing OpenCode JSONC receives manual
+                setup instructions.
+              </p>
+            </div>
+            <div id="setup-editor" class="setup-panel" data-tab-panel>
+              <h3>Open the editor view</h3>
+              <p>
+                The installer can add the included VS Code extension. Keep the
+                local server running, reload VS Code, and run this command from
+                the Command Palette:
+              </p>
+              <div class="code-block">
+                <pre
+                  id="command-editor"
+                  tabindex="0"
+                ><code>Agent Office: Open Floor</code></pre>
+                <button
+                  type="button"
+                  class="copy-button enhanced-only"
+                  data-copy-target="command-editor"
+                  aria-label="Copy VS Code command"
+                >
+                  Copy
+                </button>
+              </div>
+              <p>
+                For remote workspaces or a different local port, follow the
+                <a
+                  href="https://github.com/NosytLabs/agent-office/blob/main/vscode/README.md"
+                  >extension connection guide</a
+                >.
+              </p>
+            </div>
+            <p
+              id="copy-status"
+              class="copy-status"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="questions"
+        class="section shell faq-section"
+        aria-labelledby="questions-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">Before you move in</p>
+          <h2 id="questions-title">A few useful answers.</h2>
+        </div>
+        <div class="faq-grid">
+          <details>
+            <summary>
+              Does Agent Office control my agents?<span aria-hidden="true"
+                >＋</span
+              >
+            </summary>
+            <p>
+              No. It observes the sessions you connect. Start work, send
+              prompts, answer questions, and grant permissions in the original
+              runtime. The office shows you where attention is needed.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Is the demo connected to real agents?<span aria-hidden="true"
+                >＋</span
+              >
+            </summary>
+            <p>
+              The public demo uses fictional sessions, activity, XP, and usage.
+              Its preferences stay in your browser. To observe actual work, run
+              the local server and install the adapters on the same computer as
+              your runtimes.
+            </p>
+          </details>
+          <details>
+            <summary>
+              How accurate are the usage and cost numbers?<span
+                aria-hidden="true"
+                >＋</span
+              >
+            </summary>
+            <p>
+              The office records the counters a supported source reports, with
+              replay protection and corrections. It keeps unavailable values
+              distinct from zero and labels partial coverage. Cost values are
+              runtime estimates when supplied, not provider invoices.
+              <a
+                href="https://github.com/NosytLabs/agent-office/blob/main/docs/runtime-observers.md"
+                >Read each adapter’s scope.</a
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              Will the activity log keep growing?<span aria-hidden="true"
+                >＋</span
+              >
+            </summary>
+            <p>
+              Retained raw history defaults to the newest 1,000 events within
+              seven days and 5 MiB. Change all three limits in Customize.
+              History pruning preserves earned progress, usage totals, and
+              unanswered approvals. Usage identities remain separately for
+              corrections, so this is not a hard cap on the entire database.
+            </p>
+          </details>
+          <details>
+            <summary>
+              What is free, and what can I customize?<span aria-hidden="true"
+                >＋</span
+              >
+            </summary>
+            <p>
+              The repository’s code is MIT licensed. Run it locally and
+              customize the themes, names, characters, furniture, aquarium, and
+              music. Runtimes and model providers have their own requirements
+              and pricing. Optional commercial Smallburg art is not bundled; the
+              public app includes original fish sprites.
+            </p>
+          </details>
+          <details>
+            <summary>
+              What is still being built?<span aria-hidden="true">＋</span>
+            </summary>
+            <p>
+              More runtime adapters, source task-list snapshots, current-context
+              gauges, and broader host integration checks are still open work.
+              The existing Tasks panel shows observed session activity. The
+              <a
+                href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
+                >audit record</a
+              >
+              separates verified behavior from remaining work.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="closing shell" aria-labelledby="closing-title">
+        <div>
+          <p class="eyebrow">Open source. Open door.</p>
+          <h2 id="closing-title">Give your work<br />a place to land.</h2>
+          <p>Try the room. Read the code. Help make the next version better.</p>
+          <div class="hero-actions">
+            <a class="button" href="#get-started"
+              >Start your office <span aria-hidden="true">↗</span></a
+            ><a
+              class="text-link"
+              href="https://github.com/NosytLabs/agent-office/blob/main/CONTRIBUTING.md"
+              >Make a contribution <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+        <div class="closing-door" aria-hidden="true">
+          <span>AGENT<br />OFFICE</span><i></i>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <div>
+        <a class="brand" href="#top"
+          ><img src="assets/office.svg" alt="" width="32" height="32" /><span
+            >Agent Office<small>by Nosyt Labs</small></span
+          ></a
+        >
+        <p>An independent local observer for coding agents.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="https://github.com/NosytLabs/agent-office">Source</a
+        ><a
+          href="https://github.com/NosytLabs/agent-office/blob/main/docs/runtime-observers.md"
+          >Documentation</a
+        ><a href="https://github.com/NosytLabs/agent-office/issues">Issues</a
+        ><a href="credits.html">Credits &amp; licenses</a>
+      </nav>
+      <p class="footer-note">
+        Runtime names and marks belong to their owners. No affiliation or
+        endorsement is implied.
+      </p>
+    </footer>
+  </body>
+</html>

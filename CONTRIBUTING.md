@@ -55,7 +55,7 @@ SCENE_CANVAS_MODULE=/absolute/path/to/skia-canvas node tests/render-scene.cjs
 
 This produces images under `reports/scene-render` and does not replace browser interaction tests or add a production dependency. The [CI workflow](.github/workflows/ci.yml) runs Python, Node, syntax, formatting, and browser checks; documentation-only changes are excluded from its automatic triggers.
 
-Build the shareable demonstration with `npm run build:preview`. It packages the reviewed public fixture and assets into `dist/`; it does not start a live observer or deploy a site. [The preview guide](docs/preview.md) explains fixture regeneration, local checks, and deployment settings.
+Build the shareable demonstration with `npm run build:preview`. It packages the reviewed public fixture and assets into `dist/` and the product website into `dist/about/`. `npm run build:site` builds the website alone in `site-dist/`, suitable for GitHub Pages. These commands do not start a live observer or deploy a site. [The preview guide](docs/preview.md) explains fixture regeneration, local checks, and deployment settings.
 
 ## Change boundaries
 
@@ -78,6 +78,10 @@ The active achievement catalog has 37 entries. Add a reachable condition and mea
 Keep one shared browser frontend for standalone use and VS Code. Render event text safely and preserve keyboard focus when reconciling cards. Settings saves must protect newer queued patches from earlier failures. Furniture operations enter undo history only after confirmation; external furniture changes invalidate stale history.
 
 Test pointer and keyboard paths, mobile Fit scrolling, cancelled gestures, and reduced motion when modifying the canvas. Shared bounds should drive drawing, collision, selection, and reflow. Decorative interactions must not publish work events or award fabricated work XP. Music starts only after a user gesture and stops on mute, tab hiding, and page exit.
+
+Agent preferences use canonical IDs and validated full-map replacement. An invalid or occupied desk destination must leave the previous assignment intact. Filtered agents still occupy their desks. Use the shared appearance resolver for floor sprites, roster portraits, and sprite-dependent ornaments. Preserve these relationships when changing layout or customization controls.
+
+Keep the product website progressively enhanced: content and commands must work without JavaScript, tabs must be keyboard accessible, and all resource paths must work under a project subpath. `tools/build_site.mjs` uses an explicit public-asset allowlist; do not include runtime data, arbitrary exports, or optional commercial art. The Pages workflow publishes only that output and does not alter repository visibility or enablement settings.
 
 ### Art, sound, and runtime marks
 

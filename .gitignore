@@ -21,4 +21,5 @@ office.sqlite3*
 event-epoch
 inbox/
 dist/
+site-dist/
 *.vsix

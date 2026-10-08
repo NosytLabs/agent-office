@@ -4,14 +4,16 @@ This document describes Agent Office 0.5.0's verification scope and release evid
 
 ## Interface evidence
 
-![Office overview with synthetic sessions](../screenshots/office.png)
+![Office overview in Juniper with synthetic sessions](../screenshots/appearance.png)
 
 | View | Screenshot |
 | --- | --- |
 | Aquarium | [Fish selection and feeding](../screenshots/aquarium.png) |
 | Usage | [Reported counters and coverage](../screenshots/usage.png) |
-| Settings | [Room and retention controls](../screenshots/settings.png) |
+| Settings | [Desk, pet, and saved-choice controls](../screenshots/settings.png) |
+| Personalization | [Individual desk and character preferences](../screenshots/personalization.png) |
 | Appearance | [Juniper, walnut desks, and a delegated robot](../screenshots/appearance.png) |
+| Product website | [Responsive product introduction](../screenshots/product-site.png) |
 
 See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
 
@@ -28,8 +30,12 @@ See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.m
 | Achievements | All 37 catalog conditions are reachable; retired records disappear while earned XP, statistics, and existing lamps remain; errors, time of day, and theme changes award no XP; aliases do not inflate runtime counts | [`test_progress.py`](../../tests/test_progress.py), [`test_layout_unlocks.py`](../../tests/test_layout_unlocks.py), [`test_event_store.py`](../../tests/test_event_store.py), [`test_audit_regressions.py`](../../tests/test_audit_regressions.py) |
 | Browser and scene | Real local HTTP routes, polling, disconnected states, furniture/editor persistence, failed queued saves, touch scrolling, focus, search, reset, assets, and downloads | [`browser.test.cjs`](../../tests/browser.test.cjs), [`scene-model.test.cjs`](../../tests/scene-model.test.cjs), [`product-ui.test.cjs`](../../tests/product-ui.test.cjs) |
 | Appearance | All 21 compiled robot poses, roster consistency, grounded crowns, real walk frames/facing in both layouts, desk finishes, save recovery, unlock gates, transformed canvas clicks, and responsive collision bounds | [`appearance.test.cjs`](../../tests/appearance.test.cjs) |
+| Personalization | Canonical-ID desk and character preferences, atomic validation, occupied-seat rejection, deterministic conflicts, filtering and responsive layouts, persistence without fabricated activity | [`personalization.test.cjs`](../../tests/personalization.test.cjs), [`test_personalization.py`](../../tests/test_personalization.py) |
+| HUD | Visible close controls, preserved scroll and inspector return context, selected history text across polling, contained mobile scrolling, deduplicated notices, safe view persistence, and per-agent usage coverage | [`hud.test.cjs`](../../tests/hud.test.cjs) |
+| Pets | Bounded movement, collision clearance, idle approaches and active-work avoidance, sleep, click targets, reflow, pause, visibility, and reduced-motion behavior | [`pets.test.cjs`](../../tests/pets.test.cjs), [`pets-browser.test.cjs`](../../tests/pets-browser.test.cjs) |
 | Aquarium and music | Fish movement/feeding limits, unlocks, preferences, optional art validation, gesture-started audio, voice cleanup, and muted/hidden behavior | [`aquarium.test.cjs`](../../tests/aquarium.test.cjs), [`jukebox-model.test.cjs`](../../tests/jukebox-model.test.cjs), [`room-interactions.test.cjs`](../../tests/room-interactions.test.cjs), [`test_smallburg_import.py`](../../tests/test_smallburg_import.py) |
 | Public preview | Isolated fixture generation, static build boundaries, synthetic markers, reset/history/preferences, and exclusion of local data and optional commercial art | [`test_preview_build.py`](../../tests/test_preview_build.py), [`preview.test.cjs`](../../tests/preview.test.cjs) |
+| Product website | Allowlisted public build, safe regeneration, relative paths, real desktop/mobile browser flows, keyboard tabs, actual clipboard and denied-clipboard recovery, reduced motion and no-JavaScript content | [`test_site_build.py`](../../tests/test_site_build.py), [`site.test.cjs`](../../tests/site.test.cjs) |
 | VS Code view | URL validation, actual local HTTP probes, cancellation/race handling, command boundaries, and panel lifecycle | [`vscode-panel.test.cjs`](../../tests/vscode-panel.test.cjs): 11 focused tests passed in this validation environment |
 
 Run the repository's Python, Node, syntax, formatting, and browser commands together before release. The [CI workflow](../../.github/workflows/ci.yml) defines the same checks and captures browser artifacts. A configured workflow is not evidence of a hosted run; consult the pull request's actual check results for its commit. This document does not carry forward test totals or benchmarks from an older implementation.
@@ -42,12 +48,12 @@ the local run is not evidence of that separate environment.
 
 | Command or flow | Result |
 | --- | --- |
-| `python -m pytest -q -o addopts=''` | 310 passed |
-| `npm test` | 54 passed |
-| `npm run test:browser` | 92 passed, 0 failed, 1 optional local-art check skipped |
+| `python -m pytest -q -o addopts=''` | 337 passed |
+| `npm test` | 80 passed |
+| `npm run test:browser` | 127 passed, 0 failed, 1 optional local-art check skipped |
 | Optional local-art browser check with the verified Smallburg pack | 1 passed; all four fish decoded their four native frames |
 | `npm run check` and `npm run format:check` | Passed |
-| `npm run build:preview` | Built 56 public files; no local runtime data or Smallburg sheets |
+| `npm run build:preview` | Built 58 public demo files and 19 product-site files; no local runtime data or Smallburg sheets |
 
 The music tests measured nonzero waveforms from a native `AnalyserNode` for
 all three tracks, then checked actual audio-context cleanup. The browser suite
@@ -57,6 +63,16 @@ The screenshots above come from isolated public-fixture runs. Appearance tests
 observed actual canvas drawing, rather than substituting pixels or animation
 timing. They reproduced and then verified fixes for unreachable furniture hit
 areas, mismatched roster portraits, and crowns above the shorter robot.
+
+The final integrated browser run completed in 70.6 seconds. It includes 23 HUD
+flows, four real-floor pet flows, and eight product-site flows. Independent
+review also reproduced incorrect usage-alias selection, delayed-history scroll
+loss, focused-notice eviction, and preference draft races; their regressions
+passed in the integrated run. Notification layout originally resized the canvas
+and invalidated subsequent sprite clicks. Notices now leave the canvas position,
+backing dimensions, and fit scale unchanged on desktop and mobile, including
+when a panel closes. The original appearance pixel comparison and both native
+cat clicks passed without weakening their assertions.
 
 The latest branch review also reproduced delayed session-error callbacks
 reopening completed agents. The integrated fix preserves terminal status,
