@@ -452,7 +452,8 @@ def _progress_for(badge_id: str, stats: Dict[str, Any], xp: int,
                   plats: set, by_tool: dict) -> int:
     """Return 0..100 progress for a badge so the front-end can show a bar."""
     def pct(num: int, den: int) -> int:
-        return min(100, max(0, int(round(num / max(1, den) * 100))))
+        # Round down so 100% always means the stated threshold was reached.
+        return min(100, max(0, num * 100 // max(1, den)))
 
     tools = int(stats.get("tools") or 0)
     sessions = int(stats.get("sessions") or 0)

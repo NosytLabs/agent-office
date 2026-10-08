@@ -2161,7 +2161,7 @@
           "hint": "5000 tools",
           "id": "five_k",
           "name": "Five thousand",
-          "progress": 1,
+          "progress": 0,
           "reward": null,
           "xp": 120
         },
