@@ -217,6 +217,7 @@ class OfficeScene {
       if (!ids.has(id)) this.initialIds.delete(id);
     this.agents = agents;
     this.settings = settings;
+    this.assignedSeats();
     this.cosmetics = progress?.cosmetics || [];
     this.focus = focus;
     this.filter = filter;
@@ -227,8 +228,40 @@ class OfficeScene {
       (a) => this.filter === "every" || platOf(a) === this.filter,
     );
   }
+  assignedSeats() {
+    const key = JSON.stringify(
+      this.agents.map((a) => [a.id, agentPreference(a.id, this.settings).seat]),
+    );
+    if (key !== this.seatAssignmentKey) {
+      const live = new Set(this.agents.map((a) => a.id));
+      this.automaticHomes ||= new Map();
+      this.automaticIds ||= new Set();
+      for (const id of this.automaticHomes.keys())
+        if (!live.has(id)) this.automaticHomes.delete(id);
+      const seats = resolveAgentSeats(
+        this.agents,
+        this.settings,
+        this.automaticHomes,
+        this.automaticIds,
+      );
+      this.agentSeats = new Map(seats.map(({ a, slot }) => [a.id, slot]));
+      this.automaticIds = new Set();
+      for (const { a, slot } of seats) {
+        if (agentPreference(a.id, this.settings).seat === slot) continue;
+        this.automaticHomes.set(a.id, slot);
+        this.automaticIds.add(a.id);
+      }
+      // Homes belong to this open view, not persisted preferences. Do not
+      // replace one with an optimistic explicit move: a failed save or Reset
+      // must be able to reclaim the old home if it is still free.
+      this.seatAssignmentKey = key;
+    }
+    return this.agents
+      .map((a) => ({ a, slot: this.agentSeats.get(a.id) }))
+      .sort((one, two) => one.slot - two.slot);
+  }
   seatOptions() {
-    const seats = resolveAgentSeats(this.agents, this.settings);
+    const seats = this.assignedSeats();
     const occupants = new Map(seats.map(({ a, slot }) => [slot, a]));
     const count = Math.min(
       AGENT_PREFERENCE_LIMIT,
@@ -257,7 +290,7 @@ class OfficeScene {
     // Validate occupancy against every active session, including filtered ones,
     // before producing any replacement map. The normal save queue owns commit.
     if (Object.hasOwn(changes, "seat") && changes.seat !== null) {
-      const occupant = resolveAgentSeats(this.agents, this.settings).find(
+      const occupant = this.assignedSeats().find(
         ({ slot }) => slot === changes.seat,
       );
       if (occupant && occupant.a.id !== id)
@@ -285,7 +318,7 @@ class OfficeScene {
     };
   }
   layout(width) {
-    const assigned = resolveAgentSeats(this.agents, this.settings),
+    const assigned = this.assignedSeats(),
       max = width < 600 ? 2 : this.settings.max_chars;
     const capacity = Math.max(
       this.agents.length,
@@ -677,8 +710,8 @@ class OfficeScene {
       c.y = target.y;
       c.moving = false;
     }
-    // Characters at the station always use the idle frame; moving sprites use
-    // distance travelled, not refresh rate, for the four-frame walk cycle.
+    // Stationary characters use their observed activity frames. Moving sprites
+    // advance the four-frame walk cycle by distance travelled.
     if (!c.moving) this.character(a, c.x, c.y, c);
     const desktop = this.sprites["desk-" + deskStyle];
     if (desktop) g.drawImage(desktop, x, y + 7, 40, 14);
