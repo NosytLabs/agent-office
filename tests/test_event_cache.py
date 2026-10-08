@@ -2,6 +2,7 @@
 import builtins
 import json
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,19 @@ def test_changed_log_invalidates_cached_events(log_reader, change):
         path.write_text(two)
         # Size and mtime alone cannot detect an in-place edit with restored mtime.
         os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        # Coarse filesystem clocks can put both writes in one ctime tick.
+        # This case tests ctime invalidation, so establish that precondition
+        # without changing the file bytes, size, inode, or restored mtime.
+        for _ in range(100):
+            if path.stat().st_ctime_ns != stat.st_ctime_ns:
+                break
+            time.sleep(0.01)
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        changed = path.stat()
+        assert changed.st_ctime_ns != stat.st_ctime_ns
+        assert changed.st_mtime_ns == stat.st_mtime_ns
+        assert changed.st_size == stat.st_size
+        assert changed.st_ino == stat.st_ino
         expected = ["b"]
     elif change == "rotation":
         replacement = path.with_suffix(".replacement")
