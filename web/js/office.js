@@ -619,7 +619,7 @@ function fillStats() {
   for (const source of usage.totals?.cost_sources || []) {
     const line = document.createElement("p");
     line.className = "h";
-    line.textContent = `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} USD from ${Number(source.reports).toLocaleString()} reports.`;
+    line.textContent = `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} USD from ${Number(source.reports).toLocaleString()} ${Number(source.reports) === 1 ? "report" : "reports"}.`;
     $("usage-breakdown").append(line);
   }
   const top =

@@ -6,6 +6,22 @@ coding tools. The page displays a persistent demo notice and labels the usage
 section as synthetic. Sample costs are illustrative values, not model prices
 or real charges.
 
+## Hosted review
+
+[Open the verified Vercel preview](https://agent-office-preview-pb9y8gmfo-nosyt.vercel.app/).
+The deployment was built from [commit `59fc545`](https://github.com/NosytLabs/agent-office/commit/59fc545be78629bb6008e717de5fabe576c82462)
+with Node **22.23.2**, producing **52 public files**. Vercel's existing deployment
+protection remains enabled; access may require your Vercel account or a temporary
+share link from the project owner.
+
+The deployed UI was checked on 8 October 2026: agent and partial-usage panels,
+room settings, loaded aquarium art and feeding, and jukebox play/stop. The
+completed sample subagent left the floor after its normal display window. No
+application-origin warnings or errors appeared in the browser's captured log;
+separate browser-extension metadata errors were excluded.
+
+![Aquarium on the deployed public-art demo](screenshots/preview.jpg)
+
 ## Build and inspect locally
 
 The public build has no npm package dependencies and needs Node.js 22 or later:
@@ -38,10 +54,10 @@ Use these project settings for the reviewed branch/commit:
 | --- | --- |
 | Framework | Other (`null` in the API) |
 | Root directory | Repository root |
-| Build command | `node tools/build_preview.mjs` |
+| Build command | `npm run build:preview` |
 | Output directory | `dist` |
 | Install command | `node --version` |
-| Node.js version | 22.x or a newer supported version |
+| Node.js version | 22.x |
 
 No serverless functions, environment variables, runtime credentials, Python
 build environment, or external service calls are needed. The install override
@@ -51,9 +67,9 @@ Vercel supports custom build and output settings for static builds. Its
 such as `>=22` selects the latest supported matching version; use `22.x` if
 specifically pinning that major version is desired.
 
-This document describes build configuration. A deployment should refer to the
-final integrated and verified commit; the build script does not deploy or create
-a Vercel project.
+The build script does not deploy or create a Vercel project. The existing
+`agent-office-preview` project builds the connected GitHub branch. Use the
+deployment's source commit and check results when reviewing later updates.
 
 References:
 

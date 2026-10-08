@@ -53,6 +53,18 @@ also covers settings failure/retry, queued writes, two-tab demo reset/history
 behavior, grouped unlock notices, quiet-agent inspection, and 320-pixel layouts.
 The four screenshots above come from the integrated public-fixture run.
 
+The [hosted preview](../preview.md#hosted-review) also built successfully under
+Node **22.23.2** and passed the recorded deployed UI checks on 8 October 2026.
+This confirms the static build on Node 22; it does not substitute for running
+the complete test suite on that version.
+
+At release review, the [GitHub CI workflow page](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml)
+reported **“This workflow was disabled manually.”** No hosted Actions run exists
+for the reviewed commit. The local test results above and the Vercel build are
+separate evidence. Re-enable the existing workflow through repository settings
+to restore hosted checks; its disabled state was not bypassed by creating a
+replacement workflow.
+
 ## Integration limits
 
 **Installed runtime sessions remain unverified here.** Hermes, Claude Code, Codex, and OpenCode executables were unavailable in this environment. Tests exercised their adapter contracts and the real local publisher → inbox → database → HTTP/browser path using fixtures. A user-environment check must still confirm that the installed runtime version emits those payloads and successfully loads its configuration. [Runtime coverage](../runtime-observers.md) identifies adapter-specific capabilities and source contracts.
