@@ -14,22 +14,23 @@ path; they do not represent live model sessions.
 
 ## Current local validation — 8 October 2026
 
-The latest recorded local validation used Python 3.12.14, Node 24.19.0, and
-Chromium 153.0.8010.0 on Linux. These are results from the preceding local
-release review; they were not rerun while reorganizing this report.
+The latest recorded validation for the current merged tree used Python 3.11,
+Node 22.16.0, and Playwright 1.63.0 with Chromium 153.0.8010.12 on Linux.
 
 | Check | Recorded result |
 | --- | --- |
-| Full Python suite, including native Gemini fixtures | **579 passed** |
-| `npm test` | **120 passed** |
-| `npm run test:browser` | **213 passed**, 0 failed, **1 optional private-art case skipped** |
-| Syntax, formatting, and Git diff checks | Passed |
+| Full Python suite | **577 passed**, **2 native Gemini fixture cases skipped** |
+| `npm test` | **123 passed** |
+| `npm run test:browser` | **216 passed**, 0 failed, **1 optional private-art case skipped** |
+| Syntax and formatting checks | Passed |
 | Public preview and product-site builds | **104 demo files** and **20 product-site files** |
+| Tracked-tree verification | **260 files matched**, 0 mismatches |
 
-The browser result covers 214 cases in total. The skipped Smallburg artwork
-case requires an optional licensed local asset pack; public artwork and the
-missing-pack fallback were exercised. The results are local evidence. The
-configured CI workflow, Vercel deployment, and other hosted checks have
+The browser result covers 217 cases in total. The skipped Smallburg artwork
+case requires an optional licensed local asset pack; public artwork,
+missing-pack fallback, and synthetic four-frame recovery coverage passed.
+The two Python skips require native Gemini CLI fixtures. These are local
+results; configured CI, Vercel deployment, and other hosted checks have
 separate statuses.
 
 This validation included the pinned MIT-source Snake adaptation, Breakout and
@@ -38,16 +39,6 @@ fallback behavior. Focused arcade checks cover queued direction changes,
 collision and scoring rules, pause/resume state, stored-score failure, shifted
 WASD input, and actual Chromium keyboard and touch input. The release
 screenshots use isolated office fixtures and synthetic activity.
-
-The branch review for `codex/office-integrity` at `897d3e0` found one unique
-test-only commit whose expectations were superseded. Current coverage in
-[`test_progress.py`](../../tests/test_progress.py) and
-[`test_event_store.py`](../../tests/test_event_store.py) verifies retired
-achievements, errors without XP, theme changes through settings storage, legacy
-lamp preservation without inventing a replacement achievement, the current
-50-observed-tool lamp reward, and milestone percentages that remain below 100
-until earned. The stale branch tests were not reintroduced, and users' recorded
-XP and rewards were not rewritten.
 
 Issue [#18](https://github.com/NosytLabs/agent-office/issues/18) remains open
 for existing-session OpenCode handoff and durable delivery receipts. The
