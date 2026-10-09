@@ -6,6 +6,20 @@ the [current validation report](README.md) contains the latest totals and
 integration limits. A configured CI or deployment workflow is not evidence
 that these local results ran in a hosted environment.
 
+## Integrity branch reconciliation — 8 October 2026
+
+The former `codex/office-integrity` line at `897d3e0` was reviewed before the
+arcade merge. Its useful terminal-callback and late-error coverage was already
+incorporated; its remaining test-only expectations described a retired reward
+policy and were not reintroduced. Current progression and event-store tests
+cover retired achievements, no-XP error handling, settings-only theme changes,
+legacy lamp preservation, the 50-observed-tool lamp reward, and milestone
+percentages.
+
+A later cleanup comparison confirmed `897d3e0` is an ancestor of current
+`main`: the branch has zero unique commits and is fully superseded. No user XP,
+rewards, or event history were rewritten during that reconciliation.
+
 ## Local task control and console update — 8 October 2026
 
 The [optional local runner](../local-task-runner.md) is a separate execution
