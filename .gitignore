@@ -1,25 +1,28 @@
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
+
+# Local Agent Office state
 .hermes/
 progress.json
 events.jsonl
-*.tmp
-.DS_Store
-node_modules
-shots/
-
-# Defensive patterns (added by cleanup)
-*.log
-.venv/
-reports/
-playwright-report/
-test-results/
-
-# Local state and static build outputs
 office.sqlite3*
 event-epoch
 inbox/
+
+# JavaScript, builds, and test output
+node_modules/
 dist/
 site-dist/
+reports/
+playwright-report/
+test-results/
+shots/
 *.vsix
+
+# Temporary and OS files
+*.tmp
+*.log
+.DS_Store
