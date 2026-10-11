@@ -118,11 +118,14 @@ async function withOffice(run, options = {}) {
     });
     p.setDefaultTimeout(10000);
     p.on("pageerror", (error) => errors.push(error.stack || error.message));
-    if (options.blockRobot)
+    if (options.blockRobot) {
+      // Force source fallback before testing a missing authoring sheet.
+      await p.route("**/assets/sprites/runtime/*", (route) => route.abort());
       await p.route(
         "**/assets/sprites/characters/studio-assistant.png",
         (route) => route.abort(),
       );
+    }
     await p.goto(baseURL);
     await p.waitForFunction(() => initialized && agents.length === 3);
     await p.waitForFunction(

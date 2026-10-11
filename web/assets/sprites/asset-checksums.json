@@ -9,9 +9,9 @@
   "characters/moss-engineer.png": "1343883e8870a5060c4ebf13c01201776060a87e98647f68922a4a69750dbae6",
   "characters/orbit-courier.png": "204e0d18a3b2762e910cd66927abab1c3f0c8afd4681874d024832e8e5d08503",
   "characters/studio-assistant.png": "dcb61a3b25ef7be6d43b236f152008a83fb612b086385cf9a5c8a6965eb3d4be",
+  "furniture/decor-atlas.png": "6d058f61f4ebfa134a3f3af22186424c08725ba7fa4fb4ed4ab206bc3d48b72b",
   "furniture/DOOR.png": "2c69089d0e0b12adeb080e82ad0352fa036fe97fb00e20d153f1e5cbc43d405c",
   "furniture/FISH_TANK.png": "da88823f78e63988640eb1204d81bcbaa9f91d2b0ba9e83bb110fd98edac55c0",
-  "furniture/decor-atlas.png": "6d058f61f4ebfa134a3f3af22186424c08725ba7fa4fb4ed4ab206bc3d48b72b",
   "furniture/jukebox.png": "a6c2e4bab07ccd9d287b284b400f2f3cfd409752c770003c619088c8a7e7abc3",
   "furniture/rewards-atlas.png": "810b15a93dd45ea8d855dab7ab3b974cba31dbaeff29e316164a4eb376a7d074",
   "furniture/signals-atlas.png": "cf99a20c27093efc142d453cb382711af977ac6468ae7c58de0d0a7b48fb42a1",
@@ -22,5 +22,6 @@
   "furniture/workstations-atlas.png": "dae399bbf0b76d1862f066902407e14ad0ab04b665e0d32f4a6162fa411b089f",
   "pets/claudio.png": "d410635fa038422a9ceee021abbd1afd57fdf67805966896382e62da447fa67c",
   "pets/gitcat.png": "085980b8d33ddc69911b68177471694481b00d7c863fe4637b90cbbc7fe20bd8",
-  "pets/sleep_cat.png": "5c15415dd1e083b5d3dc9cae1c1d5a31f9356364fff9ac74b618e36242548664"
+  "pets/sleep_cat.png": "5c15415dd1e083b5d3dc9cae1c1d5a31f9356364fff9ac74b618e36242548664",
+  "runtime/office.png": "fe968d71aa179a684b4c7112161a1e8924ae7b2efd2391794edbdc43013678ef"
 }

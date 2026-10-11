@@ -341,6 +341,7 @@
     duckPaused = true,
     duckNonce = "",
     duckFrame = null,
+    duckLoadTimer = null,
     status = "Choose a game. Nothing starts automatically.";
 
   function nativeSelected() {
@@ -413,7 +414,25 @@
       "Click or tap flying ducks. Keyboard: Enter starts, arrows aim, T targets a duck, Space fires. Escape pauses.";
     render();
   }
+  function cancelDuckLoad() {
+    if (duckLoadTimer !== null) clearTimeout(duckLoadTimer);
+    duckLoadTimer = null;
+  }
+  function failDuck() {
+    cancelDuckLoad();
+    pauseDuck();
+    duckReady = false;
+    duckFailed = true;
+    userPaused = true;
+    localMotionOptIn = false;
+    // Stop a failed/late document before presenting an explicit fresh retry.
+    if (duckFrame) duckFrame.src = "about:blank";
+    status =
+      "Duck Hunt could not load its local game files. Press Retry Duck Hunt.";
+    render();
+  }
   function unloadDuck() {
+    cancelDuckLoad();
     if (!duckFrame) return;
     pauseDuck();
     duckFrame.removeAttribute("src");
@@ -437,6 +456,10 @@
     duckFrame.referrerPolicy = "no-referrer";
     duckFrame.src = `arcade/duck-hunt/index.html?nonce=${encodeURIComponent(duckNonce)}`;
     byId("arcade-duck-stage").replaceChildren(duckFrame);
+    const loadingFrame = duckFrame;
+    duckLoadTimer = setTimeout(() => {
+      if (duckFrame === loadingFrame && !duckReady) failDuck();
+    }, 10000);
     status = "Loading the local Duck Hunt game…";
     render();
   }
@@ -848,20 +871,15 @@
       !["ready", "paused", "resumed", "load-error"].includes(data.type)
     )
       return;
+    if (duckFailed) return;
     if (data.type === "ready") {
+      cancelDuckLoad();
       duckReady = true;
       muteDuck();
       if (!userPaused && selected === "duck-hunt") resumeDuck();
       else render();
     } else if (data.type === "load-error") {
-      duckReady = false;
-      duckFailed = true;
-      duckPaused = true;
-      userPaused = true;
-      localMotionOptIn = false;
-      status =
-        "Duck Hunt could not load its local game files. Press Retry Duck Hunt.";
-      render();
+      failDuck();
     } else if (data.type === "paused") {
       duckPaused = true;
       userPaused = true;

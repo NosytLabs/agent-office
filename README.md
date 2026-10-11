@@ -2,7 +2,7 @@
 
 A local pixel office for working with your coding agents. See current tools, find sessions waiting for input, inspect subagents, track reported usage, and optionally launch a new task in a configured project.
 
-**Version 0.5.0** · [Product website](https://agent-office-preview-seven.vercel.app/about/) · [Live demo](https://agent-office-preview-seven.vercel.app/) · [Preview guide](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
+**Version 0.5.0** · [Product website](https://agent-office-preview-seven.vercel.app/about/) · [Live demo](https://agent-office-preview-seven.vercel.app/) · [Documentation](docs/README.md) · [Preview guide](docs/preview.md) · [Runtime coverage](docs/runtime-observers.md) · [Contributing](CONTRIBUTING.md)
 
 ![Agent Office in Juniper with synthetic runtime activity](docs/screenshots/appearance.png)
 

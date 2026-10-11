@@ -117,3 +117,11 @@ run with `npm test`; the Snake desktop/mobile flows join `npm run test:browser`.
 Enabling reduced motion during active play pauses even after an earlier local
 motion opt-in. Start or Resume is required again and does not change the
 system or office-wide preference.
+
+## Loading recovery
+
+If the Duck Hunt document never starts or its bootstrap cannot report readiness,
+the cabinet stops that attempt after ten seconds and enables **Retry Duck Hunt**.
+Retry creates a fresh sandboxed game. Switching games cancels the pending load
+watchdog, so a late response cannot replace the selected game's status. Missing
+local game files are reported without changing the iframe's permissions.
