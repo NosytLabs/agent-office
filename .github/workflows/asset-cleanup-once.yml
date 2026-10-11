@@ -1,0 +1,51 @@
+name: Prepare reviewed asset cleanup
+on:
+  push:
+    branches: [codex/assets-feature-cleanup]
+    paths: [.ci/asset-cleanup.patch.gz.b64]
+permissions:
+  contents: read
+concurrency:
+  group: reviewed-asset-cleanup
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/assets-feature-cleanup'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/assets-feature-cleanup
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Apply the exact locally reviewed source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .ci/asset-cleanup.patch.gz.b64 | gzip --decompress > /tmp/reviewed-office.patch
+          echo 'ac1553bc76e7d3aa0392f9529201f2ff6d9b44f1cf68adf262c314b909a4666b  /tmp/reviewed-office.patch' | sha256sum --check
+          git apply --check /tmp/reviewed-office.patch
+          git apply /tmp/reviewed-office.patch
+      - name: Compile and verify derived sprites
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          npm run build:sprites
+          npm run check:sprites
+          npm run check
+          npm test
+          npx prettier --check 'web/**/*.{js,css,html}' 'site/*.{js,css,html}' 'vscode/*.{js,json}' 'tests/*.{cjs,mjs}' package.json tools/build_site.mjs tools/build_sprites.mjs
+      - name: Publish only the reviewed source and derived atlas to this branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md docs/README.md docs/asset-pipeline.md docs/arcade.md docs/aquarium-assets.md package.json tests/appearance.test.cjs tests/native-sprites.test.cjs tests/arcade-recovery.test.cjs tests/inspector-stability.test.cjs tools/build_sprites.mjs web/js/scene.js web/js/arcade.js web/js/office.js web/assets/sprites/ATTRIBUTION.md web/assets/sprites/asset-checksums.json web/assets/sprites/runtime/manifest.json web/assets/sprites/runtime/office.png
+          git diff --cached --check
+          git commit -m 'Compile reviewed compact sprites, recovery fixes, and documentation'
+          git push origin HEAD:refs/heads/codex/assets-feature-cleanup
