@@ -100,3 +100,15 @@ Source references (require access to the owner's private repository):
 - [Fish catalog](https://github.com/NosytLabs/little-current/blob/15733b26b98271b89a4dd4c928532520ba30fdbc/Assets/Resources/Catalog.json)
 - [Native runtime crops](https://github.com/NosytLabs/little-current/blob/15733b26b98271b89a4dd4c928532520ba30fdbc/Assets/Scripts/Presentation/AquariumArt.cs)
 - [Facing convention](https://github.com/NosytLabs/little-current/blob/15733b26b98271b89a4dd4c928532520ba30fdbc/Assets/Scripts/Presentation/AquariumTank.cs)
+
+## Everyday aquarium controls
+
+Use **Greet fish**, or focus the tank and press Left/Right, to cycle through its
+residents. A fish tap greets that fish; open water, **Feed fish**, and Space/Enter
+feed them. Feeding remains available when motion is paused, including after a
+full falling-food queue. **Tank light** is saved separately from room lighting.
+
+Optional image loads have a five-second deadline. **Retry fish artwork** retries
+the local pack while the original fish keep the tank usable. These interactions
+neither create observer activity nor award work XP. See the [documentation
+index](README.md) for the arcade, room controls, and maintainer guides.

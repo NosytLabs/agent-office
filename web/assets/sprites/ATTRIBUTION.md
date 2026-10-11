@@ -223,3 +223,11 @@ two-frame activity lamp that obeys Pause and reduced motion; there is no
 celebration or perpetual success effect.
 See [generated-task-console.json](generated-task-console.json) for the exact
 prompt, source bounds, state semantics, normalization contract, and checksum.
+
+## Compact runtime atlas
+
+`runtime/office.png` is a pixel-equivalent compilation of the existing credited
+character, furniture, and pet artwork above, not a replacement asset license.
+All original source sheets and notices remain unchanged. Its manifest records
+source SHA-256 values, sprite rectangles, and the existing character anchors.
+Rebuild and verification commands are in [the asset pipeline guide](../../../docs/asset-pipeline.md).

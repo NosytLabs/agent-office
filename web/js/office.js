@@ -1063,6 +1063,7 @@ function fillInspector() {
     $("agent-preference-form").hidden = true;
     $("inspect-history").hidden = true;
     $("agent-follow").hidden = true;
+    delete box.dataset.agent;
     box.innerHTML = '<p class="h">This session has left the office.</p>';
     return;
   }
@@ -1103,13 +1104,29 @@ function fillInspector() {
   nameInput.dataset.agent = a.id;
   nameInput.placeholder = a.observed_label || a.id;
   $("agent-name-reset").disabled = !settings.agent_names?.[a.id];
-  box.innerHTML = kv([
+  // Stable sections keep headings, text selection and scroll targets alive
+  // while the observer refreshes duration and usage values.
+  if (box.dataset.agent !== a.id) {
+    box.replaceChildren();
+    box.dataset.agent = a.id;
+  }
+  const section = (name) => {
+    let element = box.querySelector(`[data-inspector-section="${name}"]`);
+    if (!element) {
+      element = document.createElement("div");
+      element.dataset.inspectorSection = name;
+      box.append(element);
+    }
+    return element;
+  };
+  const metadata = section("metadata");
+  metadata.innerHTML = kv([
     ["Session", a.id],
     ["Parent", a.parent || "—"],
     ["Elapsed", duration(a.duration_s)],
     ["Since event", duration(a.idle_s)],
   ]);
-  box.prepend(runtimeBadge(a));
+  metadata.prepend(runtimeBadge(a));
   if (a.quiet) {
     const note = document.createElement("p");
     note.className = "waiting-note";
@@ -1128,27 +1145,36 @@ function fillInspector() {
     waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed: ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}`;
     summary.append(waiting);
   }
-  const usageHeading = document.createElement("h3");
-  usageHeading.textContent = "This session’s reported usage";
-  const usageBox = document.createElement("div");
-  const sessionUsage = sessionUsageForAgent(a);
-  usageBox.innerHTML = usageSummary(sessionUsage);
-  box.append(usageHeading, usageBox);
-  const heading = document.createElement("h3");
-  heading.textContent = "Recent session events";
-  box.append(heading);
+  const usageSection = section("usage");
+  if (!usageSection.firstChild) {
+    const heading = document.createElement("h3");
+    heading.textContent = "This session’s reported usage";
+    usageSection.append(heading, document.createElement("div"));
+  }
+  const usageBox = usageSection.lastChild;
+  const usageHTML = usageSummary(sessionUsageForAgent(a));
+  if (usageBox.innerHTML !== usageHTML) usageBox.innerHTML = usageHTML;
+  const eventSection = section("events");
+  if (!eventSection.firstChild) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Recent session events";
+    eventSection.append(heading, document.createElement("div"));
+  }
+  const rows = document.createElement("div");
   const events = (window._state?.events || [])
     .filter((e) => (e.session_id || e.child_session_id) === a.id)
     .slice(-8)
     .reverse();
-  for (const e of events) box.append(eventRow(e));
+  for (const e of events) rows.append(eventRow(e));
   if (!events.length) {
     const p = document.createElement("p");
     p.className = "h";
     p.textContent =
       "No events for this session in the live window. Check saved activity for earlier events.";
-    box.append(p);
+    rows.append(p);
   }
+  if (eventSection.lastChild.innerHTML !== rows.innerHTML)
+    eventSection.lastChild.replaceWith(rows);
 }
 function syncAgentFollow() {
   const button = $("agent-follow"),

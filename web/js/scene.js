@@ -35,7 +35,132 @@ class OfficeScene {
     this.resize.observe(canvas);
     this.frame = requestAnimationFrame((t) => this.tick(t));
   }
-  loadAssets() {
+  runtimeSpriteSizes() {
+    return {
+      ...PROP_SIZES,
+      clock: [10, 10],
+      "desk-walnut": [40, 14],
+      "desk-slate": [40, 14],
+      ...Object.fromEntries(
+        ["idle", "running", "finished", "disconnected"].map((state) => [
+          "taskterminal-" + state,
+          PROP_SIZES.taskterminal,
+        ]),
+      ),
+      ...Object.fromEntries(
+        [
+          "studio-assistant",
+          "moss-engineer",
+          "orbit-courier",
+          ...Array.from({ length: 6 }, (_, i) => "char" + i),
+        ].map((key) => [key, [112, 96]]),
+      ),
+      DOOR: [32, 48],
+      FISH_TANK: [32, 24],
+      cat: [96, 96],
+      blackcat: [96, 96],
+      sleepcat: [24, 16],
+    };
+  }
+  async loadAssets() {
+    this.spriteAssetSource = "loading";
+    try {
+      const response = await fetch("assets/sprites/runtime/manifest.json", {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) throw new Error("Compact sprite manifest unavailable");
+      const manifest = await response.json(),
+        sizes = this.runtimeSpriteSizes();
+      if (
+        manifest.version !== 1 ||
+        manifest.sourceCount !== 23 ||
+        !Number.isInteger(manifest.width) ||
+        !Number.isInteger(manifest.height) ||
+        manifest.width < 1 ||
+        manifest.height < 1 ||
+        manifest.width > 1024 ||
+        manifest.height > 1024 ||
+        !manifest.entries ||
+        Object.keys(manifest.entries).length !== Object.keys(sizes).length
+      )
+        throw new Error("Invalid compact sprite manifest");
+      for (const [key, [width, height]] of Object.entries(sizes)) {
+        const rect = manifest.entries[key];
+        if (
+          !Array.isArray(rect) ||
+          rect.length !== 4 ||
+          !rect.every(Number.isInteger) ||
+          rect[0] < 0 ||
+          rect[1] < 0 ||
+          rect[2] !== width ||
+          rect[3] !== height ||
+          rect[0] + width > manifest.width ||
+          rect[1] + height > manifest.height
+        )
+          throw new Error("Invalid compact sprite: " + key);
+      }
+      const tops = {};
+      for (const key of [
+        "studio-assistant",
+        "moss-engineer",
+        "orbit-courier",
+      ]) {
+        const value = manifest.frameTops?.[key];
+        if (
+          !Array.isArray(value) ||
+          value.length !== 21 ||
+          !value.every((top) => Number.isInteger(top) && top >= 0 && top < 32)
+        )
+          throw new Error("Invalid character anchors: " + key);
+        tops[key] = [...value];
+      }
+      const image = await new Promise((resolve, reject) => {
+        const image = new Image();
+        const finish = (error) => {
+          clearTimeout(timer);
+          image.onload = image.onerror = null;
+          if (error) {
+            image.removeAttribute("src");
+            reject(error);
+          } else resolve(image);
+        };
+        const timer = setTimeout(
+          () => finish(new Error("Compact sprite image timed out")),
+          5000,
+        );
+        image.onload = () => finish();
+        image.onerror = () =>
+          finish(new Error("Compact sprite image unavailable"));
+        image.src = "assets/sprites/runtime/office.png";
+      });
+      if (
+        image.naturalWidth !== manifest.width ||
+        image.naturalHeight !== manifest.height
+      )
+        throw new Error("Compact sprite image dimensions differ");
+      const sprites = {};
+      for (const [key, rect] of Object.entries(manifest.entries)) {
+        const canvas = document.createElement("canvas");
+        [canvas.width, canvas.height] = rect.slice(2);
+        const context = canvas.getContext("2d");
+        context.imageSmoothingEnabled = false;
+        context.drawImage(image, ...rect, 0, 0, canvas.width, canvas.height);
+        sprites[key] = canvas;
+      }
+      // Publish one complete set; never mix partially decoded native/source art.
+      this.sprites = sprites;
+      this.spriteFrameTops = tops;
+      this.loadedAssets = manifest.sourceCount;
+      this.spriteAssetSource = "native";
+      this.canvas.dispatchEvent(new Event("spritesready"));
+      this.draw(0);
+    } catch (error) {
+      this.spriteAssetFallbackReason = error.message;
+      this.loadSourceAssets();
+    }
+  }
+  loadSourceAssets() {
+    this.spriteAssetSource = "source";
     const load = (key, src, ready) => {
       const im = new Image();
       im.onload = () => {
