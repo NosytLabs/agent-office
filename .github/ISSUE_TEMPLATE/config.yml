@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup and troubleshooting
+    url: https://github.com/NosytLabs/agent-office/blob/main/docs/setup.md
+    about: Install the observer, connect an existing runtime, and diagnose an empty room.
+  - name: Usage and cost reporting
+    url: https://github.com/NosytLabs/agent-office/blob/main/docs/usage.md
+    about: Understand missing usage, partial coverage, cost estimates, and alert thresholds.

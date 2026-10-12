@@ -9,7 +9,7 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', type=int, default=int(os.environ.get('AGENT_OFFICE_PORT', 8113)))
+    parser.add_argument('--port', type=int, default=os.environ.get('AGENT_OFFICE_PORT', '8113'))
     parser.add_argument('--enable-task-runner', action='store_true',
                         help='allow this server to launch supported local agent CLIs')
     parser.add_argument('--workspace', action='append', default=[], metavar='/ABSOLUTE/PROJECT',

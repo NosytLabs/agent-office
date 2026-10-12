@@ -6,15 +6,15 @@ they do not represent paid-provider work or the owner's live sessions.
 
 ## Current local validation
 
-The 12 October 2026 cleanup and debugging follow-up were checked against the gameplay baseline
-[`923196d`](https://github.com/NosytLabs/agent-office/commit/923196dee3b55d8d08335b9f4dc67cf3c4558bec)
+The 12 October 2026 setup, README, and usage-display changes were checked against
+baseline [`64777ca`](https://github.com/NosytLabs/agent-office/commit/64777ca40731db388c57e23a736cd69286113d75)
 using Python 3.14.4, Node 22.23.2, and Playwright 1.63.0 Chromium on Linux.
 
 | Check | Recorded result |
 | --- | --- |
-| Python suite, including repository and diagnostic regressions | **613 passed**, **2 native Gemini fixture skips** |
+| Python suite, including repository and diagnostic regressions | **622 passed**, **2 native Gemini fixture skips** |
 | Node models, controllers, and bridges | **127 passed** |
-| Browser flows | **229 passed**, **1 optional private-art skip** |
+| Browser flows | **232 passed**, **1 optional private-art skip** |
 | Compiled sprites | **47 sprites** match **23 original sheets** |
 | Syntax, formatting, local documentation links, and tracked-artifact checks | Passed |
 | Public builds | **106 demo files** and **20 product-site files** |
@@ -24,6 +24,12 @@ case requires the owner's licensed Smallburg pack; public art and synthetic
 fallback tests run without it. A successful Vercel deployment is not a test-suite
 result. Consult the actual commit's checks for hosted status. Earlier results
 and source-review context remain in [history](history.md).
+
+The setup regressions exercise read-only help/dry-run, explicit runtime selection,
+repeat installation, and malformed port input in isolated homes. Usage tests
+cover stable breakdown rows, overflow thresholds, and unknown versus zero values.
+The README was rendered locally at 1280, 390, and 320 pixels with no horizontal
+page overflow; this is not a claim of native-device or GitHub-renderer coverage.
 
 ## Reproduce the checks
 

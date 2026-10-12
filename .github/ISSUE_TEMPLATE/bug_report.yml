@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible Agent Office setup, tracking, or interface problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Check the setup guide first. Do not include API keys, private prompts, local databases, or unredacted project paths."
+  - type: input
+    id: version
+    attributes:
+      label: Agent Office commit or version
+      description: Use git rev-parse --short HEAD in your checkout.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system, Python version, and browser
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime or mode
+      options:
+        - Standalone observer
+        - Hosted or local demo
+        - Hermes
+        - OpenCode
+        - Claude Code
+        - Codex
+        - Gemini CLI
+        - VS Code
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or controls used and what you expected versus what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted error or screenshot
+      description: Optional. Remove credentials, prompts, session IDs, and private paths before sharing.

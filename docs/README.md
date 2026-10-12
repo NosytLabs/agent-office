@@ -6,6 +6,9 @@ to your runtime data. Demo activity is synthetic.
 
 ## Use the office
 
+[Installation and troubleshooting](setup.md) · [Usage and cost semantics](usage.md)
+
+
 | Task | Guide |
 | --- | --- |
 | Connect Hermes, OpenCode, Codex, Claude, or Gemini reporting | [Runtime coverage and contracts](runtime-observers.md) |
