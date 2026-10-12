@@ -22,9 +22,10 @@ panel or page is hidden. Reduced-motion and the office pause control pause the
 game; an explicit Start or Resume opts into essential game motion without
 changing the office-wide preference.
 
-Brick contacts separate the ball from the struck surface before the next
-physics substep, preventing repeated damage from the same diagonal corner hit.
-A deterministic regression test covers the armored-brick reproduction.
+Brick contacts first check the visible circular ball against the brick rectangle,
+so passing outside a corner cannot damage a brick. A hit separates the ball from
+the surface before the next physics substep, preventing repeated damage from one
+contact. Deterministic regressions cover corner misses and armored-brick hits.
 
 No upstream favicon is copied. The upstream favicon generator uses Twemoji
 graphics, which have their own CC BY 4.0 terms separate from the game's MIT
@@ -54,7 +55,9 @@ searching for a spawn location. The model is exported for deterministic tests.
 The head's eyes face the movement direction, the body uses alternating pixel
 segments, and food is drawn with the office palette. Canvas arrows and WASD,
 swipes, and labeled 44-pixel-minimum direction buttons share the same model.
-Direction buttons do not implicitly resume a paused game. Selecting a game
+Direction buttons do not implicitly resume a paused game. Moving focus from the
+canvas to the direction pad preserves an already accepted turn; pausing still
+clears queued input. Selecting a game
 focuses its visible Start or Resume control and paints its own title immediately.
 
 ## Duck Hunt
@@ -94,7 +97,8 @@ sound preference.
 ## Controls and persistence
 
 - **Breakout:** drag on the canvas or focus it and hold Left/Right. Start,
-  Pause/Resume, Restart, and Choose another game are ordinary buttons.
+  Pause/Resume, Restart, and Choose another game are ordinary buttons. Movement
+  keys never resume a paused round; use Resume explicitly.
 - **Snake:** focus the canvas for arrows or WASD, swipe across the canvas, or
   use the labeled direction buttons. Start, Pause/Resume, Restart, and Choose
   another game use the same shared controls as Breakout.
@@ -125,3 +129,10 @@ the cabinet stops that attempt after ten seconds and enables **Retry Duck Hunt**
 Retry creates a fresh sandboxed game. Switching games cancels the pending load
 watchdog, so a late response cannot replace the selected game's status. Missing
 local game files are reported without changing the iframe's permissions.
+
+Duck Hunt reports ready only after the original loader has prepared its artwork
+and removed its loading screen, rather than immediately after script execution.
+Broken required images trigger Retry; stalled artwork has an eight-second child
+loading deadline within the host's ten-second startup limit. Optional audio still
+uses its bounded best-effort fallback. Retrying does not reload the office or
+change observer XP. The upstream game bundle and its scoring rules are unchanged.

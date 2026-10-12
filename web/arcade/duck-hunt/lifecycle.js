@@ -304,7 +304,40 @@
     });
     addEventListener("resize", placeAim);
     placeAim();
-    post("ready");
+    // Script execution is not game readiness: the upstream loader still
+    // needs its images/audio before it removes the loading screen.
+    const loading = document.querySelector(".loading");
+    let settled = false;
+    const observer = new MutationObserver(checkAssets);
+    const deadline = nativeTimeout(() => finishBoot(false), 8000);
+    function finishBoot(success) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      observer.disconnect();
+      document.removeEventListener("error", imageError, true);
+      if (!success) pause();
+      post(success ? "ready" : "load-error");
+    }
+    function imageError(event) {
+      if (event.target instanceof HTMLImageElement) finishBoot(false);
+    }
+    function checkAssets() {
+      const images = [...document.querySelectorAll("img")];
+      // `complete` is also true for broken images; inspect dimensions too.
+      if (images.some((image) => image.complete && !image.naturalWidth))
+        finishBoot(false);
+      else if (loading && !loading.classList.contains("visible"))
+        finishBoot(true);
+    }
+    document.addEventListener("error", imageError, true);
+    if (loading)
+      observer.observe(loading, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    else finishBoot(false);
+    checkAssets();
   }
   document.addEventListener(
     "keydown",
