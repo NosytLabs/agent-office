@@ -329,6 +329,10 @@ that the observation was lost. Logging-handler errors are swallowed to preserve
 the observer's fail-open contract. Background-ingestion warnings have their own
 existing one-minute limit. These limits do not bound another runtime's logs.
 
+Publication-warning counters use a separate short-lived lock, not the server
+state lock. Failed publication can therefore return while an unrelated state or
+settings operation is busy. Logger callbacks run outside the counter lock.
+
 Repository ignore rules are a safety net, not permission to delete local data.
 Do not use a blanket ignored-file cleanup. Pending inbox files, legacy
 `events.jsonl`, `settings.json`, optional aquarium assets, and SQLite sidecars are

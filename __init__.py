@@ -71,6 +71,8 @@ DEFAULT_PORT = 8113
 _lock = threading.RLock()
 _event_cache: Optional[tuple[tuple, List[Dict[str, Any]]]] = None
 _server_started = False
+# Warning counters must not wait behind state ingestion or settings writes.
+_publish_warning_lock = threading.Lock()
 _publish_warning_at: Optional[float] = None
 _publish_warnings_suppressed = 0
 _port: int = DEFAULT_PORT
@@ -252,8 +254,8 @@ def _warn_publish_failure(exc: Exception) -> None:
     """Bound diagnostics, not publication attempts; logging also stays fail-open."""
     global _publish_warning_at, _publish_warnings_suppressed
     try:
-        now = time.monotonic()
-        with _lock:
+        with _publish_warning_lock:
+            now = time.monotonic()
             if _publish_warning_at is not None and now - _publish_warning_at < 60.0:
                 _publish_warnings_suppressed = min(_publish_warnings_suppressed + 1, 1_000_000_000)
                 return

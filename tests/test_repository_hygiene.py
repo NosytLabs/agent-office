@@ -125,3 +125,48 @@ def test_ignore_rules_protect_development_output_and_local_credentials(tmp_path)
     templates = subprocess.run(['git', 'check-ignore', '--no-index', '.env.example', '.env.sample'],
                                cwd=root, capture_output=True, text=True)
     assert templates.returncode == 1
+
+
+def test_tracked_symlink_does_not_read_untracked_local_file(tmp_path):
+    root = tmp_path / 'repo'
+    root.mkdir()
+    (root / 'README.md').symlink_to('private-note.md')
+    subprocess.run(['git', 'init', '-q', str(root)], check=True)
+    subprocess.run(['git', 'add', 'README.md'], cwd=root, check=True)
+    (root / 'private-note.md').write_text('[Private detail](local-private-token)\n')
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root)],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1
+    assert 'untracked symlink target' in result.stdout
+    assert 'local-private-token' not in result.stdout
+    assert '0 Markdown files' in result.stdout
+
+
+def test_symlink_to_tracked_document_still_checks_links(tmp_path):
+    root = tmp_path / 'repo'
+    root.mkdir()
+    (root / 'README.md').symlink_to('guide.md')
+    (root / 'guide.md').write_text('# Guide\n[Missing](absent.md)\n')
+    subprocess.run(['git', 'init', '-q', str(root)], check=True)
+    subprocess.run(['git', 'add', '--all'], cwd=root, check=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root)],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1
+    assert 'missing tracked target' in result.stdout
+    assert 'untracked symlink target' not in result.stdout
+
+
+def test_rejected_local_state_is_not_parsed_as_documentation(tmp_path):
+    root = tmp_path / 'repo'
+    root.mkdir()
+    (root / 'pixel-office').mkdir()
+    (root / 'pixel-office/private.md').write_text('[Private detail](local-private-token)\n')
+    (root / 'README.md').symlink_to('pixel-office/private.md')
+    subprocess.run(['git', 'init', '-q', str(root)], check=True)
+    subprocess.run(['git', 'add', '--all'], cwd=root, check=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), '--root', str(root)],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1
+    assert 'local-only' in result.stdout
+    assert 'local-private-token' not in result.stdout
+    assert '0 Markdown files' in result.stdout

@@ -88,3 +88,27 @@ def test_server_start_failure_does_not_claim_a_published_event_was_lost(tmp_path
     assert 'observer event handling failed' in caplog.text
     assert 'failed to record event' not in caplog.text
     assert 'private server configuration' not in caplog.text
+
+
+def test_failed_publication_does_not_wait_for_server_state_lock(failing_publisher, caplog):
+    from threading import Event, Thread
+
+    entered, returned = Event(), Event()
+    def attempt():
+        entered.set()
+        office._publish({'event': 'tool_start'})
+        returned.set()
+
+    worker = Thread(target=attempt, daemon=True)
+    try:
+        # A state/settings operation in another thread must not stall a failed
+        # runtime hook merely because the diagnostic counter needs updating.
+        with office._lock:
+            worker.start()
+            assert entered.wait(2), 'publisher thread started'
+            completed_while_locked = returned.wait(0.5)
+    finally:
+        worker.join(2)
+    assert not worker.is_alive()
+    assert completed_while_locked, 'diagnostics must not wait on the server state lock'
+    assert len(caplog.records) == 1

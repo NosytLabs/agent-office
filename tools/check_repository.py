@@ -88,9 +88,20 @@ def inspect(root: Path, names: list[str]) -> tuple[list[str], int, int]:
     for name in names:
         if local_only(name):
             errors.append(f'{name}: generated or local-only file is tracked')
+            continue
         path = root / name
-        if not path.resolve().is_relative_to(root):
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
             errors.append(f'{name}: tracked path resolves outside repository')
+            continue
+        # A tracked symlink is not permission to inspect its untracked or
+        # local-only target, even when that target is inside the checkout.
+        resolved_name = resolved.relative_to(root).as_posix()
+        if resolved_name not in tracked:
+            errors.append(f'{name}: untracked symlink target')
+            continue
+        if local_only(resolved_name):
+            errors.append(f'{name}: local-only symlink target')
             continue
         if not path.is_file():
             errors.append(f'{name}: tracked file is missing')

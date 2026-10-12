@@ -6,13 +6,13 @@ they do not represent paid-provider work or the owner's live sessions.
 
 ## Current local validation
 
-The 12 October 2026 cleanup was checked against the gameplay baseline
+The 12 October 2026 cleanup and debugging follow-up were checked against the gameplay baseline
 [`923196d`](https://github.com/NosytLabs/agent-office/commit/923196dee3b55d8d08335b9f4dc67cf3c4558bec)
 using Python 3.14.4, Node 22.23.2, and Playwright 1.63.0 Chromium on Linux.
 
 | Check | Recorded result |
 | --- | --- |
-| Python suite, including repository and diagnostic regressions | **609 passed**, **2 native Gemini fixture skips** |
+| Python suite, including repository and diagnostic regressions | **613 passed**, **2 native Gemini fixture skips** |
 | Node models, controllers, and bridges | **127 passed** |
 | Browser flows | **229 passed**, **1 optional private-art skip** |
 | Compiled sprites | **47 sprites** match **23 original sheets** |
@@ -40,7 +40,9 @@ npm run test:browser
 npm run build:preview
 ```
 
-`check_repository.py` inspects the Git index and tracked working files only. It
+`check_repository.py` inspects the Git index and tracked working files only.
+Tracked symlinks to untracked or local-only files are rejected before content is
+read. Rejected local data is never parsed as documentation. It
 checks local Markdown paths/anchors, tracked logs/caches/local data, and conflict
 markers without making network requests or deleting files. It is not a complete
 Markdown parser or a secret-content scanner. Stage intended new source files
