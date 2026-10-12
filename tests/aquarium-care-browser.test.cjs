@@ -29,7 +29,13 @@ test("feeding remains usable after a full food queue is paused", async () => {
       12,
     );
     await page.locator("#aquarium-motion").click();
-    await page.waitForTimeout(1700);
+    // A paused tank refreshes controls every 500 ms after the 1600 ms
+    // cooldown. Wait for that state, not for an unrelated observer poll.
+    await page.waitForFunction(
+      () => !document.getElementById("aquarium-feed").disabled,
+      null,
+      { timeout: 3000 },
+    );
     assert.equal(await page.locator("#aquarium-feed").isDisabled(), false);
     await page.locator("#aquarium-feed").click();
     const after = await page.evaluate(() => officeAquarium.snapshot());

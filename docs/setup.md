@@ -93,6 +93,17 @@ For agents running in WSL, run the office and installer inside that same WSL
 distribution so paths, executables, and data locations agree. Mixing a Windows
 installer with a WSL runtime is not a shared configuration by default.
 
+## In-app connection guide
+
+Selecting a runtime updates the copied installer command to use `--only` for
+that integration. **Telegram via Hermes** selects `--only hermes`, not a separate
+Telegram installer. VS Code selects `--only vscode`. Add `--dry-run` to inspect
+the setup plan first. Copying or selecting a command never runs it automatically.
+
+A disconnected data panel includes **Retry connection** and labels the retained
+snapshot. Start the local server first; a responding server alone does not prove
+that a particular runtime is publishing events.
+
 ## Troubleshooting
 
 **The room is empty.** Confirm the browser is on the local port printed by
