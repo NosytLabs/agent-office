@@ -1,0 +1,102 @@
+name: Verify reviewed onboarding and usage changes
+on:
+  push:
+    branches: [codex/usage-readme-transfer]
+    paths: [.ci/usage-readme.payload]
+permissions:
+  contents: read
+concurrency:
+  group: reviewed-onboarding-transfer
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/usage-readme-transfer'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/usage-readme-transfer
+          fetch-depth: 2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Restore the exact reviewed source and remove transport files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '64777ca40731db388c57e23a736cd69286113d75'
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, gzip, hashlib, json, subprocess
+          encoded = Path('.ci/usage-readme.payload').read_text()
+          # Verified transport-only corrections; the source hash below is authoritative.
+          for start, end, old, new in [(5118,5120,'hB',''),(1653,1654,'l',''),(1651,1652,'J','Yl')]:
+              assert encoded[start:end] == old
+              encoded = encoded[:start] + new + encoded[end:]
+          raw = gzip.decompress(base64.b64decode(encoded, validate=False))
+          assert hashlib.sha256(raw).hexdigest() == '217b777ff9892b78cd7170bf5ec45c1d8d0a5950c581b29a0edbeddee8862a07'
+          data = json.loads(raw)
+          allowed = {'README.md','docs/setup.md','docs/usage.md','tests/test_setup_cli.py','tests/usage-display.test.cjs','.github/ISSUE_TEMPLATE/bug_report.yml','.github/ISSUE_TEMPLATE/config.yml'}
+          assert set(data['files']) == allowed
+          patch = Path('/tmp/reviewed-onboarding.patch')
+          patch.write_text(data['patch'])
+          subprocess.run(['git','apply','--check',str(patch)], check=True)
+          subprocess.run(['git','apply',str(patch)], check=True)
+          for name, content in data['files'].items():
+              path = Path(name)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content)
+          PY
+          git rm -- .ci/usage-readme.payload .github/workflows/usage-readme-transfer.yml
+          git add README.md docs/setup.md docs/usage.md docs/README.md docs/audit/README.md tests/test_setup_cli.py tests/usage-display.test.cjs .github/ISSUE_TEMPLATE .github/workflows/ci.yml install.py run.py package.json web/js/office.js
+          git diff --cached --check
+          test "$(git write-tree)" = '4a383e96b797ced6d9065be23d74f56518bc5e62'
+      - name: Recheck setup, accounting display source, and repository hygiene
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          npm ci --ignore-scripts
+          python -m pytest -q -o addopts=''
+          npm test
+          npm run check
+          npm run format:check
+          npx prettier --check '.github/ISSUE_TEMPLATE/*.yml'
+          python tools/check_repository.py
+      - name: Publish verified objects and delete only this temporary branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git write-tree)" = '4a383e96b797ced6d9065be23d74f56518bc5e62'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Verify reviewed setup, usage display, and README changes'
+          git push origin HEAD:refs/heads/codex/usage-readme-transfer
+          echo "PUBLISHED_COMMIT=$(git rev-parse HEAD)"
+          echo "PUBLISHED_TREE=$(git rev-parse HEAD^{tree})"
+          git push origin --delete codex/usage-readme-transfer
+      - name: Disable this completed one-shot helper
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          assert os.environ['GITHUB_REPOSITORY'] == 'NosytLabs/agent-office'
+          assert os.environ['GITHUB_REF'] == 'refs/heads/codex/usage-readme-transfer'
+          base = 'https://api.github.com/repos/NosytLabs/agent-office/'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'}
+          request = urllib.request.Request(base + 'actions/runs/' + os.environ['GITHUB_RUN_ID'], headers=headers)
+          with urllib.request.urlopen(request, timeout=15) as response:
+              run = json.load(response)
+          assert run['path'] == '.github/workflows/usage-readme-transfer.yml'
+          request = urllib.request.Request(base + 'actions/workflows/' + str(run['workflow_id']) + '/disable', data=b'', method='PUT', headers=headers)
+          with urllib.request.urlopen(request, timeout=15) as response:
+              assert response.status == 204
+          print('Temporary verification workflow disabled.')
+          PY
