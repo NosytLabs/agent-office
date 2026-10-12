@@ -1,0 +1,48 @@
+name: Publish reviewed gameplay fixes
+on:
+  push:
+    branches: [codex/gameplay-recovery]
+    paths: [.ci/gameplay.patch.gz.b64]
+permissions:
+  contents: read
+concurrency:
+  group: reviewed-gameplay-recovery
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/gameplay-recovery'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/gameplay-recovery
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Apply exact tested patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .ci/gameplay.patch.gz.b64 | gzip --decompress > /tmp/reviewed-gameplay.patch
+          echo '728a90481226b8a05e59142d9ccf54c9a831910ee5000d7746df9034e424d317  /tmp/reviewed-gameplay.patch' | sha256sum --check
+          git apply --check /tmp/reviewed-gameplay.patch
+          git apply /tmp/reviewed-gameplay.patch
+      - name: Verify syntax, models and formatting
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+          npx prettier --check web/js/arcade.js web/arcade/duck-hunt/lifecycle.js tests/arcade-model.test.cjs tests/arcade-gameplay.test.cjs package.json
+      - name: Publish the six reviewed files to this branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/arcade.md package.json tests/arcade-gameplay.test.cjs tests/arcade-model.test.cjs web/js/arcade.js web/arcade/duck-hunt/lifecycle.js
+          git diff --cached --check
+          git commit -m 'Fix arcade loading, collision, pause and mixed-input regressions'
+          git push origin HEAD:refs/heads/codex/gameplay-recovery
