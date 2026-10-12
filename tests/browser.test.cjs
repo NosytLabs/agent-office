@@ -211,7 +211,7 @@ test("setup commands copy with a selectable fallback and disclosures are keyboar
       .click();
     assert.equal(
       await p.evaluate(() => window.getSelection().toString()),
-      "python3 install.py",
+      "python3 install.py --only hermes",
     );
     assert.match(await p.textContent("#setup-copy-status"), /selected/);
     await p.locator("#sheet-setup summary").first().focus();

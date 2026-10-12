@@ -107,7 +107,7 @@
             id="filterbtn"
             class="btn"
             aria-label="Floor runtime"
-            title="Filter the office floor. Agent and task panels include all runtimes."
+            title="Filter the office floor. Agents has separate filters; Tasks includes all runtimes."
           >
             <option value="every">All runtimes</option>
             <option value="hermes">Hermes</option>
@@ -250,8 +250,8 @@
       hidden
     >
       <h2>On the floor</h2>
-      <p class="h">
-        Live sessions, with blocked agents first. Select one for details.
+      <p class="h" id="roster-description">
+        Observed sessions, with blocked agents first. Select one for details.
       </p>
       <input
         class="txt"
@@ -260,6 +260,40 @@
         placeholder="Find an agent, tool or status…"
         aria-label="Filter agents"
       />
+      <div class="roster-toolbar">
+        <label class="sr-only" for="roster-runtime">Agent runtime</label>
+        <select
+          id="roster-runtime"
+          class="txt"
+          aria-label="Agent runtime"
+        ></select>
+        <button id="roster-reset" class="btn" type="button" disabled>
+          Clear filters
+        </button>
+      </div>
+      <div
+        id="roster-filters"
+        class="seg"
+        role="group"
+        aria-label="Agent status"
+      >
+        <button type="button" data-roster-status="all" aria-pressed="true">
+          All
+        </button>
+        <button type="button" data-roster-status="waiting" aria-pressed="false">
+          Needs input
+        </button>
+        <button type="button" data-roster-status="active" aria-pressed="false">
+          Active
+        </button>
+        <button type="button" data-roster-status="idle" aria-pressed="false">
+          Idle
+        </button>
+        <button type="button" data-roster-status="ended" aria-pressed="false">
+          Ended
+        </button>
+      </div>
+      <p id="roster-summary" class="h" role="status"></p>
       <div id="roster"></div>
       <div class="panel-heading">
         <h3>Reported usage</h3>
@@ -838,8 +872,9 @@
         <li>
           <h3>Connect your runtime</h3>
           <p class="h">
-            In a second terminal, run the installer. Review its output, then
-            restart your runtime.
+            In a second terminal, connect only the runtime selected above.
+            Review its output, then restart that runtime. Add --dry-run to
+            inspect the plan without changing configuration.
           </p>
           <div class="setup-command">
             <code id="command-install">python3 install.py</code

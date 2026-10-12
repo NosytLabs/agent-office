@@ -78,10 +78,20 @@ runtime; see [runtime coverage](docs/runtime-observers.md).
 
 | What you need | Where to go |
 | --- | --- |
-| Find work that needs attention | Session activity, needs-input controls, and agent inspectors |
+| Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file |
 | Understand tokens and estimated cost | Usage cards and runtime/model breakdowns; [how to read them](docs/usage.md) |
 | Prepare or run a new task | Tasks → Draft prompt or the opt-in Local runs panel |
 | Personalize the office | Customize: themes, desks, characters, furniture, pets, and lighting |
+
+**A useful daily flow:** open **Agents → Needs input**, select a runtime, and
+inspect the session's reported command or question. Respond in the original
+agent terminal; the office does not grant approvals. **Active**, **Idle**, and
+**Ended** views combine with search, remember your choice locally, and have a
+one-click **Clear filters** reset. Usage totals are not narrowed by those filters.
+
+Disconnected panels show **last received data**, not a live-status claim, with
+**Retry connection** inside the panel. Background tabs refresh less often and
+catch up when visible again. [Refresh and filtering behavior](docs/usage.md#find-work-and-understand-freshness).
 
 The room also includes a [Duck Hunt, Breakout, and Snake arcade](docs/arcade.md),
 [an interactive aquarium](docs/aquarium-assets.md), and a local music jukebox.

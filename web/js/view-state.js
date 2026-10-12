@@ -51,6 +51,14 @@ window.officeViewState = (() => {
       taskMode: ["reported", "draft", "local-runs"].includes(input.taskMode)
         ? input.taskMode
         : "activity",
+      rosterRuntime: runtimes.includes(input.rosterRuntime)
+        ? input.rosterRuntime
+        : "every",
+      rosterStatus: ["all", "waiting", "active", "idle", "ended"].includes(
+        input.rosterStatus,
+      )
+        ? input.rosterStatus
+        : "all",
       eventRuntime: runtimes.includes(input.eventRuntime)
         ? input.eventRuntime
         : "every",

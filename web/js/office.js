@@ -16,6 +16,8 @@ let agents = [],
   platFilter = "every",
   offline = false;
 let trackQuery = "",
+  rosterRuntime = "every",
+  rosterStatus = "all",
   eventQuery = "",
   badgeQuery = "",
   badgeFilter = "all",
@@ -55,7 +57,8 @@ const panelViews = new Map(),
   panelStack = [],
   toastTimers = new WeakMap();
 const contentSignatures = new WeakMap(),
-  eventNodeCaches = new WeakMap();
+  eventNodeCaches = new WeakMap(),
+  portraitSources = new WeakMap();
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let lockedPage = null,
   viewRestored = false,
@@ -64,6 +67,76 @@ let sessionUsageIndex = new Map();
 let preferenceWritePending = false,
   preferenceCleanupPending = false;
 let pendingHistoryScroll = null;
+let pollTimer = null,
+  pollInFlight = null,
+  pollFailures = 0,
+  pollStopped = false,
+  pollController = null,
+  lastObserverResponse = null;
+const rosterGroups = {
+  all: { label: "All", statuses: null },
+  waiting: { label: "Needs input", statuses: ["waiting"] },
+  active: { label: "Active", statuses: ["working", "thinking"] },
+  idle: { label: "Idle", statuses: ["idle"] },
+  ended: { label: "Ended", statuses: ["done", "gone"] },
+};
+$("roster-runtime").replaceChildren(
+  ...[...$("filterbtn").options].map((option) => option.cloneNode(true)),
+);
+// The same recoverable connection state is visible inside every data dialog.
+for (const id of [
+  "sheet-floor",
+  "sheet-tasks",
+  "sheet-events",
+  "sheet-inspector",
+]) {
+  const notice = document.createElement("div"),
+    message = document.createElement("p"),
+    retry = document.createElement("button");
+  notice.className = "connection-notice";
+  notice.hidden = true;
+  message.setAttribute("role", "status");
+  retry.type = "button";
+  retry.className = "btn";
+  retry.dataset.retryObserver = "";
+  retry.textContent = "Retry connection";
+  retry.onclick = () => poll();
+  notice.append(message, retry);
+  $(id).querySelector("h2").after(notice);
+}
+function syncConnectionNotices() {
+  for (const notice of document.querySelectorAll(".connection-notice")) {
+    const button = notice.querySelector("button");
+    if (!offline && notice.contains(document.activeElement)) {
+      const heading = notice.closest(".sheet").querySelector("h2");
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+    notice.hidden = !offline;
+    const seen =
+      lastObserverResponse === null
+        ? "No observer data has loaded yet."
+        : "Showing last received data from " +
+          new Date(lastObserverResponse).toLocaleTimeString() +
+          "; agent status may have changed.";
+    setText(
+      notice.querySelector("p"),
+      "Observer disconnected. " + seen + " Reconnecting automatically.",
+    );
+    // aria-disabled retains focus while a requested retry is in flight.
+    button.setAttribute("aria-disabled", String(!!pollInFlight));
+    setText(button, pollInFlight ? "Reconnecting…" : "Retry connection");
+  }
+  if (opened === "sheet-floor")
+    setText(
+      $("roster-description"),
+      offline
+        ? "Last reported sessions, not live status. Reconnect before acting on a request."
+        : window._state?.mode === "demo"
+          ? "Synthetic demo sessions. Select an agent to explore its details."
+          : "Observed sessions, with blocked agents first. Select one for details.",
+    );
+}
 for (const id of [
   "room-name-input",
   "pet-cat1-name",
@@ -538,6 +611,8 @@ function persistView() {
     taskMode,
     eventRuntime,
     badgeFilter,
+    rosterRuntime,
+    rosterStatus,
     queries: { agents: trackQuery, events: eventQuery, badges: badgeQuery },
     scroll: Object.fromEntries(
       [...panelViews].map(([id, view]) => [id, view.scroll || 0]),
@@ -554,6 +629,9 @@ function restoreViewState() {
   if (!view) return null;
   platFilter = view.runtime;
   $("filterbtn").value = platFilter;
+  rosterRuntime = view.rosterRuntime || "every";
+  rosterStatus = view.rosterStatus || "all";
+  $("roster-runtime").value = rosterRuntime;
   trackQuery = view.queries.agents;
   eventQuery = view.queries.events;
   badgeQuery = view.queries.badges;
@@ -582,6 +660,7 @@ reducedMotion.addEventListener("change", (event) => {
 for (const b of document.querySelectorAll("[data-sheet]"))
   b.onclick = () => openSheet(b.dataset.sheet);
 function refreshPanel() {
+  syncConnectionNotices();
   if (opened === "sheet-setup") fillSetup();
   if (opened === "sheet-floor") {
     fillRoster();
@@ -598,6 +677,12 @@ function refreshPanel() {
 }
 function fillSetup() {
   const runtime = $("setup-runtime").value;
+  const integration = runtime === "telegram" ? "hermes" : runtime;
+  const command = "python3 install.py --only " + integration;
+  if ($("command-install").textContent !== command) {
+    $("command-install").textContent = command;
+    $("setup-copy-status").textContent = "";
+  }
   $("setup-brand").replaceChildren(runtimeBadge({ platform: runtime }));
   $("setup-codex-usage").hidden = runtime !== "codex";
   const details = {
@@ -686,15 +771,21 @@ function agentCard(a, existing) {
   button.dataset.agent = a.id;
   const portrait =
     button.querySelector(".portrait") || document.createElement("canvas");
-  portrait.width = 16;
-  portrait.height = 24;
   portrait.className = "portrait";
   portrait.setAttribute("aria-hidden", "true");
   const image =
     scene.sprites[characterSpriteKey(a, settings, scene.sprites)] ||
     scene.sprites["char" + (hash(a.id) % 6)];
-  if (image)
-    portrait.getContext("2d").drawImage(image, 0, 8, 16, 24, 0, 0, 16, 24);
+  if (
+    !portraitSources.has(portrait) ||
+    portraitSources.get(portrait) !== image
+  ) {
+    portrait.width = 16;
+    portrait.height = 24;
+    if (image)
+      portrait.getContext("2d").drawImage(image, 0, 8, 16, 24, 0, 0, 16, 24);
+    portraitSources.set(portrait, image);
+  }
   const body =
     button.querySelector(".agent-copy") || document.createElement("div");
   body.className = "agent-copy";
@@ -714,7 +805,10 @@ function agentCard(a, existing) {
   if (contentSignatures.get(runtime) !== runtimeSignature) {
     runtime.replaceChildren(
       runtimeBadge(a),
-      document.createTextNode(" · " + (a.tool || a.detail || "Between tasks")),
+      document.createTextNode(
+        " · " +
+          ([a.tool, a.detail].filter(Boolean).join(" · ") || "Between tasks"),
+      ),
     );
     contentSignatures.set(runtime, runtimeSignature);
   }
@@ -762,25 +856,51 @@ function reconcileAgentCards(box, nodes, fallback) {
   }
 }
 function fillRoster() {
+  syncConnectionNotices();
   const box = $("roster");
   const existing = new Map(
     [...box.querySelectorAll(".agent-card")].map((b) => [b.dataset.agent, b]),
   );
   const q = trackQuery.trim().toLowerCase();
-  const list = agents.filter((a) =>
-    [
-      a.label,
-      a.id,
-      a.status,
-      STATUS_NAMES[a.status],
-      a.tool,
-      a.detail,
-      a.platform,
-      platOf(a),
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(q),
+  const runtimeAgents = agents.filter(
+    (a) => rosterRuntime === "every" || platOf(a) === rosterRuntime,
+  );
+  const matchesStatus = (a, key) =>
+    !rosterGroups[key].statuses ||
+    rosterGroups[key].statuses.includes(a.status);
+  const list = runtimeAgents.filter(
+    (a) =>
+      matchesStatus(a, rosterStatus) &&
+      [
+        a.label,
+        a.id,
+        a.status,
+        STATUS_NAMES[a.status],
+        a.tool,
+        a.detail,
+        a.platform,
+        platOf(a),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+  );
+  for (const button of $("roster-filters").children) {
+    const key = button.dataset.rosterStatus,
+      group = rosterGroups[key];
+    setText(
+      button,
+      group.label +
+        " · " +
+        runtimeAgents.filter((a) => matchesStatus(a, key)).length,
+    );
+    button.setAttribute("aria-pressed", String(key === rosterStatus));
+  }
+  $("roster-reset").disabled =
+    !q && rosterRuntime === "every" && rosterStatus === "all";
+  setText(
+    $("roster-summary"),
+    `${list.length} of ${agents.length} sessions shown. Usage totals below include all recorded runtimes, not just this view.`,
   );
   const priority = {
     waiting: 0,
@@ -795,7 +915,7 @@ function fillRoster() {
     const empty = document.createElement("p");
     empty.className = "empty";
     empty.textContent = agents.length
-      ? "No agents match this search."
+      ? "No agents match these filters. Clear filters to see all sessions."
       : "The floor is quiet. Start a connected runtime.";
     reconcileAgentCards(box, [empty], $("trackSearch"));
     return;
@@ -806,6 +926,26 @@ function fillRoster() {
     $("trackSearch"),
   );
 }
+for (const button of $("roster-filters").children)
+  button.onclick = () => {
+    rosterStatus = button.dataset.rosterStatus;
+    fillRoster();
+    persistView();
+  };
+$("roster-runtime").onchange = (event) => {
+  rosterRuntime = event.target.value;
+  fillRoster();
+  persistView();
+};
+$("roster-reset").onclick = () => {
+  rosterStatus = "all";
+  rosterRuntime = "every";
+  $("roster-runtime").value = rosterRuntime;
+  $("trackSearch").value = trackQuery = "";
+  $("trackSearch").focus({ preventScroll: true });
+  fillRoster();
+  persistView();
+};
 $("trackSearch").oninput = (e) => {
   trackQuery = e.target.value;
   fillRoster();
@@ -1859,30 +1999,78 @@ function applyState(state, pollRevision = settingsRevision) {
   syncBudget();
   if (restoredView?.panel) openSheet(restoredView.panel);
 }
-async function poll() {
+function poll() {
+  if (pollStopped) return Promise.resolve(false);
+  if (pollInFlight) return pollInFlight;
+  clearTimeout(pollTimer);
+  pollTimer = null;
   const revision = settingsRevision;
-  try {
-    const r = await fetch("state", {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    applyState(await r.json(), revision);
-  } catch {
-    offline = true;
-    scene.observerConnected = false;
-    scene.draw(0);
-    syncAttention();
-    syncHealth();
-    if (opened === "sheet-setup") fillSetup();
-    document.body.classList.add("offline");
-    $("connection").textContent = "Reconnecting";
-    $("count").textContent = "Connection lost";
-    $("latest-event").textContent =
-      "Office unavailable. Start python3 run.py; reconnecting automatically.";
-  }
-  setTimeout(poll, 1500);
+  const controller = new AbortController();
+  pollController = controller;
+  const deadline = setTimeout(() => controller.abort(), 5000);
+  pollInFlight = (async () => {
+    try {
+      const r = await fetch("state", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      if (pollStopped) return false;
+      applyState(data, revision);
+      lastObserverResponse = Date.now();
+      pollFailures = 0;
+      return true;
+    } catch {
+      if (pollStopped) return false;
+      pollFailures = Math.min(pollFailures + 1, 5);
+      offline = true;
+      scene.observerConnected = false;
+      scene.draw(0);
+      syncAttention();
+      syncHealth();
+      if (opened === "sheet-setup") fillSetup();
+      document.body.classList.add("offline");
+      $("connection").textContent = "Reconnecting";
+      $("count").textContent = "Connection lost";
+      $("latest-event").textContent =
+        "Office unavailable. Start python3 run.py; reconnecting automatically.";
+      return false;
+    } finally {
+      clearTimeout(deadline);
+      pollInFlight = null;
+      pollController = null;
+      syncConnectionNotices();
+      if (!pollStopped) {
+        const delay = document.hidden
+          ? 15000
+          : Math.min(15000, 1500 * 2 ** Math.max(0, pollFailures - 1));
+        pollTimer = setTimeout(poll, delay);
+      }
+    }
+  })();
+  syncConnectionNotices();
+  return pollInFlight;
 }
+document.addEventListener("visibilitychange", () => {
+  if (pollStopped) return;
+  clearTimeout(pollTimer);
+  pollTimer = null;
+  if (!document.hidden) poll();
+  else if (!pollInFlight) pollTimer = setTimeout(poll, 15000);
+});
+window.addEventListener("pagehide", () => {
+  pollStopped = true;
+  clearTimeout(pollTimer);
+  pollTimer = null;
+  pollController?.abort();
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    pollStopped = false;
+    poll();
+  }
+});
 function updateSetting(key, value) {
   return saveSettings({ [key]: value });
 }

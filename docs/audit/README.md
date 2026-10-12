@@ -6,15 +6,15 @@ they do not represent paid-provider work or the owner's live sessions.
 
 ## Current local validation
 
-The 12 October 2026 setup, README, and usage-display changes were checked against
-baseline [`64777ca`](https://github.com/NosytLabs/agent-office/commit/64777ca40731db388c57e23a736cd69286113d75)
+The 12 October 2026 session-triage, connection, and polling improvements were checked
+against baseline [`0fa417f`](https://github.com/NosytLabs/agent-office/commit/0fa417f946f642e88eb0c234faf46d83471952c3)
 using Python 3.14.4, Node 22.23.2, and Playwright 1.63.0 Chromium on Linux.
 
 | Check | Recorded result |
 | --- | --- |
 | Python suite, including repository and diagnostic regressions | **622 passed**, **2 native Gemini fixture skips** |
 | Node models, controllers, and bridges | **127 passed** |
-| Browser flows | **232 passed**, **1 optional private-art skip** |
+| Browser flows | **243 passed**, **1 optional private-art skip** |
 | Compiled sprites | **47 sprites** match **23 original sheets** |
 | Syntax, formatting, local documentation links, and tracked-artifact checks | Passed |
 | Public builds | **106 demo files** and **20 product-site files** |
@@ -25,11 +25,18 @@ fallback tests run without it. A successful Vercel deployment is not a test-suit
 result. Consult the actual commit's checks for hosted status. Earlier results
 and source-review context remain in [history](history.md).
 
-The setup regressions exercise read-only help/dry-run, explicit runtime selection,
-repeat installation, and malformed port input in isolated homes. Usage tests
-cover stable breakdown rows, overflow thresholds, and unknown versus zero values.
-The README was rendered locally at 1280, 390, and 320 pixels with no horizontal
-page overflow; this is not a claim of native-device or GitHub-renderer coverage.
+Eleven new browser cases cover selected-runtime setup commands, combined status/
+runtime/search filtering, view persistence, retained-data notices, explicit retry,
+single-flight requests, hidden-tab cadence, failure backoff, visible-tab refresh,
+useful tool details, cached portraits, and refresh without AbortSignal.any.
+The new layout was exercised at 1280, 390, and 320 pixels with no horizontal page
+overflow, 44-pixel status controls, and contained keyboard navigation. Screenshots
+were captured; the narrow Agents panel was visually reviewed. These are Chromium
+checks, not a claim of authenticated provider sessions or physical mobile coverage.
+
+An existing paused-aquarium test now waits for the actual enabled control within
+a bounded timeout instead of relying on a particular observer-poll phase. Feeding
+behavior, cooldown, artwork, and accounting were not changed by that test repair.
 
 ## Reproduce the checks
 

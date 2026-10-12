@@ -23,6 +23,39 @@ Very small positive costs remain visible rather than rounding to zero.
 Unchanged polling preserves the usage-breakdown DOM instead of rebuilding rows
 and cost-source text on every refresh. New reports still update the display.
 
+## Find work and understand freshness
+
+In **Agents**, combine the runtime selector, status buttons, and text search to
+find an agent by name, session, tool, or reported file/command preview. **Needs
+input** is based on actual waiting observations, not an inferred timeout.
+**Active** combines working and thinking; **Ended** contains reported ended
+sessions that are still visible. These are session states, not proof that code
+passed review. Counts on the status buttons reflect the selected runtime before
+text search. The line underneath reports the final result count.
+
+**Clear filters** resets the three controls and returns focus to search. These
+view choices are stored only in this browser, separately for the local observer
+and public demo; they do not change room settings, event history, or XP. The
+canvas runtime filter is independent. Usage and observed-activity totals below
+the roster retain their full scope, even when only one runtime is shown above.
+
+If a refresh fails, Agents, Tasks, Activity, and the inspector show a visible
+**Observer disconnected** notice with the last successful response time. You can
+still inspect retained data, but its status may be stale. **Retry connection**
+requests a refresh without starting a second polling loop. A successful response
+removes the notice and keeps keyboard focus inside the panel.
+
+Connected visible tabs wait 1.5 seconds between completed state requests. Hidden
+tabs wait 15 seconds, while returning to the foreground refreshes immediately.
+Repeated failures back off from 1.5 to 15 seconds. There is at most one active
+state request and one scheduled follow-up per page; page exit cancels both.
+These are request scheduling rules, not a claim of measured battery or billing
+savings. Event publication and persistent accounting are unchanged.
+
+Agent cards display the runtime, tool, and source-supplied detail together.
+Unchanged portraits reuse their pixels; a newly loaded or changed appearance
+repaints. This does not slow the office's character-animation loop.
+
 ## Which runtimes report usage
 
 | Connection | What the current adapter reports |
