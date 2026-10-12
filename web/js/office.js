@@ -1010,7 +1010,7 @@ function fillStats() {
   const usage = window._state?.usage || {};
   syncBudget();
   setHTMLIfChanged($("usagebox"), usageSummary(usage.totals));
-  $("usage-breakdown").innerHTML =
+  let breakdown =
     usageTable(usage.by_model, "model") +
     usageTable(usage.by_platform, "runtime") +
     kv(
@@ -1025,11 +1025,10 @@ function fillStats() {
     ) +
     '<p class="h">Cache counts are included in input tokens; reasoning counts are included in output tokens.</p>';
   for (const source of usage.totals?.cost_sources || []) {
-    const line = document.createElement("p");
-    line.className = "h";
-    line.textContent = `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} USD from ${Number(source.reports).toLocaleString()} ${Number(source.reports) === 1 ? "report" : "reports"}.`;
-    $("usage-breakdown").append(line);
+    const text = `${source.source}: ${source.overflow ? "Amount too large" : usageValue(source, "cost_usd")} USD from ${Number(source.reports).toLocaleString()} ${Number(source.reports) === 1 ? "report" : "reports"}.`;
+    breakdown += `<p class="h">${escapeHTML(text)}</p>`;
   }
+  setHTMLIfChanged($("usage-breakdown"), breakdown);
   const top =
     Object.entries(s.by_tool || {})
       .sort((a, b) => b[1] - a[1])
@@ -2171,9 +2170,8 @@ function syncBudget() {
     cost = totals?.cost_usd,
     reached =
       budget > 0 &&
-      typeof cost === "number" &&
-      Number.isFinite(cost) &&
-      cost >= budget;
+      (totals?.overflow?.cost_usd === true ||
+        (typeof cost === "number" && Number.isFinite(cost) && cost >= budget));
   $("budget-alert").hidden = !reached;
   $("budget-warning").hidden = !reached;
   if (!reached) return;

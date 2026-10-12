@@ -2,6 +2,7 @@
 """Guided Agent Office install — only wires what you already have."""
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -290,7 +291,15 @@ def enable_vscode() -> str:
     return f"vscode ext → {ext} (reload window)"
 
 
-def main() -> int:
+def main(argv=()) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--only', nargs='+', action='extend',
+                        choices=('hermes', 'opencode', 'claude', 'codex', 'gemini', 'vscode'),
+                        help='connect only these already installed runtimes')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='show detected runtimes without changing configuration')
+    args = parser.parse_args(argv)
+    selected = set(args.only) if args.only else None
     found = detect()
     print("Agent Office install")
     print("detected:", ", ".join(k for k, v in found.items() if v) or "nothing")
@@ -299,8 +308,13 @@ def main() -> int:
     for name, enable in (("hermes", enable_hermes), ("opencode", enable_opencode),
                          ("claude", enable_claude), ("codex", enable_codex),
                          ("gemini", enable_gemini), ("vscode", enable_vscode)):
+        if selected is not None and name not in selected:
+            continue
         if not found.get(name):
             print(f"• skip {name} (not installed)")
+            continue
+        if args.dry_run:
+            print(f"• would connect {name}")
             continue
         try:
             print("•", enable())
@@ -308,10 +322,14 @@ def main() -> int:
             print(f"• {name} setup failed: {exc}")
             failed = True
     print()
+    if args.dry_run:
+        print("Dry run: no changes made. Remove --dry-run to connect the selected runtimes.")
+    else:
+        print("Restart connected runtimes to load their observer hooks.")
     print("serve python3 run.py  — open http://127.0.0.1:8113")
     print("demo  python3 demo_feed.py  — separate demo at http://127.0.0.1:8114")
     return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
