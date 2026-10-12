@@ -166,7 +166,9 @@
       return;
     }
     const wrapped = (event) => {
-      if (paused) return;
+      // Only the primary button fires. Context-menu/pen-barrel input must not
+      // spend ammunition or activate the upstream menu.
+      if (paused || event.button !== 0) return;
       if (
         event.isTrusted &&
         performance.now() < suppressCompatibilityMouseUntil
@@ -292,7 +294,7 @@
       placeAim();
     });
     canvas?.addEventListener("pointerup", (event) => {
-      if (event.pointerType !== "touch") return;
+      if (event.pointerType !== "touch" || !event.isPrimary) return;
       suppressCompatibilityMouseUntil = performance.now() + 800;
       canvas.dispatchEvent(
         new MouseEvent("mousedown", {

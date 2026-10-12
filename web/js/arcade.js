@@ -111,18 +111,29 @@
         ball.y = BALL_RADIUS;
         ball.vy = Math.abs(ball.vy);
       }
-      const paddle = this.paddle;
+      const paddle = this.paddle,
+        nearestPaddleX = Math.max(
+          paddle.x,
+          Math.min(paddle.x + PADDLE_WIDTH, ball.x),
+        );
+      // Only the upper face can return a descending ball. The circular
+      // contact test rejects empty corners and late catches from underneath.
       if (
         ball.vy > 0 &&
-        ball.y + BALL_RADIUS >= paddle.y &&
-        ball.y - BALL_RADIUS <= paddle.y + PADDLE_HEIGHT &&
-        ball.x + BALL_RADIUS >= paddle.x &&
-        ball.x - BALL_RADIUS <= paddle.x + PADDLE_WIDTH
+        ball.y <= paddle.y &&
+        (ball.x - nearestPaddleX) ** 2 + (ball.y - paddle.y) ** 2 <=
+          BALL_RADIUS ** 2
       ) {
         ball.y = paddle.y - BALL_RADIUS;
         const offset =
           (ball.x - (paddle.x + PADDLE_WIDTH / 2)) / (PADDLE_WIDTH / 2);
-        ball.vx = offset * (220 + this.level * 18);
+        // A centered hit keeps its incoming side instead of looping forever
+        // in a cleared column. Edge contacts cannot exceed the intended angle.
+        const side = Math.sign(offset) || Math.sign(ball.vx) || 1;
+        ball.vx =
+          side *
+          Math.max(0.15, Math.min(1, Math.abs(offset))) *
+          (220 + this.level * 18);
         ball.vy = -Math.max(180, Math.abs(ball.vy));
       }
       for (const brick of this.bricks) {
@@ -340,6 +351,8 @@
     breakout = new BreakoutGame(),
     snake = new SnakeGame(),
     swipe = null,
+    activePointer = null,
+    pauseIntent = null,
     frame = null,
     lastFrame = 0,
     userPaused = true,
@@ -609,6 +622,7 @@
   function clearHeldInput() {
     keys.clear();
     swipe = null;
+    activePointer = null;
   }
   function clearKeys() {
     clearHeldInput();
@@ -798,8 +812,28 @@
     if (!duckFrame || duckFailed) loadDuck();
     else resumeDuck();
   };
-  byId("arcade-pause").onclick = () => {
-    if (!userPaused) pause("Game paused.", true);
+  const pauseButton = byId("arcade-pause");
+  // Pressing the host button blurs Duck Hunt before click is delivered. Keep
+  // the action the player pressed, even if that blur reports a pause first.
+  pauseButton.addEventListener("pointerdown", (event) => {
+    if (event.button === 0 && event.isPrimary !== false)
+      pauseIntent = { id: event.pointerId, pause: !userPaused };
+  });
+  addEventListener("pointerup", (event) => {
+    if (
+      pauseIntent?.id === event.pointerId &&
+      !pauseButton.contains(event.target)
+    )
+      pauseIntent = null;
+  });
+  addEventListener("pointercancel", (event) => {
+    if (pauseIntent?.id === event.pointerId) pauseIntent = null;
+  });
+  pauseButton.onclick = (event) => {
+    const shouldPause =
+      event?.detail === 0 ? !userPaused : (pauseIntent?.pause ?? !userPaused);
+    pauseIntent = null;
+    if (shouldPause) pause("Game paused.", true);
     else if (nativeSelected()) startNative(false);
     else if (selected === "duck-hunt") resumeDuck();
   };
@@ -834,7 +868,15 @@
   // Changing focus to the direction pad must not erase an accepted turn.
   canvas.addEventListener("blur", clearHeldInput);
   canvas.addEventListener("pointerdown", (event) => {
-    if (userPaused) return;
+    if (
+      userPaused ||
+      !nativeSelected() ||
+      event.button !== 0 ||
+      event.isPrimary === false ||
+      activePointer !== null
+    )
+      return;
+    activePointer = event.pointerId;
     if (selected === "snake") {
       swipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
       canvas.setPointerCapture?.(event.pointerId);
@@ -850,13 +892,16 @@
     if (
       selected !== "breakout" ||
       userPaused ||
-      (!event.buttons && event.pointerType !== "touch")
+      event.pointerId !== activePointer ||
+      !(event.buttons & 1)
     )
       return;
     const rect = canvas.getBoundingClientRect();
     breakout.setPaddle(((event.clientX - rect.left) / rect.width) * WIDTH);
   });
   canvas.addEventListener("pointerup", (event) => {
+    if (event.pointerId !== activePointer) return;
+    activePointer = null;
     if (
       selected !== "snake" ||
       userPaused ||
@@ -871,7 +916,10 @@
     if (Math.abs(dx) > Math.abs(dy)) snake.turn(Math.sign(dx), 0);
     else snake.turn(0, Math.sign(dy));
   });
-  canvas.addEventListener("pointercancel", clearHeldInput);
+  for (const type of ["pointercancel", "lostpointercapture"])
+    canvas.addEventListener(type, (event) => {
+      if (event.pointerId === activePointer) clearHeldInput();
+    });
   addEventListener("message", (event) => {
     const data = event.data;
     if (

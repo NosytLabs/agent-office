@@ -136,3 +136,21 @@ Broken required images trigger Retry; stalled artwork has an eight-second child
 loading deadline within the host's ten-second startup limit. Optional audio still
 uses its bounded best-effort fallback. Retrying does not reload the office or
 change observer XP. The upstream game bundle and its scoring rules are unchanged.
+
+## Pointer controls and paddle contacts
+
+Breakout's paddle catches the circular ball only along its upper face. Empty
+corner space and balls already below the paddle cannot trigger a return. Center
+hits retain a small sideways component in the incoming direction so a cleared
+column cannot trap play in an endless vertical bounce; edge angles are bounded.
+
+Breakout and Snake track one active pointer at a time. A second finger cannot
+replace the first swipe or drag, and cancellation releases the active input.
+Right and middle mouse buttons do not steer the paddle or start/fire Duck Hunt;
+touch and keyboard controls still use the original shooting path.
+
+Duck Hunt's host Pause button preserves the action selected on pointer press.
+Leaving the iframe may report a pause before the button is released, but that
+message can no longer turn the same click into an unintended Resume. Keyboard
+activation uses the current button state, and an abandoned pointer press is
+cleared rather than carried into a later click.
