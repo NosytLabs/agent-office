@@ -165,3 +165,14 @@ test("Snake restart resets score, direction, timing, and terminal state", () => 
   assert.equal(game.body.length, 3);
   assert.deepEqual(game.direction, { x: 1, y: 0 });
 });
+
+test("Breakout does not damage a brick when the circular ball misses its corner", () => {
+  const game = new BreakoutGame(() => 0.25);
+  game.start();
+  game.bricks = [{ x: 100, y: 100, w: 44, h: 16, hits: 2 }];
+  game.ball = { x: 94, y: 94, vx: -150, vy: -190 };
+  game.advance(0.001);
+  assert.equal(game.bricks[0].hits, 2);
+  assert.equal(game.ball.vx, -150);
+  assert.equal(game.ball.vy, -190);
+});

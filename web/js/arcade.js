@@ -134,6 +134,15 @@
           ball.y - BALL_RADIUS > brick.y + brick.h
         )
           continue;
+        // The bounding box only rejects distant bricks. At corners the
+        // visible circular ball must actually touch the rectangle.
+        const nearestX = Math.max(brick.x, Math.min(brick.x + brick.w, ball.x)),
+          nearestY = Math.max(brick.y, Math.min(brick.y + brick.h, ball.y));
+        if (
+          (ball.x - nearestX) ** 2 + (ball.y - nearestY) ** 2 >
+          BALL_RADIUS ** 2
+        )
+          continue;
         brick.hits--;
         if (!brick.hits) this.score += 10 * this.level;
         const fromSide =
@@ -597,9 +606,12 @@
       );
     }
   }
-  function clearKeys() {
+  function clearHeldInput() {
     keys.clear();
     swipe = null;
+  }
+  function clearKeys() {
+    clearHeldInput();
     snake.clearInput();
   }
   function pause(message, explicit = false) {
@@ -816,11 +828,11 @@
     )
       return;
     event.preventDefault();
-    keys.add(event.key);
-    if (userPaused && breakout.state === "playing") startNative(false);
+    if (!userPaused && breakout.state === "playing") keys.add(event.key);
   });
   canvas.addEventListener("keyup", (event) => keys.delete(event.key));
-  canvas.addEventListener("blur", clearKeys);
+  // Changing focus to the direction pad must not erase an accepted turn.
+  canvas.addEventListener("blur", clearHeldInput);
   canvas.addEventListener("pointerdown", (event) => {
     if (userPaused) return;
     if (selected === "snake") {
@@ -859,7 +871,7 @@
     if (Math.abs(dx) > Math.abs(dy)) snake.turn(Math.sign(dx), 0);
     else snake.turn(0, Math.sign(dy));
   });
-  canvas.addEventListener("pointercancel", clearKeys);
+  canvas.addEventListener("pointercancel", clearHeldInput);
   addEventListener("message", (event) => {
     const data = event.data;
     if (
