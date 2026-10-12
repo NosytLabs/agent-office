@@ -12,12 +12,12 @@ Design:
   never propagate into the agent loop.
 
 * A daemon HTTP server thread is started lazily on the first event. It
-  serves the office page and ``/state``, which folds the event log into a
-  current-agents snapshot. Because state is checkpointed in a shared local
-  SQLite database, agents from OTHER Hermes processes (gateway +
+  serves the office page and ``/state`` from committed observations.
+  Background ingestion continues without an open browser. State is checkpointed
+  in shared SQLite storage, so agents from OTHER Hermes processes (gateway +
   CLI at once, cron sessions) appear in the same office. If the port is
-  already bound, another Hermes process is serving — we just keep appending
-  events and skip serving.
+  already bound, a verified office process may serve the shared data while
+  hooks keep publishing immutable inbox records.
 
 * Processed input files are removed only after their state and XP commit.
   Recent history has configurable count/age/byte retention. Pending approvals
@@ -71,6 +71,10 @@ DEFAULT_PORT = 8113
 _lock = threading.RLock()
 _event_cache: Optional[tuple[tuple, List[Dict[str, Any]]]] = None
 _server_started = False
+# Warning counters must not wait behind state ingestion or settings writes.
+_publish_warning_lock = threading.Lock()
+_publish_warning_at: Optional[float] = None
+_publish_warnings_suppressed = 0
 _port: int = DEFAULT_PORT
 # Current Hermes versions provide session/tool ids on approvals. Keep a
 # context-local fallback for older hooks; one gateway process runs concurrent
@@ -246,6 +250,28 @@ def _asset_manifest() -> Dict[str, Any]:
 # Event publishing (hook side — must be cheap and never raise)
 # ---------------------------------------------------------------------------
 
+def _warn_publish_failure(exc: Exception) -> None:
+    """Bound diagnostics, not publication attempts; logging also stays fail-open."""
+    global _publish_warning_at, _publish_warnings_suppressed
+    try:
+        with _publish_warning_lock:
+            now = time.monotonic()
+            if _publish_warning_at is not None and now - _publish_warning_at < 60.0:
+                _publish_warnings_suppressed = min(_publish_warnings_suppressed + 1, 1_000_000_000)
+                return
+            suppressed = _publish_warnings_suppressed
+            _publish_warnings_suppressed = 0
+            _publish_warning_at = now
+        # Raw exceptions can contain paths or source payloads. A failure after
+        # publication also does not prove the event itself was lost.
+        logger.warning(
+            "pixel-office: observer event handling failed (%s); %d similar warnings suppressed. "
+            "Check local storage and server availability.", type(exc).__name__, suppressed)
+    except Exception:
+        # A broken logging destination must not turn an observer into a veto.
+        pass
+
+
 def _publish(event: Dict[str, Any]) -> None:
     try:
         event.setdefault("ts", time.time())
@@ -261,11 +287,8 @@ def _publish(event: Dict[str, Any]) -> None:
         if not _server_bound():
             global _server_started
             _server_started = False
-    except Exception as exc:  # observers must never break the loop — but say so
-        logger.warning("pixel-office: failed to record event (%s: %s)",
-                       type(exc).__name__, exc)
-
-
+    except Exception as exc:  # observers must never break the loop
+        _warn_publish_failure(exc)
 
 
 # ---------------------------------------------------------------------------

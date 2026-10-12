@@ -309,3 +309,37 @@ The VS Code extension hosts the shared frontend in an iframe. It forwards config
 | GET | `/user/aquarium/manifest.json`, `/user/aquarium/<fish-id>.png` | Optional local aquarium pack |
 
 The server binds to `127.0.0.1`. The [shareable preview](preview.md) is a separate demonstration, not a hosted endpoint for a user's local history or runtime controls.
+
+## Diagnostic logs and safe cleanup
+
+Three different kinds of output need different handling:
+
+| Output | Location and retention | Safe maintenance |
+| --- | --- | --- |
+| Raw observer activity | SQLite in `$HERMES_HOME/pixel-office`; configured count/age/byte limits | Use Customize retention or Clear history; never truncate the database |
+| Diagnostics | Python logging/stderr owned by the launcher or host runtime | Configure rotation in that service; Agent Office does not manage external log files |
+| Development output | Repository `reports/`, `dist/`, `site-dist/`, test caches | Review needed evidence, then remove only these known generated folders |
+
+Repeated hook-publication failures are summarized at most once per minute per
+process using a monotonic clock. The next emitted warning includes the suppressed
+count and error type, not exception text or event bodies. Every event still gets
+its publication attempt, including during a warning cooldown. Failures after a
+successful write can be server-start failures, so the diagnostic does not claim
+that the observation was lost. Logging-handler errors are swallowed to preserve
+the observer's fail-open contract. Background-ingestion warnings have their own
+existing one-minute limit. These limits do not bound another runtime's logs.
+
+Publication-warning counters use a separate short-lived lock, not the server
+state lock. Failed publication can therefore return while an unrelated state or
+settings operation is busy. Logger callbacks run outside the counter lock.
+
+Repository ignore rules are a safety net, not permission to delete local data.
+Do not use a blanket ignored-file cleanup. Pending inbox files, legacy
+`events.jsonl`, `settings.json`, optional aquarium assets, and SQLite sidecars are
+not disposable caches. `python3 tools/maintain.py` reports storage;
+`--compact` is an explicit logical-row-preserving SQLite operation after stopping
+office servers. It is not a log-deletion or whole-directory size-limit command.
+
+Run `python3 tools/check_repository.py` before committing. It validates tracked
+artifacts and local documentation links without reading the external office data
+directory or altering retention, XP, settings, or provider sessions.

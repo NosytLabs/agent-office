@@ -19,6 +19,8 @@ to your runtime data. Demo activity is synthetic.
 
 [Contributing](../CONTRIBUTING.md) covers development checks and source contracts.
 [Architecture](architecture.md) describes tracking, storage, and UI boundaries.
+[Diagnostics and safe cleanup](architecture.md#diagnostic-logs-and-safe-cleanup) separates
+event retention, service logs, and disposable build/test output.
 [The asset pipeline](asset-pipeline.md) explains compact sprites, source artwork,
 and pixel-equivalence checks.
 

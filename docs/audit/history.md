@@ -6,6 +6,20 @@ the [current validation report](README.md) contains the latest totals and
 integration limits. A configured CI or deployment workflow is not evidence
 that these local results ran in a hosted environment.
 
+## Cleanup and arcade baseline — 12 October 2026
+
+The report previously labelled "current" still described 8 October. Gameplay
+changes in [PR #26](https://github.com/NosytLabs/agent-office/pull/26), commit
+`923196d`, were later verified with 577 Python passes (2 native fixture skips),
+127 Node passes, and 229 browser passes (1 private-art skip). The source sprite
+comparison covered 47 sprites from 23 original sheets. These numbers describe
+that revision; the [current snapshot](README.md) includes subsequent checks.
+
+The [full pre-cleanup report](https://github.com/NosytLabs/agent-office/blob/923196dee3b55d8d08335b9f4dc67cf3c4558bec/docs/audit/README.md)
+remains available in Git history. Repetitive test descriptions and old environment
+failure logs are no longer presented as current status. Provenance links,
+screenshots, and integration limitations remain documented.
+
 ## Integrity branch reconciliation — 8 October 2026
 
 The former `codex/office-integrity` line at `897d3e0` was reviewed before the
