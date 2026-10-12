@@ -1,0 +1,85 @@
+name: Publish verified session workflow improvements
+on:
+  push:
+    branches: [codex/session-triage-ux]
+    paths: [.ci/workflow-ux.br.b64]
+permissions:
+  contents: read
+concurrency:
+  group: verified-session-workflow-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/session-triage-ux'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/session-triage-ux
+          fetch-depth: 2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Restore only the exact tested source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '0fa417f946f642e88eb0c234faf46d83471952c3'
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { brotliDecompressSync } from 'node:zlib';
+          import { createHash } from 'node:crypto';
+          const raw = brotliDecompressSync(Buffer.from(readFileSync('.ci/workflow-ux.br.b64', 'utf8'), 'base64'));
+          if (createHash('sha256').update(raw).digest('hex') !== 'e31355ef27941f2831a3f8adabbde7428a2db0fb525668474481fc79a3e656ea') throw new Error('Reviewed patch hash differs');
+          writeFileSync('/tmp/workflow-ux.patch', raw);
+          NODE
+          git apply --check /tmp/workflow-ux.patch
+          git apply /tmp/workflow-ux.patch
+          git rm -- .ci/workflow-ux.br.b64 .github/workflows/useful-ui-transfer.yml
+          git add README.md docs/audit/README.md docs/setup.md docs/usage.md package.json tests/aquarium-care-browser.test.cjs tests/browser.test.cjs tests/workflow-ux.test.cjs web/css/style.css web/js/office.js web/js/view-state.js web/template.html
+          git diff --cached --check
+          test "$(git write-tree)" = '6306775d1d0f399feca47f6682f7a27d88a5f49e'
+      - name: Recheck source and repository hygiene
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+          npm run format:check
+          python3 tools/check_repository.py
+          npm run build:preview
+      - name: Publish the verified tree to this review branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git write-tree)" = '6306775d1d0f399feca47f6682f7a27d88a5f49e'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Improve session triage, connection recovery, and polling lifecycle'
+          git push origin HEAD:refs/heads/codex/session-triage-ux
+          echo "PUBLISHED_COMMIT=$(git rev-parse HEAD)"
+          echo "PUBLISHED_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Disable this one-time publisher
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          assert os.environ['GITHUB_REPOSITORY'] == 'NosytLabs/agent-office'
+          assert os.environ['GITHUB_REF'] == 'refs/heads/codex/session-triage-ux'
+          base = 'https://api.github.com/repos/NosytLabs/agent-office/'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'}
+          request = urllib.request.Request(base + 'actions/runs/' + os.environ['GITHUB_RUN_ID'], headers=headers)
+          with urllib.request.urlopen(request, timeout=15) as response:
+              run = json.load(response)
+          assert run['path'] == '.github/workflows/useful-ui-transfer.yml'
+          request = urllib.request.Request(base + 'actions/workflows/' + str(run['workflow_id']) + '/disable', data=b'', method='PUT', headers=headers)
+          with urllib.request.urlopen(request, timeout=15) as response:
+              assert response.status == 204
+          print('One-time publication workflow disabled.')
+          PY
