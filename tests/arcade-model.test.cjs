@@ -176,3 +176,42 @@ test("Breakout does not damage a brick when the circular ball misses its corner"
   assert.equal(game.ball.vx, -150);
   assert.equal(game.ball.vy, -190);
 });
+
+test("Breakout center hits retain useful sideways travel", () => {
+  for (const incoming of [-150, 150]) {
+    const game = new BreakoutGame(() => 0.25);
+    game.start();
+    game.ball = {
+      x: 240 - incoming / 120,
+      y: game.paddle.y - 8,
+      vx: incoming,
+      vy: 190,
+    };
+    game.advance(1 / 120);
+    assert.ok(game.ball.vy < 0, "a real paddle hit returns the ball upward");
+    assert.equal(Math.sign(game.ball.vx), Math.sign(incoming));
+    assert.ok(
+      Math.abs(game.ball.vx) >= 30,
+      "a center hit cannot form an endless vertical loop",
+    );
+  }
+});
+
+test("Breakout does not bounce outside a visible paddle corner", () => {
+  const game = new BreakoutGame(() => 0.25);
+  game.start();
+  game.ball = { x: game.paddle.x - 6, y: game.paddle.y - 6, vx: 0, vy: 1 };
+  game.advance(0.001);
+  assert.equal(game.ball.vy, 1);
+  assert.equal(game.ball.vx, 0);
+});
+
+test("Breakout cannot rescue a ball from below the paddle", () => {
+  const game = new BreakoutGame(() => 0.25);
+  game.start();
+  game.ball = { x: 240, y: game.paddle.y + 8, vx: 10, vy: 190 };
+  game.advance(1 / 120);
+  assert.equal(game.ball.vy, 190);
+  for (let i = 0; i < 60 && game.lives === 3; i++) game.step(1 / 60);
+  assert.equal(game.lives, 2, "the missed ball costs exactly one life");
+});
