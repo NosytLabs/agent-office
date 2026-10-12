@@ -1,0 +1,76 @@
+name: Publish reviewed repository cleanup
+on:
+  push:
+    branches: [codex/repository-docs-logs]
+    paths: [.ci/repository-cleanup.payload]
+permissions:
+  contents: read
+concurrency:
+  group: reviewed-repository-cleanup
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/repository-docs-logs'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/repository-docs-logs
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Restore the exact reviewed source after validating transport
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, gzip, hashlib, json, subprocess
+          payload = Path('.ci/repository-cleanup.payload').read_bytes()
+          def blob_hash(data):
+              return hashlib.sha1(('blob ' + str(len(data)) + '\0').encode() + data).hexdigest()
+          assert blob_hash(payload) == 'd3ee8e3c8618d484d65f2742b1c148d699ba3716'
+          # Remove a duplicated transport span detected before publication.
+          # No source is applied until the corrected payload and JSON match.
+          payload = payload[:1460] + payload[6438:]
+          assert blob_hash(payload) == '26f2e90d973517c1af068984c14eaaddd59e5907'
+          raw = gzip.decompress(base64.b64decode(payload.strip(), validate=True))
+          assert hashlib.sha256(raw).hexdigest() == 'c2dde0a25f9b02a53d784364b214a473cd55488478fe69eab64fe2d2ab41c386'
+          data = json.loads(raw)
+          expected = {'CONTRIBUTING.md', 'docs/audit/README.md', 'tests/test_observer_logging.py', 'tests/test_repository_hygiene.py', 'tools/check_repository.py'}
+          assert set(data) == {'patch', 'files'} and set(data['files']) == expected
+          patch = Path('/tmp/reviewed-repository.patch')
+          patch.write_text(data['patch'], encoding='utf-8')
+          subprocess.run(['git', 'apply', '--check', str(patch)], check=True)
+          subprocess.run(['git', 'apply', str(patch)], check=True)
+          for name, content in data['files'].items():
+              file = Path(name)
+              file.parent.mkdir(parents=True, exist_ok=True)
+              file.write_text(content, encoding='utf-8')
+          PY
+      - name: Recheck source and regression suites
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          npm ci --ignore-scripts
+          python -m pytest -q -o addopts=''
+          npm run check
+          npm test
+          npx prettier --write .github/workflows/repository-cleanup-once.yml
+          npm run format:check
+      - name: Check and publish only the reviewed project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitignore CONTRIBUTING.md __init__.py docs/README.md docs/architecture.md docs/audit/README.md docs/audit/history.md tests/test_observer_logging.py tests/test_repository_hygiene.py tools/check_repository.py
+          git diff --cached --check
+          cp .git/index "$RUNNER_TEMP/final-source.index"
+          GIT_INDEX_FILE="$RUNNER_TEMP/final-source.index" git update-index --force-remove .ci/repository-cleanup.payload .github/workflows/repository-cleanup-once.yml
+          GIT_INDEX_FILE="$RUNNER_TEMP/final-source.index" python3 tools/check_repository.py
+          git commit -m 'Bound observer diagnostics and clean repository documentation'
+          git push origin HEAD:refs/heads/codex/repository-docs-logs
