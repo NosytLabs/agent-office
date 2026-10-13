@@ -139,3 +139,17 @@ field for your device's Copy action. That captured text is not rewritten by
 polling and is cleared when you switch sessions. A late clipboard result cannot
 insert another session's report into the new inspector. No report is persisted to
 browser storage or the server. Review paths and command previews before sharing.
+
+## Export exactly the activity you need
+
+In **Activity → Saved**, combine the search and runtime filter, or open **Saved
+activity** from one session. **Export matching** downloads every saved match,
+including rows beyond the first displayed page. **Export all saved** deliberately
+ignores those filters and can include other sessions. Both download JSON locally;
+neither uploads events or changes XP, retention, or accounting.
+
+A matching export records its search, runtime, and session in the JSON `filters`
+field. Those filters are captured when you click, before refreshing saved history;
+changing the view while it loads cannot widen the requested export. An all-history
+export uses `filters: null`. A failed refresh does not download a stale fallback.
+Review command previews and paths before sharing either file.

@@ -94,7 +94,8 @@ usage come before desk and appearance settings. **Copy summary** copies only the
 selected session's timestamped snapshot, with a selectable-text fallback when
 clipboard access is unavailable. It never sends a prompt or grants approval;
 review paths and command previews before sharing. **Customize agent** jumps to
-its preferences without losing your filtered list.
+its preferences without losing your filtered list. Saved activity offers separate
+**Export matching** and **Export all saved** downloads, so you choose what to share.
 
 Disconnected panels show **last received data**, not a live-status claim, with
 **Retry connection** inside the panel. Background tabs refresh less often and

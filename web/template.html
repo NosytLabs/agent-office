@@ -546,7 +546,25 @@
       </button>
       <div id="eventbox"></div>
       <button class="btn" id="history-more" hidden>Show 100 more</button>
-      <button class="btn" id="export-history">Export saved history ↓</button>
+      <div class="cluster history-export-actions">
+        <button
+          class="btn"
+          id="export-filtered-history"
+          type="button"
+          hidden
+          title="Download all saved events matching the current search, runtime, and session filters, including additional pages"
+        >
+          Export matching ↓
+        </button>
+        <button
+          class="btn"
+          id="export-history"
+          type="button"
+          title="Download all loaded saved events, including sessions hidden by the current filters"
+        >
+          Export all saved ↓
+        </button>
+      </div>
     </section>
     <section
       class="sheet"

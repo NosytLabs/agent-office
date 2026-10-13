@@ -359,10 +359,23 @@ function kv(rows) {
     .join("");
 }
 function selectAgent(id) {
+  const changed = focusedId !== id;
+  if (changed) panelViews.delete("sheet-inspector");
   focusedId = id;
   updateScene();
   fillInspector();
-  openSheet("sheet-inspector");
+  if (opened !== "sheet-inspector") openSheet("sheet-inspector");
+  else {
+    // Selecting a session is not the same action as toggling its panel.
+    if (changed) {
+      const panel = $("sheet-inspector"),
+        heading = panel.querySelector("h2");
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+      panel.scrollTop = 0;
+    }
+    persistView();
+  }
 }
 function rememberPanel(id = opened) {
   if (!id || $(id).hidden) return;
@@ -1751,25 +1764,38 @@ async function loadHistory(force = false) {
     }
   }
 }
-function fillEvents() {
-  const box = $("eventbox");
-  const q = eventQuery.trim().toLowerCase();
-  const source =
-    eventMode === "history"
-      ? historyEvents
-      : (window._state?.events || []).slice().reverse();
-  const events = source.filter(
-    (e) =>
-      (!eventSession ||
-        ((e.session_id === eventSession.id ||
-          e.child_session_id === eventSession.id) &&
-          canonicalRuntime(e.platform) === eventSession.platform)) &&
-      (eventRuntime === "every" || platOf(e) === eventRuntime) &&
-      [JSON.stringify(e), EVENT_NAMES[e.event], eventText(e)]
+function currentEventFilter() {
+  return {
+    query: eventQuery.trim(),
+    runtime: eventRuntime,
+    session: eventSession
+      ? { id: eventSession.id, platform: eventSession.platform }
+      : null,
+  };
+}
+function matchingEvents(source, filters) {
+  const q = filters.query.toLowerCase();
+  return source.filter(
+    (event) =>
+      (!filters.session ||
+        ((event.session_id === filters.session.id ||
+          event.child_session_id === filters.session.id) &&
+          canonicalRuntime(event.platform) === filters.session.platform)) &&
+      (filters.runtime === "every" || platOf(event) === filters.runtime) &&
+      [JSON.stringify(event), EVENT_NAMES[event.event], eventText(event)]
         .join(" ")
         .toLowerCase()
         .includes(q),
   );
+}
+function fillEvents() {
+  const box = $("eventbox"),
+    filters = currentEventFilter();
+  const source =
+    eventMode === "history"
+      ? historyEvents
+      : (window._state?.events || []).slice().reverse();
+  const events = matchingEvents(source, filters);
   reconcileEventRows(
     box,
     events.slice(0, eventPageSize),
@@ -1789,6 +1815,9 @@ function fillEvents() {
       `Session: ${eventSession.label} · Show all activity`;
   $("refresh-history").disabled = historyLoading;
   $("export-history").disabled = historyLoading;
+  $("export-filtered-history").disabled = historyLoading;
+  $("export-filtered-history").hidden =
+    !filters.query && filters.runtime === "every" && !filters.session;
   $("history-status").textContent =
     historyError && eventMode === "history"
       ? historyError
@@ -1831,26 +1860,36 @@ $("history-more").onclick = () => {
   eventPageSize += 100;
   fillEvents();
 };
-$("export-history").onclick = async () => {
-  if (await loadHistory(true))
-    downloadBlob(
-      new Blob(
-        [
-          JSON.stringify(
-            {
-              version: 1,
-              exported_at: new Date().toISOString(),
-              events: historyEvents,
-            },
-            null,
-            2,
-          ),
-        ],
-        { type: "application/json" },
-      ),
-      "agent-office-history.json",
-    );
-};
+async function exportHistory(filters = null) {
+  if (!(await loadHistory(true))) return;
+  downloadBlob(
+    new Blob(
+      [
+        JSON.stringify(
+          {
+            version: 1,
+            exported_at: new Date().toISOString(),
+            filters,
+            events: filters
+              ? matchingEvents(historyEvents, filters)
+              : historyEvents,
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    ),
+    filters
+      ? "agent-office-filtered-history.json"
+      : "agent-office-history.json",
+  );
+}
+$("export-history").onclick = () => exportHistory();
+// Capture the user's scope before refreshing; later edits cannot widen this export.
+$("export-filtered-history").onclick = () =>
+  exportHistory(currentEventFilter());
+
 function fillBadges() {
   const catalog = progress?.catalog || [],
     earned = catalog.filter((c) => c.have).length;

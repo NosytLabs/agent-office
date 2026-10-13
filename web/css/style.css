@@ -1741,3 +1741,11 @@ button:disabled {
     flex: 1 1 calc(50% - 8px);
   }
 }
+
+.history-export-actions {
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.history-export-actions .btn {
+  min-height: 44px;
+}
