@@ -118,7 +118,9 @@ Open **Tasks → Local runs**, select the installed CLI and project, and explici
 choose **Run task**. This can execute agent work and incur that CLI's usual costs.
 The observer never answers permission prompts for existing sessions. The hosted
 demo cannot launch tasks. Read the [runner setup and limits](docs/local-task-runner.md)
-before enabling it.
+before enabling it. Copy and cancellation feedback stays scoped to the selected
+run, even when replies arrive late. Idle background run checks use a slower
+refresh rate; opening Local runs refreshes immediately.
 
 ## Usage, privacy, and local data
 

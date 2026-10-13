@@ -93,6 +93,24 @@ report their normal observations independently. The floor's task console uses
 the local runner's actual status when available and opens **Local runs**;
 without the runner it continues to open **Reported tasks**.
 
+## Safe controls while switching runs
+
+Copy and cancellation feedback stays attached to the run selected when you
+clicked. A delayed reply cannot claim that a different run was copied or
+cancelled, select its output, or reappear after the Local runs view was closed.
+A malformed cancellation response is not an acknowledgement: check the run's
+reported status before acting again. Cancellation still does not undo edits.
+
+Copy captures the currently displayed text. If clipboard access is denied,
+the unchanged output is selected for your device's Copy action. If more output
+arrived while permission was pending, the view asks you to copy again rather
+than silently selecting a different snapshot.
+
+The open Local runs view and running tasks keep the 1.8-second summary refresh.
+When the view is closed and no task is running, summaries refresh every 15
+seconds. Opening it refreshes immediately; hidden tabs do not schedule these
+polls. This is separate from observer polling and does not stop a CLI process.
+
 ## Availability and request boundaries
 
 The runner is available through the standalone loopback server. The public

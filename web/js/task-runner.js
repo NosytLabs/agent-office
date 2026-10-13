@@ -48,6 +48,8 @@
   let pendingRequest = null;
   let optionSignature = "";
   let formFeedback = "";
+  let selectionVersion = 0;
+  let copyVersion = 0;
   const runNodes = new Map();
 
   const publicStatus = {
@@ -313,8 +315,13 @@
       }
     }
     if (selectedId && !runs.some((run) => String(run.id) === selectedId)) {
+      selectionVersion++;
       selectedId = null;
       selectedRun = null;
+      selectedOutput = "";
+      detailSequence++;
+      detailPromise = null;
+      detailRequestId = null;
       detail.hidden = true;
     }
     emitStatus();
@@ -367,6 +374,7 @@
   }
 
   function selectRun(id) {
+    selectionVersion++;
     selectedId = String(id);
     const summary = runs.find((run) => String(run.id) === selectedId);
     selectedOutput = selectedRun?.id === summary?.id ? selectedOutput : "";
@@ -406,7 +414,10 @@
     clearTimeout(pollTimer);
     if (preview || document.hidden) return;
     if (connected && capability && !capability.enabled) return;
-    pollTimer = setTimeout(() => refresh().finally(schedulePoll), 1800);
+    // Keep running work responsive without polling an idle, closed panel as often.
+    const delay =
+      active || runs.some((run) => run.status === "running") ? 1800 : 15000;
+    pollTimer = setTimeout(() => refresh().finally(schedulePoll), delay);
   }
 
   async function refresh() {
@@ -460,6 +471,12 @@
       return;
     }
     active = next;
+    if (!active) {
+      selectionVersion++;
+      detailSequence++;
+      detailPromise = null;
+      detailRequestId = null;
+    }
     root.hidden = !active;
     clearTimeout(pollTimer);
     refresh().finally(schedulePoll);
@@ -559,6 +576,10 @@
 
   async function cancelSelected() {
     if (!selectedRun || selectedRun.status !== "running" || cancelling) return;
+    const id = selectedId,
+      version = selectionVersion;
+    const current = () =>
+      active && selectedId === id && selectionVersion === version;
     cancelling = true;
     detailSequence++;
     detailPromise = null;
@@ -567,18 +588,17 @@
     renderDetail(selectedRun);
     setText(detailStatus, "Requesting cancellation…");
     try {
-      const body = await request(
-        `task-runs/${encodeURIComponent(selectedRun.id)}/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Agent-Office-Token": capability.token,
-          },
-          body: "{}",
+      const body = await request(`task-runs/${encodeURIComponent(id)}/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Agent-Office-Token": capability.token,
         },
-      );
+        body: "{}",
+      });
       const run = body?.run;
+      if (!run || String(run.id) !== id)
+        throw new Error("Server returned an invalid cancellation response");
       if (run) {
         refreshSequence++;
         const index = runs.findIndex(
@@ -586,11 +606,21 @@
         );
         if (index >= 0) runs[index] = run;
         renderRuns();
-        renderDetail(run);
+        if (current()) {
+          // A detail request begun before cancellation must not revive old status.
+          detailSequence++;
+          detailPromise = null;
+          detailRequestId = null;
+          renderDetail(run);
+        }
       }
-      setText(detailStatus, "Cancellation requested.");
+      if (current()) setText(detailStatus, "Cancellation requested.");
     } catch (error) {
-      setText(detailStatus, `Could not cancel the run: ${error.message}`);
+      if (current())
+        setText(
+          detailStatus,
+          `Could not confirm cancellation: ${error.message}`,
+        );
     } finally {
       cancelling = false;
       if (selectedRun) renderDetail(selectedRun);
@@ -619,10 +649,28 @@
   draftRun?.addEventListener("click", () => prefill(draft.value));
   cancel.addEventListener("click", cancelSelected);
   copy.addEventListener("click", async () => {
+    if (!selectedId || !selectedOutput) return;
+    const id = selectedId,
+      version = selectionVersion,
+      action = ++copyVersion,
+      text = selectedOutput;
+    const current = () =>
+      active &&
+      selectedId === id &&
+      selectionVersion === version &&
+      copyVersion === action;
     try {
-      await navigator.clipboard.writeText(selectedOutput);
-      setText(detailStatus, "Output copied.");
+      await navigator.clipboard.writeText(text);
+      if (current()) setText(detailStatus, "Output copied.");
     } catch {
+      if (!current()) return;
+      if (selectedOutput !== text) {
+        setText(
+          detailStatus,
+          "Output changed while copying. Choose Copy output again for the current text.",
+        );
+        return;
+      }
       const selection = getSelection();
       const range = document.createRange();
       range.selectNodeContents(output);
