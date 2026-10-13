@@ -1,18 +1,18 @@
-name: Verify session workflow polish
+name: Verify final session workflow layout
 on:
   push:
     branches: [codex/daily-workflow-polish]
-    paths: [.ci/apply-daily-ui.py, .github/workflows/verify-daily-ui-once.yml]
+    paths: [.github/workflows/verify-daily-ui-final.yml]
 permissions:
   contents: read
 concurrency:
-  group: daily-workflow-polish-once
+  group: daily-workflow-final
   cancel-in-progress: false
 jobs:
   verify:
     if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/daily-workflow-polish'
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 9
     permissions:
       contents: write
       actions: write
@@ -20,19 +20,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: codex/daily-workflow-polish
-          fetch-depth: 2
+          fetch-depth: 4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.13'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '22'
-      - name: Apply the reviewed bounded UI changes
+      - name: Apply the pinned source patch and measured spacing fix
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 'ebcdfa2fa7bef1cb0c20dfb14884ee98834d4fd3'
+          git merge-base --is-ancestor ebcdfa2fa7bef1cb0c20dfb14884ee98834d4fd3 HEAD
           python3 .ci/apply-daily-ui.py
-          git rm .ci/apply-daily-ui.py .github/workflows/verify-daily-ui-once.yml
+          git rm .ci/apply-daily-ui.py .github/workflows/verify-daily-ui-final.yml
           npm ci --ignore-scripts
           python -m pip install --disable-pip-version-check -r requirements-dev.txt
           npx prettier --write web/js/office.js web/css/style.css web/template.html tests/daily-workflow.test.cjs package.json
@@ -40,47 +40,42 @@ jobs:
           git diff --cached --check
           echo "VERIFIED_TREE=$(git write-tree)" >> "$GITHUB_ENV"
           echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
-      - name: Python, models, syntax and formatting
+      - name: Python, models, syntax and documentation checks
         run: |
+          set -euo pipefail
           python -m pytest -q -o addopts=''
-          npm test
+          npm test >/tmp/node-tests.log 2>&1 || { tail -80 /tmp/node-tests.log; exit 1; }
+          tail -10 /tmp/node-tests.log
           npm run check
           npm run format:check
           python tools/check_repository.py
-      - name: All real-browser flows, sprite equivalence and static builds
+      - name: Complete browser regression suite and static builds
         run: |
+          set -euo pipefail
           npm run check:sprites
-          npm run test:browser
+          npm run test:browser >/tmp/browser-tests.log 2>&1 || { grep -A30 '^not ok' /tmp/browser-tests.log; tail -15 /tmp/browser-tests.log; exit 1; }
+          grep -E 'MOBILE_|^# (tests|pass|fail|skipped|duration)' /tmp/browser-tests.log
           npm run build:preview
-      - name: Publish only the verified project tree
+      - name: Keep two small synthetic mobile screenshots for review
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: daily-workflow-review
+          path: reports/daily/*.jpg
+          if-no-files-found: error
+          retention-days: 1
+      - name: Publish the verified project tree without temporary scripts
         run: |
           set -euo pipefail
           test "$(git write-tree)" = "$VERIFIED_TREE"
           git diff --exit-code
+          test -z "$(git ls-files .ci .github/workflows/verify-daily-ui-final.yml nonexistent-do-not-use)"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Make mobile sessions readable and prioritize useful inspector workflows'
+          git commit -m 'Prioritize useful session details, improve narrow layouts, and preserve copied context'
           git push origin HEAD:refs/heads/codex/daily-workflow-polish
           echo "PUBLISHED_COMMIT=$(git rev-parse HEAD)"
           echo "PUBLISHED_TREE=$(git rev-parse HEAD^{tree})"
-      - name: Retain only small synthetic screenshot objects for visual review
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64,json,os,urllib.request
-          base='https://api.github.com/repos/NosytLabs/agent-office/git/blobs'
-          for name in ('agents-320.jpg','inspector-320.jpg'):
-              data=Path('reports/daily',name).read_bytes()
-              assert len(data)<100000
-              body=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode()}).encode()
-              req=urllib.request.Request(base,data=body,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
-              with urllib.request.urlopen(req,timeout=15) as r: result=json.load(r)
-              print('SCREENSHOT',name,len(data),result['sha'])
-          PY
-      - name: Disable only this temporary workflow
+      - name: Disable only this temporary verifier
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,8 +88,8 @@ jobs:
           headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
           req=urllib.request.Request(base+'actions/runs/'+os.environ['GITHUB_RUN_ID'],headers=headers)
           with urllib.request.urlopen(req,timeout=15) as r: run=json.load(r)
-          assert run['path']=='.github/workflows/verify-daily-ui-once.yml'
+          assert run['path']=='.github/workflows/verify-daily-ui-final.yml'
           req=urllib.request.Request(base+'actions/workflows/'+str(run['workflow_id'])+'/disable',data=b'',method='PUT',headers=headers)
           with urllib.request.urlopen(req,timeout=15) as r: assert r.status==204
-          print('Temporary UI verification workflow disabled.')
+          print('Temporary layout verifier disabled; normal CI configuration unchanged.')
           PY
