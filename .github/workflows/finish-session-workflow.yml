@@ -1,0 +1,108 @@
+name: Verify completed session workflows
+on:
+  push:
+    branches: [codex/daily-workflow-polish]
+    paths: [.github/workflows/finish-session-workflow.yml]
+permissions:
+  contents: read
+concurrency:
+  group: finish-session-workflow
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'NosytLabs/agent-office' && github.ref == 'refs/heads/codex/daily-workflow-polish'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/daily-workflow-polish
+          fetch-depth: 2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Install pinned development tools
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '59b34e5f51f3dc0675ae30b62611eab9bbf396d2'
+          npm ci --ignore-scripts
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+      - name: Verify four regressions fail before the changes
+        run: |
+          set +e
+          node --test tests/session-actions.test.cjs >/tmp/session-before.log 2>&1
+          result=$?
+          set -e
+          test "$result" -ne 0
+          grep -q '^# fail 4$' /tmp/session-before.log
+          grep -E '^not ok|^# (tests|pass|fail)' /tmp/session-before.log
+      - name: Apply reviewed changes and remove this helper from the project tree
+        run: |
+          set -euo pipefail
+          python .ci/finish-session-actions.py
+          git rm .ci/finish-session-actions.py .github/workflows/finish-session-workflow.yml
+          npx prettier --write web/js/office.js web/template.html web/css/style.css tests/session-actions.test.cjs package.json
+          git add README.md docs/usage.md package.json tests/session-actions.test.cjs web/css/style.css web/js/office.js web/template.html
+          git diff --cached --check
+          echo "VERIFIED_TREE=$(git write-tree)" >> "$GITHUB_ENV"
+      - name: Verify all backend, model and source checks
+        run: |
+          set -euo pipefail
+          python -m pytest -q -o addopts=''
+          npm test >/tmp/session-models.log 2>&1 || { tail -80 /tmp/session-models.log; exit 1; }
+          tail -10 /tmp/session-models.log
+          npm run check
+          npm run format:check
+          python tools/check_repository.py
+          npm run check:sprites
+      - name: Run the complete browser suite and both static builds
+        run: |
+          set -euo pipefail
+          npm run test:browser >/tmp/session-browser.log 2>&1 || { grep -A35 '^not ok' /tmp/session-browser.log; tail -15 /tmp/session-browser.log; exit 1; }
+          grep -E 'MOBILE_|^# (tests|pass|fail|skipped|duration)' /tmp/session-browser.log
+          npm run build:preview
+      - name: Keep small synthetic mobile evidence for one day
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: session-workflow-mobile
+          path: reports/daily/*.jpg
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Publish only the passing source tree to the existing review branch
+        run: |
+          set -euo pipefail
+          test "$(git write-tree)" = "$VERIFIED_TREE"
+          git diff --exit-code
+          test -z "$(git ls-files .ci .github/workflows/finish-session-workflow.yml)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Keep session inspection open and make history export scope explicit'
+          git push origin HEAD:refs/heads/codex/daily-workflow-polish
+          echo "PUBLISHED_COMMIT=$(git rev-parse HEAD)"
+          echo "PUBLISHED_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Disable this one-shot verifier without changing existing CI
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request
+          assert os.environ['GITHUB_REPOSITORY']=='NosytLabs/agent-office'
+          assert os.environ['GITHUB_REF']=='refs/heads/codex/daily-workflow-polish'
+          base='https://api.github.com/repos/NosytLabs/agent-office/'
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
+          req=urllib.request.Request(base+'actions/runs/'+os.environ['GITHUB_RUN_ID'],headers=headers)
+          with urllib.request.urlopen(req,timeout=15) as response: run=json.load(response)
+          assert run['path']=='.github/workflows/finish-session-workflow.yml'
+          req=urllib.request.Request(base+'actions/workflows/'+str(run['workflow_id'])+'/disable',data=b'',method='PUT',headers=headers)
+          with urllib.request.urlopen(req,timeout=15) as response: assert response.status==204
+          print('One-shot verifier disabled; existing CI unchanged.')
+          PY
