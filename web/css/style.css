@@ -508,9 +508,6 @@ html.panel-open {
   margin: 8px 0 0;
   font-size: 14px;
 }
-#agent-follow {
-  margin-bottom: 18px;
-}
 .storage-diagnostics {
   margin: 16px 0;
   padding: 12px;
@@ -770,8 +767,8 @@ html.panel-open {
 .agent-card {
   display: flex;
   text-align: left;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 10px;
   width: 100%;
   border: 1px solid var(--line);
   background: var(--panel2);
@@ -1630,7 +1627,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 0;
+  margin: 8px 0;
 }
 .roster-toolbar .txt {
   flex: 1;
@@ -1640,16 +1637,22 @@ button:disabled {
 }
 #roster-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  margin: 10px 0;
+  margin: 8px 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
 }
 #roster-filters button {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   min-height: 44px;
   font-size: 13px;
+  white-space: nowrap;
 }
 #roster-summary {
+  margin: 6px 0;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -1673,11 +1676,76 @@ button:disabled {
   opacity: 0.7;
   cursor: progress;
 }
-@media (max-width: 380px) {
-  .roster-toolbar {
-    flex-wrap: wrap;
+
+/* Keep sessions visible before secondary metrics or personalization. */
+#sheet-floor #roster-description {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+#sheet-floor #trackSearch {
+  margin: 8px 0;
+  min-height: 44px;
+}
+.roster-toolbar .txt,
+.roster-toolbar .btn {
+  min-height: 44px;
+}
+.agent-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+}
+.agent-heading strong {
+  flex: 1 1 100%;
+}
+.agent-heading .status {
+  font-size: 12px;
+}
+.inspector-actions {
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.inspector-actions .btn {
+  min-height: 44px;
+  font-size: 13px;
+  padding: 8px 10px;
+  white-space: normal;
+}
+#inspector-copy-status:empty {
+  display: none;
+}
+#inspector-report-text {
+  font-family: ui-monospace, monospace;
+}
+@media (max-width: 560px) {
+  .inspector-summary {
+    padding: 8px 12px;
+    margin-bottom: 12px;
   }
-  .roster-toolbar .txt {
-    flex-basis: 100%;
+  .inspector-actions {
+    margin-block: 8px;
   }
+  #trackSearch,
+  #roster-runtime {
+    font-size: 16px;
+  }
+  .roster-toolbar .btn {
+    padding-inline: 8px;
+  }
+  #roster-filters button {
+    font-size: 12px;
+    padding-inline: 9px;
+  }
+  .inspector-actions .btn {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+.history-export-actions {
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.history-export-actions .btn {
+  min-height: 44px;
 }

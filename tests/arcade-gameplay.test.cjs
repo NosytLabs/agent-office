@@ -164,7 +164,8 @@ test("Duck Hunt ignores right-clicking Start; Enter still starts a round", async
       "secondary input must leave the menu unchanged",
     );
     await playfield.press("Enter");
-    await page.waitForTimeout(120);
+    // Observe the upstream round render, not an assumed 120 ms frame budget.
+    await child.waitForFunction(() => window.roundWasDrawn === true);
     assert.equal(
       await child.evaluate(() => window.roundWasDrawn),
       true,
@@ -175,9 +176,15 @@ test("Duck Hunt ignores right-clicking Start; Enter still starts a round", async
 
 test("Snake keeps the first finger's swipe when another finger touches the canvas", async () => {
   await observerFixture({}, async ({ page }) => {
+    // Install before reloading so all page timers use the same clock.
+    // Independent host/browser wall clocks can make pauseAt(new Date()) go backwards.
+    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    await page.reload();
+    await page.waitForFunction(
+      () => initialized && settingsReady && officeScene.sprites.petbed,
+    );
     await openGame(page, "snake");
-    await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(new Date("2026-01-01T01:00:00Z"));
     await page.locator("#arcade-start").click();
     const box = await page.locator("#arcade-canvas").boundingBox();
     const cdp = await page.context().newCDPSession(page);
