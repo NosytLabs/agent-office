@@ -251,7 +251,7 @@
     >
       <h2>On the floor</h2>
       <p class="h" id="roster-description">
-        Observed sessions, with blocked agents first. Select one for details.
+        Needs input first. Select a session.
       </p>
       <input
         class="txt"
@@ -299,6 +299,9 @@
         <h3>Reported usage</h3>
         <span class="eyebrow">FROM YOUR RUNTIMES</span>
       </div>
+      <p class="h usage-scope">
+        All recorded runtimes; not narrowed by the agent filters.
+      </p>
       <div id="usagebox"></div>
       <p class="waiting-note" id="budget-warning" role="status" hidden></p>
       <details class="usage-breakdown">
@@ -736,9 +739,45 @@
     >
       <h2>At this desk</h2>
       <div id="inspector-summary" class="inspector-summary"></div>
-      <button class="btn" id="agent-follow" aria-pressed="false" hidden>
-        Follow on floor
-      </button>
+      <div class="cluster inspector-actions" id="inspector-actions" hidden>
+        <button class="btn" id="inspector-copy" type="button">
+          Copy summary
+        </button>
+        <button
+          class="btn"
+          id="inspect-history"
+          type="button"
+          aria-label="View saved activity"
+        >
+          Saved activity
+        </button>
+        <button
+          class="btn"
+          id="agent-follow"
+          type="button"
+          aria-pressed="false"
+          hidden
+        >
+          Follow on floor
+        </button>
+        <button class="btn" id="inspector-customize" type="button">
+          Customize agent
+        </button>
+      </div>
+      <p class="h" id="inspector-copy-status" role="status"></p>
+      <div id="inspector-report" hidden>
+        <label class="setting-label" for="inspector-report-text"
+          >Selected session snapshot — review before sharing</label
+        >
+        <textarea
+          id="inspector-report-text"
+          class="txt"
+          rows="8"
+          readonly
+          aria-label="Session report to copy"
+        ></textarea>
+      </div>
+      <div id="inspectorbox"></div>
       <form id="agent-name-form" class="agent-name-form" hidden>
         <label for="agent-name-input" class="setting-label"
           >Local agent name</label
@@ -787,8 +826,6 @@
         </div>
         <p id="agent-preference-status" class="h" role="status"></p>
       </form>
-      <div id="inspectorbox"></div>
-      <button class="btn" id="inspect-history">View saved activity</button>
     </section>
     <section
       class="sheet"
@@ -800,14 +837,18 @@
     >
       <h2>A little orientation</h2>
       <p>
-        This office reflects events from your coding agents. It does not run
-        tasks or approve actions. Pets and room objects are decoration.
+        This office observes your coding agents by default. Tasks → Local runs
+        can start a fresh Codex or Claude Code task only after you enable the
+        local runner. Existing sessions and approvals stay in the original
+        runtime. Room toys do not run agent commands.
       </p>
       <h3>Connect a runtime</h3>
       <p>
-        Run <code>python3 install.py</code> from the repository, restart your
-        runtime, and keep <code>python3 run.py</code> open. The installer
-        detects Hermes, OpenCode, Claude Code and VS Code.
+        Open the Connection guide to choose a runtime. Preview setup with
+        <code>python3 install.py --dry-run</code>, then connect only what you
+        use with <code>--only</code>. Restart the runtime and keep
+        <code>python3 run.py</code> open. The installer detects Hermes,
+        OpenCode, Claude Code, Codex, Gemini CLI, and the VS Code view.
       </p>
       <p>
         The demo runs in a temporary directory and is marked <b>DEMO</b>. Its XP
@@ -816,7 +857,7 @@
       <div id="legendbox"></div>
       <p>
         <a
-          href="https://github.com/NosytLabs/agent-office#troubleshooting"
+          href="https://github.com/NosytLabs/agent-office/blob/main/docs/setup.md#troubleshooting"
           target="_blank"
           rel="noopener noreferrer"
           >Setup and troubleshooting ↗</a

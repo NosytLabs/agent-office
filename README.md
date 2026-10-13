@@ -89,6 +89,13 @@ agent terminal; the office does not grant approvals. **Active**, **Idle**, and
 **Ended** views combine with search, remember your choice locally, and have a
 one-click **Clear filters** reset. Usage totals are not narrowed by those filters.
 
+**Inspect before customizing:** session identity, recent activity, and reported
+usage come before desk and appearance settings. **Copy summary** copies only the
+selected session's timestamped snapshot, with a selectable-text fallback when
+clipboard access is unavailable. It never sends a prompt or grants approval;
+review paths and command previews before sharing. **Customize agent** jumps to
+its preferences without losing your filtered list.
+
 Disconnected panels show **last received data**, not a live-status claim, with
 **Retry connection** inside the panel. Background tabs refresh less often and
 catch up when visible again. [Refresh and filtering behavior](docs/usage.md#find-work-and-understand-freshness).

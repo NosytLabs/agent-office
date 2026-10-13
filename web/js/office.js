@@ -64,6 +64,7 @@ let lockedPage = null,
   viewRestored = false,
   viewSaveTimer = null;
 let sessionUsageIndex = new Map();
+let inspectorCopyVersion = 0;
 let preferenceWritePending = false,
   preferenceCleanupPending = false;
 let pendingHistoryScroll = null;
@@ -134,7 +135,7 @@ function syncConnectionNotices() {
         ? "Last reported sessions, not live status. Reconnect before acting on a request."
         : window._state?.mode === "demo"
           ? "Synthetic demo sessions. Select an agent to explore its details."
-          : "Observed sessions, with blocked agents first. Select one for details.",
+          : "Needs input first. Select a session.",
     );
 }
 for (const id of [
@@ -790,14 +791,17 @@ function agentCard(a, existing) {
     button.querySelector(".agent-copy") || document.createElement("div");
   body.className = "agent-copy";
   if (!body.children.length) {
-    const label = document.createElement("strong"),
+    const heading = document.createElement("div"),
+      label = document.createElement("strong"),
       runtime = document.createElement("small"),
       elapsed = document.createElement("small"),
       usage = document.createElement("div");
     runtime.className = "agent-runtime";
     elapsed.className = "agent-elapsed";
     usage.className = "agent-usage";
-    body.append(label, runtime, elapsed, usage);
+    heading.className = "agent-heading";
+    heading.append(label);
+    body.append(heading, runtime, elapsed, usage);
   }
   setText(body.querySelector("strong"), a.label || a.id);
   const runtime = body.querySelector(".agent-runtime"),
@@ -827,7 +831,10 @@ function agentCard(a, existing) {
       ? a.status
       : "idle");
   status.textContent = STATUS_NAMES[a.status] || a.status;
-  if (!existing) button.append(portrait, body, status);
+  if (!existing) {
+    body.querySelector(".agent-heading").append(status);
+    button.append(portrait, body);
+  }
   button.onclick = () => selectAgent(a.id);
   return button;
 }
@@ -900,7 +907,7 @@ function fillRoster() {
     !q && rosterRuntime === "every" && rosterStatus === "all";
   setText(
     $("roster-summary"),
-    `${list.length} of ${agents.length} sessions shown. Usage totals below include all recorded runtimes, not just this view.`,
+    `${list.length} of ${agents.length} sessions shown.`,
   );
   const priority = {
     waiting: 0,
@@ -1195,8 +1202,10 @@ function fillInspector() {
   const a = agents.find((a) => a.id === focusedId);
   const box = $("inspectorbox"),
     summary = $("inspector-summary");
+  resetInspectorReport(a?.id);
+  $("inspector-actions").hidden = !a;
   if (!a) {
-    summary.replaceChildren();
+    setHTMLIfChanged(summary, "");
     summary.hidden = true;
     $("agent-name-form").hidden = true;
     $("agent-preference-form").hidden = true;
@@ -1209,7 +1218,8 @@ function fillInspector() {
   $("agent-name-form").hidden = false;
   syncAgentFollow();
   summary.hidden = false;
-  const headline = document.createElement("div"),
+  const content = document.createElement("div"),
+    headline = document.createElement("div"),
     label = document.createElement("strong"),
     status = document.createElement("span"),
     activity = document.createElement("p");
@@ -1227,7 +1237,7 @@ function fillInspector() {
   activity.textContent =
     [a.tool, a.detail].filter(Boolean).join(" · ") ||
     "No current tool activity reported.";
-  summary.replaceChildren(headline, activity);
+  content.append(headline, activity);
   fillAgentPreferences(a);
   $("inspect-history").hidden = false;
   const nameInput = $("agent-name-input");
@@ -1259,13 +1269,28 @@ function fillInspector() {
     return element;
   };
   const metadata = section("metadata");
-  metadata.innerHTML = kv([
-    ["Session", a.id],
-    ["Parent", a.parent || "—"],
-    ["Elapsed", duration(a.duration_s)],
-    ["Since event", duration(a.idle_s)],
-  ]);
-  metadata.prepend(runtimeBadge(a));
+  if (!metadata.children.length) {
+    metadata.innerHTML = kv(
+      ["Session", "Parent", "Elapsed", "Since event"].map((name) => [name, ""]),
+    );
+    const runtime = document.createElement("div");
+    runtime.className = "inspector-runtime";
+    metadata.prepend(runtime);
+  }
+  const runtime = metadata.querySelector(".inspector-runtime");
+  if (contentSignatures.get(runtime) !== a.platform) {
+    runtime.replaceChildren(runtimeBadge(a));
+    contentSignatures.set(runtime, a.platform);
+  }
+  const values = [
+    a.id,
+    a.parent || "—",
+    duration(a.duration_s),
+    duration(a.idle_s),
+  ];
+  metadata
+    .querySelectorAll(".kv b")
+    .forEach((value, index) => setText(value, values[index]));
   if (a.quiet) {
     const note = document.createElement("p");
     note.className = "waiting-note";
@@ -1276,14 +1301,24 @@ function fillInspector() {
       (a.recorded_status || "activity") +
       (a.last_tool ? " · " + a.last_tool : "") +
       ". Check the original runtime; silence does not prove that the process is stuck or finished.";
-    summary.append(note);
+    content.append(note);
   }
   if (a.status === "waiting") {
     const waiting = document.createElement("p");
     waiting.className = "waiting-note";
-    waiting.textContent = `Respond in ${runtimeName(a)}. This request stays open until the runtime reports a response or closes the session. Last observed: ${new Date(Number(a.observed_at ?? a.updated_at) * 1000).toLocaleString()}`;
-    summary.append(waiting);
+    const observed = a.observed_at ?? a.updated_at;
+    const when =
+      typeof observed === "number" && Number.isFinite(observed)
+        ? new Date(observed * 1000)
+        : null;
+    const stamp =
+      when && Number.isFinite(when.getTime())
+        ? "Last reported: " + when.toLocaleString()
+        : "Request time not reported.";
+    waiting.textContent = `Respond in ${runtimeName(a)}, not here. ${stamp}`;
+    content.append(waiting);
   }
+  setHTMLIfChanged(summary, content.innerHTML);
   const usageSection = section("usage");
   if (!usageSection.firstChild) {
     const heading = document.createElement("h3");
@@ -1315,6 +1350,83 @@ function fillInspector() {
   if (eventSection.lastChild.innerHTML !== rows.innerHTML)
     eventSection.lastChild.replaceWith(rows);
 }
+function resetInspectorReport(id) {
+  const report = $("inspector-report");
+  if (report.dataset.agent === (id || "")) return;
+  inspectorCopyVersion++;
+  report.dataset.agent = id || "";
+  report.hidden = true;
+  $("inspector-report-text").value = "";
+  $("inspector-copy-status").textContent = "";
+}
+function sessionReport(agent) {
+  const metrics = sessionUsageForAgent(agent);
+  const received =
+    lastObserverResponse === null
+      ? "Not received"
+      : new Date(lastObserverResponse).toISOString();
+  return [
+    "Agent Office — session snapshot",
+    "Source: " +
+      (window._state?.mode === "demo" ? "Synthetic demo" : "Local observer"),
+    "Freshness: " +
+      (offline
+        ? "Observer disconnected — retained data; it may be stale."
+        : "Last received snapshot; not a live process guarantee."),
+    "Received: " + received,
+    "Session: " + agent.id,
+    "Runtime: " + runtimeName(agent),
+    "Name: " + (agent.label || agent.id),
+    "Reported status: " +
+      (STATUS_NAMES[agent.status] || agent.status || "Not reported"),
+    "Tool: " + (agent.tool || "Not reported"),
+    "Activity preview: " + (agent.detail || "Not reported"),
+    "Total tokens: " +
+      usageValue(metrics, "total_tokens") +
+      " · " +
+      usageCoverage(metrics, "total_tokens"),
+    "Runtime cost estimate (USD): " +
+      usageValue(metrics, "cost_usd") +
+      " · " +
+      usageCoverage(metrics, "cost_usd"),
+    "",
+    "Preview text may be truncated. Check saved activity and the original runtime for full context.",
+    "This report does not send a task or grant approval. Resolve input in the original runtime.",
+  ].join("\n");
+}
+$("inspector-copy").onclick = async () => {
+  const agent = agents.find((value) => value.id === focusedId);
+  if (!agent) return;
+  const id = agent.id,
+    version = ++inspectorCopyVersion,
+    text = sessionReport(agent);
+  const current = () =>
+    version === inspectorCopyVersion &&
+    opened === "sheet-inspector" &&
+    focusedId === id &&
+    agents.some((value) => value.id === id);
+  try {
+    await navigator.clipboard.writeText(text);
+    if (!current()) return;
+    $("inspector-report").hidden = true;
+    $("inspector-report-text").value = "";
+    $("inspector-copy-status").textContent =
+      "Session snapshot copied. Review paths and commands before sharing.";
+  } catch {
+    if (!current()) return;
+    const field = $("inspector-report-text");
+    field.value = text;
+    $("inspector-report").hidden = false;
+    $("inspector-copy-status").textContent =
+      "Clipboard unavailable. Snapshot selected below; use your device’s Copy action.";
+    field.focus();
+    field.select();
+  }
+};
+$("inspector-customize").onclick = () => {
+  if (!agents.some((agent) => agent.id === focusedId)) return;
+  $("agent-name-input").focus();
+};
 function syncAgentFollow() {
   const button = $("agent-follow"),
     agent = agents.find((value) => value.id === focusedId);

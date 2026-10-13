@@ -112,3 +112,30 @@ Local raw-history retention is separate from diagnostic log rotation and billing
 Use `python3 tools/maintain.py` for a read-only storage report. Do not truncate
 live SQLite files, delete the pending inbox, or run a blanket ignored-file cleanup
 against runtime data. [Safe maintenance](architecture.md#diagnostic-logs-and-safe-cleanup).
+
+## Inspect and copy a session snapshot
+
+The Agents panel keeps search and runtime/reset controls compact. On narrow
+screens the status buttons scroll horizontally; swipe the strip or use Tab to
+reach every status. Session names and activity no longer compete with a separate
+status column for the same small width. Usage below the roster still includes
+all recorded runtimes; filtering the list does not filter accounting totals.
+
+Select a session to see its identity, reported activity, usage, and recent events
+before its cosmetic settings. Unchanged command and session-ID text survives
+polling, so selecting it for copying is not interrupted by elapsed-time updates.
+**Customize agent** jumps to the name/preferences controls; Back restores the
+previous panel, filters, scroll position, and focused card.
+
+**Copy summary** captures a read-only snapshot of this one session at the time of
+the click. It includes the runtime, session ID, reported status, activity preview,
+last response time, and reported usage with its coverage. It labels synthetic
+demo data and disconnected/retained data explicitly. Previews can be truncated;
+use **Saved activity** and the original runtime for full context.
+
+Copying does not submit a task, connect to a provider, grant permission, write
+settings, or award XP. Clipboard-denied browsers show a readonly, selected text
+field for your device's Copy action. That captured text is not rewritten by
+polling and is cleared when you switch sessions. A late clipboard result cannot
+insert another session's report into the new inspector. No report is persisted to
+browser storage or the server. Review paths and command previews before sharing.
