@@ -172,4 +172,17 @@
   $("scene-hint").textContent = hint;
   window.officeRoom = { sync };
   sync();
+
+  // Load the optional presentation after the existing scene and UI are ready.
+  // Missing studio resources never stop the native office from working.
+  const style = document.createElement("link");
+  style.rel = "stylesheet";
+  style.href = "css/studio.css";
+  document.head.append(style);
+  const studio = document.createElement("script");
+  studio.src = "js/studio.js";
+  studio.onerror = () => {
+    scene.studioArtSource = "fallback";
+  };
+  document.body.append(studio);
 })();
