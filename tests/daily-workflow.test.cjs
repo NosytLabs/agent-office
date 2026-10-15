@@ -253,3 +253,139 @@ test("an unavailable request timestamp is never printed as Invalid Date", async 
     assert.match(summary, /time not reported/);
   });
 });
+
+test("disabled local runs keep keyboard focus and the exact prompt inside Tasks", async () => {
+  await observerFixture({}, async ({ page }) => {
+    const writes = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET") writes.push(request.url());
+    });
+    await page.locator("#tasksbtn").click();
+    await page.locator('[data-task-view="local-runs"]').click();
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#task-run-capability")
+        .textContent.includes("disabled"),
+    );
+    const prompt = "Review the change; keep all existing permissions.";
+    await page.locator("#task-run-prompt").fill(prompt);
+    assert.equal(await page.locator("#task-run-submit").isDisabled(), true);
+    await page.locator("#task-run-prompt").press("Tab");
+    assert.equal(
+      await page.evaluate(() =>
+        document.activeElement.classList.contains("close"),
+      ),
+      true,
+    );
+    await page.keyboard.press("Shift+Tab");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "task-run-prompt",
+    );
+    await page.locator('[data-task-view="draft"]').click();
+    await page.locator('[data-task-view="local-runs"]').click();
+    assert.equal(await page.locator("#task-run-prompt").inputValue(), prompt);
+    assert.deepEqual(writes, []);
+  });
+});
+
+test("Customize section navigation reaches storage and the gallery without losing a draft on mobile", async () => {
+  await observerFixture(
+    { viewport: { width: 320, height: 568 } },
+    async ({ page }) => {
+      await page.locator("#settingsbtn").click();
+      await page.waitForFunction(
+        () => !!document.querySelector("#studio-gallery"),
+      );
+      await page.locator("#room-name-input").fill("Unsaved office draft");
+      const navigation = page.getByLabel("Customize section");
+      await navigation.selectOption({ label: "History & storage" });
+      assert.equal(
+        await page.evaluate(() => document.activeElement.id),
+        "retention-heading",
+      );
+      const storagePosition = await page
+        .locator("#retention-heading")
+        .evaluate((heading) => ({
+          top: heading.getBoundingClientRect().top,
+          headerBottom: heading
+            .closest(".sheet")
+            .querySelector(".sheet-header")
+            .getBoundingClientRect().bottom,
+          bottom: heading.getBoundingClientRect().bottom,
+          viewport: innerHeight,
+        }));
+      assert.ok(
+        storagePosition.top >= storagePosition.headerBottom,
+        JSON.stringify(storagePosition),
+      );
+      assert.ok(
+        storagePosition.bottom < storagePosition.viewport,
+        JSON.stringify(storagePosition),
+      );
+      const galleryOption = await navigation
+        .locator("option")
+        .evaluateAll(
+          (options) =>
+            options.find((option) => /sprite/i.test(option.textContent))?.value,
+        );
+      assert.ok(
+        galleryOption,
+        "The sprite gallery has a direct section destination",
+      );
+      await navigation.selectOption(galleryOption);
+      assert.equal(
+        await page.locator("#studio-gallery").getAttribute("open"),
+        "",
+      );
+      assert.equal(
+        await page.evaluate(
+          () => document.activeElement.closest("#studio-gallery")?.id,
+        ),
+        "studio-gallery",
+      );
+      fs.mkdirSync("reports/daily", { recursive: true });
+      await page.screenshot({
+        path: "reports/daily/gallery-navigation-320.png",
+      });
+      await page.evaluate(() => poll());
+      await navigation.selectOption({ label: "Office name" });
+      assert.equal(
+        await page.locator("#room-name-input").inputValue(),
+        "Unsaved office draft",
+      );
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+      );
+      fs.mkdirSync("reports/daily", { recursive: true });
+      await page.screenshot({
+        path: "reports/daily/customize-navigation-320.png",
+      });
+    },
+  );
+});
+
+test("Help opens the local Connection guide and Back restores Help", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.locator("#helpbtn").click();
+    await page
+      .locator("#sheet-legend")
+      .getByRole("button", { name: "Connection guide", exact: true })
+      .click();
+    assert.equal(await page.locator("#sheet-setup").isVisible(), true);
+    await page.locator("#setup-runtime").selectOption("codex");
+    assert.equal(
+      await page.locator("#command-install").textContent(),
+      "python3 install.py --only codex",
+    );
+    await page.locator("#sheet-setup .sheet-back").click();
+    assert.equal(await page.locator("#sheet-legend").isVisible(), true);
+    assert.equal(
+      await page.evaluate(() => document.activeElement.textContent),
+      "Connection guide",
+    );
+  });
+});

@@ -1,7 +1,8 @@
 # Studio artwork
 
 Open **Customize → Studio artwork**, beside Layout & atmosphere. Choose Studio
-pixel art or Original artwork, optional autumn/winter wall decorations, and the
+pixel art or Original artwork, warm oak / blue slate / original room finish,
+optional autumn/winter wall decorations, and the
 look of each existing companion slot. These browser preferences are separate for
 the hosted demo and local observer. They do not alter another browser's settings.
 
@@ -11,6 +12,12 @@ The 512 by 323 native atlas has 168 source entries: 54 character poses, 56 compa
 poses, 29 props, 13 icons and 16 effect frames. Two human palette variants add 18
 canvases. Eleven additional native prop/state entries are drawn once at load time
 by `addStudioDetails()` in `web/js/studio.js`, making 197 available sprite entries.
+The supplementary directional atlas adds 72 generated walking frames for the six
+base identities and 24 matching palette variants, stored separately from the base
+set. Each character look has front, back, left and right views with three walking
+poses. Frames retain the existing 32 × 36 canvas and bottom-center anchor. Walking
+uses distance traveled and freezes on Pause/reduced motion; activity portraits
+and the original base poses remain available.
 The additional artwork covers the succulent, planter, desk robot, attention beacon,
 door and task terminal, including idle, running, finished, failed and disconnected
 terminal states. The base task-terminal entry shares its idle-state canvas.
@@ -29,19 +36,39 @@ portrait repaint rather than native and studio repaints in sequence. Artwork
 controls do not displace the established reset/export keyboard order. Focused
 notifications retain keyboard access and resume their expiry after focus leaves.
 
+The companion supplement adds 96 original frames: eight looks, four headings and
+three walk poses at 28 × 26 pixels, anchored at (14,25). Heading follows actual
+travel; sleep and affection keep their established poses. Four 128 × 128 room
+surfaces provide oak/slate floors and matching plaster walls. A cached repeat
+pattern preserves geometry, room lighting and object interactions. Original theme
+remains selectable. The searchable gallery contains 434 entries in total.
+
 ## Compatibility
 
 The original compact atlas, source sheets, geometry, pathfinding and editor rules
 remain intact. Missing or invalid studio resources fall back to the original
 artwork as a complete set. No new runtime dependency or frontend build is required.
-The new deterministic sprites are source-defined artwork, not new AI-generated
-image sheets. The approved generated sheets remain the source for the main atlas.
+The supplementary walking sheet was created with the built-in image-generation
+tool using the existing Studio strips as style and identity references. Its
+unmodified source, full prompt, source checksum and reviewed crop bounds are in
+`web/assets/sprites/studio/source/` and `directional.json`. The compiler fits each
+identity with one shared scale and nearest-neighbor sampling. Run
+`node tools/build_studio_directional.mjs --check` to reproduce all 72 native frames;
+this is also part of `npm run check:sprites`. The environment compiler
+`node tools/build_studio_environment.mjs --check` also reproduces all 96 companion
+frames and four seamless surface tiles from their preserved source and full
+prompts. The surface compiler reflects reviewed tiles to match opposite edges.
+
+If any supplementary sheet is unavailable or fails validation, the base artwork
+remains usable and **Retry artwork** restores optional artwork in place without
+discarding drafts. Directional frames also appear in the searchable sprite gallery
+and export as native transparent PNGs or four-frame walk strips.
 
 Animations never submit prompts, answer approvals, call models, grant XP or change
 token/cost accounting. Seasonal ornaments are decorative wall art rather than
 independently placeable furniture. The handoff indicates reported completion,
-not verified code quality. Full four-direction chibi art is not included; Original
-artwork retains its existing directional frames. Aquarium and arcade art retain
+not verified code quality. Characters and companions include four-direction walking. Original artwork retains its existing
+directional frames. Aquarium and arcade art retain
 their separate loaders and notices. Project-specific rooms and autonomous agent
 coffee trips are not implemented by this presentation layer.
 

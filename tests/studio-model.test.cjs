@@ -48,11 +48,11 @@ test("preferences reject unexpected values and omit telemetry", () => {
       season: "auto",
       tokens: 100,
     }),
-    { art: "studio", pets: [0, 1], season: "none" },
+    { art: "studio", pets: [0, 1], season: "none", finish: "oak" },
   );
   assert.deepEqual(
     studio.preferences?.({ art: "classic", pets: [4, 7], season: "winter" }),
-    { art: "classic", pets: [4, 7], season: "winter" },
+    { art: "classic", pets: [4, 7], season: "winter", finish: "oak" },
   );
 });
 test("manifest rejects missing poses, out-of-bounds frames and bad anchors", () => {

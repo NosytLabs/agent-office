@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "image": "room-surfaces.png",
+  "width": 256,
+  "height": 256,
+  "rgbaSha256": "a6cfe672d87aa950cd6ce590a3ccf6f5c26f87731d6e593bd3568c452b1f32b8",
+  "source": "source/room-surfaces.png",
+  "sourceSha256": "e044253d771894e36269fc4fcc7c96a150e6f25960e3d778c556dad43e86cec0",
+  "sourceDimensions": [
+    1254,
+    1254
+  ],
+  "sourcePreservedUnmodified": true,
+  "sourceBounds": [
+    [
+      0,
+      0,
+      627,
+      627
+    ],
+    [
+      627,
+      0,
+      627,
+      627
+    ],
+    [
+      0,
+      627,
+      627,
+      627
+    ],
+    [
+      627,
+      627,
+      627,
+      627
+    ]
+  ],
+  "rowScales": [],
+  "entries": {
+    "surface-oak-floor": {
+      "rect": [
+        0,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    "surface-slate-floor": {
+      "rect": [
+        128,
+        0,
+        128,
+        128
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    "surface-oak-wall": {
+      "rect": [
+        0,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    "surface-slate-wall": {
+      "rect": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    }
+  }
+}

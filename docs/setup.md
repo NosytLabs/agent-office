@@ -70,6 +70,31 @@ Open the port printed by the server. `--port` overrides `AGENT_OFFICE_PORT`.
 Invalid port values receive a command-line error rather than a traceback.
 `python3 run.py --help` works even when that environment variable is malformed.
 
+Observer requests accept `127.0.0.1`, `localhost`, and `[::1]` Host headers only
+at the actual listening port. Browser API requests must use that same origin;
+foreign/null origins and cross-site requests are rejected. This also protects
+settings changes and history/reset actions from websites that resolve their own
+hostname to loopback. Direct local HTTP clients can continue using the API
+without browser headers. The listener itself remains IPv4 loopback.
+
+For a VS Code or other trusted forwarding service that exposes a different
+browser origin, explicitly allow that exact origin when starting the observer:
+
+```sh
+python3 run.py --observer-origin https://office.example-forwarder.test
+```
+
+Repeat `--observer-origin` for each required origin. The equivalent
+`AGENT_OFFICE_OBSERVER_ORIGINS` environment variable takes comma-separated
+origins and also works for the Hermes-started observer. Include a nondefault
+port when present; omit paths, query parameters, credentials, and wildcards.
+Restart after changing the allowlist. A trusted forwarder may preserve its
+public Host or rewrite it to the observer's loopback Host. Proxy forwarding
+headers do not grant trust. Only add forwarding endpoints you control and keep
+their access controls enabled: this exposes the observer's recorded activity
+and editing/reset API through that endpoint. This allowlist does not change
+the local task runner's separate loopback/token checks.
+
 Default data lives in `~/.hermes/pixel-office`. To use a different location, set
 the **same `HERMES_HOME`** for the server, installer, and runtime processes.
 For example, in each macOS/Linux shell:

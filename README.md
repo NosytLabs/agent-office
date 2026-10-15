@@ -10,7 +10,7 @@ activity, and keep your agents' existing tools and permissions.
 [Quick start](#start-locally) · [Setup guide](docs/setup.md) ·
 [Usage and costs](docs/usage.md) · [Documentation](docs/README.md)
 
-![Agent Office dashboard with synthetic agent activity in the Juniper room](docs/screenshots/appearance.png)
+![Agent Office dashboard with synthetic agent activity](docs/screenshots/studio-office.png)
 
 **Python 3.10+ · No frontend build required · Local storage · MIT project code**
 
@@ -76,12 +76,20 @@ runtime; see [runtime coverage](docs/runtime-observers.md).
 
 ## Activity, usage, and room controls
 
+Find sessions and panels with **Find…** or **Ctrl/⌘ K**. **P / Shift+P** opens the
+next/previous session needing input; the browser tab shows a count and clears it
+when disconnected. Customize includes section jumps, oak/slate room finishes,
+eight companion looks and a searchable gallery with native sprite-strip export.
+See the [current reference review](docs/reference-review-2026-10-15.md) for the
+source research and follow-on ideas.
+
 | What you need | Where to go |
 | --- | --- |
 | Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file |
 | Understand tokens and estimated cost | Usage cards and runtime/model breakdowns; [how to read them](docs/usage.md) |
 | Prepare or run a new task | Tasks → Draft prompt or the opt-in Local runs panel |
-| Personalize the office | Customize: themes, desks, characters, furniture, pets, and lighting |
+| Personalize the office | Customize → Jump to: artwork, layouts, furniture, companions, lighting, and storage |
+| Browse or download artwork | Customize → Preview & download sprites: search, category filters, transparent PNGs, and animation strips |
 
 **A useful daily flow:** open **Agents → Needs input**, select a runtime, and
 inspect the session's reported command or question. Respond in the original
@@ -95,11 +103,29 @@ selected session's timestamped snapshot, with a selectable-text fallback when
 clipboard access is unavailable. It never sends a prompt or grants approval;
 review paths and command previews before sharing. **Customize agent** jumps to
 its preferences without losing your filtered list. Saved activity offers separate
-**Export matching** and **Export all saved** downloads, so you choose what to share.
+**Export matching** and **Export all saved** downloads beside its filters, so you
+choose what to share without scrolling through the results.
 
 Disconnected panels show **last received data**, not a live-status claim, with
 **Retry connection** inside the panel. Background tabs refresh less often and
 catch up when visible again. [Refresh and filtering behavior](docs/usage.md#find-work-and-understand-freshness).
+
+## Make the room yours
+
+Open **Customize** and use **Jump to** to reach a section. **Studio artwork** offers
+four-direction character walking, companion looks, optional seasonal wall accents,
+and a choice of Studio pixel art or Original artwork. The sprite gallery previews
+individual sprites and animations, with native transparent PNG and animation-strip
+downloads. These artwork choices stay in your browser, separately for the demo and
+local office. Missing Studio artwork falls back to the original set;
+**Retry artwork** reloads it without discarding unsaved changes.
+[Artwork, gallery, and compatibility details](docs/studio-art.md).
+
+Place up to 24 custom props, arrange them with the room editor, or select an agent
+to change its local name, preferred desk, and appearance. Use **Jump to → History &
+storage** to set retention limits.
+Motion can be paused, and reduced-motion preferences are respected. Animation
+reflects reported activity; it does not prove that an agent completed useful work.
 
 The room also includes a [Duck Hunt, Breakout, and Snake arcade](docs/arcade.md),
 [an interactive aquarium](docs/aquarium-assets.md), and a local music jukebox.
@@ -116,8 +142,10 @@ python3 run.py --enable-task-runner --workspace "/absolute/path/to/project"
 
 Open **Tasks → Local runs**, select the installed CLI and project, and explicitly
 choose **Run task**. This can execute agent work and incur that CLI's usual costs.
-The observer never answers permission prompts for existing sessions. The hosted
-demo cannot launch tasks. Read the [runner setup and limits](docs/local-task-runner.md)
+The observer never answers permission prompts for existing sessions. With the
+runner disabled, use **Draft prompt** to prepare, copy, or export a brief for an
+existing runtime. Copying a draft does not dispatch it to OpenCode or another agent.
+The hosted demo cannot launch tasks. Read the [runner setup and limits](docs/local-task-runner.md)
 before enabling it. Copy and cancellation feedback stays scoped to the selected
 run, even when replies arrive late. Idle background run checks use a slower
 refresh rate; opening Local runs refreshes immediately.

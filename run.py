@@ -10,6 +10,8 @@ import sys
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=os.environ.get('AGENT_OFFICE_PORT', '8113'))
+    parser.add_argument('--observer-origin', action='append', default=[], metavar='HTTP(S)://HOST[:PORT]',
+                        help='explicit trusted observer forwarding origin (repeatable; does not enable forwarded task runs)')
     parser.add_argument('--enable-task-runner', action='store_true',
                         help='allow this server to launch supported local agent CLIs')
     parser.add_argument('--workspace', action='append', default=[], metavar='/ABSOLUTE/PROJECT',
@@ -39,11 +41,12 @@ def main():
     try:
         office._serve(
             task_runner=task_runner,
+            observer_origins=args.observer_origin,
             on_ready=lambda port: print(
                 f'Agent Office — http://127.0.0.1:{port} (Ctrl+C to stop)', flush=True
             ),
         )
-    except office.TaskRunnerStartupError as exc:
+    except office.ObserverStartupError as exc:
         print(f'Agent Office: {exc}', file=sys.stderr)
         raise SystemExit(1)
     except KeyboardInterrupt:

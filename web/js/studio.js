@@ -32,6 +32,124 @@
     "Golden dog",
     "Pocket robot",
   ];
+  const DIRECTIONS = ["down", "up", "right", "left"];
+  const WALK_POSES = ["idle", "walk-a", "walk-b"];
+  function petMotion(x, y, previous, geometry, paused, facing = 1) {
+    const same = previous?.geometry === geometry,
+      dx = same ? x - previous.x : 0,
+      dy = same ? y - previous.y : 0,
+      travelled = Math.hypot(dx, dy),
+      moving = !paused && travelled > 0.01 && travelled < 10;
+    return {
+      x,
+      y,
+      geometry,
+      distance: (same ? previous.distance : 0) + (moving ? travelled : 0),
+      dir: moving
+        ? Math.abs(dx) > Math.abs(dy)
+          ? dx < 0
+            ? "left"
+            : "right"
+          : dy < 0
+            ? "up"
+            : "down"
+        : same
+          ? previous.dir
+          : facing < 0
+            ? "left"
+            : "right",
+    };
+  }
+  function petDirectionalKey(index, motion, affection = false, paused = false) {
+    const key = !affection && directionalKey(index, motion, paused);
+    return key ? key.replace(/^person-/, "pet-") : null;
+  }
+  function validEnvironmentManifest(m, name) {
+    const surfaces = name === "room-surfaces",
+      pets = name === "pet-walk";
+    if (
+      (!surfaces && !pets) ||
+      !m ||
+      m.version !== 1 ||
+      m.image !== name + ".png" ||
+      m.width !== (surfaces ? 256 : 336) ||
+      m.height !== (surfaces ? 256 : 208) ||
+      !/^[a-f0-9]{64}$/.test(m.rgbaSha256) ||
+      !m.entries ||
+      typeof m.entries !== "object" ||
+      Array.isArray(m.entries) ||
+      Object.keys(m.entries).length !== (surfaces ? 4 : 96)
+    )
+      return false;
+    const expected = [];
+    if (surfaces)
+      ["oak-floor", "slate-floor", "oak-wall", "slate-wall"].forEach((key, i) =>
+        expected.push([
+          `surface-${key}`,
+          [(i % 2) * 128, Math.floor(i / 2) * 128, 128, 128],
+          [0, 0],
+        ]),
+      );
+    else
+      for (let pet = 0; pet < 8; pet++)
+        DIRECTIONS.forEach((direction, d) =>
+          WALK_POSES.forEach((pose, p) =>
+            expected.push([
+              `pet-${pet}-${direction}-${pose}`,
+              [(d * 3 + p) * 28, pet * 26, 28, 26],
+              [14, 25],
+            ]),
+          ),
+        );
+    return expected.every(
+      ([key, rect, anchor]) =>
+        JSON.stringify(m.entries[key]?.rect) === JSON.stringify(rect) &&
+        JSON.stringify(m.entries[key]?.anchor) === JSON.stringify(anchor),
+    );
+  }
+  function directionalKey(person, motion = {}, paused = false) {
+    if (!motion.moving || !DIRECTIONS.includes(motion.dir)) return null;
+    const distance = Number.isFinite(motion.distance)
+      ? Math.max(0, motion.distance)
+      : 0;
+    const frame = paused
+      ? "idle"
+      : ["idle", "walk-a", "walk-b", "walk-a"][Math.floor(distance / 3) % 4];
+    return `person-${person}-${motion.dir}-${frame}`;
+  }
+  function validDirectionalManifest(manifest) {
+    if (
+      !manifest ||
+      manifest.version !== 1 ||
+      manifest.width !== 384 ||
+      manifest.height !== 216 ||
+      manifest.image !== "directional.png" ||
+      !manifest.entries ||
+      typeof manifest.entries !== "object" ||
+      Array.isArray(manifest.entries) ||
+      Object.keys(manifest.entries).length !== 72 ||
+      !/^[0-9a-f]{64}$/.test(manifest.rgbaSha256)
+    )
+      return false;
+    for (let person = 0; person < 6; person++)
+      for (const [direction, name] of DIRECTIONS.entries())
+        for (const [pose, label] of WALK_POSES.entries()) {
+          const entry = manifest.entries[`person-${person}-${name}-${label}`];
+          if (
+            !entry ||
+            JSON.stringify(entry.rect) !==
+              JSON.stringify([
+                (direction * 3 + pose) * 32,
+                person * 36,
+                32,
+                36,
+              ]) ||
+            JSON.stringify(entry.anchor) !== "[16,35]"
+          )
+            return false;
+        }
+    return true;
+  }
   function pose(a = {}, c = {}, time = 0, paused = false) {
     if (c.moving && !paused)
       return ["idle", "walk-a", "walk-b", "walk-a"][
@@ -89,6 +207,9 @@
       season: ["autumn", "winter"].includes(value?.season)
         ? value.season
         : "none",
+      finish: ["slate", "classic"].includes(value?.finish)
+        ? value.finish
+        : "oak",
     };
   }
   function validManifest(m) {
@@ -305,6 +426,11 @@
     companionFeedback,
     preferences,
     validManifest,
+    directionalKey,
+    validDirectionalManifest,
+    petMotion,
+    petDirectionalKey,
+    validEnvironmentManifest,
     addStudioDetails,
   });
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -328,6 +454,12 @@
     ready: false,
     source: "loading",
     sprites: new Map(),
+    directional: new Map(),
+    directionalReady: false,
+    directionalError: "",
+    surfaces: new Map(),
+    petDirectional: new Map(),
+    environmentError: "",
     error: "",
     prefs,
     loading: false,
@@ -391,7 +523,12 @@
   };
   scene.character = function (a, x, y, c) {
     const state = pose(a, c, this.time, this.paused),
-      im = sprite(`person-${person(a)}-${state === "type" ? "idle" : state}`);
+      directional =
+        enabled() &&
+        art.directional.get(directionalKey(person(a), c, this.paused)),
+      im =
+        directional ||
+        sprite(`person-${person(a)}-${state === "type" ? "idle" : state}`);
     if (!im) return original.character.call(this, a, x, y, c);
     const g = this.ctx,
       left = Math.round(x - 8),
@@ -399,7 +536,7 @@
     g.save();
     if (a.status === "gone") g.globalAlpha = 0.4;
     else if (a.status === "done") g.globalAlpha = 0.85;
-    if (c.moving && c.dir === "left") {
+    if (!directional && c.moving && c.dir === "left") {
       g.translate(left + 32, top);
       g.scale(-1, 1);
       g.drawImage(im, 0, 0);
@@ -433,24 +570,32 @@
     const key = black ? "blackcat" : "cat",
       index = black ? 1 : 0,
       active = this.petActive === key && this.petUntil > this.time;
-    const previous = petDistances.get(key),
-      travelled =
-        previous && previous.geometry === this.geometry
-          ? Math.hypot(x - previous.x, y - previous.y)
-          : 0;
-    const distance =
-      (previous?.distance || 0) +
-      (!this.paused && travelled < 10 ? travelled : 0);
-    petDistances.set(key, { x, y, distance, geometry: this.geometry });
-    const im = sprite(
-      `pet-${prefs.pets[index]}-${petPose({ ...behavior, distance }, active, this.paused)}`,
+    const motion = petMotion(
+      x,
+      y,
+      petDistances.get(key),
+      this.geometry,
+      this.paused,
+      behavior.facing,
     );
+    petDistances.set(key, motion);
+    const state = { ...behavior, ...motion },
+      directional =
+        enabled() &&
+        art.petDirectional.get(
+          petDirectionalKey(prefs.pets[index], state, active, this.paused),
+        ),
+      im =
+        directional ||
+        sprite(
+          `pet-${prefs.pets[index]}-${petPose(state, active, this.paused)}`,
+        );
     if (!im) return original.pet.call(this, x, y, black, behavior);
     const left = Math.round(x - 10),
       top = Math.round(y - 18),
       g = this.ctx;
     g.save();
-    if (behavior.facing < 0) {
+    if (!directional && behavior.facing < 0) {
       g.translate(left + 20, top);
       g.scale(-1, 1);
       g.drawImage(im, 0, 0, 20, 19);
@@ -623,6 +768,13 @@
     document.documentElement.dataset.officeArt = enabled()
       ? "studio"
       : "classic";
+    scene.roomSurfaces =
+      enabled() && prefs.finish !== "classic"
+        ? {
+            floor: art.surfaces.get(`surface-${prefs.finish}-floor`),
+            wall: art.surfaces.get(`surface-${prefs.finish}-wall`),
+          }
+        : null;
     for (const card of document.querySelectorAll(".agent-card[data-agent]")) {
       const a = agents.find((a) => a.id === card.dataset.agent);
       if (!a) continue;
@@ -686,6 +838,19 @@
     prefs.art,
     (value) => {
       prefs = { ...prefs, art: value };
+    },
+  );
+  select(
+    "Room finish",
+    "studio-room-finish",
+    [
+      ["oak", "Warm oak"],
+      ["slate", "Blue slate"],
+      ["classic", "Original theme"],
+    ],
+    prefs.finish,
+    (value) => {
+      prefs = { ...prefs, finish: value };
     },
   );
   select(
@@ -753,8 +918,124 @@
       }
       im.onload = () => finish();
       im.onerror = () => finish(new Error("Studio image unavailable"));
-      im.src = `assets/sprites/studio/studio-${index}.png`;
+      im.src =
+        "assets/sprites/studio/" +
+        (typeof index === "number" ? `studio-${index}.png` : index);
     });
+  }
+  function paletteVariant(source, finish) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 36;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(source, 0, 0);
+    const pixels = context.getImageData(0, 0, 32, 36),
+      d = pixels.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i],
+        green = d[i + 1],
+        b = d[i + 2];
+      if (d[i + 3] && b > 60 && b > r * 1.4 && b > green * 1.1) {
+        d[i] = Math.round(b * (finish === "rose" ? 0.85 : 0.46));
+        d[i + 1] = Math.round(finish === "rose" ? green * 0.65 : b * 0.75);
+        d[i + 2] = Math.round(b * (finish === "rose" ? 0.55 : 0.5));
+      }
+    }
+    context.putImageData(pixels, 0, 0);
+    return canvas;
+  }
+  async function loadDirectional() {
+    const response = await fetch("assets/sprites/studio/directional.json", {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error("Directional manifest unavailable");
+    const manifest = await response.json();
+    if (!validDirectionalManifest(manifest))
+      throw new Error("Invalid directional atlas");
+    const image = await loadImage("directional.png");
+    if (image.naturalWidth !== 384 || image.naturalHeight !== 216)
+      throw new Error("Directional image dimensions differ");
+    const atlas = document.createElement("canvas");
+    atlas.width = 384;
+    atlas.height = 216;
+    const context = atlas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    if (root.crypto?.subtle) {
+      const digest = await root.crypto.subtle.digest(
+        "SHA-256",
+        context.getImageData(0, 0, 384, 216).data,
+      );
+      if (
+        [...new Uint8Array(digest)]
+          .map((n) => n.toString(16).padStart(2, "0"))
+          .join("") !== manifest.rgbaSha256
+      )
+        throw new Error("Directional pixels failed integrity check");
+    }
+    const sprites = new Map();
+    for (const [key, entry] of Object.entries(manifest.entries)) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 32;
+      canvas.height = 36;
+      canvas.getContext("2d").drawImage(atlas, ...entry.rect, 0, 0, 32, 36);
+      sprites.set(key, canvas);
+    }
+    for (const [id, finish] of [
+      [6, "rose"],
+      [7, "moss"],
+    ])
+      for (const direction of DIRECTIONS)
+        for (const pose of WALK_POSES)
+          sprites.set(
+            `person-${id}-${direction}-${pose}`,
+            paletteVariant(
+              sprites.get(`person-3-${direction}-${pose}`),
+              finish,
+            ),
+          );
+    return sprites;
+  }
+  async function loadEnvironment(name) {
+    const response = await fetch(`assets/sprites/studio/${name}.json`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error(`${name} manifest unavailable`);
+    const manifest = await response.json();
+    if (!validEnvironmentManifest(manifest, name))
+      throw new Error(`Invalid ${name} atlas`);
+    const image = await loadImage(name + ".png");
+    if (
+      image.naturalWidth !== manifest.width ||
+      image.naturalHeight !== manifest.height
+    )
+      throw new Error(`${name} dimensions differ`);
+    const atlas = document.createElement("canvas");
+    atlas.width = manifest.width;
+    atlas.height = manifest.height;
+    const context = atlas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    if (root.crypto?.subtle) {
+      const digest = await root.crypto.subtle.digest(
+        "SHA-256",
+        context.getImageData(0, 0, atlas.width, atlas.height).data,
+      );
+      if (
+        [...new Uint8Array(digest)]
+          .map((n) => n.toString(16).padStart(2, "0"))
+          .join("") !== manifest.rgbaSha256
+      )
+        throw new Error(`${name} pixels failed integrity check`);
+    }
+    const sprites = new Map();
+    for (const [key, entry] of Object.entries(manifest.entries)) {
+      const canvas = document.createElement("canvas");
+      [canvas.width, canvas.height] = entry.rect.slice(2);
+      canvas
+        .getContext("2d")
+        .drawImage(atlas, ...entry.rect, 0, 0, canvas.width, canvas.height);
+      sprites.set(key, canvas);
+    }
+    return sprites;
   }
   async function load() {
     try {
@@ -811,39 +1092,48 @@
         [7, "moss"],
       ])
         for (const p of POSES) {
-          const c = document.createElement("canvas");
-          c.width = 32;
-          c.height = 36;
-          const g = c.getContext("2d", { willReadFrequently: true });
-          g.drawImage(sprites.get(`person-3-${p}`), 0, 0);
-          const pixels = g.getImageData(0, 0, 32, 36),
-            d = pixels.data;
-          for (let i = 0; i < d.length; i += 4) {
-            const r = d[i],
-              green = d[i + 1],
-              b = d[i + 2];
-            if (d[i + 3] && b > 60 && b > r * 1.4 && b > green * 1.1) {
-              d[i] = Math.round(b * (finish === "rose" ? 0.85 : 0.46));
-              d[i + 1] = Math.round(
-                finish === "rose" ? green * 0.65 : b * 0.75,
-              );
-              d[i + 2] = Math.round(b * (finish === "rose" ? 0.55 : 0.5));
-            }
-          }
-          g.putImageData(pixels, 0, 0);
-          sprites.set(`person-${id}-${p}`, c);
+          sprites.set(
+            `person-${id}-${p}`,
+            paletteVariant(sprites.get(`person-3-${p}`), finish),
+          );
         }
       addStudioDetails(sprites);
+      art.directional = new Map();
+      art.directionalError = "";
+      try {
+        art.directional = await loadDirectional();
+      } catch (error) {
+        art.directionalError = error.message;
+      }
+      art.directionalReady = art.directional.size === 96;
+      art.environmentError = "";
+      for (const [name, property] of [
+        ["room-surfaces", "surfaces"],
+        ["pet-walk", "petDirectional"],
+      ]) {
+        art[property] = new Map();
+        try {
+          art[property] = await loadEnvironment(name);
+        } catch (error) {
+          art.environmentError += error.message + ". ";
+        }
+      }
       art.sprites = sprites;
       art.ready = true;
       art.source = "studio";
       art.manifest = manifest;
       status.textContent =
-        "Studio sprites ready. Viewing choices stay on this browser.";
+        art.directionalReady && !art.environmentError
+          ? "Studio sprites, room finishes and directional walking ready. Viewing choices stay on this browser."
+          : "Studio sprites ready. Some optional artwork is unavailable; use Retry artwork to restore it.";
       redraw();
     } catch (error) {
       art.ready = false;
       art.sprites.clear();
+      art.directional.clear();
+      art.directionalReady = false;
+      art.surfaces.clear();
+      art.petDirectional.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =

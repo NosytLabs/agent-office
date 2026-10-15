@@ -58,11 +58,14 @@ evidence. `npm run format` applies Prettier; inspect the diff afterward.
 Use [build:sprites](docs/asset-pipeline.md) after an intentional source-art change;
 do not regenerate original sheets to hide a failed pixel-equivalence check.
 
-The [repository-hygiene workflow](.github/workflows/hygiene.yml) also runs on docs
-changes and installs no development dependencies. The heavier
-[CI workflow](.github/workflows/ci.yml) excludes docs-only changes and keeps browser
-artifacts for three days. Builds create `dist/` (demo and product site) or
-`site-dist/` (`npm run build:site`); they do not deploy anything.
+The [repository-hygiene workflow](.github/workflows/hygiene.yml) checks every
+pull request and push to `main`, including asset deletions that can break unchanged
+Markdown links. It installs no development dependencies. The full
+[CI workflow](.github/workflows/ci.yml) runs on the same events, with Python and
+Node checks, formatting, sprite pixel verification, public builds, and all browser
+flows. It allows 20 minutes and keeps browser artifacts for three days on failed
+or manual runs. Builds create `dist/` (demo and product site) or `site-dist/`
+(`npm run build:site`); they do not deploy anything.
 
 Optional checks require explicit local tools:
 

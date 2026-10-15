@@ -132,7 +132,9 @@
   function animationKeys(key, keys) {
     const available = new Set(keys);
     if (!available.has(key)) return [];
-    const actor = key.match(/^((?:person|pet)-\d+)-(?:idle|walk-a|walk-b)$/);
+    const actor = key.match(
+      /^((?:person|pet)-\d+(?:-(?:up|down|left|right))?)-(?:idle|walk-a|walk-b)$/,
+    );
     if (actor) {
       const walk = ["idle", "walk-a", "walk-b", "walk-a"].map(
         (pose) => actor[1] + "-" + pose,
@@ -201,9 +203,16 @@
     // Mirror the complete character in one actor-centered coordinate system.
     // In particular, the crown keeps the same world-space center as the head.
     scene.character = function (agent, x, y, motion) {
-      if (!enabled() || !motion.moving || motion.dir !== "left")
+      if (
+        !enabled() ||
+        !motion.moving ||
+        motion.dir !== "left" ||
+        art.directionalReady
+      )
         return originalCharacter.call(this, agent, x, y, motion);
       this.ctx.save();
+      // The actor spans x-8..x+24. Reflection about its center x+8 uses
+      // x' = 2*(x+8)-x; this also keeps its crown centered.
       this.ctx.translate(2 * x + 16, 0);
       this.ctx.scale(-1, 1);
       try {
@@ -238,7 +247,12 @@
         syncLabels();
         return result;
       };
-    section.addEventListener("change", syncLabels);
+    section.addEventListener("change", (event) => {
+      if (
+        event.target.matches("#studio-art-choice, #studio-pet-0, #studio-pet-1")
+      )
+        syncLabels();
+    });
     syncLabels();
     const status = document.getElementById("studio-art-status");
     const retry = document.createElement("button");
@@ -479,14 +493,21 @@
         renderFurniturePreviews();
         for (const [key, value] of makeFrames(art.sprites, document))
           frames.set(key, value);
-        for (const [key, value] of [...art.sprites, ...frames])
+        for (const [key, value] of [
+          ...art.sprites,
+          ...art.directional,
+          ...art.petDirectional,
+          ...art.surfaces,
+          ...frames,
+        ])
           all.set(key, value);
       }
       if (art.ready && document.activeElement === retry && status) {
         status.tabIndex = -1;
         status.focus({ preventScroll: true });
       }
-      retry.hidden = art.ready;
+      retry.hidden =
+        art.ready && !art.directionalError && !art.environmentError;
       gallery.hidden = !art.ready;
       syncLoading();
       syncLabels();

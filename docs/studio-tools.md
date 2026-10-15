@@ -5,8 +5,9 @@ character, companion, furniture or effects; search by name; then inspect a nativ
 image, play its animation or export a transparent PNG/animation strip. An empty
 search result disables export instead of leaving an unrelated sprite selected.
 
-The gallery combines 197 Studio entries with 41 generated animation/lighting
-frames, making **238 sprite choices**. The new watering families add four frames
+The gallery combines 197 base Studio entries, 96 directional character frames and
+96 companion directional frames, four room surfaces, and 41 generated
+animation/lighting frames, making **434 sprite choices**. The watering families add four frames
 each for the succulent, fern and planter. They use the approved artwork, fixed
 native dimensions and shared foot anchors. The source-defined droplets appear
 only during an existing cosmetic watering reaction. Existing source sprites and
@@ -35,7 +36,7 @@ Keyboard focus stays reachable during loading and moves to the status when the
 successful retry control disappears.
 
 No provider requests, approvals, observer events, usage or XP are generated.
-Full four-direction chibi source art and project-specific rooms are not included.
+Four-direction character walking is included; project-specific rooms are separate.
 See [Studio artwork](studio-art.md) for base-art provenance and limitations.
 
 Run `npm test` and `npm run test:browser`. New regressions exercise unsaved drafts,

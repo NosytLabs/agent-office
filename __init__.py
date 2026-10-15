@@ -392,7 +392,11 @@ def _build_state_locked() -> Dict[str, Any]:
 # HTTP server
 # ---------------------------------------------------------------------------
 
-class TaskRunnerStartupError(RuntimeError):
+class ObserverStartupError(RuntimeError):
+    """The observer could not safely start its local HTTP server."""
+
+
+class TaskRunnerStartupError(ObserverStartupError):
     """The explicitly requested task runner could not bind its local server."""
 
 
@@ -455,13 +459,56 @@ def _safe_web_file(web_dir: Path, url_path: str) -> Optional[Path]:
     return path if path.is_file() else None
 
 
-def _serve(task_runner=None, on_ready=None) -> None:
+def _trusted_observer_origins(values=()) -> frozenset[str]:
+    """Read explicit forwarding origins; never infer trust from proxy headers."""
+    from urllib.parse import urlsplit
+
+    configured = os.environ.get("AGENT_OFFICE_OBSERVER_ORIGINS", "")
+    origins = set()
+    for value in [*(configured.split(",") if configured else []), *values]:
+        try:
+            if not isinstance(value, str) or not value or re.search(r"\s", value):
+                raise ValueError
+            parsed = urlsplit(value)
+            if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path or parsed.query or parsed.fragment
+                or "?" in value or "#" in value):
+                raise ValueError
+            hostname = parsed.hostname.lower()
+            if ":" in hostname:
+                import ipaddress
+                ipaddress.IPv6Address(hostname)
+                hostname = f"[{hostname}]"
+            elif not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", hostname):
+                raise ValueError
+            port = parsed.port
+            if port is not None and not 1 <= port <= 65535:
+                raise ValueError
+            # Match the browser's serialized Origin, including default ports.
+            suffix = f":{port}" if port is not None and port != {"http": 80, "https": 443}[parsed.scheme] else ""
+            origins.add(f"{parsed.scheme}://{hostname}{suffix}")
+        except (ValueError, UnicodeError):
+            # Do not include configured URLs: they may contain accidental credentials.
+            raise ObserverStartupError(
+                "observer origins must be explicit HTTP(S) origins without credentials, paths, queries, or fragments"
+            ) from None
+    return frozenset(origins)
+
+
+def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     _port = _resolve_port()
     web_dir = Path(__file__).resolve().parent / "web"
     html_path = web_dir / "template.html"
+    try:
+        trusted_origins = _trusted_observer_origins(observer_origins)
+    except ObserverStartupError:
+        if task_runner is not None:
+            task_runner.shutdown()
+        raise
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args: Any) -> None:  # silence stdout
@@ -502,6 +549,9 @@ def _serve(task_runner=None, on_ready=None) -> None:
                             self.respond(exc.status, {"error": exc.message})
                         else:
                             raise
+                    return
+                private_route = route in {"/state", "/history", "/settings", "/assets-manifest"} or route.startswith("/user/")
+                if not self._authorize_observer_request(check_site=private_route):
                     return
                 if route == "/":
                     body = html_path.read_bytes()
@@ -626,6 +676,31 @@ def _serve(task_runner=None, on_ready=None) -> None:
                     return False
             return True
 
+        def _authorize_observer_request(self, *, check_site=True) -> bool:
+            """Reject DNS rebinding and cross-origin access to local observations."""
+            port = self.server.server_port
+            loopback_hosts = {f"{host}:{port}" for host in ("127.0.0.1", "localhost", "[::1]")}
+            forwarded_hosts = {origin.split("://", 1)[1] for origin in trusted_origins}
+            hosts = self.headers.get_all("Host", failobj=[])
+            if len(hosts) != 1 or hosts[0] not in loopback_hosts | forwarded_hosts:
+                self.respond(403, {"error": "observer request Host is not allowed"})
+                return False
+            host = hosts[0]
+            allowed_origins = {origin for origin in trusted_origins if origin.split("://", 1)[1] == host}
+            if host in loopback_hosts:
+                # Forwarders may preserve the public Host or rewrite it to loopback.
+                allowed_origins.update(trusted_origins)
+                allowed_origins.add(f"http://{host}")
+            origins = self.headers.get_all("Origin", failobj=[])
+            if len(origins) > 1 or (origins and origins[0] not in allowed_origins):
+                self.respond(403, {"error": "observer request origin is not allowed"})
+                return False
+            sites = self.headers.get_all("Sec-Fetch-Site", failobj=[])
+            if check_site and (len(sites) > 1 or (sites and sites[0] not in {"same-origin", "none"})):
+                self.respond(403, {"error": "cross-site observer requests are forbidden"})
+                return False
+            return True
+
         def _read_task_json(self):
             if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 self.respond(415, {"error": "use application/json"})
@@ -671,6 +746,8 @@ def _serve(task_runner=None, on_ready=None) -> None:
             route = self.path.split("?")[0]
             if route not in ("/state", "/history"):
                 self.respond(404, {"error": "not found"})
+                return
+            if not self._authorize_observer_request():
                 return
             try:
                 with _lock:
@@ -721,6 +798,8 @@ def _serve(task_runner=None, on_ready=None) -> None:
             if route != "/settings":
                 self.respond(404, {"error": "not found"})
                 return
+            if not self._authorize_observer_request():
+                return
             if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 self.respond(415, {"error": "use application/json"})
                 return
@@ -758,6 +837,9 @@ def _serve(task_runner=None, on_ready=None) -> None:
 
     class OfficeServer(ThreadingHTTPServer):
         daemon_threads = True
+        # Browsers open many asset connections together on a cold load. The
+        # small stdlib default drops queued connections on macOS.
+        request_queue_size = 128
         next_maintenance = 0.0
         next_failure_log = 0.0
 

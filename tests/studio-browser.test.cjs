@@ -82,6 +82,7 @@ test("studio sprites, palettes, pet looks and wall art persist without changing 
       art: "studio",
       pets: [4, 7],
       season: "winter",
+      finish: "oak",
     });
     assert.equal(
       await page.evaluate(() =>

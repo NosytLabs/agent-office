@@ -6,37 +6,38 @@ they do not represent paid-provider work or the owner's live sessions.
 
 ## Current local validation
 
-The 12 October 2026 session-triage, connection, and polling improvements were checked
-against baseline [`0fa417f`](https://github.com/NosytLabs/agent-office/commit/0fa417f946f642e88eb0c234faf46d83471952c3)
-using Python 3.14.4, Node 22.23.2, and Playwright 1.63.0 Chromium on Linux.
+The 15 October 2026 cleanup uses Python 3.13.15, Node 22.23.3, Playwright
+1.63.0 and Google Chrome 155 on macOS. The release gate repeats the complete
+suite on Ubuntu 24.04 / Python 3.13 / Node 22 with the runner’s maintained Chrome.
 
-| Check | Recorded result |
+| Check | Recorded local result |
 | --- | --- |
-| Python suite, including repository and diagnostic regressions | **622 passed**, **2 native Gemini fixture skips** |
-| Node models, controllers, and bridges | **127 passed** |
-| Browser flows | **243 passed**, **1 optional private-art skip** |
-| Compiled sprites | **47 sprites** match **23 original sheets** |
-| Syntax, formatting, local documentation links, and tracked-artifact checks | Passed |
-| Public builds | **106 demo files** and **20 product-site files** |
+| Python suite, including HTTP-boundary and build regressions | **670 passed**, **2 optional native Gemini fixture skips** |
+| Node models, controllers, and bridges | **162 passed** |
+| Browser flows | Full compatibility, Studio, product-site, navigation and attention command defined by `package.json`; see the exact commit’s [CI checks](https://github.com/NosytLabs/agent-office/pull/32/checks) for the release gate |
+| Compiled sprites | **47 native sprites / 23 sheets**, **72 character walking frames**, **96 companion walking frames**, **4 seamless surfaces** reproduced from preserved sources |
+| Syntax, formatting, local documentation links, and tracked-artifact checks | Required in CI; reproduced locally before publication |
+| Public builds | **135 demo files** and **20 product-site files** |
+
+Focused real-observer browser fixtures cover all character/companion directions,
+Pause, native PNG/strip pixels, art fallback/retry without draft loss, oak/slate/
+original finishes, 320-pixel panels, Customize jumps, history exports, Quick
+navigation, attention keyboard cycling and disconnected tab titles. The broader
+suite also covers storage, settings conflicts, local runner fixtures, arcade,
+aquarium, room editing and usage. No viewing action changes work accounting.
 
 The native Gemini tests require an explicit installed CLI path. The private-art
-case requires the owner's licensed Smallburg pack; public art and synthetic
-fallback tests run without it. A successful Vercel deployment is not a test-suite
-result. Consult the actual commit's checks for hosted status. Earlier results
-and source-review context remain in [history](history.md).
+case requires the owner’s licensed Smallburg pack; public art and synthetic
+fallback tests run without it. A successful Vercel deployment is separate from
+suite results. Hosted checks and production smoke results must match the merged
+commit. Earlier results remain in [history](history.md).
 
-Eleven new browser cases cover selected-runtime setup commands, combined status/
-runtime/search filtering, view persistence, retained-data notices, explicit retry,
-single-flight requests, hidden-tab cadence, failure backoff, visible-tab refresh,
-useful tool details, cached portraits, and refresh without AbortSignal.any.
-The new layout was exercised at 1280, 390, and 320 pixels with no horizontal page
-overflow, 44-pixel status controls, and contained keyboard navigation. Screenshots
-were captured; the narrow Agents panel was visually reviewed. These are Chromium
-checks, not a claim of authenticated provider sessions or physical mobile coverage.
-
-An existing paused-aquarium test now waits for the actual enabled control within
-a bounded timeout instead of relying on a particular observer-poll phase. Feeding
-behavior, cooldown, artwork, and accounting were not changed by that test repair.
+Cold-page connection resets were reproduced with the standard five-connection
+listener backlog. The observer now queues 128 requests, and an HTTP regression
+queues 32 connections before accepting them. The boundary suite covers foreign
+Host/Origin/Fetch Metadata requests, local aliases and explicitly trusted forwarded
+origins. A real-Chrome sandboxed forwarding fixture verified preserved and rewritten
+Host forms; that is not actual VS Code extension-host verification.
 
 ## Reproduce the checks
 
@@ -62,10 +63,15 @@ Markdown parser or a secret-content scanner. Stage intended new source files
 before running it; untracked local files cannot satisfy a committed docs link.
 
 The small [repository-hygiene workflow](../../.github/workflows/hygiene.yml)
-also checks documentation-only changes without installing npm packages or
-running browsers. The separate [CI workflow](../../.github/workflows/ci.yml)
-continues to run application checks for code changes and retains browser
-artifacts for three days.
+checks every pull request and push to `main` without installing npm packages or
+running browsers. Asset-only deletions can break unchanged Markdown links, and
+any tracked file can contain a conflict marker or forbidden artifact. The full
+[CI workflow](../../.github/workflows/ci.yml) uses the same unfiltered events so
+required checks are present on documentation changes too. Its 20-minute gate
+runs Python and Node tests, syntax and formatting checks, read-only sprite pixel
+verification, public builds, and the complete browser command in `package.json`.
+Failed or manual runs retain browser artifacts for three days. Consult each
+commit's actual check results for evidence of hosted verification.
 
 ## Automated coverage
 
@@ -154,7 +160,7 @@ into the agent loop. This is not a global quota on external service logs; see
 
 ## Source and asset review
 
-The dated [reference review](../reference-review-2026-10-07.md) preserves inspected
+The dated [current reference review](../reference-review-2026-10-15.md) preserves inspected
 sources and reuse decisions. It is background, not the current feature backlog.
 Automatic orchestration, agent hiring, and answering permission prompts are not
 implemented by copying a product description.

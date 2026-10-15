@@ -1,0 +1,29 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-15",
+  "source": "room-surfaces.png",
+  "source_sha256": "e044253d771894e36269fc4fcc7c96a150e6f25960e3d778c556dad43e86cec0",
+  "source_preserved_unmodified": true,
+  "actual_source_dimensions": [
+    1254,
+    1254
+  ],
+  "requested_source_dimensions": [
+    1024,
+    1024
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: ONE original room-surface texture atlas for a cozy top-down pixel office game. The supplied tiny chibi character and furniture strips are STYLE REFERENCES only. Create a high-quality cohesive environmental material sheet that suits those sprites: crisp square pixel clusters, hand-crafted restrained details, warm but muted low-contrast colors, no photorealism, no3D, no diagonal/isometric perspective, no lighting gradients. It should sit quietly behind dark-outlined chibi characters so their silhouettes and status markers remain readable.\nCompose one square 1024x1024 OPAQUE atlas with exactly FOUR equal512x512 quadrants. All four texture regions must reach their own cell edges without padding, borders, gaps, labels or text. TOP LEFT: seamless top-down honey/walnut wooden floor boards, subtle warm taupe brown, fine restrained dark plank seams, occasional tiny pixel grain, low contrast. Boards run horizontally with tasteful staggered joins; avoid high-contrast repetitive brick pattern. TOP RIGHT: seamless top-down blue-slate floor tile, muted petrol/blue-grey with faint small tile seams, low contrast and no white highlights. BOTTOM LEFT: seamless flat cream/sage plaster wall material, very subtle speckle, warm neutral pale sagecream, no pictures/windows/doors/skirting. BOTTOM RIGHT: seamless muted dusty-blue wall material, subtle pixel texture, no pictures/windows/doors/skirting. Each quadrant must be independently tileable horizontally AND vertically: opposite edges match with no conspicuous seam. Use exactly the same logicalpixel scale in all regions, like64x64 material tiles enlarged8x. No furniture, characters, plants, rugs, shadows, ceiling, text, grids separating quadrants, logos or watermark. These are clean game material textures, not a finished room scene.",
+  "references": [
+    {
+      "path": "web/assets/sprites/studio/directional.png",
+      "role": "style reference",
+      "sha256": "ef925f7ed12673d9858744426256f28de0fb5e7ce71eed68860ba63cb3b5bc8d"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-5.png",
+      "role": "style reference",
+      "sha256": "72f8e8d78cd9e65d3411c9df7ed92ceac7cfb00ea66a24a9386164864f4f6893"
+    }
+  ],
+  "normalization": "Reviewed four actual quadrants, nearest-neighbor64x64 sampling; mirrored in2x2 grids for exact seamless128x128 repeats; opaque surfaces remain beneath sprites and room geometry."
+}
