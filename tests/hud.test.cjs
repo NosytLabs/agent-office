@@ -812,6 +812,10 @@ test("inactive preference cleanup frees a bounded map and preserves active filte
 test("pet visibility and movement controls persist and gate keyboard visits without accounting writes", () =>
   withPage(async (p) => {
     const before = await ledger(p);
+    await p.waitForFunction(() => officeScene.petHits?.length > 0);
+    // Hold the scene frame through the save so the test also covers an
+    // acknowledged preference arriving before its next canvas paint.
+    await p.evaluate(() => cancelAnimationFrame(officeScene.frame));
     await p.click("#settingsbtn");
     await p
       .getByRole("group", { name: "Pets", exact: true })
@@ -820,6 +824,16 @@ test("pet visibility and movement controls persist and gate keyboard visits with
     await p.waitForFunction(() => pendingSaves === 0);
     const orange = p.locator('[data-activity="Pet the orange cat"]');
     assert.equal(await orange.isDisabled(), true);
+    await p.evaluate(() => {
+      officeScene.frame = requestAnimationFrame((time) =>
+        officeScene.tick(time),
+      );
+    });
+    await p.waitForFunction(
+      () =>
+        officeScene.settings.show_pets === false &&
+        officeScene.petHits.length === 0,
+    );
     assert.equal(await p.evaluate(() => officeScene.petHits.length), 0);
     await p
       .getByRole("group", { name: "Pet movement", exact: true })
@@ -849,6 +863,7 @@ test("pet visibility and movement controls persist and gate keyboard visits with
       .click();
     await p.waitForFunction(() => pendingSaves === 0);
     assert.equal(await orange.isDisabled(), false);
+    await p.waitForFunction(() => officeScene.petHits.length > 0);
     await p
       .getByRole("group", { name: "Desk finish", exact: true })
       .evaluate((group) => {

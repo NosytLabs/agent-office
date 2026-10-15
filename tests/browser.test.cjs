@@ -91,6 +91,15 @@ const launch = () =>
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ["--no-sandbox"],
   });
+async function fixedState(page, update) {
+  let state;
+  // Install before navigation so every poll stays online and agrees with the
+  // synthetic scene, including any response already in flight during a click.
+  await page.route("**/state", async (route) => {
+    if (!state) state = update(await (await route.fetch()).json());
+    return route.fulfill({ json: state });
+  });
+}
 async function withPage(fn, options = {}) {
   const { beforeLoad, isolateState, ...pageOptions } = options;
   const browser = await launch();
@@ -369,37 +378,44 @@ test("saved theme and desk settings survive a reload", () =>
     assert.equal(await p.locator("#mc").inputValue(), "2");
   }));
 test("needs-input navigation reaches every waiting session and modal background stays inert", () =>
-  withPage(async (p) => {
-    await p.route("**/state", (r) => r.abort());
-    await p.evaluate(() =>
-      applyState({
-        ...window._state,
-        agents: ["one", "two", "three"].map((id) => ({
-          id,
-          label: id,
-          status: "waiting",
+  withPage(
+    async (p) => {
+      for (const id of ["one", "two", "three", "one"]) {
+        assert.equal(
+          await p.evaluate(() => poll()),
+          true,
+          "waiting-session navigation requires a successful observer poll",
+        );
+        await p.click("#waiting-count");
+        assert.equal(await p.evaluate(() => focusedId), id);
+        await p.evaluate(() => document.querySelector("#floorbtn").focus());
+        assert.equal(
+          await p.evaluate(() =>
+            document
+              .querySelector("#sheet-inspector")
+              .contains(document.activeElement),
+          ),
+          true,
+        );
+        await p.keyboard.press("Escape");
+        assert.equal(
+          await p.evaluate(() => document.activeElement.id),
+          "waiting-count",
+        );
+      }
+    },
+    {
+      beforeLoad: (p) =>
+        fixedState(p, (state) => ({
+          ...state,
+          agents: ["one", "two", "three"].map((id) => ({
+            id,
+            label: id,
+            status: "waiting",
+          })),
         })),
-      }),
-    );
-    for (const id of ["one", "two", "three", "one"]) {
-      await p.click("#waiting-count");
-      assert.equal(await p.evaluate(() => focusedId), id);
-      await p.evaluate(() => document.querySelector("#floorbtn").focus());
-      assert.equal(
-        await p.evaluate(() =>
-          document
-            .querySelector("#sheet-inspector")
-            .contains(document.activeElement),
-        ),
-        true,
-      );
-      await p.keyboard.press("Escape");
-      assert.equal(
-        await p.evaluate(() => document.activeElement.id),
-        "waiting-count",
-      );
-    }
-  }));
+    },
+  ));
 test("closing a panel restores visible focus when its original trigger disappears", () =>
   withPage(async (p) => {
     await p.route("**/state", (r) => r.abort());
@@ -1472,35 +1488,60 @@ test("a settings save response invalidates an externally replaced selected prop"
     await p.evaluate(() => saveSettings({ furniture: [], theme: "default" }));
   }));
 test("both cats have independent click targets and hidden pets leave no targets", () =>
-  withPage(async (p) => {
-    await p.waitForFunction(() => officeScene.sprites.blackcat);
-    for (const key of ["cat", "blackcat"]) {
-      const point = await p.evaluate((key) => {
-        officeScene.cosmetics = ["gitcat"];
-        officeScene.settings.decorations = true;
-        officeScene.draw(0);
-        const h = officeScene.petHits.find((h) => h.key === key),
-          { ox, oy, scale } = officeScene.transform,
-          rect = officeScene.canvas.getBoundingClientRect();
-        return {
-          x: rect.left + ox + (h.x + h.w / 2) * scale,
-          y: rect.top + oy + (h.y + h.h / 2) * scale,
-        };
-      }, key);
-      await p.mouse.click(point.x, point.y);
-      assert.equal(await p.evaluate(() => officeScene.petActive), key);
-    }
-    assert.equal(
-      await p.evaluate(() => {
-        officeScene.settings.decorations = false;
-        officeScene.draw(0);
-        const count = officeScene.petHits.length;
-        officeScene.settings.decorations = true;
-        return count;
-      }),
-      0,
-    );
-  }));
+  withPage(
+    async (p) => {
+      await p.waitForFunction(() => officeScene.sprites.blackcat);
+      // This checks independent hit targets; roaming behavior has its own suite.
+      // Pause keeps captured screen coordinates valid through driver delays.
+      await p.click("#pausebtn");
+      assert.equal(await p.evaluate(() => officeScene.paused), true);
+      for (const key of ["cat", "blackcat"]) {
+        const point = await p.evaluate((key) => {
+          officeScene.draw(0);
+          const h = officeScene.petHits.find((h) => h.key === key),
+            { ox, oy, scale } = officeScene.transform,
+            rect = officeScene.canvas.getBoundingClientRect();
+          return {
+            x: rect.left + ox + (h.x + h.w / 2) * scale,
+            y: rect.top + oy + (h.y + h.h / 2) * scale,
+          };
+        }, key);
+        // A poll may finish while the driver moves to the captured coordinates.
+        assert.equal(
+          await p.evaluate(async () => {
+            const connected = await poll();
+            officeScene.draw(0);
+            return connected;
+          }),
+          true,
+        );
+        await p.mouse.click(point.x, point.y);
+        assert.equal(await p.evaluate(() => officeScene.petActive), key);
+      }
+      assert.equal(
+        await p.evaluate(() => {
+          officeScene.settings.decorations = false;
+          officeScene.draw(0);
+          const count = officeScene.petHits.length;
+          officeScene.settings.decorations = true;
+          return count;
+        }),
+        0,
+      );
+    },
+    {
+      reducedMotion: "no-preference",
+      beforeLoad: (p) =>
+        fixedState(p, (state) => ({
+          ...state,
+          settings: { ...state.settings, decorations: true, show_pets: true },
+          progress: {
+            ...state.progress,
+            cosmetics: [...new Set([...state.progress.cosmetics, "gitcat"])],
+          },
+        })),
+    },
+  ));
 test("achievement rewards and XP are searchable without losing focus during polling", () =>
   withPage(async (p) => {
     await p.locator("#achbtn").click();
