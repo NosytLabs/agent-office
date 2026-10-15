@@ -33,9 +33,13 @@ The current local observer already includes per-session summary copy, filtered s
 
 ## Bounded useful work left for later
 
-1. **Reusable task briefs.** Add a modest, named, searchable browser-local collection with runtime, Load/Append, Rename and Delete. Save explicitly, separately from the current per-tab draft checkbox. Preserve exact multiline text and the open draft on storage failure. Saving/loading never contacts a runtime; copying/exporting remain explicit. This adapts BridgeMind's saved-prompt use case without its dispatch machinery.
-2. **Recorded activity recap.** Add Today / Since last review using retained observer events, linked to existing filtered history. A manual Mark reviewed changes only a browser-local marker. Label time zone, freshness, retained window and fetched-event limit; distinguish errors and input requests from successful completion. The current history reader caps returned rows at 5,000, and default retention is seven days/1,000 events. Never turn session end, tool activity or animation into a successful shipment.
-3. **Attention preferences.** Separate needs-input/error/reward sound policy. A later optional browser notification feature should start off, request permission only from a deliberate action, deduplicate fresh event/request identities, remain silent for bootstrap/reconnect replay, and open an inspector rather than answer anything. Preserve the current hidden-tab sound rule until that behavior is explicitly designed and tested.
+The reusable task-brief proposal has shipped: a named, searchable browser-local
+library with Load/Append, Rename/Delete, and reviewed JSON backup import/export.
+Saving/loading preserves exact text and never contacts a runtime. See the
+[current saved-brief guide](task-briefs.md) for the supported flows and limits.
+
+1. **Recorded activity recap.** Add Today / Since last review using retained observer events, linked to existing filtered history. A manual Mark reviewed changes only a browser-local marker. Label time zone, freshness, retained window and fetched-event limit; distinguish errors and input requests from successful completion. The current history reader caps returned rows at 5,000, and default retention is seven days/1,000 events. Never turn session end, tool activity or animation into a successful shipment.
+2. **Attention preferences.** Separate needs-input/error/reward sound policy. A later optional browser notification feature should start off, request permission only from a deliberate action, deduplicate fresh event/request identities, remain silent for bootstrap/reconnect replay, and open an inspector rather than answer anything. Preserve the current hidden-tab sound rule until that behavior is explicitly designed and tested.
 
 Named view presets are another possible bounded extension of existing persistence; the inspected Harish panel source does not implement them. Oldest-request sorting first needs a durable `waiting_since` projection from still-pending request events, including multiple requests, resolution, restart and pruning tests. `updated_at`, `observed_at` and `idle_s` can change during later tool activity and cannot substitute for request age.
 
