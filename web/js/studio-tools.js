@@ -1,6 +1,7 @@
 /* Native studio animation and inspection tools. Cosmetic only: no observer writes. */
 (function (root) {
   "use strict";
+  const PLANTS = ["succulent", "fern", "planter"];
   const KINDS = [
     "server",
     "coffee",
@@ -9,6 +10,7 @@
     "recordplayer",
     "terrarium",
     "taskterminal-running",
+    ...PLANTS,
   ];
   const LOOKS = [
     "Orange cat",
@@ -25,7 +27,7 @@
     const moving =
       key === "server" ||
       key === "taskterminal-running" ||
-      (["coffee", "cooler", "robot", "terrarium"].includes(key) &&
+      (["coffee", "cooler", "robot", "terrarium", ...PLANTS].includes(key) &&
         state.reacting) ||
       (key === "recordplayer" && state.music);
     if (!moving || !KINDS.includes(key)) return key;
@@ -68,6 +70,16 @@
         } else if (kind === "terrarium") {
           pixel("#ffe2a3", 7 + frame * 3, 10 + (frame % 2), 1, 2);
           pixel("#a8d5bb", 15 - frame * 2, 17 - frame);
+        } else if (PLANTS.includes(kind)) {
+          // Draw droplets inside the existing native cell. The leaves, pot,
+          // baseline and collision footprint do not shift between frames.
+          const x = Math.min(
+              c.width - 2,
+              Math.floor(c.width * (0.3 + frame * 0.13)),
+            ),
+            y = Math.max(1, Math.floor(c.height * 0.18) + (frame % 3));
+          pixel("#99d3dd", x, y, 1, 2);
+          pixel("#dbebd7", x + 1, y + 1);
         } else pixel("#75c9da", 8, 18, 2 + frame, 1);
         frames.set(kind + "-anim-" + frame, c);
       }
@@ -90,25 +102,82 @@
     }
     return frames;
   }
-  const api = { frameKey, makeFrames, kinds: KINDS };
+  function fitRect(source, x, y, width, height) {
+    const scale = Math.min(width / source.width, height / source.height),
+      w = Math.max(1, Math.round(source.width * scale)),
+      h = Math.max(1, Math.round(source.height * scale));
+    return [Math.round(x + (width - w) / 2), Math.round(y + height - h), w, h];
+  }
+  function spriteGroup(key) {
+    if (key.startsWith("person-")) return "characters";
+    if (key.startsWith("pet-")) return "companions";
+    if (/^(icon|fx)-/.test(key)) return "effects";
+    return "furniture";
+  }
+  function filterKeys(keys, query = "", group = "all") {
+    const words = String(query)
+      .trim()
+      .toLowerCase()
+      .replace(/[-_]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+    return keys.filter(
+      (key) =>
+        (group === "all" || spriteGroup(key) === group) &&
+        words.every((word) =>
+          key.toLowerCase().replace(/[-_]/g, " ").includes(word),
+        ),
+    );
+  }
+  function animationKeys(key, keys) {
+    const available = new Set(keys);
+    if (!available.has(key)) return [];
+    const actor = key.match(/^((?:person|pet)-\d+)-(?:idle|walk-a|walk-b)$/);
+    if (actor) {
+      const walk = ["idle", "walk-a", "walk-b", "walk-a"].map(
+        (pose) => actor[1] + "-" + pose,
+      );
+      if (walk.every((k) => available.has(k))) return walk;
+    }
+    const base = key.replace(/-anim-\d+$/, ""),
+      prefix = /^fx-.*-\d+$/.test(key)
+        ? key.replace(/-\d+$/, "")
+        : base + "-anim",
+      frames = Array.from({ length: 4 }, (_, i) => prefix + "-" + i);
+    return frames.every((k) => available.has(k)) ? frames : [key];
+  }
+  const api = {
+    frameKey,
+    makeFrames,
+    fitRect,
+    filterKeys,
+    animationKeys,
+    kinds: KINDS,
+  };
   if (typeof module === "object" && module.exports) module.exports = api;
   if (typeof document === "undefined") return;
   if (root.officeStudioTools) return;
   root.officeStudioTools = api;
-  let installed = false;
+  let installed = false,
+    refreshUI = null;
   function install() {
     const art = root.officeStudio;
     if (
-      installed ||
       !art ||
+      art.loading ||
       art.source === "loading" ||
       typeof scene === "undefined"
     )
       return;
+    if (installed) {
+      refreshUI?.();
+      return;
+    }
     const section = document.querySelector(".studio-controls");
     if (!section) return;
     installed = true;
-    const frames = art.ready ? makeFrames(art.sprites, document) : new Map();
+    const frames = new Map(),
+      all = new Map();
     api.frames = frames;
     const enabled = () => art.ready && art.prefs.art === "studio";
     const originalImage = scene.image,
@@ -126,7 +195,7 @@
       });
       const image = enabled() && frames.get(selected);
       if (!image) return originalImage.call(this, key, x, y, w, h);
-      this.ctx.drawImage(image, Math.round(x), Math.round(y), w, h);
+      this.ctx.drawImage(image, ...fitRect(image, x, y, w, h));
       return true;
     };
     // Mirror the complete character in one actor-centered coordinate system.
@@ -176,35 +245,58 @@
     retry.type = "button";
     retry.className = "btn";
     retry.id = "studio-art-retry";
-    retry.textContent = "Reload artwork";
-    retry.hidden = art.ready;
+    retry.textContent = "Retry artwork";
     retry.title =
-      "Reload this view and retry the artwork. Your saved office settings are kept.";
+      "Retry the artwork without reloading or losing unsaved changes.";
     retry.onclick = () => {
-      retry.disabled = true;
-      root.location.reload();
+      if (!art.loading) art.reload();
     };
     status?.after(retry);
     const gallery = document.createElement("details");
     gallery.id = "studio-gallery";
     gallery.className = "storage-diagnostics";
-    gallery.hidden = !art.ready;
-    gallery.innerHTML =
-      '<summary>Preview &amp; download sprites</summary><p class="h">Native PNGs, including 29 additional animation and lighting frames. Server flicker is decorative, not a health signal.</p><label class="studio-option" for="studio-sprite-choice">Studio sprite<select id="studio-sprite-choice"></select></label><canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite"></canvas><button type="button" class="btn" id="studio-sprite-download">Download PNG</button>';
+    gallery.innerHTML = `
+      <summary>Preview &amp; download sprites</summary>
+      <p class="h">Transparent native PNGs and animation strips. Cosmetic effects never change agent work or accounting.</p>
+      <div class="studio-options">
+        <label class="studio-option" for="studio-sprite-search">Find sprites<input id="studio-sprite-search" class="txt" type="search" maxlength="100" placeholder="For example, fern or pet 0" /></label>
+        <label class="studio-option" for="studio-sprite-group">Category<select id="studio-sprite-group"><option value="all">All sprites</option><option value="characters">Characters</option><option value="companions">Companions</option><option value="furniture">Furniture</option><option value="effects">Effects &amp; icons</option></select></label>
+      </div>
+      <p id="studio-gallery-count" class="h" role="status"></p>
+      <label class="studio-option" for="studio-sprite-choice">Studio sprite<select id="studio-sprite-choice"></select></label>
+      <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite"></canvas>
+      <p id="studio-sprite-info" class="h"></p>
+      <div class="cluster"><button type="button" class="btn" id="studio-preview-play" aria-pressed="false">Play animation</button><button type="button" class="btn" id="studio-sprite-download">Download PNG</button><button type="button" class="btn" id="studio-strip-download">Download strip</button></div>
+      <p id="studio-gallery-message" class="h" role="status"></p>`;
     section.append(gallery);
-    const all = new Map([...art.sprites, ...frames]);
-    const select = gallery.querySelector("select"),
+    const select = gallery.querySelector("#studio-sprite-choice"),
+      search = gallery.querySelector("#studio-sprite-search"),
+      group = gallery.querySelector("#studio-sprite-group"),
       preview = gallery.querySelector("canvas"),
-      save = gallery.querySelector("button");
-    for (const key of [...all.keys()].sort()) {
-      const option = document.createElement("option");
-      option.value = key;
-      option.textContent = key.replaceAll("-", " ");
-      select.append(option);
+      save = gallery.querySelector("#studio-sprite-download"),
+      strip = gallery.querySelector("#studio-strip-download"),
+      play = gallery.querySelector("#studio-preview-play"),
+      info = gallery.querySelector("#studio-sprite-info"),
+      count = gallery.querySelector("#studio-gallery-count"),
+      message = gallery.querySelector("#studio-gallery-message"),
+      motion = matchMedia("(prefers-reduced-motion: reduce)");
+    let playing = false,
+      raf = null,
+      started = null;
+    function sequence() {
+      const keys = animationKeys(select.value, all.keys()),
+        first = all.get(keys[0]);
+      return first &&
+        keys.every(
+          (k) =>
+            all.get(k)?.width === first.width &&
+            all.get(k)?.height === first.height,
+        )
+        ? keys
+        : [];
     }
-    select.value = "robot-anim-0";
-    function repaint() {
-      const source = all.get(select.value),
+    function repaint(key = select.value) {
+      const source = all.get(key),
         g = preview.getContext("2d");
       g.clearRect(0, 0, 128, 128);
       g.imageSmoothingEnabled = false;
@@ -221,24 +313,180 @@
           source.height * scale,
         );
       }
+      preview.dataset.frame = key;
       preview.setAttribute(
         "aria-label",
-        select.value.replaceAll("-", " ") + " native sprite",
+        source
+          ? key.replaceAll("-", " ") + " native sprite"
+          : "No matching sprites",
       );
-      save.disabled = !source;
     }
-    select.onchange = repaint;
-    repaint();
+    function stop() {
+      playing = false;
+      if (raf !== null) cancelAnimationFrame(raf);
+      raf = null;
+      started = null;
+      play.setAttribute("aria-pressed", "false");
+      play.textContent = "Play animation";
+      repaint();
+    }
+    function canPlay() {
+      return (
+        art.ready &&
+        !art.loading &&
+        gallery.open &&
+        !document.hidden &&
+        !scene.paused &&
+        !motion.matches &&
+        !section.closest(".sheet")?.hidden
+      );
+    }
+    function tick(time) {
+      raf = null;
+      if (!playing) return;
+      if (!canPlay()) {
+        stop();
+        return;
+      }
+      if (started === null) started = time;
+      const frames = sequence(),
+        key = frames[Math.floor((time - started) / 250) % frames.length];
+      if (key && key !== preview.dataset.frame) repaint(key);
+      raf = requestAnimationFrame(tick);
+    }
+    play.onclick = () => {
+      if (playing) {
+        stop();
+        return;
+      }
+      if (!canPlay()) {
+        message.textContent =
+          "Motion is paused. Resume office motion to preview this animation.";
+        return;
+      }
+      if (sequence().length < 2) return;
+      message.textContent =
+        "Preview only · 4 frames per second. No agent events are created.";
+      playing = true;
+      started = null;
+      play.textContent = "Stop preview";
+      play.setAttribute("aria-pressed", "true");
+      raf = requestAnimationFrame(tick);
+    };
+    function selectionChanged() {
+      stop();
+      const source = all.get(select.value),
+        frames = sequence();
+      save.disabled = !source || art.loading;
+      strip.disabled = frames.length < 2 || art.loading;
+      play.disabled = frames.length < 2 || art.loading;
+      info.textContent = source
+        ? `${source.width} × ${source.height} px · ${frames.length} frame${frames.length === 1 ? "" : "s"} · transparent PNG`
+        : "Try a different search or category.";
+      message.textContent = "";
+    }
+    function filter() {
+      const previous = select.value,
+        keys = filterKeys([...all.keys()].sort(), search.value, group.value);
+      select.replaceChildren(
+        ...keys.map((key) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = key.replaceAll("-", " ");
+          return option;
+        }),
+      );
+      select.value = keys.includes(previous)
+        ? previous
+        : keys.includes("robot-anim-0")
+          ? "robot-anim-0"
+          : keys[0] || "";
+      select.disabled = keys.length === 0;
+      count.textContent = `${keys.length} of ${all.size} sprites`;
+      selectionChanged();
+    }
+    search.oninput = filter;
+    group.onchange = filter;
+    select.onchange = selectionChanged;
+    function download(source, name) {
+      source.toBlob((blob) => {
+        message.textContent = blob
+          ? "PNG exported at its native dimensions."
+          : "Could not export this image. Try again.";
+        if (blob) downloadBlob(blob, name);
+      }, "image/png");
+    }
     save.onclick = () => {
       const key = select.value,
         source = all.get(key);
-      if (!source) return;
-      source.toBlob((blob) => {
-        if (blob) downloadBlob(blob, "agent-office-" + key + ".png");
-        else if (status)
-          status.textContent = "Could not export this sprite. Try again.";
-      }, "image/png");
+      if (source && !art.loading)
+        download(source, "agent-office-" + key + ".png");
     };
+    strip.onclick = () => {
+      const key = select.value,
+        keys = sequence(),
+        first = all.get(keys[0]);
+      if (!first || keys.length < 2 || art.loading) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = first.width * keys.length;
+      canvas.height = first.height;
+      const context = canvas.getContext("2d");
+      context.imageSmoothingEnabled = false;
+      keys.forEach((k, i) => context.drawImage(all.get(k), i * first.width, 0));
+      download(canvas, "agent-office-" + key + "-strip.png");
+    };
+    gallery.querySelector("summary").addEventListener("click", () => {
+      if (gallery.open) stop();
+    });
+    gallery.addEventListener("toggle", () => {
+      if (!gallery.open) stop();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) stop();
+    });
+    root.addEventListener("pagehide", stop);
+    motion.addEventListener("change", () => {
+      if (motion.matches) stop();
+    });
+    const panel = section.closest(".sheet");
+    if (panel)
+      new MutationObserver(() => {
+        if (panel.hidden) stop();
+      }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+    function syncLoading() {
+      section.setAttribute("aria-busy", String(art.loading));
+      // Native disabled would discard keyboard focus mid-request. Keep focus
+      // until recovery can move it to the visible status before hiding Retry.
+      retry.setAttribute("aria-disabled", String(art.loading));
+      retry.textContent = art.loading ? "Loading artwork…" : "Retry artwork";
+      if (art.loading) {
+        stop();
+        save.disabled = strip.disabled = play.disabled = true;
+      }
+    }
+    document.addEventListener("agent-office:studio-loading", syncLoading);
+    refreshUI = () => {
+      stop();
+      frames.clear();
+      all.clear();
+      if (art.ready) {
+        for (const [key, value] of makeFrames(art.sprites, document))
+          frames.set(key, value);
+        for (const [key, value] of [...art.sprites, ...frames])
+          all.set(key, value);
+      }
+      if (art.ready && document.activeElement === retry && status) {
+        status.tabIndex = -1;
+        status.focus({ preventScroll: true });
+      }
+      retry.hidden = art.ready;
+      gallery.hidden = !art.ready;
+      syncLoading();
+      syncLabels();
+      filter();
+      scene.draw(0);
+    };
+    refreshUI();
     const css = document.createElement("link");
     css.rel = "stylesheet";
     css.href = "css/studio-tools.css";

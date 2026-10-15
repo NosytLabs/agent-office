@@ -330,6 +330,7 @@
     sprites: new Map(),
     error: "",
     prefs,
+    loading: false,
     handoffs: new Map(),
   };
   root.officeStudio = art;
@@ -850,7 +851,23 @@
       redraw();
     }
     scene.studioArtSource = art.source;
-    document.dispatchEvent(new Event("agent-office:studio-ready"));
   }
-  load();
+  // Retry only the optional atlas. Keep the document, form drafts, focus,
+  // observer transport and saved preferences intact. Concurrent retries share
+  // one attempt; consumers rebuild their caches only after it settles.
+  let loadPromise = null;
+  art.reload = function () {
+    if (loadPromise) return loadPromise;
+    art.loading = true;
+    art.error = "";
+    status.textContent = "Loading studio sprites…";
+    loadPromise = load().finally(() => {
+      art.loading = false;
+      loadPromise = null;
+      document.dispatchEvent(new Event("agent-office:studio-ready"));
+    });
+    document.dispatchEvent(new Event("agent-office:studio-loading"));
+    return loadPromise;
+  };
+  art.reload();
 })(typeof globalThis === "object" ? globalThis : this);

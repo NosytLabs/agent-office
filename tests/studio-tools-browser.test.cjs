@@ -60,7 +60,7 @@ test("mirrored characters keep crowns above the same head and animation variants
         }),
       ),
     }));
-    assert.equal(frames.count, 29);
+    assert.equal(frames.count, 41);
     for (const group of frames.groups) {
       assert.ok(group.every(Boolean));
       assert.equal(new Set(group.map((f) => f.w + ":" + f.h)).size, 1);
@@ -68,7 +68,7 @@ test("mirrored characters keep crowns above the same head and animation variants
     }
   });
 });
-test("failed artwork offers an explicit reload recovery without clearing saved view choices", async () => {
+test("failed artwork offers an in-place recovery without clearing saved view choices", async () => {
   await observerFixture({}, async ({ page, state }) => {
     await ready(page);
     await page.click("#settingsbtn");
@@ -87,7 +87,12 @@ test("failed artwork offers an explicit reload recovery without clearing saved v
     assert.equal(await retry.isVisible(), true);
     const before = await state();
     await page.unroute("**/studio-3.png");
-    await Promise.all([page.waitForEvent("load"), retry.click()]);
+    await page.evaluate(() => {
+      window.__recoveryDocument = true;
+    });
+    await retry.click();
+    await page.waitForFunction(() => officeStudio.ready && !officeStudio.loading);
+    assert.equal(await page.evaluate(() => window.__recoveryDocument), true);
     await ready(page);
     assert.equal(await page.evaluate(() => officeStudio.prefs.pets[0]), 4);
     const after = await state();

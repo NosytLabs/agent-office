@@ -1,33 +1,41 @@
 # Native sprite tools and animation polish
 
-In **Customize → Studio artwork**, open **Preview & download sprites** to inspect
-native images and export an individual transparent PNG. The gallery includes the
-197 existing Studio entries and 29 new source-defined variants. Each animation
-family retains its original dimensions and anchor; source images are never
-independently rescaled between frames.
+In **Customize → Studio artwork**, open **Preview & download sprites**. Filter by
+character, companion, furniture or effects; search by name; then inspect a native
+image, play its animation or export a transparent PNG/animation strip. An empty
+search result disables export instead of leaving an unrelated sprite selected.
 
-The new images are four-frame variations of the server rack, coffee cart, water
-cooler, desk robot, record player, terrarium and running task terminal, plus an
-unlit lamp. They are generated once from the existing approved artwork when the
-Studio atlas loads, not redrawn into new canvases on every animation frame.
+The gallery combines 197 Studio entries with 41 generated animation/lighting
+frames, making **238 sprite choices**. The new watering families add four frames
+each for the succulent, fern and planter. They use the approved artwork, fixed
+native dimensions and shared foot anchors. The source-defined droplets appear
+only during an existing cosmetic watering reaction. Existing source sprites and
+all observer, collision and furniture placement state remain unchanged.
 
-Coffee/water/robot/terrarium loops require an existing room reaction (or existing
-unlocked cosmetic). The record player follows music playback. The terminal loop
-requires the existing running-state image. Server flicker is decorative and is
-not an uptime or progress indicator. Pause keeps a stable frame; original-art
-mode retains the original renderer.
+Other four-frame families cover the server rack, coffee cart, water cooler, desk
+robot, record player, terrarium and running task terminal; there is also an unlit
+lamp. Server flicker is decorative, not uptime. Music and task-terminal animation
+follow their existing playback/running states. Animated props fit the same
+bottom-centered rectangle as static art, without nonuniform stretching.
 
-This change also keeps the crown above the character when walking left, makes
-companion labels match the chosen look, and offers **Reload artwork** after an
-asset load failure. Recovery reloads the view; it does not clear saved office
-settings or browser preferences. It can discard unsaved form input just like a
-normal page reload.
+**Play animation** is explicit, not automatic. Preview runs at four frames per
+second, honors office Pause/reduced motion, and stops when the gallery or panel
+closes, the tab is hidden, or the page is left. A downloaded strip contains four
+adjacent native frames with no padding or resizing. Character/companion strips
+repeat the middle walking pose to match the existing distance-driven cycle.
 
-No new observer events, model calls, approvals, usage, XP or remote permissions
-are created by these presentation tools. The original atlas is unchanged. See
-[Studio artwork](studio-art.md) for the underlying artwork and its limitations.
+**Retry artwork** retries the atlas in place. It does not reload the page, discard
+unsaved names or task drafts, reconnect the observer, or reset panel state. Two
+simultaneous retries share one attempt. Tools, labels and gallery images refresh
+once after success; failure keeps the original-art fallback and a usable retry.
+Keyboard focus stays reachable during loading and moves to the status when the
+successful retry control disappears.
 
-Run `npm test` and `npm run test:browser` for the added pure-model and real-observer
-browser checks. The browser tests cover transformed crown positions, unique
-same-sized frames, asset-failure recovery, matching labels, mobile panel bounds,
-actual PNG download dimensions and unchanged accounting.
+No provider requests, approvals, observer events, usage or XP are generated.
+Full four-direction chibi source art and project-specific rooms are not included.
+See [Studio artwork](studio-art.md) for base-art provenance and limitations.
+
+Run `npm test` and `npm run test:browser`. New regressions exercise unsaved drafts,
+concurrent recovery, one tool installation, preserved accounting, search/export,
+actual native PNG dimensions, preview cleanup, mobile bounds, unique watering
+frames and the actual room draw call. Existing original-art assertions are kept.
