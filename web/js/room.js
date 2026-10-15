@@ -181,6 +181,12 @@
   document.head.append(style);
   const studio = document.createElement("script");
   studio.src = "js/studio.js";
+  studio.onload = () => {
+    // Keep appearance controls together, ahead of export/reset controls.
+    // DOM placement also preserves the settings dialog's reverse-tab order.
+    const controls = document.querySelector(".studio-controls");
+    if (controls) $("settingsbox").after(controls);
+  };
   studio.onerror = () => {
     scene.studioArtSource = "fallback";
   };

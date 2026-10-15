@@ -56,10 +56,17 @@ npm run test:browser
 npm run check:sprites
 ```
 
-The browser tests exercise real local observer fixtures with synthetic events:
-new artwork, original-art fallback, preference reload, mobile overflow, reduced
-motion, distinct pet walk frames, observed subagent handoffs, unchanged accounting
-and notification keyboard lifetime. They do not authenticate or run agent CLIs.
+`test:browser` first runs the existing compatibility suite in Original artwork
+mode using a test-only Playwright preload. This keeps native-pixel identity,
+source-atlas failure, portrait and directional-animation assertions meaningful.
+It then runs the separate studio integration suite with the default Studio
+artwork and no preload. No existing assertions or tests are removed.
+
+The studio browser tests exercise real local observer fixtures with synthetic
+events: new artwork, original-art fallback, preference reload, mobile overflow,
+reduced motion, distinct pet walk frames, observed subagent handoffs, unchanged
+accounting and notification keyboard lifetime. They do not authenticate or run
+agent CLIs.
 
 The original notices remain in [asset attribution](../web/assets/ATTRIBUTION.md).
 The new asset inventory and source checksums are in
