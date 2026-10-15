@@ -4,7 +4,26 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// macOS exposes normal temporary paths through these two fixed system aliases.
+// Resolve only those known aliases, never arbitrary output or input parents.
+function canonicalSystemPath(file) {
+  if (process.platform === "darwin") {
+    for (const [alias, target] of [
+      ["/var", "/private/var"],
+      ["/tmp", "/private/tmp"],
+    ]) {
+      if (
+        (file === alias || file.startsWith(alias + path.sep)) &&
+        fs.realpathSync(alias) === target
+      )
+        return target + file.slice(alias.length);
+    }
+  }
+  return file;
+}
+const root = canonicalSystemPath(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+);
 const marker = "site-build.json";
 const format = "agent-office-product-site-v1";
 const args = process.argv.slice(2);
@@ -13,7 +32,9 @@ if (args.length && !(args.length === 2 && args[0] === "--out")) {
     "Usage: node tools/build_site.mjs [--out /path/to/new-site-directory]",
   );
 }
-const output = path.resolve(args[1] || path.join(root, "site-dist"));
+const output = canonicalSystemPath(
+  path.resolve(args[1] || path.join(root, "site-dist")),
+);
 const approvedOutputs = [
   path.join(root, "site-dist"),
   path.join(root, "dist/about"),
@@ -35,9 +56,15 @@ function rejectSymlinks(file) {
   let current = path.parse(file).root;
   for (const part of file.slice(current.length).split(path.sep)) {
     current = path.join(current, part);
-    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
-      throw new Error(`Refusing symlinked site input/output: ${current}`);
+    let entry;
+    try {
+      entry = fs.lstatSync(current);
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
     }
+    if (entry.isSymbolicLink())
+      throw new Error(`Refusing symlinked site input/output: ${current}`);
   }
 }
 rejectSymlinks(output);

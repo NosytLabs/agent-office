@@ -1,0 +1,49 @@
+#studio-gallery canvas {
+  display: block;
+  max-width: 100%;
+  margin: 12px auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  image-rendering: pixelated;
+}
+#studio-gallery summary {
+  margin-bottom: 12px;
+}
+#studio-gallery select {
+  max-width: 100%;
+}
+#studio-art-retry {
+  margin: 8px 0;
+}
+#studio-gallery .studio-options input {
+  min-width: 0;
+  width: 100%;
+  min-height: 42px;
+}
+#studio-gallery .cluster {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#studio-gallery .cluster button {
+  min-height: 42px;
+}
+#studio-gallery canvas {
+  background-color: var(--bg);
+  background-image: conic-gradient(
+    var(--panel2) 25%,
+    transparent 0 50%,
+    var(--panel2) 0 75%,
+    transparent 0
+  );
+  background-size: 16px 16px;
+}
+#studio-gallery-count,
+#studio-sprite-info {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+#studio-art-status:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}

@@ -596,6 +596,72 @@ for (const panel of document.querySelectorAll(".sheet")) {
     { passive: true },
   );
 }
+// Keep the long Customize panel navigable without collapsing forms or drafts.
+const settingsSections = document.createElement("label"),
+  settingsSectionSelect = document.createElement("select");
+settingsSections.className = "sheet-section-navigation";
+settingsSections.append(document.createTextNode("Jump to"));
+settingsSectionSelect.className = "txt";
+settingsSectionSelect.setAttribute("aria-label", "Customize section");
+settingsSections.append(settingsSectionSelect);
+$("sheet-settings").querySelector(".sheet-notices").before(settingsSections);
+let settingsSectionSignature = "",
+  settingsSectionId = 0;
+function syncSettingsSections() {
+  const targets = [
+    ...$("sheet-settings").querySelectorAll(
+      ".sheet-body h3, #studio-gallery > summary",
+    ),
+  ].filter((target) => {
+    const hidden = target.closest("[hidden]");
+    return (
+      !hidden ||
+      !$("sheet-settings").querySelector(".sheet-body").contains(hidden)
+    );
+  });
+  const options = targets.map((target) => {
+    if (!target.id) {
+      do target.id = "customize-section-" + ++settingsSectionId;
+      while ($(target.id) !== target);
+    }
+    return [target.id, target.textContent.trim()];
+  });
+  const signature = JSON.stringify(options);
+  if (signature === settingsSectionSignature) return;
+  settingsSectionSignature = signature;
+  settingsSectionSelect.replaceChildren(
+    new Option("Choose a section…", ""),
+    ...options.map(([id, label]) => new Option(label, id)),
+  );
+}
+settingsSectionSelect.onchange = () => {
+  const target = $(settingsSectionSelect.value);
+  if (!target || !$("sheet-settings").contains(target)) return;
+  for (
+    let parent = target.parentElement;
+    parent;
+    parent = parent.parentElement
+  ) {
+    if (parent.tagName === "DETAILS") parent.open = true;
+    if (parent.id === "sheet-settings") break;
+  }
+  if (target.tagName !== "SUMMARY") target.tabIndex = -1;
+  settingsSectionSelect.value = "";
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "start" });
+};
+new MutationObserver(syncSettingsSections).observe(
+  $("sheet-settings").querySelector(".sheet-body"),
+  {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["hidden"],
+  },
+);
+syncSettingsSections();
+// Export scope belongs beside the filters, ahead of potentially long results.
+$("eventbox").before(document.querySelector(".history-export-actions"));
 let backdropStart = null;
 $("backdrop").onpointerdown = (event) => {
   backdropStart = { x: event.clientX, y: event.clientY };
@@ -2145,6 +2211,8 @@ function applyState(state, pollRevision = settingsRevision) {
     fillSettings();
   } else if (opened === "sheet-settings") fillInactivePreferences();
   initialized = true;
+  officeAttention.refresh();
+  window.officeQuickNav?.refresh();
   if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   fillTrackingStatus();
   syncBudget();
@@ -2176,6 +2244,8 @@ function poll() {
       if (pollStopped) return false;
       pollFailures = Math.min(pollFailures + 1, 5);
       offline = true;
+      officeAttention.refresh();
+      window.officeQuickNav?.refresh();
       scene.observerConnected = false;
       scene.draw(0);
       syncAttention();
@@ -2845,6 +2915,13 @@ function syncPause() {
   window.officeArcade?.sync();
 }
 $("capturebtn").onclick = () => scene.snapshot();
+const helpConnection = document.createElement("button");
+helpConnection.className = "btn";
+helpConnection.type = "button";
+helpConnection.textContent = "Connection guide";
+helpConnection.dataset.sheet = "sheet-setup";
+helpConnection.onclick = () => openSheet("sheet-setup");
+$("sheet-legend").querySelector(".sheet-body > h3").before(helpConnection);
 $("legendbox").innerHTML = kv([
   ["Working", "A tool is running"],
   ["Thinking", "Between tool calls"],
@@ -2854,10 +2931,13 @@ $("legendbox").innerHTML = kv([
   ["R / U", "Agents and usage"],
   ["B / S / E", "Achievements / Customize / Activity"],
   ["T / N", "Palette / Lighting"],
+  ["P / Shift+P", "Next / previous session needing input"],
+  ["Ctrl / ⌘ K", "Find sessions and panels"],
   ["Escape", "Close panel or finish placing props"],
   ["Zoom + drag", "Explore the room at a larger scale"],
 ]);
 document.addEventListener("keydown", (e) => {
+  if (document.querySelector("dialog[open]")) return;
   if (e.defaultPrevented) return;
   if (e.key === "Escape") {
     if (opened) backSheet();
@@ -2867,9 +2947,15 @@ document.addEventListener("keydown", (e) => {
   if (opened && e.key === "Tab") {
     const els = [
       ...$(opened).querySelectorAll(
-        'button:not(:disabled),a,input,select,summary,[tabindex="0"]',
+        "button,a[href],input,textarea,select,summary,[tabindex]",
       ),
-    ].filter((x) => !x.hidden && x.offsetParent !== null);
+    ].filter(
+      (element) =>
+        !element.matches(":disabled") &&
+        element.tabIndex >= 0 &&
+        !element.closest("[inert]") &&
+        element.getClientRects().length,
+    );
     const first = els[0],
       last = els.at(-1);
     if (e.shiftKey && document.activeElement === first) {
@@ -2942,4 +3028,58 @@ $("zoom-out").replaceChildren(icon("minus"));
 fillSettings();
 applyTheme();
 syncPause();
+const officeAttention = OfficeAttention.createController({
+  getAgents: () => agents,
+  getSelectedId: () => focusedId,
+  inspect: selectAgent,
+  getStatus: () =>
+    !initialized ? "connecting" : offline ? "disconnected" : "connected",
+  getPanel: () => opened,
+  isEditing: () => !!scene.edit || !!document.querySelector("dialog[open]"),
+  setTitle: (value) => {
+    document.title = value;
+  },
+  baseTitle:
+    document.body.dataset.agentOfficePreview === "1"
+      ? "Agent Office · Demo"
+      : "Agent Office",
+});
+document.addEventListener("keydown", officeAttention.handleKeydown);
+officeAttention.refresh();
+$("quick-nav-open").disabled = true;
+import("./quick-nav.js")
+  .then(({ createQuickNav }) => {
+    const actions = [
+      ["sheet-floor", "Agents and usage", "sessions runtime totals"],
+      ["sheet-tasks", "Tasks and drafts", "task brief local runs"],
+      ["sheet-events", "Activity history", "events export recorded"],
+      [
+        "sheet-settings",
+        "Customize room",
+        "settings artwork companions furniture",
+      ],
+      ["sheet-unlocks", "Achievements", "rewards unlocks"],
+      ["sheet-setup", "Connection guide", "setup runtimes observer help"],
+      ["sheet-legend", "Help and shortcuts", "keyboard controls"],
+    ].map(([id, label, keywords]) => ({
+      id,
+      label,
+      keywords,
+      run: () => {
+        if (opened !== id) openSheet(id);
+      },
+    }));
+    window.officeQuickNav = createQuickNav({
+      getAgents: () => agents,
+      getState: () => ({ mode: window._state?.mode, offline }),
+      actions,
+      onPickAgent: selectAgent,
+    });
+    $("quick-nav-open").disabled = false;
+    $("quick-nav-open").onclick = () => window.officeQuickNav.open();
+  })
+  .catch(() => {
+    $("quick-nav-open").title =
+      "Quick navigation could not load. Reload to retry.";
+  });
 poll();

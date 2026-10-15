@@ -1,0 +1,29 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-15",
+  "source": "pet-walk.png",
+  "source_preserved_unmodified": true,
+  "requested_source_dimensions": [
+    1536,
+    1024
+  ],
+  "actual_source_dimensions": [
+    1536,
+    1024
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: original transparent pixel-art companion walking sprite sheet for a cozy top-down office. Input images are style/identity references only, never paste their pixels. Primary request: create one clean sprite atlas with EXACTLY EIGHT ROWS and TWELVE COLUMNS of tiny full-body companions. Eight identities, row 1 orange ginger cat with cream muzzle, row 2 black tuxedo cat with white chest/paws, row 3 fluffy ivory white cat, row 4 grey tabby cat, row 5 tan-and-white corgi with upright ears, row 6 black dog with floppy ears and grey muzzle, row 7 golden retriever, row 8 tiny ivory round pocket robot with navy face and teal lights. Match the supplied dark-navy outlined chibi pixel sprites with crisp square clusters and warm muted palette. Four view headings per row: columns 1\u20133 facing DOWN toward viewer, columns 4\u20136 facing UP away from viewer (back view), columns 7\u20139 facing RIGHT, columns 10\u201312 facing LEFT. Within each heading: standing idle, walk step A, opposite walk step B. Same identity, body scale, volume, palette and grounded foot baseline across every frame. Walk poses must visibly alternate paws/feet without bouncing or changing body proportions. Cats and dogs on four paws, robot on two short feet. All cells evenly spaced and fully separated by generous genuinely transparent gutters; no clipping or overlap. Composition: wide landscape grid, 1536x1024 canvas, 12 columns x8 rows, 128x128 cells. Every sprite centered in its cell and fits within 88x84 pixels; all paws/feet share y=110 within each cell. Native game use will fit each figure into28x26 pixels. No text, numbers, labels, cell borders, fake checkerboard, backdrop, shadows, furniture, people, props, perspective, photorealism, gradients or glow. Actual alpha transparency behind all sprites.",
+  "normalization": "Detect the eight actual isolated alpha rows and twelve cells in each row, record source bounds; one shared scale per identity; nearest-neighbor28x26, bottom-center anchor(14,25). No nominal grid slicing.",
+  "source_sha256": "e1980471bd8bf67b3976376c9ff50e597f985573da9ed73f4a19483566598142",
+  "references": [
+    {
+      "path": "web/assets/sprites/studio/studio-3.png",
+      "role": "style and identity reference",
+      "sha256": "58784341eb6c85f93e678c11969c283d07b908fd9ae9faa370afae18eb800605"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-4.png",
+      "role": "style and identity reference",
+      "sha256": "9df2fa2db195c64c8562c3a29efa19eb20776e0f3372480e09997a24c2190bcc"
+    }
+  ]
+}

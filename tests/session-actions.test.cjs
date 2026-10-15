@@ -117,7 +117,7 @@ test("session exports capture scope when clicked, not a later filter during refr
   });
 });
 
-test("matching export includes saved matches beyond the first visible page", async () => {
+test("matching export stays above results and includes saved matches beyond the first page", async () => {
   const many = Array.from({ length: 105 }, (_, index) => ({
     event: "tool_start",
     session_id: "review-b",
@@ -131,6 +131,17 @@ test("matching export includes saved matches beyond the first visible page", asy
     assert.equal(await page.locator("#export-filtered-history").count(), 1);
     await page.locator("#eventSearch").fill("MATCH_FILE_");
     assert.equal(await page.locator("#eventbox .event").count(), 100);
+    const exportPosition = await page
+      .locator("#export-filtered-history")
+      .boundingBox();
+    const firstEvent = await page
+      .locator("#eventbox .event")
+      .first()
+      .boundingBox();
+    assert.ok(
+      exportPosition.y < firstEvent.y,
+      "Export is available before scrolling through 100 matching events",
+    );
     const data = await exported(page, "#export-filtered-history");
     assert.equal(data.events.length, 105);
   });

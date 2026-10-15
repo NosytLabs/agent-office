@@ -1,10 +1,8 @@
 name: CI
 on:
   pull_request:
-    paths-ignore: ["**.md", "docs/**"]
   push:
     branches: [main]
-    paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +12,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,7 +37,14 @@ jobs:
           npm test
           npm run format:check
       - name: Use the runner's maintained Chrome
-        run: echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+        run: |
+          chrome_path="$(command -v google-chrome)"
+          "$chrome_path" --version
+          echo "CHROMIUM_PATH=$chrome_path" >> "$GITHUB_ENV"
+      - name: Verify preserved sprite pixels and public builds
+        run: |
+          npm run check:sprites
+          npm run build:preview
       - name: Browser user flows and screenshots
         run: npm run test:browser
         env:

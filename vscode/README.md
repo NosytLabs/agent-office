@@ -39,6 +39,15 @@ IPv4/IPv6 loopback, proxy paths, and forwarding query parameters are supported.
 Do not put usernames/passwords in the URL. Query parameters are kept for
 forwarding but are not displayed in the panel footer.
 
+The observer rejects unknown Host headers and browser origins. A direct local
+iframe works with the default loopback URL. If forwarding changes the browser
+origin, restart the observer with `--observer-origin` set to that exact HTTP(S)
+origin, or set `AGENT_OFFICE_OBSERVER_ORIGINS` on its host. Paths and forwarding
+query parameters remain in the extension URL, but are omitted from the trusted
+origin. See [trusted forwarding setup](../docs/setup.md#ports-and-data-location).
+The same shared frontend handles polling and edits through an explicitly
+trusted forwarder; this does not enable forwarded local task runs.
+
 The extension runs on the workspace host. With SSH, WSL, or Dev Containers,
 install it into that environment and run Agent Office there. It resolves the
 office URL through VS Code's

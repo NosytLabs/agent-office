@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
+import tempfile
 from urllib.parse import urlsplit
 
 import pytest
@@ -128,3 +130,53 @@ def test_output_symlink_and_source_directory_are_never_replaced(tmp_path):
     assert (target / "keep").read_text() == "user content"
     assert build(ROOT / "site", check=False).returncode != 0
     assert (ROOT / "site/index.html").exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS temporary-directory system aliases")
+@pytest.mark.parametrize("temporary_root", [None, "/tmp"])
+def test_macos_system_temporary_aliases_accept_safe_site_output(temporary_root):
+    # Use the native spelling instead of pytest's canonicalized temporary path.
+    # /var/folders and /tmp are normal macOS output locations.
+    with tempfile.TemporaryDirectory(prefix="office-site-portability-", dir=temporary_root) as temporary:
+        output = Path(temporary) / "site"
+        build(output)
+        metadata = json.loads((output / "site-build.json").read_text())
+        assert metadata["format"] == "agent-office-product-site-v1"
+        (output / "stale.txt").write_text("previous generated build")
+        build(output)
+        assert not (output / "stale.txt").exists()
+
+
+def test_output_parent_symlink_cannot_replace_a_previous_build(tmp_path):
+    target = tmp_path / "actual"
+    output = target / "site"
+    build(output)
+    (output / "keep.txt").write_text("must survive redirected output")
+    linked = tmp_path / "linked"
+    linked.symlink_to(target, target_is_directory=True)
+    result = build(linked / "site", check=False)
+    assert result.returncode != 0
+    assert "symlinked site input/output" in result.stderr
+    assert (output / "keep.txt").read_text() == "must survive redirected output"
+
+
+def test_dangling_output_symlink_is_not_replaced(tmp_path):
+    output = tmp_path / "site"
+    output.symlink_to(tmp_path / "missing-target", target_is_directory=True)
+    result = build(output, check=False)
+    assert result.returncode != 0
+    assert output.is_symlink()
+    assert not (tmp_path / "missing-target").exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS temporary-directory system aliases")
+def test_macos_alias_cannot_bypass_source_output_boundary():
+    with tempfile.TemporaryDirectory(prefix="office-site-boundary-", dir="/tmp") as temporary:
+        project = Path(temporary) / "source"
+        (project / "tools").mkdir(parents=True)
+        script = project / "tools/build_site.mjs"
+        shutil.copyfile(SCRIPT, script)
+        result = build(project / "private", script=script, check=False)
+        assert result.returncode != 0
+        assert "outside the source checkout" in result.stderr
+        assert not (project / "private").exists()

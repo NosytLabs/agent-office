@@ -275,18 +275,31 @@
       return nativeFetch(request);
     }
     if (request.method === "GET") {
-      if (route === "/state") return response(state());
-      if (route === "/settings") {
-        refreshStored();
-        if (storageError) return unavailableSettings();
-        return response(clone(demoSettings), 200, saved.settingsRevision);
-      }
-      const limit = Number(url.searchParams.get("limit") || 1000);
-      if (!Number.isInteger(limit))
-        return response({ error: "history limit must be an integer" }, 400);
-      return response({
-        events: history().slice(0, Math.max(1, Math.min(limit, 5000))),
-      });
+      // Serialize the snapshot with cooperating writes in other tabs. A read
+      // must not overtake a queued history clear/reset, even when its storage
+      // notification has not reached this renderer yet. Reads can share a lock.
+      const read = () => {
+        if (route === "/state") return response(state());
+        if (route === "/settings") {
+          refreshStored();
+          if (storageError) return unavailableSettings();
+          return response(clone(demoSettings), 200, saved.settingsRevision);
+        }
+        const limit = Number(url.searchParams.get("limit") || 1000);
+        if (!Number.isInteger(limit))
+          return response({ error: "history limit must be an integer" }, 400);
+        return response({
+          events: history().slice(0, Math.max(1, Math.min(limit, 5000))),
+        });
+      };
+      const locks = globalThis.navigator?.locks;
+      return storageAvailable && locks?.request
+        ? locks.request(
+            storageKey,
+            { mode: "shared", signal: request.signal },
+            read,
+          )
+        : read();
     }
     if (request.method === "POST" && route === "/settings") {
       if (

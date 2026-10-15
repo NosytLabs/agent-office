@@ -96,12 +96,15 @@ Ordinary users need only the Python server. npm dependencies, browser binaries,
 screenshots, and build output are for development and are excluded from Git.
 Do not run full browser tests simply to start the office.
 
-The CI configuration caches dependency downloads, cancels superseded runs, and
-skips documentation-only changes. Browser evidence is retained for three days
-on **failed runs or explicit manual runs**, rather than uploaded after every
-successful automatic run. The lightweight repository-hygiene workflow checks
-Markdown changes without installing dependencies. The product-site workflow
-uses scoped source paths and one-day Pages artifact retention.
+The CI configuration caches dependency downloads and cancels superseded runs.
+Its full verification gate runs for every pull request and push to `main`,
+including documentation changes, so required checks are consistently present.
+Browser evidence is retained for three days on **failed runs or explicit manual
+runs**, rather than uploaded after every successful automatic run. The lightweight
+repository-hygiene workflow also checks every change without installing
+dependencies: deleting an asset can break a link in an unchanged Markdown file.
+The product-site publishing workflow uses scoped source paths and one-day Pages
+artifact retention.
 
 These are configuration rules, not a promise that hosted CI is enabled or a
 measurement of billed savings. Check the repository's actual Actions settings;

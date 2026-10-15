@@ -270,6 +270,16 @@ test("legacy demo revisions detect changed bytes from another tab and preserve n
           JSON.stringify(value),
         );
       }, legacy);
+      // The legacy writer deliberately bypasses Web Locks. Its remote
+      // evaluation finishing is not a cross-renderer storage-delivery fence.
+      // Establish the changed-byte precondition before exercising stale CAS;
+      // keep both the 409 and preservation/retry assertions below unchanged.
+      await page.waitForFunction(
+        () =>
+          JSON.parse(
+            localStorage.getItem("agent-office:static-preview:v1") || "{}",
+          ).settings?.agent_names?.beta === "New sibling",
+      );
       const result = await page.evaluate(async (etag) => {
         const save = await fetch("/settings", {
           method: "POST",

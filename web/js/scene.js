@@ -517,7 +517,9 @@ class OfficeScene {
     const columns = Math.max(1, Math.min(max, Math.max(2, this.agents.length)));
     const rows = Math.max(1, Math.ceil(capacity / columns));
     const w = Math.max(width < 600 ? 210 : 320, columns * 68 + 72),
-      h = Math.max(238, rows * 76 + 110);
+      // Keep a single desktop row close to its lounge. Narrow floors already
+      // fit by width, so retain their height instead of adding letterboxing.
+      h = Math.max(width < 600 ? 238 : 210, rows * 76 + 110);
     const start = (w - ((columns - 1) * 68 + 40)) / 2;
     const seats = assigned
       .filter(({ a }) => this.filter === "every" || platOf(a) === this.filter)
@@ -807,14 +809,34 @@ class OfficeScene {
     r(4, 7, w, h, "#070a1255");
     r(0, 0, w, h, t.trim);
     r(3, 3, w - 6, h - 6, t.floor);
-    // Low-contrast staggered timber boards, instead of the old checkerboard.
-    for (let y = 28; y < h - 6; y += 7) {
-      r(4, y, w - 8, 6, Math.round(y / 7) % 2 ? t.plank : t.floor);
-      r(4, y + 6, w - 8, 1, t.seam);
-      for (let x = (Math.round(y / 7) % 2) * 18 + 4; x < w - 4; x += 36)
-        r(x, y, 1, 6, t.seam);
+    const surfaces = this.roomSurfaces;
+    if (surfaces?.floor && surfaces?.wall) {
+      if (this.surfacePatternSource !== surfaces) {
+        this.surfacePatternSource = surfaces;
+        this.surfacePatterns = {
+          floor: this.ctx.createPattern(surfaces.floor, "repeat"),
+          wall: this.ctx.createPattern(surfaces.wall, "repeat"),
+        };
+      }
+      r(4, 28, w - 8, h - 34, this.surfacePatterns.floor);
     }
-    r(3, 3, w - 6, 23, t.wall);
+    // Original themes remain available when optional surfaces are unavailable.
+    else
+      for (let y = 28; y < h - 6; y += 7) {
+        r(4, y, w - 8, 6, Math.round(y / 7) % 2 ? t.plank : t.floor);
+        r(4, y + 6, w - 8, 1, t.seam);
+        for (let x = (Math.round(y / 7) % 2) * 18 + 4; x < w - 4; x += 36)
+          r(x, y, 1, 6, t.seam);
+      }
+    r(
+      3,
+      3,
+      w - 6,
+      23,
+      surfaces?.wall && this.surfacePatterns
+        ? this.surfacePatterns.wall
+        : t.wall,
+    );
     r(3, 24, w - 6, 3, t.trim);
     r(3, 27, w - 6, 2, "#15182430");
     this.image("DOOR", 12, 5, 14, 23);

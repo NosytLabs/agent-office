@@ -1198,7 +1198,16 @@ test("mobile floor swipes scroll at Fit and pan only while zoomed or editing", (
   withPage(
     async (p) => {
       const cdp = await p.context().newCDPSession(p);
-      const swipe = async () => {
+      const swipe = async (scrolls = false) => {
+        if (scrolls)
+          await p.evaluate(() => {
+            window.floorScrollEnded = false;
+            document.addEventListener(
+              "scrollend",
+              () => (window.floorScrollEnded = true),
+              { once: true },
+            );
+          });
         await cdp.send("Input.dispatchTouchEvent", {
           type: "touchStart",
           touchPoints: [{ x: 190, y: 680 }],
@@ -1214,9 +1223,12 @@ test("mobile floor swipes scroll at Fit and pan only while zoomed or editing", (
           type: "touchEnd",
           touchPoints: [],
         });
-        await p.waitForTimeout(200);
+        if (scrolls)
+          // A native fling can keep running after it reaches the page edge.
+          // Finish that gesture before testing a different canvas input mode.
+          await p.waitForFunction(() => window.floorScrollEnded);
       };
-      await swipe();
+      await swipe(true);
       assert.ok(
         await p.evaluate(() => scrollY > 0),
         "the floor must allow access to controls below the viewport",
@@ -1234,7 +1246,7 @@ test("mobile floor swipes scroll at Fit and pan only while zoomed or editing", (
       assert.equal(await p.evaluate(() => scrollY), 0);
       await p.click("#finish-furniture");
       await p.evaluate(() => scrollTo(0, 0));
-      await swipe();
+      await swipe(true);
       assert.ok(await p.evaluate(() => scrollY > 0));
     },
     { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },

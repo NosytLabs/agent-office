@@ -83,7 +83,7 @@ async function observerFixture(options, run) {
     browser = await chromium.launch({
       headless: true,
       executablePath: process.env.CHROMIUM_PATH || undefined,
-      args: ["--no-sandbox"],
+      args: ["--no-sandbox", ...(options.browserArgs || [])],
     });
     const page = await browser.newPage({
       viewport: options.viewport || { width: 1440, height: 1000 },

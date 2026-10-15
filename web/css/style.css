@@ -456,6 +456,22 @@ html.panel-open {
 .sheet-back {
   margin-bottom: 12px;
 }
+.sheet-section-navigation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.sheet-section-navigation .txt {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  min-height: 44px;
+  margin: 0;
+}
 .sheet-body {
   padding: 0 var(--sheet-padding) var(--sheet-padding);
 }
@@ -1072,6 +1088,9 @@ html.panel-open {
   }
   .scene-heading {
     margin-bottom: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
   h2 {
     font-size: 18px;
@@ -1079,8 +1098,17 @@ html.panel-open {
   #summary {
     font-size: 12px;
     gap: 5px;
-    flex-direction: column;
-    text-align: right;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    text-align: left;
+  }
+  #summary .btn {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+  #summary #count {
+    margin-right: auto;
   }
   .eyebrow {
     font-size: 11px;
@@ -1744,7 +1772,7 @@ button:disabled {
 
 .history-export-actions {
   flex-wrap: wrap;
-  margin-top: 12px;
+  margin: 12px 0 18px;
 }
 .history-export-actions .btn {
   min-height: 44px;

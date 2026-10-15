@@ -147,6 +147,52 @@ test("new workstation props retain finite collision bounds through responsive re
     }
   }
 });
+test("single-row rooms keep labels and amenities clear while desktop rooms avoid an extra vacant row", () => {
+  for (const [width, count] of [
+    [390, 2],
+    [1100, 2],
+    [1100, 6],
+  ]) {
+    const scene = Object.create(model.Scene.prototype);
+    scene.chars = new Map();
+    scene.update(
+      Array.from({ length: count }, (_, i) => ({ id: "session-" + i })),
+      { max_chars: 6 },
+      null,
+      null,
+      "every",
+    );
+    const room = scene.layout(width),
+      stations = room.seats.map((s) => ({
+        x: s.x - 12,
+        y: s.y - 25,
+        w: 64,
+        h: 72,
+      })),
+      decor = model.defaultDecor(room, []),
+      lounge = decor.filter((p) => ["sofa", "coffee", "lamp"].includes(p.kind)),
+      aisle =
+        Math.min(...lounge.map((p) => p.y)) -
+        Math.max(...stations.map((p) => p.y + p.h));
+    assert.ok(
+      aisle >= 16,
+      "workstation labels retain a walking aisle before the lounge",
+    );
+    if (width >= 600)
+      assert.ok(
+        aisle <= 64,
+        "one desk row does not leave an extra empty row in the middle",
+      );
+    for (const station of stations)
+      assert.ok(
+        decor.every((p) => !model.overlapsRect(station, p)),
+        "desks and nameplates stay clear of shared amenities",
+      );
+    assert.ok(
+      room.seats.every((s) => Number.isFinite(s.x) && Number.isFinite(s.y)),
+    );
+  }
+});
 test("crowns follow the resolved character's head and retain the human fallback", () => {
   const scene = Object.create(model.Scene.prototype);
   const rectangles = [];

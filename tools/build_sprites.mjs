@@ -47,7 +47,9 @@ try {
   browser = await chromium.launch({
     headless: true,
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: ["--no-sandbox"],
+    // Match the checked-in normalization pixels on machines with different
+    // graphics drivers; GPU canvas resampling can round color values differently.
+    args: ["--no-sandbox", "--disable-gpu"],
   });
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${server.address().port}/`);

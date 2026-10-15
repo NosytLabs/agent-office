@@ -1,0 +1,41 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-15",
+  "purpose": "Supplement the existing Studio style with complete character directional walking",
+  "source": "directional-walk.png",
+  "source_sha256": "54c3093e368b142df0c186c09a09f84be3c90e3cd0667a7672bd369b0c2593d6",
+  "source_preserved_unmodified": true,
+  "actual_source_dimensions": [
+    1672,
+    941
+  ],
+  "requested_source_dimensions": [
+    1536,
+    864
+  ],
+  "layout_note": "Generated canvas differs from requested dimensions. The reviewed actual rows/columns and source crop bounds are recorded in ../directional.json; no nominal-grid slicing is assumed.",
+  "references": [
+    {
+      "path": "web/assets/sprites/studio/studio-0.png",
+      "role": "style and identity reference",
+      "sha256": "1ec81d40c0303ff8b89d9c4c24f2f92ad8a1f9ff31c5efe63afecc811071503f"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-1.png",
+      "role": "style and identity reference",
+      "sha256": "e8f91b7c8f5a3cfe27e96b53bda44bfa6cfbe3f237382c41373c267f1d93867c"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-2.png",
+      "role": "style and identity reference",
+      "sha256": "cf39a0ef1714063e570ca50565de998bdcaa9ccd3fc9cf8dcb1cbbc8abdf94d3"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-3.png",
+      "role": "style and identity reference",
+      "sha256": "58784341eb6c85f93e678c11969c283d07b908fd9ae9faa370afae18eb800605"
+    }
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: production transparent pixel-art sprite sheet for an existing cozy top-down office game. The four supplied image strips are STYLE AND IDENTITY REFERENCES, not edit targets. Generate a NEW supplementary directional walk sheet. Match their charming tiny chibi pixel art: large heads, tiny bodies, 1-pixel dark navy outlines at logical size, expressive simple faces, restrained warm colors, crisp opaque pixel clusters, readable silhouette. No photorealism, no 3D, no painterly texture, no text, labels, borders, grid lines, logos, props, desks, floor or cast shadows.\nCANVAS AND LAYOUT ARE CRITICAL: exactly 1536 pixels wide and 864 pixels high, genuine transparent background. A perfectly regular 12-column by 6-row grid, every cell exactly 128 x 144 pixels. One fully contained sprite centered in each cell, identical scale and baseline within its row, feet at y=132 within the cell. Leave transparent space around each sprite. The art should look like 32x36 logical pixels enlarged exactly fourfold. Never merge adjacent sprites or cross cell boundaries.\nEach row is ONE identity consistent across all twelve cells. Row1 brown-haired young office worker, navy outfit and light shirt; Row2 copper/orange-haired worker, teal outfit; Row3 indigo-haired worker, violet/navy outfit; Row4 blond worker, blue shirt; Row5 small ivory office robot with dark teal visor and navy feet; Row6 warm-skinned courier in a red cap and red jacket.\nEvery row has this exact sequence: cells1-3 face DOWN/toward viewer, walking neutral / left foot forward / right foot forward; cells4-6 face UP/away from viewer, walking neutral / left foot forward / right foot forward (show back of head, no face); cells7-9 face RIGHT in clear right-facing profile, neutral / left foot forward / right foot forward; cells10-12 face LEFT in clear left-facing profile, neutral / left foot forward / right foot forward. All characters remain upright. Arms swing subtly opposite feet. Use the same head height and body proportions across poses so animation has no size jitter. Six identities, twelve poses each, seventy-two isolated sprites total. Prioritize clean consistent directional silhouettes and leg motion suitable for downsampling and real game use.",
+  "normalization": "One shared scale per identity, nearest-neighbor sampling,32x36native frame, bottom-center anchor(16,35); original source is never overwritten."
+}

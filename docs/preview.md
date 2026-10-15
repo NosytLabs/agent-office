@@ -29,13 +29,17 @@ files plus its build manifest. Every resource and local page link is relative,
 so the same output works at `/agent-office/` on GitHub Pages or `/about/` on the
 existing Vercel demo. The build reads only its allowlisted source files and
 screenshots, rejects symlinked inputs/outputs, and refuses to replace unrelated
-directories. A failed input check preserves the previous generated output.
+directories. Normal macOS `/var` and `/tmp` system aliases are canonicalized to
+their fixed `/private` locations; source and output symlinks below those locations
+remain rejected, including dangling output links. A failed input check preserves
+the previous generated output.
 
 The [Product website workflow](../.github/workflows/pages.yml) builds on relevant
 pushes to `main`, uploads only `site-dist/`, and deploys using the `github-pages`
 environment. It pins checked GitHub action revisions and retains the artifact
-for one day. It is a separate publishing workflow; it does not replace or
-enable the existing CI workflow.
+for one day. The separate [CI verification gate](../.github/workflows/ci.yml)
+checks the public builds alongside application tests on every pull request and
+push to `main`.
 
 When repository metadata reports that Pages is disabled, the workflow builds
 the site but skips artifact upload and deployment, with a configuration note

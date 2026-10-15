@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="css/aquarium.css" />
     <link rel="stylesheet" href="css/arcade.css" />
     <link rel="stylesheet" href="css/task-runner.css" />
+    <link rel="stylesheet" href="css/quick-nav.css" />
     <link rel="icon" href="assets/office.svg" />
   </head>
   <body>
@@ -172,6 +173,9 @@
           <div id="summary">
             <span id="count">Connecting…</span
             ><button class="btn" id="waiting-count" hidden></button>
+            <button class="btn" id="quick-nav-open" aria-haspopup="dialog">
+              Find…
+            </button>
             <button class="btn" id="budget-alert" hidden>Usage alert</button>
             <button class="btn" id="health-alert" hidden>Check observer</button>
           </div>
@@ -1240,6 +1244,7 @@
     <script src="js/view-state.js"></script>
     <script src="js/tasks-view.js"></script>
     <script src="js/task-runner.js"></script>
+    <script src="js/attention.js"></script>
     <script src="js/office.js"></script>
     <script src="js/task-desk.js"></script>
     <script src="js/editor.js"></script>

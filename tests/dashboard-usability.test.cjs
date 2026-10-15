@@ -61,8 +61,8 @@ test("a maximum-length office name keeps live status controls inside the viewpor
           const room = document.querySelector("#room-name");
           const summary = document.querySelector("#summary");
           const bounds = (node) => {
-            const { left, right } = node.getBoundingClientRect();
-            return { left, right };
+            const { left, right, top, bottom } = node.getBoundingClientRect();
+            return { left, right, top, bottom };
           };
           return {
             scrollWidth: document.documentElement.scrollWidth,
@@ -78,7 +78,11 @@ test("a maximum-length office name keeps live status controls inside the viewpor
         for (const bounds of [layout.room, layout.summary]) {
           assert.ok(bounds.left >= 0 && bounds.right <= viewport.width);
         }
-        assert.ok(layout.room.right <= layout.summary.left);
+        assert.ok(
+          layout.room.right <= layout.summary.left ||
+            layout.room.bottom <= layout.summary.top,
+          "The room name and live controls must be separate beside or below each other",
+        );
         await page.click("#waiting-count");
         assert.equal(await page.evaluate(() => focusedId), "name-layout");
         assert.match(
