@@ -1,6 +1,5 @@
-/* Optional, read-only studio presentation. Native observer sprites remain intact.
- * The instance decorator can be disabled without changing work status, XP, or usage.
- */
+/* Optional studio presentation. Observed activity and the native atlas remain
+ * independent of artwork, companion looks, effects and browser preferences. */
 (function (root) {
   "use strict";
   const POSES = [
@@ -68,9 +67,8 @@
     return p.mode === "sit" ? "sit" : "idle";
   }
   function companionFeedback(index, name) {
-    const label = String(name || PET_NAMES[index] || "Companion").slice(0, 24);
     return (
-      label +
+      String(name || PET_NAMES[index] || "Companion").slice(0, 24) +
       (index === 7
         ? " beeps hello."
         : index >= 4
@@ -124,11 +122,14 @@
       "holiday-ghost",
       "holiday-bat",
     ];
-    if (!required.every((k) => Object.hasOwn(m.entries, k))) return false;
-    if (Object.keys(m.entries).length > 256) return false;
-    return Object.entries(m.entries).every(([key, e]) => {
-      const r = e?.rect,
-        a = e?.anchor;
+    if (
+      Object.keys(m.entries).length > 256 ||
+      !required.every((k) => Object.hasOwn(m.entries, k))
+    )
+      return false;
+    return Object.entries(m.entries).every(([key, entry]) => {
+      const r = entry?.rect,
+        a = entry?.anchor;
       return (
         /^[a-zA-Z0-9_-]+$/.test(key) &&
         Array.isArray(r) &&
@@ -154,18 +155,166 @@
       );
     });
   }
+  function addStudioDetails(sprites) {
+    const ink = "#151a2b",
+      edge = "#4c5b78",
+      navy = "#28354f";
+    const cream = "#f4e5cb",
+      shade = "#c0b7ac",
+      wood = "#b2794c";
+    const leaf = "#356b50",
+      light = "#75a765",
+      stem = "#294b40";
+    function make(key, width, height, rectangles) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const g = canvas.getContext("2d");
+      for (const [color, x, y, w, h] of rectangles) {
+        g.fillStyle = color;
+        g.fillRect(x, y, w, h);
+      }
+      sprites.set(key, canvas);
+    }
+    make("succulent", 12, 16, [
+      [ink, 2, 9, 9, 7],
+      [shade, 3, 10, 7, 5],
+      [cream, 3, 10, 6, 3],
+      [stem, 5, 3, 2, 7],
+      [leaf, 2, 5, 8, 3],
+      [light, 3, 4, 2, 3],
+      [leaf, 4, 1, 4, 4],
+      [light, 5, 1, 2, 3],
+      [stem, 1, 7, 3, 2],
+    ]);
+    make("planter", 32, 18, [
+      [ink, 0, 9, 32, 8],
+      [wood, 1, 10, 30, 6],
+      [cream, 2, 10, 28, 2],
+      [shade, 3, 12, 26, 3],
+      [ink, 3, 16, 3, 2],
+      [ink, 26, 16, 3, 2],
+      [stem, 6, 2, 2, 8],
+      [leaf, 2, 4, 10, 4],
+      [light, 3, 3, 4, 3],
+      [stem, 16, 2, 2, 8],
+      [leaf, 12, 1, 8, 5],
+      [light, 14, 0, 3, 4],
+      [stem, 25, 3, 2, 7],
+      [leaf, 22, 4, 9, 4],
+      [light, 23, 3, 4, 3],
+    ]);
+    make("robot", 18, 28, [
+      [ink, 7, 1, 4, 5],
+      [leaf, 8, 1, 2, 2],
+      [ink, 2, 5, 14, 11],
+      [shade, 3, 6, 12, 9],
+      [cream, 4, 6, 10, 7],
+      [navy, 5, 8, 8, 5],
+      ["#70d3b3", 6, 9, 2, 3],
+      ["#70d3b3", 10, 9, 2, 3],
+      [ink, 3, 16, 12, 9],
+      [shade, 4, 17, 10, 7],
+      [cream, 5, 17, 8, 5],
+      [leaf, 7, 19, 4, 3],
+      [ink, 0, 17, 3, 6],
+      [cream, 1, 18, 2, 3],
+      [ink, 15, 17, 3, 6],
+      [cream, 15, 18, 2, 3],
+      [ink, 3, 25, 5, 3],
+      [ink, 10, 25, 5, 3],
+    ]);
+    make("statusbeacon", 12, 28, [
+      [ink, 1, 23, 10, 5],
+      [navy, 2, 24, 8, 3],
+      [edge, 3, 24, 6, 1],
+      [ink, 5, 12, 2, 11],
+      [edge, 5, 13, 1, 10],
+      [ink, 1, 4, 10, 8],
+      [navy, 2, 5, 8, 6],
+      [edge, 3, 3, 6, 6],
+      [shade, 4, 4, 3, 2],
+      [cream, 4, 5, 1, 2],
+      [ink, 1, 11, 10, 2],
+    ]);
+    make("DOOR", 32, 48, [
+      [ink, 1, 0, 30, 48],
+      [edge, 3, 1, 26, 46],
+      [navy, 5, 4, 23, 43],
+      [wood, 6, 7, 20, 39],
+      ["#92613f", 8, 9, 16, 37],
+      ["#d59b60", 7, 7, 18, 2],
+      [ink, 10, 13, 12, 15],
+      [edge, 11, 14, 10, 13],
+      ["#7aa9b4", 12, 15, 8, 11],
+      ["#aacbc9", 12, 15, 3, 9],
+      [cream, 22, 33, 2, 5],
+      [ink, 5, 45, 23, 3],
+    ]);
+    const terminal = [
+      [ink, 2, 2, 20, 30],
+      [navy, 3, 3, 18, 28],
+      [edge, 4, 3, 16, 2],
+      [ink, 5, 6, 14, 15],
+      ["#101d29", 6, 7, 12, 13],
+      [wood, 2, 22, 20, 3],
+      ["#d89c60", 3, 22, 18, 1],
+      [ink, 5, 26, 14, 4],
+      [edge, 6, 27, 12, 1],
+      [ink, 1, 31, 22, 3],
+    ];
+    const states = ["idle", "running", "finished", "failed", "disconnected"];
+    for (const state of states) {
+      const color =
+        state === "running"
+          ? "#75c9da"
+          : state === "finished"
+            ? "#8bc59b"
+            : state === "failed"
+              ? "#f1a28f"
+              : "#91a1b0";
+      const marks =
+        state === "finished"
+          ? [
+              [color, 8, 12, 2, 3],
+              [color, 10, 14, 2, 2],
+              [color, 12, 10, 2, 5],
+            ]
+          : state === "failed"
+            ? [
+                [color, 8, 10, 2, 2],
+                [color, 10, 12, 2, 2],
+                [color, 12, 14, 2, 2],
+                [color, 12, 10, 2, 2],
+                [color, 8, 14, 2, 2],
+              ]
+            : state === "disconnected"
+              ? [[color, 8, 12, 7, 2]]
+              : [
+                  [color, 8, 10, 6, 1],
+                  [color, 8, 13, 8, 1],
+                  [color, 8, 16, state === "running" ? 4 : 2, 1],
+                ];
+      make("taskterminal-" + state, 24, 34, [...terminal, ...marks]);
+    }
+    sprites.set("taskterminal", sprites.get("taskterminal-idle"));
+  }
   const api = Object.freeze({
     pose,
     petPose,
     companionFeedback,
     preferences,
     validManifest,
+    addStudioDetails,
   });
   if (typeof module === "object" && module.exports) module.exports = api;
   root.OfficeStudio = api;
-  if (typeof document === "undefined") return;
-  if (root.officeStudio || typeof scene === "undefined") return;
-
+  if (
+    typeof document === "undefined" ||
+    root.officeStudio ||
+    typeof scene === "undefined"
+  )
+    return;
   const storageKey =
     "agent-office:studio:v1:" +
     (document.body.dataset.agentOfficePreview === "1" ? "preview" : "observer");
@@ -181,6 +330,7 @@
     sprites: new Map(),
     error: "",
     prefs,
+    handoffs: new Map(),
   };
   root.officeStudio = art;
   const original = {
@@ -194,15 +344,13 @@
     agentCard,
     renderFurniturePreviews,
   };
-  const portraits = new WeakMap();
-  let before = null;
-  const handoffs = new Map();
-  art.handoffs = handoffs;
-  const petDistances = new Map();
+  const portraits = new WeakMap(),
+    petDistances = new Map(),
+    handoffs = art.handoffs;
+  let before = null,
+    wasConnected = false;
   const enabled = () => art.ready && prefs.art === "studio";
-  function sprite(key) {
-    return enabled() ? art.sprites.get(key) : null;
-  }
+  const sprite = (key) => (enabled() ? art.sprites.get(key) : null);
   function person(a) {
     const key = characterSpriteKey(a, scene.settings, scene.sprites);
     if (key === "studio-assistant") return 4;
@@ -216,11 +364,10 @@
   function image(key, x, y, w, h) {
     const im = sprite(key);
     if (!im) return false;
-    const ctx = scene.ctx;
-    const scale = Math.min(w / im.width, h / im.height);
-    const iw = Math.max(1, Math.round(im.width * scale)),
+    const scale = Math.min(w / im.width, h / im.height),
+      iw = Math.max(1, Math.round(im.width * scale)),
       ih = Math.max(1, Math.round(im.height * scale));
-    ctx.drawImage(
+    scene.ctx.drawImage(
       im,
       Math.round(x + (w - iw) / 2),
       Math.round(y + h - ih),
@@ -230,31 +377,35 @@
     return true;
   }
   scene.image = function (key, x, y, w, h) {
-    const selected = key === "sleepcat" ? `pet-${prefs.pets[0]}-sleep` : key;
+    const selected =
+      key === "sleepcat"
+        ? `pet-${prefs.pets[0]}-sleep`
+        : key.startsWith("taskterminal") &&
+            this.taskTerminalState() === "failed"
+          ? "taskterminal-failed"
+          : key;
     return (
       image(selected, x, y, w, h) || original.image.call(this, key, x, y, w, h)
     );
   };
   scene.character = function (a, x, y, c) {
-    const state = pose(a, c, this.time, this.paused);
-    const im = sprite(
-      `person-${person(a)}-${state === "type" ? "idle" : state}`,
-    );
+    const state = pose(a, c, this.time, this.paused),
+      im = sprite(`person-${person(a)}-${state === "type" ? "idle" : state}`);
     if (!im) return original.character.call(this, a, x, y, c);
-    const ctx = this.ctx;
-    const left = Math.round(x + 8 - 16),
-      top = Math.round(y + 31 - 35);
-    ctx.save();
-    if (a.status === "gone") ctx.globalAlpha = 0.4;
-    else if (a.status === "done") ctx.globalAlpha = 0.85;
+    const g = this.ctx,
+      left = Math.round(x - 8),
+      top = Math.round(y - 4);
+    g.save();
+    if (a.status === "gone") g.globalAlpha = 0.4;
+    else if (a.status === "done") g.globalAlpha = 0.85;
     if (c.moving && c.dir === "left") {
-      ctx.translate(left + 32, top);
-      ctx.scale(-1, 1);
-      ctx.drawImage(im, 0, 0);
-    } else ctx.drawImage(im, left, top);
+      g.translate(left + 32, top);
+      g.scale(-1, 1);
+      g.drawImage(im, 0, 0);
+    } else g.drawImage(im, left, top);
     if (this.cosmetics.includes("crown"))
       image("icon-crown", left + 9, top - 2, 14, 12);
-    ctx.restore();
+    g.restore();
   };
   scene.desk = function (s) {
     const result = original.desk.call(this, s),
@@ -279,30 +430,31 @@
   };
   scene.pet = function (x, y, black = false, behavior = {}) {
     const key = black ? "blackcat" : "cat",
-      index = black ? 1 : 0;
-    const active = this.petActive === key && this.petUntil > this.time;
-    const previous = petDistances.get(key);
-    const travelled =
-      previous && previous.geometry === this.geometry
-        ? Math.hypot(x - previous.x, y - previous.y)
-        : 0;
+      index = black ? 1 : 0,
+      active = this.petActive === key && this.petUntil > this.time;
+    const previous = petDistances.get(key),
+      travelled =
+        previous && previous.geometry === this.geometry
+          ? Math.hypot(x - previous.x, y - previous.y)
+          : 0;
     const distance =
       (previous?.distance || 0) +
       (!this.paused && travelled < 10 ? travelled : 0);
     petDistances.set(key, { x, y, distance, geometry: this.geometry });
-    const state = petPose({ ...behavior, distance }, active, this.paused);
-    const im = sprite(`pet-${prefs.pets[index]}-${state}`);
+    const im = sprite(
+      `pet-${prefs.pets[index]}-${petPose({ ...behavior, distance }, active, this.paused)}`,
+    );
     if (!im) return original.pet.call(this, x, y, black, behavior);
     const left = Math.round(x - 10),
       top = Math.round(y - 18),
-      ctx = this.ctx;
-    ctx.save();
+      g = this.ctx;
+    g.save();
     if (behavior.facing < 0) {
-      ctx.translate(left + 20, top);
-      ctx.scale(-1, 1);
-      ctx.drawImage(im, 0, 0, 20, 19);
-    } else ctx.drawImage(im, left, top, 20, 19);
-    ctx.restore();
+      g.translate(left + 20, top);
+      g.scale(-1, 1);
+      g.drawImage(im, 0, 0, 20, 19);
+    } else g.drawImage(im, left, top, 20, 19);
+    g.restore();
     if (active) {
       image("icon-heart", x - 5, y - 27, 10, 10);
       const name =
@@ -322,10 +474,10 @@
     toast(companionFeedback(index, name));
   };
   scene.update = function (...args) {
-    const next = args[0] || [];
-    const ids = new Set(next.map((a) => a.id));
-    // Bootstrap is not a completion event. Disconnects, history and removal never celebrate.
-    if (before && this.observerConnected && !this.paused)
+    const next = args[0] || [],
+      ids = new Set(next.map((a) => a.id));
+    // A reconnect/bootstrap/removal is not a newly observed successful handoff.
+    if (before && wasConnected && this.observerConnected && !this.paused)
       for (const a of next) {
         const prior = before.get(a.id);
         if (
@@ -334,6 +486,7 @@
           a.status === "done" &&
           prior &&
           !prior.failed &&
+          !String(a.detail || "").startsWith("⚠ ") &&
           !["done", "gone"].includes(prior.status) &&
           ids.has(a.parent)
         ) {
@@ -347,6 +500,7 @@
         { status: a.status, failed: String(a.detail || "").startsWith("⚠ ") },
       ]),
     );
+    wasConnected = !!this.observerConnected;
     for (const [id, h] of handoffs)
       if (!ids.has(id) || !ids.has(h.parent)) handoffs.delete(id);
     return original.update.apply(this, args);
@@ -354,12 +508,13 @@
   scene.draw = function (...args) {
     const result = original.draw.apply(this, args);
     if (!enabled() || !this.grid || !this.transform) return result;
-    const ctx = this.ctx,
+    const g = this.ctx,
       { scale, ox, oy } = this.transform,
       dpr = Math.min(devicePixelRatio || 1, 2);
-    ctx.save();
-    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
-    ctx.imageSmoothingEnabled = false;
+    g.save();
+    g.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
+    g.imageSmoothingEnabled = false;
+    if (this.settings.room_lights === false) g.globalAlpha = 0.45;
     if (this.settings.decorations && prefs.season !== "none") {
       const w = this.grid.w;
       const decorations =
@@ -382,11 +537,11 @@
       const kind =
         r.kind === "coffee"
           ? "coffee-steam"
-          : r.kind === "cooler"
+          : ["cooler", "monstera", "fern", "planter", "succulent"].includes(
+                r.kind,
+              )
             ? "water-drops"
-            : ["monstera", "fern", "planter", "succulent"].includes(r.kind)
-              ? "water-drops"
-              : "sparkles";
+            : "sparkles";
       image(`fx-${kind}-${Math.floor(age * 4) % 4}`, r.x + 2, r.y - 10, 16, 16);
     }
     for (const [id, h] of handoffs) {
@@ -407,17 +562,13 @@
         12,
       );
     }
-    ctx.restore();
+    g.restore();
     return result;
   };
-  document.getElementById("c")?.addEventListener("spritesready", () => {
-    if (art.ready) redraw();
-  });
   function paintPortrait(a, card) {
     if (!enabled()) return;
     const canvas = card.querySelector(".portrait"),
-      key = `person-${person(a)}-idle`,
-      im = sprite(key);
+      im = sprite(`person-${person(a)}-idle`);
     if (
       !canvas ||
       !im ||
@@ -434,6 +585,15 @@
     portraits.set(canvas, im);
   }
   agentCard = function (a, existing) {
+    // The native card owns content, focus and click handling. Studio owns its
+    // pixels, avoiding a native repaint immediately underneath a studio repaint.
+    const canvas = existing?.querySelector(".portrait");
+    if (enabled() && canvas) {
+      const native =
+        scene.sprites[characterSpriteKey(a, settings, scene.sprites)];
+      if (portraitSources.get(canvas) !== native) portraits.delete(canvas);
+      portraitSources.set(canvas, native);
+    }
     const card = original.agentCard(a, existing);
     paintPortrait(a, card);
     return card;
@@ -445,13 +605,10 @@
       const im = sprite(b.dataset.kind);
       if (!im) continue;
       const c = b.querySelector("canvas"),
-        g = c.getContext("2d");
+        g = c.getContext("2d"),
+        k = Math.max(1, Math.floor(Math.min(104 / im.width, 88 / im.height)));
       g.clearRect(0, 0, c.width, c.height);
       g.imageSmoothingEnabled = false;
-      const k = Math.max(
-        1,
-        Math.floor(Math.min(104 / im.width, 88 / im.height)),
-      );
       g.drawImage(
         im,
         Math.round((120 - im.width * k) / 2),
@@ -475,12 +632,16 @@
     renderFurniturePreviews();
     scene.draw(0);
   }
+  document.getElementById("c")?.addEventListener("spritesready", () => {
+    if (art.ready) redraw();
+  });
   const section = document.createElement("section");
   section.className = "studio-controls";
   section.setAttribute("aria-labelledby", "studio-art-heading");
   section.innerHTML =
     '<h3 id="studio-art-heading">Studio artwork</h3><p class="h">Characters, furniture and companion looks. These viewing preferences never change agent work or usage.</p><div class="studio-options"></div><p class="h" id="studio-art-status" role="status">Loading studio sprites…</p>';
-  const options = section.querySelector(".studio-options");
+  const options = section.querySelector(".studio-options"),
+    status = section.querySelector("#studio-art-status");
   function select(label, id, choices, value, change) {
     const wrap = document.createElement("label");
     wrap.className = "studio-option";
@@ -505,14 +666,15 @@
         saved = false;
       }
       redraw();
-      status.textContent = saved
-        ? "View saved on this browser."
-        : "Applied for this visit; browser storage is unavailable.";
+      status.textContent = !art.ready
+        ? "Original artwork is active; studio sprites are unavailable."
+        : saved
+          ? "View saved on this browser."
+          : "Applied for this visit; browser storage is unavailable.";
     };
     wrap.append(input);
     options.append(wrap);
   }
-  const status = section.querySelector("#studio-art-status");
   select(
     "Artwork",
     "studio-art-choice",
@@ -521,8 +683,8 @@
       ["classic", "Original artwork"],
     ],
     prefs.art,
-    (v) => {
-      prefs = { ...prefs, art: v };
+    (value) => {
+      prefs = { ...prefs, art: value };
     },
   );
   select(
@@ -534,8 +696,8 @@
       ["winter", "Winter"],
     ],
     prefs.season,
-    (v) => {
-      prefs = { ...prefs, season: v };
+    (value) => {
+      prefs = { ...prefs, season: value };
     },
   );
   for (let i = 0; i < 2; i++)
@@ -544,9 +706,9 @@
       `studio-pet-${i}`,
       PET_NAMES.map((name, n) => [n, name]),
       prefs.pets[i],
-      (v) => {
+      (value) => {
         const pets = [...prefs.pets];
-        pets[i] = Number(v);
+        pets[i] = Number(value);
         prefs = { ...prefs, pets };
       },
     );
@@ -557,15 +719,12 @@
         "Companion looks use the existing two pet slots. The second slot still requires its existing unlock. Seasonal wall art is decorative.",
     }),
   );
-  const settingsBody =
-    document.querySelector("#sheet-settings .sheet-body") ||
-    document.querySelector("#sheet-settings");
-  settingsBody?.append(section);
-
-  // The existing notice manager owns timers and the three-notice cap. A focused
-  // notice used to survive forever after expiry; resume its lifetime on blur.
-  const toasts = document.getElementById("toast");
-  function onNoticeBlur(event) {
+  // Keep appearance choices beside atmosphere settings, not after destructive
+  // actions: the established reset/export reverse-tab order remains unchanged.
+  const appearanceControls = document.getElementById("settingsbox");
+  if (appearanceControls) appearanceControls.after(section);
+  else document.querySelector("#sheet-settings .sheet-body")?.append(section);
+  document.getElementById("toast")?.addEventListener("focusout", (event) => {
     const notice = event.target.closest(".toast");
     if (!notice) return;
     clearTimeout(toastTimers.get(notice));
@@ -575,8 +734,27 @@
         if (!notice.contains(document.activeElement)) notice.remove();
       }, 4500),
     );
+  });
+  function loadImage(index) {
+    return new Promise((resolve, reject) => {
+      const im = new Image(),
+        timer = setTimeout(
+          () => finish(new Error("Studio image timed out")),
+          5000,
+        );
+      function finish(error) {
+        clearTimeout(timer);
+        im.onload = im.onerror = null;
+        if (error) {
+          im.removeAttribute("src");
+          reject(error);
+        } else resolve(im);
+      }
+      im.onload = () => finish();
+      im.onerror = () => finish(new Error("Studio image unavailable"));
+      im.src = `assets/sprites/studio/studio-${index}.png`;
+    });
   }
-  toasts?.addEventListener("focusout", onNoticeBlur);
   async function load() {
     try {
       const response = await fetch("assets/sprites/studio/studio.json", {
@@ -584,41 +762,21 @@
       });
       if (!response.ok) throw new Error("Studio manifest unavailable");
       const manifest = await response.json();
-      if (!validManifest(manifest)) throw new Error("Invalid studio atlas");
-      // Eight independently cacheable PNG tiles form one validated native atlas.
-      // URLs are fixed, never supplied by agent events or user preferences.
-      if (manifest.width !== 512 || manifest.height !== 323)
-        throw new Error("Unsupported studio layout");
+      if (
+        !validManifest(manifest) ||
+        manifest.width !== 512 ||
+        manifest.height !== 323
+      )
+        throw new Error("Invalid studio atlas");
       const pages = await Promise.all(
-        Array.from(
-          { length: 8 },
-          (_, i) =>
-            new Promise((resolve, reject) => {
-              const im = new Image();
-              const timer = setTimeout(
-                () => done(new Error("Studio image timed out")),
-                5000,
-              );
-              function done(error) {
-                clearTimeout(timer);
-                im.onload = im.onerror = null;
-                if (error) {
-                  im.removeAttribute("src");
-                  reject(error);
-                } else resolve(im);
-              }
-              im.onload = () => done();
-              im.onerror = () => done(new Error("Studio image unavailable"));
-              im.src = `assets/sprites/studio/studio-${i}.png`;
-            }),
+          Array.from({ length: 8 }, (_, i) => loadImage(i)),
         ),
-      );
-      const atlas = document.createElement("canvas");
+        atlas = document.createElement("canvas");
       atlas.width = 512;
       atlas.height = 323;
       const context = atlas.getContext("2d", { willReadFrequently: true });
       context.imageSmoothingEnabled = false;
-      for (let i = 0; i < pages.length; i++) {
+      for (let i = 0; i < 8; i++) {
         if (
           pages[i].naturalWidth !== 512 ||
           pages[i].naturalHeight !== (i === 7 ? 43 : 40)
@@ -627,36 +785,36 @@
         context.drawImage(pages[i], 0, i * 40);
       }
       if (root.crypto?.subtle && typeof manifest.rgbaSha256 === "string") {
-        const bytes = context.getImageData(0, 0, 512, 323).data;
-        const digest = await crypto.subtle.digest("SHA-256", bytes);
-        const hash = [...new Uint8Array(digest)]
-          .map((n) => n.toString(16).padStart(2, "0"))
-          .join("");
-        if (hash !== manifest.rgbaSha256)
+        const digest = await root.crypto.subtle.digest(
+          "SHA-256",
+          context.getImageData(0, 0, 512, 323).data,
+        );
+        if (
+          [...new Uint8Array(digest)]
+            .map((n) => n.toString(16).padStart(2, "0"))
+            .join("") !== manifest.rgbaSha256
+        )
           throw new Error("Studio pixels failed integrity check");
       }
       const sprites = new Map();
-      for (const [key, e] of Object.entries(manifest.entries)) {
+      for (const [key, entry] of Object.entries(manifest.entries)) {
         const c = document.createElement("canvas");
-        [c.width, c.height] = e.rect.slice(2);
+        [c.width, c.height] = entry.rect.slice(2);
         const g = c.getContext("2d");
         g.imageSmoothingEnabled = false;
-        g.drawImage(atlas, ...e.rect, 0, 0, c.width, c.height);
+        g.drawImage(atlas, ...entry.rect, 0, 0, c.width, c.height);
         sprites.set(key, c);
       }
-      // Two additional human finishes keep the original six-person preference
-      // slots human; robot/courier remain explicit alternate appearances.
       for (const [id, finish] of [
         [6, "rose"],
         [7, "moss"],
       ])
-        for (const pose of POSES) {
-          const source = sprites.get(`person-3-${pose}`),
-            c = document.createElement("canvas");
+        for (const p of POSES) {
+          const c = document.createElement("canvas");
           c.width = 32;
           c.height = 36;
           const g = c.getContext("2d", { willReadFrequently: true });
-          g.drawImage(source, 0, 0);
+          g.drawImage(sprites.get(`person-3-${p}`), 0, 0);
           const pixels = g.getImageData(0, 0, 32, 36),
             d = pixels.data;
           for (let i = 0; i < d.length; i += 4) {
@@ -664,20 +822,17 @@
               green = d[i + 1],
               b = d[i + 2];
             if (d[i + 3] && b > 60 && b > r * 1.4 && b > green * 1.1) {
-              if (finish === "rose") {
-                d[i] = Math.round(b * 0.85);
-                d[i + 1] = Math.round(green * 0.65);
-                d[i + 2] = Math.round(b * 0.55);
-              } else {
-                d[i] = Math.round(b * 0.46);
-                d[i + 1] = Math.round(b * 0.75);
-                d[i + 2] = Math.round(b * 0.5);
-              }
+              d[i] = Math.round(b * (finish === "rose" ? 0.85 : 0.46));
+              d[i + 1] = Math.round(
+                finish === "rose" ? green * 0.65 : b * 0.75,
+              );
+              d[i + 2] = Math.round(b * (finish === "rose" ? 0.55 : 0.5));
             }
           }
           g.putImageData(pixels, 0, 0);
-          sprites.set(`person-${id}-${pose}`, c);
+          sprites.set(`person-${id}-${p}`, c);
         }
+      addStudioDetails(sprites);
       art.sprites = sprites;
       art.ready = true;
       art.source = "studio";

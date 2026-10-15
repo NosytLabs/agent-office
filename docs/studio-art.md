@@ -1,51 +1,53 @@
 # Studio artwork
 
-Open **Customize**, then **Studio artwork**. Choose Studio pixel art or Original
-artwork, optional autumn/winter wall decorations, and the look of each existing
-companion slot. These choices persist in this browser, separately for the hosted
-demo and the local observer. They do not change settings on another browser.
+Open **Customize → Studio artwork**, beside Layout & atmosphere. Choose Studio
+pixel art or Original artwork, optional autumn/winter wall decorations, and the
+look of each existing companion slot. These browser preferences are separate for
+the hosted demo and local observer. They do not alter another browser's settings.
 
-## Included
+## Artwork and behavior
 
-- A native 512 by 323 atlas, transported as eight small PNG bands. Its manifest
-  describes 168 source entries: 54 character poses, 56 companion poses, 29 props,
-  13 icons and 16 effect frames. Two additional human palette finishes are built
-  once at load time, producing 186 runtime canvases.
-- Distance-driven walking, activity-selected reading and attention poses, and
-  desk-level typing hands. The baked desk in the source typing picture is not
-  drawn over the existing workstation.
-- Four cat looks, three dog looks and a pocket robot. They use the existing two
-  companion slots; the second slot retains its original unlock requirement.
-- Coffee steam, watering and sparkle effects, plus a short parcel handoff from a
-  newly completed subagent to its parent desk. Removal, refresh, missing parents
-  and disconnected observation never create a new handoff.
-- Matching editor thumbnails and roster portraits, coordinated panel colors,
-  mobile controls and keyboard focus outlines.
-- A notification whose timeout was held for keyboard focus now resumes its
-  lifetime after focus leaves it.
+The 512 by 323 native atlas has 168 source entries: 54 character poses, 56 companion
+poses, 29 props, 13 icons and 16 effect frames. Two human palette variants add 18
+canvases. Eleven additional native prop/state entries are drawn once at load time
+by `addStudioDetails()` in `web/js/studio.js`, making 197 available sprite entries.
+The additional artwork covers the succulent, planter, desk robot, attention beacon,
+door and task terminal, including idle, running, finished, failed and disconnected
+terminal states. The base task-terminal entry shares its idle-state canvas.
 
-## Safety and compatibility
+Movement uses distance-driven walk frames. Reading and human-input poses use
+reported activity. Typing hands are drawn over the existing desktop, rather than
+adding a second baked-in desk. Four cat looks, three dogs and a pocket robot use
+the existing two companion slots; the second slot keeps its original unlock.
+Coffee, watering and sparkle effects remain cosmetic. A newly observed completed
+subagent can send a parcel to its parent; bootstrap, reconnect, removal, missing
+parents and observed errors do not create successful handoffs.
 
-The original compact atlas, source files, scene geometry, pathfinding and editor
-placement rules remain intact. If the new manifest, one PNG band, dimensions or
-supported pixel-integrity check fail, the complete presentation falls back to the
-original artwork rather than publishing a half-loaded set. No extra runtime
-package or frontend build is needed.
+Studio portraits and editor thumbnails follow the same artwork choice. Existing
+cards reuse their pixels until the appearance changes; source changes cause one
+portrait repaint rather than native and studio repaints in sequence. Artwork
+controls do not displace the established reset/export keyboard order. Focused
+notifications retain keyboard access and resume their expiry after focus leaves.
 
-The studio is a presentation of existing observed status, not a second agent
-state machine. Animations and companion interactions never submit prompts,
-answer approvals, call a model, grant XP or alter token/cost accounting. A command
-pose does not establish whether a remote process is actually still running.
+## Compatibility
 
-Seasonal ornaments are wall decoration, not independently placeable furniture.
-The handoff is a parcel animation, not a claim that code quality was verified.
-Original directional sprites remain available through Original artwork; the new
-source poses do not provide full four-direction walking art. Aquarium fish and
-arcade game art retain their existing separate loaders and notices.
+The original compact atlas, source sheets, geometry, pathfinding and editor rules
+remain intact. Missing or invalid studio resources fall back to the original
+artwork as a complete set. No new runtime dependency or frontend build is required.
+The new deterministic sprites are source-defined artwork, not new AI-generated
+image sheets. The approved generated sheets remain the source for the main atlas.
+
+Animations never submit prompts, answer approvals, call models, grant XP or change
+token/cost accounting. Seasonal ornaments are decorative wall art rather than
+independently placeable furniture. The handoff indicates reported completion,
+not verified code quality. Full four-direction chibi art is not included; Original
+artwork retains its existing directional frames. Aquarium and arcade art retain
+their separate loaders and notices. Project-specific rooms and autonomous agent
+coffee trips are not implemented by this presentation layer.
 
 ## Verification
 
-Run the existing checks, which include the studio unit and browser tests:
+Run the existing checks:
 
 ```sh
 python3 -m pytest -q
@@ -54,20 +56,20 @@ npm run check
 npm run format:check
 npm run test:browser
 npm run check:sprites
+npm run build:preview
 ```
 
-`test:browser` first runs the existing compatibility suite in Original artwork
-mode using a test-only Playwright preload. This keeps native-pixel identity,
-source-atlas failure, portrait and directional-animation assertions meaningful.
-It then runs the separate studio integration suite with the default Studio
-artwork and no preload. No existing assertions or tests are removed.
+The browser command first runs the compatibility suite in Original artwork mode
+using `tests/classic-artwork-preload.cjs`. This keeps its original pixel-identity,
+source-failure and directional-animation assertions meaningful. It then runs the
+Studio suite separately, without that preload. No existing assertions are removed.
 
-The studio browser tests exercise real local observer fixtures with synthetic
-events: new artwork, original-art fallback, preference reload, mobile overflow,
-reduced motion, distinct pet walk frames, observed subagent handoffs, unchanged
-accounting and notification keyboard lifetime. They do not authenticate or run
-agent CLIs.
+The Studio browser tests cover preferences, mobile bounds, fallback, reduced
+motion, new-event handoffs, unchanged accounting and focused notification lifetime.
+They additionally verify all eleven generated detail entries, five distinct
+terminal state images, single-repaint portrait caching, and inspector appearance
+changes against the actual Studio pixels. Fixtures use synthetic events through
+real local observer servers; no agent CLIs are authenticated or launched.
 
-The original notices remain in [asset attribution](../web/assets/ATTRIBUTION.md).
-The new asset inventory and source checksums are in
-[the studio asset directory](../web/assets/sprites/studio/README.md).
+Existing notices: [asset attribution](../web/assets/ATTRIBUTION.md).
+Atlas inventory: [studio assets](../web/assets/sprites/studio/README.md).
