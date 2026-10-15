@@ -817,14 +817,21 @@ for (const button of document.querySelectorAll("[data-copy-command]")) {
     }
   };
 }
-$("waiting-count").onclick = () => {
-  const waiting = agents.filter((a) => a.status === "waiting");
-  const next =
-    waiting[
-      (waiting.findIndex((a) => a.id === focusedId) + 1) % waiting.length
-    ];
-  if (next) selectAgent(next.id);
-};
+function syncWaitingCount() {
+  const count = agents.filter((agent) => agent.status === "waiting").length,
+    button = $("waiting-count");
+  button.textContent = count
+    ? `${offline ? "Last reported · " : ""}${count} ${count === 1 ? "needs" : "need"} input`
+    : "";
+  button.hidden = !count;
+  // Retain keyboard focus when a poll fails; the shared controller blocks
+  // navigation until fresh observations are available again.
+  button.setAttribute("aria-disabled", String(offline));
+  button.title = offline
+    ? "Last received input requests. Reconnect before navigating waiting sessions."
+    : "Next session needing input. P / Shift+P moves forward or back.";
+}
+$("waiting-count").onclick = (event) => officeAttention.inspectNext(1, event);
 function syncEmptyState() {
   const filtered = agents.length > 0;
   $("empty-state").hidden = !!scene.edit || scene.list().length > 0;
@@ -2024,6 +2031,7 @@ for (const b of $("badge-tabs").querySelectorAll("button"))
     persistView();
   };
 function syncAttention() {
+  syncWaitingCount();
   const agent = agents.find((a) => a.id === attentionNotice?.id);
   if (
     !agent ||
@@ -2141,14 +2149,9 @@ function applyState(state, pollRevision = settingsRevision) {
   $("connection").textContent = "Connected";
   $("mode").hidden = state.mode !== "demo";
   $("agent-total").textContent = agents.length;
-  const n = agents.length,
-    w = agents.filter((a) => a.status === "waiting").length;
+  const n = agents.length;
   $("count").textContent =
     n + " agent" + (n === 1 ? "" : "s") + " on the floor";
-  $("waiting-count").textContent = w
-    ? w + (w === 1 ? " needs input" : " need input")
-    : "";
-  $("waiting-count").hidden = !w;
   if (opened === "sheet-setup") fillSetup();
   syncEmptyState();
   syncHealth();
@@ -2938,7 +2941,7 @@ $("legendbox").innerHTML = kv([
 ]);
 document.addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]")) return;
-  if (e.defaultPrevented) return;
+  if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
   if (e.key === "Escape") {
     if (opened) backSheet();
     else finishFurniture();

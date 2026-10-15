@@ -12,6 +12,7 @@ to your runtime data. Demo activity is synthetic.
 | Task | Guide |
 | --- | --- |
 | Connect Hermes, OpenCode, Codex, Claude, or Gemini reporting | [Runtime coverage and contracts](runtime-observers.md) |
+| Save, find, review and reuse a task brief | [Browser-local saved briefs](task-briefs.md) |
 | Start a fresh Codex or Claude task locally | [Optional local runner](local-task-runner.md) |
 | Play Duck Hunt, Breakout, or Snake | [Arcade controls and recovery](arcade.md) |
 | Feed or greet fish, choose artwork, and install a local licensed pack | [Aquarium assets and care](aquarium-assets.md) |

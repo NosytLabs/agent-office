@@ -58,13 +58,26 @@ const allowed = new Set([
   ".html",
   ".mp3",
 ]);
+// These are reproducibility inputs, never requested by the browser. Classic
+// source PNGs remain public because the runtime uses them when its atlas fails.
+function authoringInput(relative) {
+  return (
+    relative === "assets/sprites/studio/source" ||
+    relative.startsWith("assets/sprites/studio/source/") ||
+    /^assets\/sprites\/generated-[^/]+\.json$/.test(relative) ||
+    relative === "assets/sprites/asset-checksums.json" ||
+    relative === "arcade/duck-hunt/js/upstream.js"
+  );
+}
 const copies = new Map();
 function collect(relative) {
   const source = path.join(root, "web", relative);
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-    const name = path.join(relative, entry.name);
+    const name = path.join(relative, entry.name),
+      publicName = name.split(path.sep).join("/");
     if (entry.isSymbolicLink())
       throw new Error(`Refusing a symlink in public web assets: ${name}`);
+    if (authoringInput(publicName)) continue;
     if (entry.isDirectory()) {
       if (/^(user|inbox|node_modules|reports|smallburg)$/i.test(entry.name)) {
         throw new Error(
@@ -83,11 +96,34 @@ function collect(relative) {
       if (privateHashes.has(digest) || /smallburg/i.test(entry.name)) {
         throw new Error(`Licensed local-only art cannot be published: ${name}`);
       }
-      copies.set(name.split(path.sep).join("/"), data);
+      copies.set(publicName, data);
     }
   }
 }
 for (const directory of ["assets", "css", "js", "arcade"]) collect(directory);
+
+// Keep attribution usable when its generation records stay in the checkout.
+// Only publication copies change; source notices and original bytes stay intact.
+const repositoryWeb =
+  "https://github.com/NosytLabs/agent-office/blob/main/web/";
+for (const [relative, data] of copies) {
+  if (!relative.endsWith(".md")) continue;
+  let notice = data
+    .toString("utf8")
+    .replace(/\]\(([^)\s]+)\)/g, (link, target) => {
+      if (/^(?:[a-z]+:|#|\/)/i.test(target)) return link;
+      const resolved = path.posix.normalize(
+        path.posix.join(path.posix.dirname(relative), target),
+      );
+      return authoringInput(resolved) ? `](${repositoryWeb}${resolved})` : link;
+    });
+  if (relative === "assets/sprites/studio/README.md")
+    notice +=
+      "\nSupplement authoring files stay in the [repository source directory](https://github.com/NosytLabs/agent-office/tree/main/web/assets/sprites/studio/source). This public build includes their compiled runtime images and manifests.\n";
+  if (relative === "arcade/duck-hunt/UPSTREAM-NOTICE.md")
+    notice += `\nThe unchanged [authoring bundle](${repositoryWeb}arcade/duck-hunt/js/upstream.js) stays in the repository for patch verification. This public build serves only the derived \`js/game.js\` bundle.\n`;
+  copies.set(relative, Buffer.from(notice));
+}
 
 const seed = JSON.parse(
   fs.readFileSync(path.join(root, "tools/fixtures/preview.json"), "utf8"),

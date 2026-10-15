@@ -38,10 +38,14 @@ notifications retain keyboard access and resume their expiry after focus leaves.
 
 The companion supplement adds 96 original frames: eight looks, four headings and
 three walk poses at 28 × 26 pixels, anchored at (14,25). Heading follows actual
-travel; sleep and affection keep their established poses. Four 128 × 128 room
+travel. A second 96-frame sheet adds calm blink/ear motion, sleeping/breathing and
+happy tail/wave loops to all eight looks. Idle blinking is occasional, sleeping
+motion is slow, and happy reactions use the existing affection state. Pause and
+reduced motion use still poses; these loops do not alter pet movement or rewards.
+The earned sofa sleeper uses the same chosen look. Four 128 × 128 room
 surfaces provide oak/slate floors and matching plaster walls. A cached repeat
 pattern preserves geometry, room lighting and object interactions. Original theme
-remains selectable. The searchable gallery contains 434 entries in total.
+remains selectable. The searchable gallery contains 530 entries in total.
 
 ## Compatibility
 
@@ -55,14 +59,15 @@ unmodified source, full prompt, source checksum and reviewed crop bounds are in
 identity with one shared scale and nearest-neighbor sampling. Run
 `node tools/build_studio_directional.mjs --check` to reproduce all 72 native frames;
 this is also part of `npm run check:sprites`. The environment compiler
-`node tools/build_studio_environment.mjs --check` also reproduces all 96 companion
-frames and four seamless surface tiles from their preserved source and full
+`node tools/build_studio_environment.mjs --check` also reproduces all 192 companion
+walking/life frames and four seamless surface tiles from their preserved source and full
 prompts. The surface compiler reflects reviewed tiles to match opposite edges.
 
 If any supplementary sheet is unavailable or fails validation, the base artwork
 remains usable and **Retry artwork** restores optional artwork in place without
 discarding drafts. Directional frames also appear in the searchable sprite gallery
-and export as native transparent PNGs or four-frame walk strips.
+and export as native PNGs or four-frame strips. Supplementary packs load
+concurrently and recover independently; diagnostics identify an unavailable pack.
 
 Animations never submit prompts, answer approvals, call models, grant XP or change
 token/cost accounting. Seasonal ornaments are decorative wall art rather than

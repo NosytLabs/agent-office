@@ -188,3 +188,9 @@ regression for correctness fixes and synthetic screenshots for visible changes.
 Name the environments actually exercised. Update the relevant guide rather than
 adding another overlapping audit report. Preserve useful historical/provenance
 records and link them from the existing documentation index.
+
+For focused browser debugging, `npm run test:browser:original` checks the Classic
+compatibility flows and `npm run test:browser:studio` checks Studio, public-package,
+navigation, panel-safety and saved-brief flows. `npm run test:browser` runs both;
+release verification must keep the complete command. The maintained tool and
+asset inventory is in [the asset pipeline](docs/asset-pipeline.md#maintainer-tool-inventory).

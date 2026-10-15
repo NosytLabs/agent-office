@@ -132,6 +132,13 @@
   function animationKeys(key, keys) {
     const available = new Set(keys);
     if (!available.has(key)) return [];
+    const family = key.replace(/-anim-\d+$/, ""),
+      life = Array.from({ length: 4 }, (_, i) => family + "-anim-" + i);
+    if (
+      /^pet-\d+-(?:idle|sleep|happy)(?:-anim-\d+)?$/.test(key) &&
+      life.every((frame) => available.has(frame))
+    )
+      return life;
     const actor = key.match(
       /^((?:person|pet)-\d+(?:-(?:up|down|left|right))?)-(?:idle|walk-a|walk-b)$/,
     );
@@ -271,7 +278,7 @@
     gallery.className = "storage-diagnostics";
     gallery.innerHTML = `
       <summary>Preview &amp; download sprites</summary>
-      <p class="h">Transparent native PNGs and animation strips. Cosmetic effects never change agent work or accounting.</p>
+      <p class="h">Native PNGs and animation strips preserve the original transparency. Cosmetic effects never change agent work or accounting.</p>
       <div class="studio-options">
         <label class="studio-option" for="studio-sprite-search">Find sprites<input id="studio-sprite-search" class="txt" type="search" maxlength="100" placeholder="For example, fern or pet 0" /></label>
         <label class="studio-option" for="studio-sprite-group">Category<select id="studio-sprite-group"><option value="all">All sprites</option><option value="characters">Characters</option><option value="companions">Companions</option><option value="furniture">Furniture</option><option value="effects">Effects &amp; icons</option></select></label>
@@ -296,7 +303,21 @@
       motion = matchMedia("(prefers-reduced-motion: reduce)");
     let playing = false,
       raf = null,
-      started = null;
+      started = null,
+      exportGeneration = 0;
+    const transparency = new WeakMap();
+    function imageTransparency(source) {
+      if (!transparency.has(source)) {
+        const rgba = source
+          .getContext("2d")
+          .getImageData(0, 0, source.width, source.height).data;
+        transparency.set(
+          source,
+          rgba.some((value, index) => index % 4 === 3 && value < 255),
+        );
+      }
+      return transparency.get(source) ? "transparent" : "opaque";
+    }
     function sequence() {
       const keys = animationKeys(select.value, all.keys()),
         first = all.get(keys[0]);
@@ -388,6 +409,7 @@
       raf = requestAnimationFrame(tick);
     };
     function selectionChanged() {
+      exportGeneration++;
       stop();
       const source = all.get(select.value),
         frames = sequence();
@@ -395,7 +417,7 @@
       strip.disabled = frames.length < 2 || art.loading;
       play.disabled = frames.length < 2 || art.loading;
       info.textContent = source
-        ? `${source.width} × ${source.height} px · ${frames.length} frame${frames.length === 1 ? "" : "s"} · transparent PNG`
+        ? `${source.width} × ${source.height} px · ${frames.length} frame${frames.length === 1 ? "" : "s"} · ${imageTransparency(source)} PNG`
         : "Try a different search or category.";
       message.textContent = "";
     }
@@ -423,10 +445,17 @@
     group.onchange = filter;
     select.onchange = selectionChanged;
     function download(source, name) {
+      const generation = ++exportGeneration;
       source.toBlob((blob) => {
-        message.textContent = blob
-          ? "PNG exported at its native dimensions."
-          : "Could not export this image. Try again.";
+        if (
+          generation === exportGeneration &&
+          gallery.open &&
+          !section.closest(".sheet")?.hidden &&
+          !art.loading
+        )
+          message.textContent = blob
+            ? "PNG exported at its native dimensions."
+            : "Could not export this image. Try again.";
         if (blob) downloadBlob(blob, name);
       }, "image/png");
     }
@@ -449,24 +478,33 @@
       keys.forEach((k, i) => context.drawImage(all.get(k), i * first.width, 0));
       download(canvas, "agent-office-" + key + "-strip.png");
     };
+    function suspend() {
+      exportGeneration++;
+      stop();
+    }
     gallery.querySelector("summary").addEventListener("click", () => {
-      if (gallery.open) stop();
+      if (gallery.open) suspend();
     });
     gallery.addEventListener("toggle", () => {
-      if (!gallery.open) stop();
+      if (!gallery.open) suspend();
     });
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) stop();
+      if (document.hidden) suspend();
     });
-    root.addEventListener("pagehide", stop);
+    root.addEventListener("pagehide", suspend);
     motion.addEventListener("change", () => {
       if (motion.matches) stop();
     });
     const panel = section.closest(".sheet");
     if (panel)
-      new MutationObserver(() => {
-        if (panel.hidden) stop();
-      }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+      new MutationObserver((records) => {
+        if (panel.hidden || records.some((record) => record.oldValue === null))
+          suspend();
+      }).observe(panel, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+        attributeOldValue: true,
+      });
     function syncLoading() {
       section.setAttribute("aria-busy", String(art.loading));
       // Native disabled would discard keyboard focus mid-request. Keep focus
@@ -497,6 +535,7 @@
           ...art.sprites,
           ...art.directional,
           ...art.petDirectional,
+          ...art.petLife,
           ...art.surfaces,
           ...frames,
         ])
