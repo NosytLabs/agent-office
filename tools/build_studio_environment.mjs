@@ -22,7 +22,7 @@ try {
   const page = await browser.newPage();
   const checksumPath = path.join(directory, "../asset-checksums.json");
   const checksums = JSON.parse(await fs.readFile(checksumPath, "utf8"));
-  for (const name of ["room-surfaces", "pet-walk"]) {
+  for (const name of ["room-surfaces", "pet-walk", "pet-life"]) {
     const sourceName = `source/${name}.png`;
     const source = await fs.readFile(path.join(directory, sourceName));
     const compiled = await page.evaluate(
@@ -145,11 +145,15 @@ try {
                 width,
                 height,
               );
-              const direction = ["down", "up", "right", "left"][
-                Math.floor(column / 3)
-              ];
-              const pose = ["idle", "walk-a", "walk-b"][column % 3];
-              entries[`pet-${actor}-${direction}-${pose}`] = {
+              const suffix =
+                name === "pet-life"
+                  ? ["idle", "sleep", "happy"][Math.floor(column / 4)] +
+                    "-anim-" +
+                    (column % 4)
+                  : ["down", "up", "right", "left"][Math.floor(column / 3)] +
+                    "-" +
+                    ["idle", "walk-a", "walk-b"][column % 3];
+              entries[`pet-${actor}-${suffix}`] = {
                 rect: [column * 28, actor * 26, 28, 26],
                 anchor: [14, 25],
               };

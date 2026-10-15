@@ -12,19 +12,23 @@ suite on Ubuntu 24.04 / Python 3.13 / Node 22 with the runner’s maintained Chr
 
 | Check | Recorded local result |
 | --- | --- |
-| Python suite, including HTTP-boundary and build regressions | **670 passed**, **2 optional native Gemini fixture skips** |
-| Node models, controllers, and bridges | **162 passed** |
-| Browser flows | Full compatibility, Studio, product-site, navigation and attention command defined by `package.json`; see the exact commit’s [CI checks](https://github.com/NosytLabs/agent-office/pull/32/checks) for the release gate |
-| Compiled sprites | **47 native sprites / 23 sheets**, **72 character walking frames**, **96 companion walking frames**, **4 seamless surfaces** reproduced from preserved sources |
+| Python suite, including HTTP-boundary and build regressions | **675 passed**, **2 optional native Gemini fixture skips** |
+| Node models, controllers, and bridges | **172 passed** |
+| Browser flows | Full compatibility, Studio, product-site, navigation and attention command defined by `package.json`; see the exact commit’s [CI checks](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml) for the release gate |
+| Compiled sprites | **47 native sprites / 23 sheets**, **72 character walking frames**, **96 companion walking frames**, **96 companion life frames**, **4 seamless surfaces** reproduced from preserved sources |
 | Syntax, formatting, local documentation links, and tracked-artifact checks | Required in CI; reproduced locally before publication |
-| Public builds | **135 demo files** and **20 product-site files** |
+| Public builds | **118 demo files** and **20 product-site files** |
 
 Focused real-observer browser fixtures cover all character/companion directions,
 Pause, native PNG/strip pixels, art fallback/retry without draft loss, oak/slate/
 original finishes, 320-pixel panels, Customize jumps, history exports, Quick
 navigation, attention keyboard cycling and disconnected tab titles. The broader
 suite also covers storage, settings conflicts, local runner fixtures, arcade,
-aquarium, room editing and usage. No viewing action changes work accounting.
+aquarium, room editing and usage. Saved-brief regressions cover explicit review,
+exact multiline text, concurrent browser saves, storage failures and focus. Panel
+checks cover composing Escape and disconnected attention controls. Publication
+checks exercise the actual reduced demo, all 23 source fallback sheets and the
+served arcade. No viewing or brief-library action changes work accounting.
 
 The native Gemini tests require an explicit installed CLI path. The private-art
 case requires the owner’s licensed Smallburg pack; public art and synthetic

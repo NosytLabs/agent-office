@@ -62,7 +62,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
     assert.equal(shared, true, "Concurrent retries share one request set");
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      434,
+      530,
     );
     assert.deepEqual(ledger(await state()), before);
   });

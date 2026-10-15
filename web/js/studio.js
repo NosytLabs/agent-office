@@ -64,9 +64,40 @@
     const key = !affection && directionalKey(index, motion, paused);
     return key ? key.replace(/^person-/, "pet-") : null;
   }
+  function petLifeKey(
+    index,
+    behavior = {},
+    affection = false,
+    time = 0,
+    paused = false,
+  ) {
+    if (behavior.moving && !affection) return null;
+    const clock = Number.isFinite(time) ? Math.max(0, time) : 0,
+      family = affection
+        ? "happy"
+        : behavior.mode === "sleep"
+          ? "sleep"
+          : "idle";
+    let frame = 0;
+    if (!paused) {
+      if (family === "idle") {
+        // One blink and a small ear/tail twitch per four-second idle cycle.
+        const phase = Math.floor(clock * 8) % 32;
+        frame =
+          phase === 16 || phase === 18
+            ? 1
+            : phase === 17
+              ? 2
+              : phase === 23
+                ? 3
+                : 0;
+      } else frame = Math.floor(clock * (family === "sleep" ? 1 : 6)) % 4;
+    }
+    return `pet-${index}-${family}-anim-${frame}`;
+  }
   function validEnvironmentManifest(m, name) {
     const surfaces = name === "room-surfaces",
-      pets = name === "pet-walk";
+      pets = name === "pet-walk" || name === "pet-life";
     if (
       (!surfaces && !pets) ||
       !m ||
@@ -90,6 +121,14 @@
           [0, 0],
         ]),
       );
+    else if (name === "pet-life")
+      for (let pet = 0; pet < 8; pet++)
+        for (let column = 0; column < 12; column++)
+          expected.push([
+            `pet-${pet}-${["idle", "sleep", "happy"][Math.floor(column / 4)]}-anim-${column % 4}`,
+            [column * 28, pet * 26, 28, 26],
+            [14, 25],
+          ]);
     else
       for (let pet = 0; pet < 8; pet++)
         DIRECTIONS.forEach((direction, d) =>
@@ -430,6 +469,7 @@
     validDirectionalManifest,
     petMotion,
     petDirectionalKey,
+    petLifeKey,
     validEnvironmentManifest,
     addStudioDetails,
   });
@@ -459,6 +499,7 @@
     directionalError: "",
     surfaces: new Map(),
     petDirectional: new Map(),
+    petLife: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -483,7 +524,8 @@
   let before = null,
     wasConnected = false;
   const enabled = () => art.ready && prefs.art === "studio";
-  const sprite = (key) => (enabled() ? art.sprites.get(key) : null);
+  const sprite = (key) =>
+    enabled() ? art.sprites.get(key) || art.petLife.get(key) : null;
   function person(a) {
     const key = characterSpriteKey(a, scene.settings, scene.sprites);
     if (key === "studio-assistant") return 4;
@@ -512,7 +554,15 @@
   scene.image = function (key, x, y, w, h) {
     const selected =
       key === "sleepcat"
-        ? `pet-${prefs.pets[0]}-sleep`
+        ? art.petLife.size
+          ? petLifeKey(
+              prefs.pets[0],
+              { mode: "sleep" },
+              false,
+              this.time,
+              this.paused,
+            )
+          : `pet-${prefs.pets[0]}-sleep`
         : key.startsWith("taskterminal") &&
             this.taskTerminalState() === "failed"
           ? "taskterminal-failed"
@@ -580,12 +630,18 @@
     );
     petDistances.set(key, motion);
     const state = { ...behavior, ...motion },
+      life =
+        enabled() &&
+        art.petLife.get(
+          petLifeKey(prefs.pets[index], state, active, this.time, this.paused),
+        ),
       directional =
         enabled() &&
         art.petDirectional.get(
           petDirectionalKey(prefs.pets[index], state, active, this.paused),
         ),
       im =
+        life ||
         directional ||
         sprite(
           `pet-${prefs.pets[index]}-${petPose(state, active, this.paused)}`,
@@ -595,7 +651,11 @@
       top = Math.round(y - 18),
       g = this.ctx;
     g.save();
-    if (!directional && behavior.facing < 0) {
+    if (
+      !directional &&
+      (!life || (state.mode === "sleep" && !active)) &&
+      behavior.facing < 0
+    ) {
       g.translate(left + 20, top);
       g.scale(-1, 1);
       g.drawImage(im, 0, 0, 20, 19);
@@ -905,7 +965,7 @@
     return new Promise((resolve, reject) => {
       const im = new Image(),
         timer = setTimeout(
-          () => finish(new Error("Studio image timed out")),
+          () => finish(new Error("Studio image timed out: " + index)),
           5000,
         );
       function finish(error) {
@@ -917,7 +977,8 @@
         } else resolve(im);
       }
       im.onload = () => finish();
-      im.onerror = () => finish(new Error("Studio image unavailable"));
+      im.onerror = () =>
+        finish(new Error("Studio image unavailable: " + index));
       im.src =
         "assets/sprites/studio/" +
         (typeof index === "number" ? `studio-${index}.png` : index);
@@ -1098,26 +1159,26 @@
           );
         }
       addStudioDetails(sprites);
-      art.directional = new Map();
+      const extras = await Promise.allSettled([
+        loadDirectional(),
+        loadEnvironment("room-surfaces"),
+        loadEnvironment("pet-walk"),
+        loadEnvironment("pet-life"),
+      ]);
       art.directionalError = "";
-      try {
-        art.directional = await loadDirectional();
-      } catch (error) {
-        art.directionalError = error.message;
-      }
-      art.directionalReady = art.directional.size === 96;
       art.environmentError = "";
-      for (const [name, property] of [
-        ["room-surfaces", "surfaces"],
-        ["pet-walk", "petDirectional"],
-      ]) {
-        art[property] = new Map();
-        try {
-          art[property] = await loadEnvironment(name);
-        } catch (error) {
-          art.environmentError += error.message + ". ";
-        }
-      }
+      ["directional", "surfaces", "petDirectional", "petLife"].forEach(
+        (property, index) => {
+          const result = extras[index];
+          art[property] =
+            result.status === "fulfilled" ? result.value : new Map();
+          if (result.status === "rejected") {
+            if (index === 0) art.directionalError = result.reason.message;
+            else art.environmentError += result.reason.message + ". ";
+          }
+        },
+      );
+      art.directionalReady = art.directional.size === 96;
       art.sprites = sprites;
       art.ready = true;
       art.source = "studio";
@@ -1134,6 +1195,7 @@
       art.directionalReady = false;
       art.surfaces.clear();
       art.petDirectional.clear();
+      art.petLife.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =

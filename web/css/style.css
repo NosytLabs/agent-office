@@ -256,6 +256,10 @@ h2 {
 #waiting-count {
   color: var(--danger);
 }
+#waiting-count[aria-disabled="true"] {
+  color: var(--dim);
+  cursor: default;
+}
 #stage {
   position: relative;
   flex: 1;

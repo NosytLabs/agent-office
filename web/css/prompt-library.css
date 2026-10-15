@@ -1,0 +1,80 @@
+.prompt-library {
+  min-width: 0;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.prompt-library h4,
+.prompt-library h5 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.prompt-library label {
+  display: block;
+  margin: 10px 0 6px;
+}
+.prompt-library-help,
+.prompt-library-detail {
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+.prompt-library-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.prompt-library .txt {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+.prompt-library-save-form .txt {
+  flex: 1 1 160px;
+}
+.prompt-library .btn,
+.prompt-library .txt {
+  min-height: 44px;
+}
+.prompt-library-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.prompt-library-item {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.prompt-library-name,
+.prompt-library-detail {
+  display: block;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.prompt-library-review {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.prompt-library-review p,
+#prompt-library-status {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.prompt-library-review pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.prompt-library-review .txt {
+  margin-bottom: 10px;
+}
+.prompt-library [hidden] {
+  display: none;
+}

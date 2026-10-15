@@ -365,6 +365,7 @@ test("missing room and companion artwork keeps the base set and retries without 
         base: officeStudio.sprites.size,
         people: officeStudio.directional.size,
         pets: officeStudio.petDirectional.size,
+        life: officeStudio.petLife.size,
         surfaces: officeStudio.surfaces.size,
         floor: !!officeScene.roomSurfaces?.floor,
         wall: !!officeScene.roomSurfaces?.wall,
@@ -373,6 +374,7 @@ test("missing room and companion artwork keeps the base set and retries without 
         base: 197,
         people: 96,
         pets: 0,
+        life: 96,
         surfaces: 0,
         floor: false,
         wall: false,
@@ -405,7 +407,7 @@ test("missing room and companion artwork keeps the base set and retries without 
     );
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      434,
+      530,
     );
     await page.locator("#sheet-settings .close").click();
     await page.click("#tasksbtn");

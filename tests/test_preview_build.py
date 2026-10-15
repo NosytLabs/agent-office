@@ -58,10 +58,12 @@ def test_build_contains_only_public_web_and_synthetic_seed(tmp_path):
         assert b"PRIVATE_" not in file.read_bytes()
     for name in ("office.js", "scene.js", "editor.js", "aquarium.js", "data.js", "room.js", "arcade.js"):
         assert (output / "js" / name).read_bytes() == (ROOT / "web/js" / name).read_bytes()
-    for name in ("index.html", "lifecycle.js", "embed.css", "js/upstream.js", "js/game.js",
-                 "audio/gun-shot.mp3", "images/duck_fly_up.png", "UPSTREAM-NOTICE.md"):
+    for name in ("index.html", "lifecycle.js", "embed.css", "js/game.js",
+                 "audio/gun-shot.mp3", "images/duck_fly_up.png"):
         relative = Path("arcade/duck-hunt") / name
         assert (output / relative).read_bytes() == (ROOT / "web" / relative).read_bytes()
+    public_notice = (output / "arcade/duck-hunt/UPSTREAM-NOTICE.md").read_text()
+    assert public_notice.startswith((ROOT / "web/arcade/duck-hunt/UPSTREAM-NOTICE.md").read_text())
     assert (output / "assets/arcade/LICENSE").read_bytes() == (ROOT / "web/assets/arcade/LICENSE").read_bytes()
     assert not (output / "user").exists()
     page = (output / "index.html").read_text()

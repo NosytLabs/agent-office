@@ -44,3 +44,11 @@ four 128×128 seamless oak/slate floor and plaster-wall tiles. Original generate
 images and complete built-in imagegen prompts are preserved in `source/`.
 `tools/build_studio_environment.mjs --check` reproduces native pixels, bounds,
 shared identity scales and checksums without writing. No upstream art was copied.
+
+## Companion life loops
+
+`pet-life.png` / `pet-life.json` add 96 native 28×26 frames: eight existing looks,
+three four-frame families (idle, sleep, happy), anchored at (14,25). Their complete
+original source and built-in imagegen prompt are preserved in `source/pet-life.*`.
+The environment compiler reproduces the reviewed alpha crops, per-look shared
+scale, native pixels and checksums. Runtime loops are cosmetic and stop with Pause.

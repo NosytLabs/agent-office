@@ -1,0 +1,30 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-15",
+  "purpose": "Companion idle/blink, sleep/breathe and happy tail/wave loops matching the existing eight looks",
+  "source": "pet-life.png",
+  "source_preserved_unmodified": true,
+  "requested_source_dimensions": [
+    1536,
+    1024
+  ],
+  "prompt": "Use case: stylized-concept. Asset type: NEW original transparent pixel-art companion life-animation sprite atlas for the same cozy top-down office. Input images are identity/style references, NOT edit targets. Follow the eight companion identities in the supplied walking atlas and the crisp dark-navy outlined warm muted pixel style. Make one 1536x1024 transparent PNG with EXACTLY eight rows and twelve isolated sprites per row (96 sprites total). Generous fully transparent gutters, identical body volume and identity across each row, no overlap. Row1 orange ginger cat with cream muzzle; row2 navy-black tuxedo cat with white chest and paws; row3 ivory white cat; row4 grey tabby cat; row5 tan/white corgi upright ears; row6 black floppy-eared dog with grey muzzle; row7 golden retriever; row8 tiny ivory pocket robot with navy face and teal lights. Each row has THREE four-frame animation families. Columns1\u20134: front-facing calm seated idle, eyes open / half blink / closed blink / open with slight ear twitch. Columns5\u20138: curled sleeping pet facing right, subtle breathing and ear motion; the robot sits powered down with closed eyes. Columns9\u201312: front-facing happy affection reaction, tail wag moves visibly left/middle/right/middle; robot gently waves a tiny arm and smiles. All four poses in each family must be distinct yet loop cleanly, feet/body grounded at identical baseline, head scale and colors constant. No body bobbing, camera changes, size drift, motion blur, Z letters, hearts, hands, sparkles, text or decorations. Keep complete silhouettes within each cell and leave transparent margins. Dark navy pixel outline, crisp square opaque clusters, compact readable forms intended for 28x26 native sprites. Animal proportions should match references, not become people. Background must be actual alpha transparency, no floor, shadow, fake checkerboard or painted backdrop. These frames extend the existing eight looks; do not invent additional species or accessories.",
+  "normalization": "Reviewed actual alpha-separated rows/cells, one shared scale per identity, nearest-neighbor 28x26 frame with bottom-center anchor (14,25). Full original pixels are preserved.",
+  "actual_source_dimensions": [
+    1536,
+    1024
+  ],
+  "source_sha256": "dff91bd5e55bc5a82e340e604fa3c8963486e0dce2542d010229f15bb781cae3",
+  "references": [
+    {
+      "path": "web/assets/sprites/studio/pet-walk.png",
+      "role": "style and identity reference",
+      "sha256": "38f910943e3f8e9fcd74fb3534deb47ecfdb15118cd0c69c16967c9a30d3d2ac"
+    },
+    {
+      "path": "web/assets/sprites/studio/studio-4.png",
+      "role": "style and identity reference",
+      "sha256": "9df2fa2db195c64c8562c3a29efa19eb20776e0f3372480e09997a24c2190bcc"
+    }
+  ]
+}

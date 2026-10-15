@@ -277,7 +277,7 @@ test("Duck Hunt is local, sandboxed, responsive and stopped by lifecycle control
         .frames()
         .find((item) => item.url().includes("/arcade/duck-hunt/"));
       assert.equal(
-        await child.evaluate(() => window.__agentOfficeSlowRafTest),
+        await child.evaluate(() => window.__agentOfficeSlowRafTest.frames > 0),
         true,
         "the real embedded game is running under deliberately slow RAF delivery",
       );
@@ -294,14 +294,39 @@ test("Duck Hunt is local, sandboxed, responsive and stopped by lifecycle control
       await frame.locator("#canvas").press("Space");
       await frame.locator("#canvas").press("Escape");
       await page.waitForFunction(() => !officeArcade.snapshot().duck.paused);
-      await page.waitForTimeout(100);
+      const resumedFrame = await child.evaluate(
+        () => window.__agentOfficeSlowRafTest.frames,
+      );
+      await child.waitForFunction(
+        (previousFrame) =>
+          window.__agentOfficeSlowRafTest.frames > previousFrame,
+        resumedFrame,
+      );
       assert.equal(
         await frame.locator("#keyboard-score").textContent(),
         "000000",
         "a paused game cannot fire at its frozen duck",
       );
-      await frame.locator("#canvas").press("t");
-      await frame.locator("#canvas").press("Space");
+      // The driver may yield for several moving-duck frames between separate
+      // key actions. Reacquire and fire in one task against a visible target;
+      // the next real game update still performs the original hit test.
+      await child.waitForFunction(() => {
+        if (
+          document.getElementById("keyboard-game-status")?.dataset
+            .targetReady !== "yes"
+        )
+          return false;
+        const canvas = document.getElementById("canvas");
+        for (const key of ["t", " "])
+          canvas.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        return true;
+      });
       await child.waitForFunction(
         () =>
           document.getElementById("keyboard-score")?.textContent !== "000000",
@@ -391,11 +416,14 @@ test("Duck Hunt is local, sandboxed, responsive and stopped by lifecycle control
     { hasTouch: true, isMobile: true },
     () => {
       if (!location.pathname.endsWith("/arcade/duck-hunt/index.html")) return;
-      window.__agentOfficeSlowRafTest = true;
+      window.__agentOfficeSlowRafTest = { frames: 0 };
       const nativeRequestAnimationFrame = requestAnimationFrame.bind(window);
       window.requestAnimationFrame = (callback) =>
         nativeRequestAnimationFrame((time) =>
-          setTimeout(() => callback(time), 42),
+          setTimeout(() => {
+            callback(time);
+            window.__agentOfficeSlowRafTest.frames++;
+          }, 42),
         );
     },
   ));
