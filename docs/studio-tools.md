@@ -10,7 +10,10 @@ frames, making **238 sprite choices**. The new watering families add four frames
 each for the succulent, fern and planter. They use the approved artwork, fixed
 native dimensions and shared foot anchors. The source-defined droplets appear
 only during an existing cosmetic watering reaction. Existing source sprites and
-all observer, collision and furniture placement state remain unchanged.
+all observer, collision and furniture placement state remain unchanged. A verified
+disconnected fragment is removed from the decoded fern canvas only; the original
+PNG is preserved. Static artwork, editor thumbnails and watering frames use the
+same cleaned canvas.
 
 Other four-frame families cover the server rack, coffee cart, water cooler, desk
 robot, record player, terrarium and running task terminal; there is also an unlit

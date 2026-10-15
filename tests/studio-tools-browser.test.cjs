@@ -91,7 +91,9 @@ test("failed artwork offers an in-place recovery without clearing saved view cho
       window.__recoveryDocument = true;
     });
     await retry.click();
-    await page.waitForFunction(() => officeStudio.ready && !officeStudio.loading);
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
     assert.equal(await page.evaluate(() => window.__recoveryDocument), true);
     await ready(page);
     assert.equal(await page.evaluate(() => officeStudio.prefs.pets[0]), 4);

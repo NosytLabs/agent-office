@@ -67,10 +67,7 @@ test("sprite filtering and sequences have stable groups and frame order", () => 
     tools.filterKeys(keys, "FERN anim", "furniture"),
     keys.slice(1, 5),
   );
-  assert.deepEqual(
-    tools.filterKeys(keys, "", "companions"),
-    keys.slice(5, 8),
-  );
+  assert.deepEqual(tools.filterKeys(keys, "", "companions"), keys.slice(5, 8));
   assert.deepEqual(tools.filterKeys(keys, "not-here", "all"), []);
   assert.deepEqual(tools.animationKeys("fern-anim-2", keys), keys.slice(1, 5));
   assert.deepEqual(tools.animationKeys("pet-0-idle", keys), [
@@ -83,10 +80,12 @@ test("sprite filtering and sequences have stable groups and frame order", () => 
 });
 test("animated props fit their bounds without nonuniform stretching", () => {
   const { fitRect } = require("../web/js/studio-tools.js");
-  assert.deepEqual(fitRect({ width: 12, height: 16 }, 10, 20, 24, 48), [
-    10, 36, 24, 32,
-  ]);
-  assert.deepEqual(fitRect({ width: 40, height: 20 }, 0, 0, 20, 20), [
-    0, 10, 20, 10,
-  ]);
+  assert.deepEqual(
+    fitRect({ width: 12, height: 16 }, 10, 20, 24, 48),
+    [10, 36, 24, 32],
+  );
+  assert.deepEqual(
+    fitRect({ width: 40, height: 20 }, 0, 0, 20, 20),
+    [0, 10, 20, 10],
+  );
 });

@@ -470,6 +470,13 @@
       frames.clear();
       all.clear();
       if (art.ready) {
+        // Visual audit: the source crop contains an unrelated 2×7 fragment
+        // at the fern's upper-left edge. Clear only this verified transparent
+        // margin in the decoded canvas; keep the original PNG and plant intact.
+        const fern = art.sprites.get("fern");
+        if (fern?.width === 26 && fern.height === 28)
+          fern.getContext("2d").clearRect(4, 0, 2, 7);
+        renderFurniturePreviews();
         for (const [key, value] of makeFrames(art.sprites, document))
           frames.set(key, value);
         for (const [key, value] of [...art.sprites, ...frames])

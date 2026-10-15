@@ -77,10 +77,7 @@ test("gallery filters, exports a native strip and stops preview when closed", as
     await page.locator("#studio-gallery summary").click();
     await page.selectOption("#studio-sprite-group", "furniture");
     await page.fill("#studio-sprite-search", "fern anim");
-    assert.equal(
-      await page.locator("#studio-sprite-choice option").count(),
-      4,
-    );
+    assert.equal(await page.locator("#studio-sprite-choice option").count(), 4);
     await page.selectOption("#studio-sprite-choice", "fern-anim-0");
     assert.match(await page.textContent("#studio-sprite-info"), /26 × 28/);
     assert.match(await page.textContent("#studio-sprite-info"), /4 frames/);
@@ -113,10 +110,7 @@ test("gallery filters, exports a native strip and stops preview when closed", as
     );
     await page.locator("#studio-gallery summary").click();
     await page.fill("#studio-sprite-search", "zz-no-match");
-    assert.equal(
-      await page.locator("#studio-sprite-choice option").count(),
-      0,
-    );
+    assert.equal(await page.locator("#studio-sprite-choice option").count(), 0);
     assert.equal(await page.isDisabled("#studio-sprite-download"), true);
     assert.equal(await page.isDisabled("#studio-strip-download"), true);
     await page.fill("#studio-sprite-search", "");
@@ -187,5 +181,25 @@ test("watering frames retain footprints and enter the actual scene renderer", as
       assert.equal(new Set(group.map((v) => v.w + ":" + v.h)).size, 1);
       assert.equal(new Set(group.map((v) => v.data)).size, 4);
     }
+  });
+});
+
+test("the fern's disconnected edge fragment is absent from static art and every watering frame", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await ready(page);
+    const alpha = await page.evaluate(() => {
+      const frames = [
+        officeStudio.sprites.get("fern"),
+        ...Array.from({ length: 4 }, (_, i) =>
+          officeStudioTools.frames.get("fern-anim-" + i),
+        ),
+      ];
+      return frames.map((c) =>
+        [...c.getContext("2d").getImageData(4, 0, 2, 7).data].filter(
+          (_, i) => i % 4 === 3,
+        ),
+      );
+    });
+    assert.ok(alpha.every((frame) => frame.every((value) => value === 0)));
   });
 });
