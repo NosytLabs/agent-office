@@ -1,0 +1,19 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-15",
+  "purpose": "Generated character type/read/attention animation families for the six base looks; rose/moss palette variants derive in runtime",
+  "source": "character-life.png",
+  "source_preserved_unmodified": true,
+  "requested_source_dimensions": [
+    1536,
+    1024
+  ],
+  "prompt": "Use case: stylized-concept.\nAsset type: original transparent pixel-art character ACTIVITY animation atlas for a cozy top-down office.\nPrimary request: exactly 72 isolated full-body chibi sprites, arranged in exactly SIX horizontal rows and TWELVE columns, on a 1536x1024 transparent PNG. Each row is one consistent identity, each twelve-column row has three four-frame loops. Generous fully transparent gutters separate every sprite and row. Keep shoes on exactly the same ground baseline, body/head volume and head position consistent across a row. Native target is 32x36 pixels with a dark navy pixel outline and compact readable opaque square clusters. Warm muted colors, friendly expressive faces, roughly equal head/body height. Camera is front-facing, slightly top-down, fixed in every frame.\n\nRows, in exact order:\n1 Brown tousled-haired young office worker, light skin, navy suit jacket and trousers, cyan tie, cream shirt.\n2 Orange-haired woman with a high round ponytail, light skin, teal office shirt, dark navy overalls/trousers.\n3 Navy-haired office worker with black rectangular glasses, light skin, navy blazer/trousers and lavender tie.\n4 Tousled blond worker, light skin, vivid mid-blue zip hoodie with white zipper and dark navy trousers. Keep the hoodie visibly blue in every frame.\n5 Small ivory-white humanoid office robot with rounded square head, dark navy face screen, cyan/teal vertical eyes, teal antenna light, navy joints and boots.\n6 Brown-skinned courier with dark hair under a red cap, red jacket with cream zipper, dark navy trousers and boots.\n\nColumns1-4 in EACH row: calm focused TYPE loop, hands close to the lower chest/waist alternate tiny typing motions, subtle eye blink and small forearm motion. No keyboard or desk.\nColumns5-8: READ loop, the same character holds a small cream booklet at chest level, eyes glance down, blink, turn a tiny page, return. Robot uses a small cream tablet with no writing.\nColumns9-12: ATTENTION loop requesting human input, one hand rises close to the face, small gentle wrist wave, hand returns. Attentive friendly face, no jumping or exaggerated distress. Robot raises one tiny mechanical hand.\n\nAll four frames in every family must be visibly distinct and loop smoothly. Movement stays within the same compact footprint; no whole-body bob, jump, zoom, pose-size drift or camera changes. Hands remain close to the body so the maximum width stays consistent across all12 frames. Feet and head scale remain stable. No walking. No desks, keyboards, monitors, furniture, floor, ground shadows, speech bubbles, text, letters, numbers, labels, emoji, sparkles, watermarks or checkerboard. Actual alpha transparency everywhere outside the sprites. Crisp retro16-bit pixel clusters and dark navy silhouette outlines; no painterly soft shading, photorealism or motion blur. Every sprite is complete and isolated with transparent margin.",
+  "normalization": "Actual alpha-separated rows and columns, shared scale per identity, one nearest-neighbor fit into 32x36 native frame, bottom-center anchor(16,35).",
+  "style_inputs": "Existing Studio strips and directional-walk source were visually inspected to specify the text prompt. No reference-image or edit-target tool argument was supplied.",
+  "actual_source_dimensions": [
+    1536,
+    1024
+  ],
+  "source_sha256": "e0e73dc710ec7d90358dec68635cb04730285c3a896222e1bc948b59f92db690"
+}

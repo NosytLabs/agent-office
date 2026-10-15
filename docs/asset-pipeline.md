@@ -77,10 +77,25 @@ point to their repository locations; source notices stay untouched. Compiled
 manifests retain their source hashes and fitting metadata. Brand and arcade
 provenance, license text, and attribution notices remain public.
 
-A same-input comparison on 15 October 2026 omitted 23 authoring files and reduced
-the demo package by about 7.2 MB before compression. This measures packaged files,
-not initial browser traffic, frame rate, or repository size. The larger Classic
-source sheets are still available when the compact atlas cannot load.
+Both static builders use `tools/build_paths.mjs` to reject symlinked inputs,
+output directories, parent directories, and build markers before replacing a
+previous build. Normal macOS `/var` and `/tmp` system aliases remain supported;
+other links cannot redirect publication reads or output replacement. Every input
+is collected successfully before the old generated directory is removed.
+
+The character activity supplement publishes `studio/character-life.png` and its
+manifest: 72 native 32×36 typing, reading, and attention frames. The runtime adds
+24 palette variants. Its original image and prompt JSON stay in `studio/source/`.
+A missing or invalid activity supplement leaves the other Studio packs available;
+Retry artwork restores it without reloading the page or its unsent drafts.
+
+A same-input comparison on 15 October 2026, including the character activity
+supplement, omitted 25 authoring files. The packaged build shrank from 146 files
+and 25,052,300 bytes to 121 files and 15,376,620 bytes: about 9.7 MB (38.6%) before
+compression. Both builds used one source snapshot; the control disabled only the
+authoring-file exclusion. This measures packaged files, not initial browser
+traffic, frame rate, or repository size. The larger Classic source sheets remain
+available when the compact atlas cannot load.
 
 Focused publication checks are:
 
@@ -93,21 +108,25 @@ The browser check serves the actual generated demo on an isolated local static
 server. It exercises compiled Studio supplements and PNG export, then forces a
 missing compact manifest and verifies that all 23 Classic source sheets load.
 It also boots the packaged Duck Hunt iframe from its derived game bundle without
-publishing the preserved authoring bundle.
+publishing the preserved authoring bundle. Character-pack manifest, image, and
+pixel-integrity failures exercise partial fallback and retry while preserving
+unsent room/task drafts, the current document, and synthetic accounting.
 
 ## Maintainer tool inventory
 
-These tools have current consumers; they are not obsolete browser dependencies.
+Each tool below supports a current compiler, build, validation, or maintenance workflow.
 
-| Tool | Supported purpose |
-| --- | --- |
-| `build_sprites.mjs` | Compile/check the Classic atlas through the real source loader. |
-| `build_studio_directional.mjs`, `build_studio_environment.mjs` | Compile/check Studio character, companion, and room supplements from retained originals. |
-| `build_preview.mjs`, `build_site.mjs` | Produce the synthetic demo and allowlisted product website. |
-| `generate_preview_fixture.py` | Rebuild the fictional preview seed through an isolated real event store. |
-| `patch_duck_hunt.mjs` | Verify the pinned upstream bundle and regenerate the served game with two reviewed timing substitutions. |
-| `check_js.mjs`, `check_repository.py` | Check shipped JavaScript syntax and tracked repository/documentation hygiene. |
-| `maintain.py`, `import_smallburg.py` | Explicit local storage maintenance and optional owner-licensed aquarium import; neither is a public build input. |
+| Tool | Supported purpose | Current consumer or verification |
+| --- | --- | --- |
+| `build_sprites.mjs` | Compile/check the Classic atlas through the real source loader. | `build:sprites`, CI `check:sprites`, and `tests/native-sprites.test.cjs`. |
+| `build_studio_directional.mjs`, `build_studio_environment.mjs` | Compile/check Studio character, companion, and room supplements from retained originals. | `build:studio-sprites` and CI `check:sprites`; supplement model/browser tests check runtime use. |
+| `build_preview.mjs`, `build_site.mjs` | Produce the synthetic demo and allowlisted product website. | CI `build:preview`, Pages workflow, and the generated-package browser tests. |
+| `build_paths.mjs` | Share path validation between both static builders. | Imported by both builders; `tests/test_preview_build.py` and `tests/test_site_build.py` exercise redirected inputs/output and macOS aliases. |
+| `generate_preview_fixture.py` | Rebuild the fictional preview seed through an isolated real event store. | `tests/test_preview_build.py` compares its output with the checked-in fixture; `docs/preview.md` documents regeneration. |
+| `patch_duck_hunt.mjs` | Verify the pinned upstream bundle and regenerate the served game with two reviewed timing substitutions. | `tests/arcade.test.cjs` verifies exact source hash and derived bytes; the sandbox loads `js/game.js`. |
+| `check_js.mjs`, `check_repository.py` | Check shipped JavaScript syntax and tracked repository/documentation hygiene. | CI `npm run check` and the Repository hygiene workflow. |
+| `maintain.py` | Report local storage or explicitly compact retained SQLite observations. | `docs/architecture.md` and `tests/test_storage_maintenance.py`. |
+| `import_smallburg.py` | Import the optional owner-licensed aquarium artwork into local storage. | `docs/aquarium-assets.md` and `tests/test_smallburg_import.py`. |
 
 Keep these source and maintenance contracts when tidying the repository. A file
 that is excluded from publication can still be required for fallback, attribution,

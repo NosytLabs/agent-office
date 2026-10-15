@@ -4,8 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { canonicalSystemPath, rejectSymlinks } from "./build_paths.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = canonicalSystemPath(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+);
 const marker = "preview-build.json";
 const format = "agent-office-static-preview-v1";
 const args = process.argv.slice(2);
@@ -14,7 +17,9 @@ if (args.length && !(args.length === 2 && args[0] === "--out")) {
     "Usage: node tools/build_preview.mjs [--out /path/to/new-preview-directory]",
   );
 }
-const output = path.resolve(args[1] || path.join(root, "dist"));
+const output = canonicalSystemPath(
+  path.resolve(args[1] || path.join(root, "dist")),
+);
 if (
   output !== path.join(root, "dist") &&
   (output === root ||
@@ -25,12 +30,14 @@ if (
     "Preview output must be dist or a separate directory outside the source checkout.",
   );
 }
+rejectSymlinks(output, "preview");
 if (fs.existsSync(output)) {
+  const existing = path.join(output, marker);
+  rejectSymlinks(existing, "preview");
   if (
-    fs.lstatSync(output).isSymbolicLink() ||
-    !fs.existsSync(path.join(output, marker)) ||
-    JSON.parse(fs.readFileSync(path.join(output, marker), "utf8")).format !==
-      format
+    !fs.statSync(output).isDirectory() ||
+    !fs.existsSync(existing) ||
+    JSON.parse(fs.readFileSync(existing, "utf8")).format !== format
   ) {
     throw new Error(
       "Refusing to replace an existing directory that is not an Agent Office preview build.",
@@ -72,6 +79,7 @@ function authoringInput(relative) {
 const copies = new Map();
 function collect(relative) {
   const source = path.join(root, "web", relative);
+  rejectSymlinks(source, "preview");
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
     const name = path.join(relative, entry.name),
       publicName = name.split(path.sep).join("/");
@@ -125,9 +133,9 @@ for (const [relative, data] of copies) {
   copies.set(relative, Buffer.from(notice));
 }
 
-const seed = JSON.parse(
-  fs.readFileSync(path.join(root, "tools/fixtures/preview.json"), "utf8"),
-);
+const seedPath = path.join(root, "tools/fixtures/preview.json");
+rejectSymlinks(seedPath, "preview");
+const seed = JSON.parse(fs.readFileSync(seedPath, "utf8"));
 if (
   seed.version !== 1 ||
   seed.synthetic !== true ||
@@ -145,7 +153,9 @@ copies.set(
     `/* Public synthetic demo; never runtime observations. */\nwindow.__AGENT_OFFICE_PREVIEW_SEED__ = ${JSON.stringify(seed).replaceAll("<", "\\u003c")};\n`,
   ),
 );
-let html = fs.readFileSync(path.join(root, "web/template.html"), "utf8");
+const templatePath = path.join(root, "web/template.html");
+rejectSymlinks(templatePath, "preview");
+let html = fs.readFileSync(templatePath, "utf8");
 function replaceOnce(needle, replacement) {
   if (html.split(needle).length !== 2)
     throw new Error(`Preview template marker changed: ${needle}`);

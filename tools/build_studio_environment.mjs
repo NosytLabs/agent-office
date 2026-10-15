@@ -1,4 +1,4 @@
-/* Normalize preserved companion/surface artwork; --check never writes files. */
+/* Normalize preserved character/companion/surface artwork; --check is read-only. */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,12 @@ try {
   const page = await browser.newPage();
   const checksumPath = path.join(directory, "../asset-checksums.json");
   const checksums = JSON.parse(await fs.readFile(checksumPath, "utf8"));
-  for (const name of ["room-surfaces", "pet-walk", "pet-life"]) {
+  for (const name of [
+    "room-surfaces",
+    "pet-walk",
+    "pet-life",
+    "character-life",
+  ]) {
     const sourceName = `source/${name}.png`;
     const source = await fs.readFile(path.join(directory, sourceName));
     const compiled = await page.evaluate(
@@ -40,8 +45,12 @@ try {
           entries = {},
           bounds = [],
           scales = [];
-        atlas.width = name === "room-surfaces" ? 256 : 336;
-        atlas.height = name === "room-surfaces" ? 256 : 208;
+        const characters = name === "character-life",
+          frameWidth = characters ? 32 : 28,
+          frameHeight = characters ? 36 : 26,
+          actors = characters ? 6 : 8;
+        atlas.width = name === "room-surfaces" ? 256 : characters ? 384 : 336;
+        atlas.height = name === "room-surfaces" ? 256 : characters ? 216 : 208;
         const context = atlas.getContext("2d", { willReadFrequently: true });
         context.imageSmoothingEnabled = false;
         if (name === "room-surfaces") {
@@ -84,7 +93,7 @@ try {
           });
         } else {
           if (image.width !== 1536 || image.height !== 1024)
-            throw new Error("Unexpected companion source dimensions");
+            throw new Error("Unexpected character/companion source dimensions");
           const ranges = (values) => {
             const result = [];
             let start = null;
@@ -105,8 +114,8 @@ try {
               return false;
             }),
           );
-          if (rows.length !== 8)
-            throw new Error("Expected eight separated companion rows");
+          if (rows.length !== actors)
+            throw new Error(`Expected ${actors} separated actor rows`);
           rows.forEach(([top, bottom], actor) => {
             const columns = ranges(
               Array.from({ length: image.width }, (_, x) => {
@@ -116,7 +125,7 @@ try {
               }),
             );
             if (columns.length !== 12)
-              throw new Error("Expected twelve separated companion columns");
+              throw new Error("Expected twelve separated actor columns");
             const row = columns.map(([left, right]) => {
               let y0 = bottom,
                 y1 = top;
@@ -130,8 +139,8 @@ try {
             });
             bounds.push(row);
             const scale = Math.min(
-              24 / Math.max(...row.map((r) => r[2])),
-              23 / Math.max(...row.map((r) => r[3])),
+              (characters ? 26 : 24) / Math.max(...row.map((r) => r[2])),
+              (characters ? 31 : 23) / Math.max(...row.map((r) => r[3])),
             );
             scales.push(scale);
             row.forEach((region, column) => {
@@ -140,22 +149,29 @@ try {
               context.drawImage(
                 image,
                 ...region,
-                column * 28 + Math.floor((28 - width) / 2),
-                actor * 26 + 25 - height,
+                column * frameWidth + Math.floor((frameWidth - width) / 2),
+                actor * frameHeight + frameHeight - 1 - height,
                 width,
                 height,
               );
               const suffix =
-                name === "pet-life"
-                  ? ["idle", "sleep", "happy"][Math.floor(column / 4)] +
+                name === "pet-life" || characters
+                  ? (characters
+                      ? ["type", "read", "attention"]
+                      : ["idle", "sleep", "happy"])[Math.floor(column / 4)] +
                     "-anim-" +
                     (column % 4)
                   : ["down", "up", "right", "left"][Math.floor(column / 3)] +
                     "-" +
                     ["idle", "walk-a", "walk-b"][column % 3];
-              entries[`pet-${actor}-${suffix}`] = {
-                rect: [column * 28, actor * 26, 28, 26],
-                anchor: [14, 25],
+              entries[`${characters ? "person" : "pet"}-${actor}-${suffix}`] = {
+                rect: [
+                  column * frameWidth,
+                  actor * frameHeight,
+                  frameWidth,
+                  frameHeight,
+                ],
+                anchor: [frameWidth / 2, frameHeight - 1],
               };
             });
           });

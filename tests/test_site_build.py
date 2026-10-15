@@ -96,6 +96,7 @@ def test_invalid_asset_input_preserves_previous_site(tmp_path, fault):
     project = tmp_path / "source"
     (project / "tools").mkdir(parents=True)
     shutil.copyfile(SCRIPT, project / "tools/build_site.mjs")
+    shutil.copyfile(ROOT / "tools/build_paths.mjs", project / "tools/build_paths.mjs")
     shutil.copytree(ROOT / "site", project / "site")
     shutil.copytree(ROOT / "docs/screenshots", project / "docs/screenshots")
     shutil.copytree(ROOT / "web/assets", project / "web/assets")
@@ -176,6 +177,7 @@ def test_macos_alias_cannot_bypass_source_output_boundary():
         (project / "tools").mkdir(parents=True)
         script = project / "tools/build_site.mjs"
         shutil.copyfile(SCRIPT, script)
+        shutil.copyfile(ROOT / "tools/build_paths.mjs", project / "tools/build_paths.mjs")
         result = build(project / "private", script=script, check=False)
         assert result.returncode != 0
         assert "outside the source checkout" in result.stderr

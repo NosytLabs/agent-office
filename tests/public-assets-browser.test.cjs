@@ -62,7 +62,15 @@ after(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
   if (temporary) fs.rmSync(temporary, { recursive: true, force: true });
 });
-async function withPage(run, { classic = false, sourceFallback = false } = {}) {
+async function withPage(
+  run,
+  {
+    classic = false,
+    sourceFallback = false,
+    beforeNavigate,
+    expectedFailures = [],
+  } = {},
+) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
   });
@@ -78,6 +86,7 @@ async function withPage(run, { classic = false, sourceFallback = false } = {}) {
       await context.route("**/assets/sprites/runtime/manifest.json", (route) =>
         route.fulfill({ status: 404, body: "forced missing compact manifest" }),
       );
+    if (beforeNavigate) await beforeNavigate(context);
     const page = await context.newPage();
     page.setDefaultTimeout(10000);
     const errors = [],
@@ -93,7 +102,8 @@ async function withPage(run, { classic = false, sourceFallback = false } = {}) {
         !(
           sourceFallback &&
           response.url().endsWith("/assets/sprites/runtime/manifest.json")
-        )
+        ) &&
+        !expectedFailures.includes(new URL(response.url()).pathname)
       )
         bad.push(response.url());
     });
@@ -101,7 +111,7 @@ async function withPage(run, { classic = false, sourceFallback = false } = {}) {
     await page.waitForFunction(
       () => initialized && window._state?.mode === "demo",
     );
-    await run(page, requests);
+    await run(page, requests, context);
     assert.deepEqual(errors, []);
     assert.deepEqual(bad, []);
     assert.ok(
@@ -144,12 +154,15 @@ test("the reduced public demo loads Studio supplements and exports a sprite with
       await page.evaluate(() => officeStudio.directionalReady),
       true,
     );
-    assert.ok(
-      await page.evaluate(
-        () =>
-          officeStudio.petDirectional.size > 0 &&
-          officeStudio.surfaces.size > 0,
-      ),
+    assert.deepEqual(
+      await page.evaluate(() => ({
+        pets: officeStudio.petDirectional.size,
+        petLife: officeStudio.petLife.size,
+        characters: officeStudio.characterLife.size,
+        surfaces: officeStudio.surfaces.size,
+        error: officeStudio.environmentError,
+      })),
+      { pets: 96, petLife: 96, characters: 96, surfaces: 4, error: "" },
     );
     await page.locator("#settingsbtn").click();
     await page.locator("#studio-gallery summary").click();
@@ -162,6 +175,126 @@ test("the reduced public demo loads Studio supplements and exports a sprite with
     fs.mkdirSync("reports/public-assets", { recursive: true });
     await page.screenshot({ path: "reports/public-assets/studio-packed.png" });
   }));
+
+async function accounting(page) {
+  return page.evaluate(async () => {
+    const state = await (await fetch("state")).json();
+    return {
+      progress: state.progress,
+      usage: state.usage,
+      events: state.events,
+      received: state.tracking.received,
+    };
+  });
+}
+
+for (const fault of ["manifest", "image", "integrity"])
+  test(`the public character pack recovers from ${fault} failure without losing drafts or accounting`, async () => {
+    const pathname =
+        prefix +
+        `assets/sprites/studio/character-life.${fault === "image" ? "png" : "json"}`,
+      routePattern = "**" + pathname;
+    let attempts = 0;
+    await withPage(
+      async (page, requests, context) => {
+        await page.waitForFunction(
+          () => window.officeStudio?.ready && !officeStudio.loading,
+        );
+        assert.ok(attempts > 0, "the controlled fault was exercised");
+        assert.deepEqual(
+          await page.evaluate(() => ({
+            base: officeStudio.sprites.size,
+            people: officeStudio.directional.size,
+            pets: officeStudio.petDirectional.size,
+            life: officeStudio.petLife.size,
+            surfaces: officeStudio.surfaces.size,
+            characters: officeStudio.characterLife.size,
+          })),
+          {
+            base: 197,
+            people: 96,
+            pets: 96,
+            life: 96,
+            surfaces: 4,
+            characters: 0,
+          },
+          "an optional pack failure keeps all other artwork usable",
+        );
+        assert.match(
+          await page.evaluate(() => officeStudio.environmentError),
+          fault === "integrity"
+            ? /character-life pixels failed integrity check/
+            : /character-life/,
+        );
+        const before = await accounting(page);
+        await page.locator("#tasksbtn").click();
+        await page.locator('[data-task-view="draft"]').click();
+        await page
+          .locator("#task-draft-text")
+          .fill("Keep this public demo brief unsent.");
+        await page.locator("#sheet-tasks .close").click();
+        await page.locator("#settingsbtn").click();
+        await page.locator("#room-name-input").fill("Unsent public room draft");
+        await page.evaluate(() => {
+          window.__publicRetryDocument = true;
+        });
+        await context.unroute(routePattern);
+        await page.locator("#studio-art-retry").click();
+        await page.waitForFunction(
+          () => !officeStudio.loading && officeStudio.characterLife.size === 96,
+        );
+        assert.equal(
+          await page.evaluate(() => officeStudio.environmentError),
+          "",
+        );
+        assert.equal(
+          await page.evaluate(() => window.__publicRetryDocument),
+          true,
+        );
+        assert.equal(
+          await page.locator("#room-name-input").inputValue(),
+          "Unsent public room draft",
+        );
+        assert.equal(await page.locator("#studio-art-retry").isHidden(), true);
+        assert.ok(
+          requests.some(
+            (request) =>
+              new URL(request.url).pathname ===
+              prefix + "assets/sprites/studio/character-life.png",
+          ),
+        );
+        await page.locator("#sheet-settings .close").click();
+        await page.locator("#tasksbtn").click();
+        await page.locator('[data-task-view="draft"]').click();
+        assert.equal(
+          await page.locator("#task-draft-text").inputValue(),
+          "Keep this public demo brief unsent.",
+        );
+        assert.deepEqual(await accounting(page), before);
+      },
+      {
+        expectedFailures: fault === "integrity" ? [] : [pathname],
+        beforeNavigate: async (context) => {
+          await context.route(routePattern, (route) => {
+            attempts++;
+            if (fault !== "integrity")
+              return route.fulfill({
+                status: 404,
+                body: "controlled missing character pack",
+              });
+            const manifest = JSON.parse(
+              fs.readFileSync(
+                path.join(output, pathname.slice(prefix.length)),
+                "utf8",
+              ),
+            );
+            manifest.rgbaSha256 = "0".repeat(64);
+            return route.fulfill({ status: 200, json: manifest });
+          });
+        },
+      },
+    );
+  });
 
 test("the reduced demo retains every Classic sheet when the compact atlas is unavailable", () =>
   withPage(

@@ -3,24 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-// macOS exposes normal temporary paths through these two fixed system aliases.
-// Resolve only those known aliases, never arbitrary output or input parents.
-function canonicalSystemPath(file) {
-  if (process.platform === "darwin") {
-    for (const [alias, target] of [
-      ["/var", "/private/var"],
-      ["/tmp", "/private/tmp"],
-    ]) {
-      if (
-        (file === alias || file.startsWith(alias + path.sep)) &&
-        fs.realpathSync(alias) === target
-      )
-        return target + file.slice(alias.length);
-    }
-  }
-  return file;
-}
+import { canonicalSystemPath, rejectSymlinks } from "./build_paths.mjs";
 const root = canonicalSystemPath(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
 );
@@ -50,27 +33,10 @@ if (
   );
 }
 
-// Reject symlinked files AND parents; an allowlisted name cannot redirect a read
-// into a private directory or redirect output removal through an ancestor.
-function rejectSymlinks(file) {
-  let current = path.parse(file).root;
-  for (const part of file.slice(current.length).split(path.sep)) {
-    current = path.join(current, part);
-    let entry;
-    try {
-      entry = fs.lstatSync(current);
-    } catch (error) {
-      if (error.code === "ENOENT") continue;
-      throw error;
-    }
-    if (entry.isSymbolicLink())
-      throw new Error(`Refusing symlinked site input/output: ${current}`);
-  }
-}
-rejectSymlinks(output);
+rejectSymlinks(output, "site");
 if (fs.existsSync(output)) {
   const existing = path.join(output, marker);
-  rejectSymlinks(existing);
+  rejectSymlinks(existing, "site");
   if (
     !fs.statSync(output).isDirectory() ||
     !fs.existsSync(existing) ||
@@ -114,7 +80,7 @@ for (const shot of ["appearance", "usage", "settings", "aquarium"]) {
 const copies = new Map();
 for (const [destination, relative] of inputs) {
   const source = path.join(root, relative);
-  rejectSymlinks(source);
+  rejectSymlinks(source, "site");
   if (!fs.statSync(source).isFile())
     throw new Error(`Expected a public site file: ${relative}`);
   copies.set(destination, fs.readFileSync(source));

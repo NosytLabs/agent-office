@@ -22,6 +22,84 @@
     "Golden dog",
     "Pocket robot",
   ];
+  const PEOPLE = [
+    "Brown-haired worker",
+    "Copper-haired worker",
+    "Indigo-haired worker",
+    "Blond worker",
+    "Studio robot",
+    "Orbit courier",
+    "Rose-shirt worker",
+    "Moss-shirt worker",
+  ];
+  const NAMES = {
+    focusbooth: "Focus booth",
+    filingcabinet: "Filing cabinet",
+    petbed: "Pet bed",
+    roundtable: "Round table",
+    coatrack: "Coat rack",
+    fish_tank: "Fish tank",
+    recordplayer: "Record player",
+    taskterminal: "Task terminal",
+    "taskterminal-running": "Task terminal running",
+    "taskterminal-idle": "Task terminal idle",
+    "taskterminal-failed": "Task terminal failed",
+    "taskterminal-finished": "Task terminal finished",
+    "taskterminal-disconnected": "Task terminal disconnected",
+    "walk-a": "Walking, left step",
+    "walk-b": "Walking, right step",
+    type: "Typing",
+    read: "Reading",
+    attention: "Needs input",
+    wait: "Waiting",
+    cheer: "Celebrating",
+    sleep: "Sleeping",
+    sit: "Sitting",
+    pet: "Petting",
+    "surface-oak-floor": "Oak floor",
+    "surface-oak-wall": "Oak wall",
+    "surface-slate-floor": "Slate floor",
+    "surface-slate-wall": "Slate wall",
+  };
+  const normalize = (value) =>
+    String(value).toLowerCase().replace(/[-_]/g, " ");
+  function friendlyName(value) {
+    return (
+      NAMES[value.toLowerCase()] ||
+      normalize(value).replace(/^./, (letter) => letter.toUpperCase())
+    );
+  }
+  function spriteLabel(key) {
+    const animation =
+        key.match(/-anim-(\d+)$/) ||
+        (key.startsWith("fx-") && key.match(/-(\d+)$/)),
+      base = animation ? key.slice(0, animation.index) : key,
+      actor = base.match(/^(person|pet)-(\d+)-(.+)$/);
+    let label;
+    if (actor) {
+      const names = actor[1] === "pet" ? LOOKS : PEOPLE,
+        direction = actor[3].match(/^(up|down|left|right)-/),
+        action = direction ? actor[3].slice(direction[0].length) : actor[3];
+      label =
+        (names[Number(actor[2])] ||
+          `${actor[1] === "pet" ? "Companion" : "Character"} ${Number(actor[2]) + 1}`) +
+        (direction
+          ? " · Facing " +
+            { down: "front", up: "back", left: "left", right: "right" }[
+              direction[1]
+            ]
+          : "") +
+        " · " +
+        friendlyName(action);
+    } else if (base.startsWith("icon-"))
+      label = friendlyName(base.slice(5)) + " icon";
+    else if (base.startsWith("fx-"))
+      label = friendlyName(base.slice(3)) + " effect";
+    else label = friendlyName(base);
+    return (
+      label + (animation ? ` · frame ${Number(animation[1]) + 1} of 4` : "")
+    );
+  }
   function frameKey(key, state = {}) {
     if (key === "lamp" && state.lights === false) return "lamp-off";
     const moving =
@@ -115,17 +193,46 @@
     return "furniture";
   }
   function filterKeys(keys, query = "", group = "all") {
-    const words = String(query)
-      .trim()
-      .toLowerCase()
-      .replace(/[-_]/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
+    const queryText = normalize(query).trim().replace(/\s+/g, " "),
+      effectFrame = keys.find(
+        (key) => /^fx-.+-\d+$/.test(key) && normalize(key) === queryText,
+      );
+    // Effect IDs use a bare zero-based suffix. An exact ID must not also
+    // match the preceding frame's one-based friendly description.
+    if (effectFrame)
+      return group === "all" || group === "effects" ? [effectFrame] : [];
+    const identities = [],
+      animations = [],
+      displayFrames = [],
+      words = queryText
+        // Identity and frame numbers describe different fields. Do not let an
+        // actor index match the trailing frame index of an unrelated actor.
+        .replace(/\b(person|pet)\s+(\d+)\b/g, (_, kind, index) => {
+          identities.push(`${kind}-${index}-`);
+          return " ";
+        })
+        .replace(/\banim\s+(\d+)\b/g, (_, index) => {
+          animations.push(`-anim-${index}`);
+          return " ";
+        })
+        .replace(/\bframe\s+(\d+)\b/g, (_, number) => {
+          displayFrames.push(Number(number) - 1);
+          return " ";
+        })
+        .split(/\s+/)
+        .filter(Boolean);
     return keys.filter(
       (key) =>
         (group === "all" || spriteGroup(key) === group) &&
+        identities.every((identity) => key.startsWith(identity)) &&
+        animations.every((animation) => key.endsWith(animation)) &&
+        displayFrames.every(
+          (index) =>
+            key.endsWith(`-anim-${index}`) ||
+            (key.startsWith("fx-") && key.endsWith(`-${index}`)),
+        ) &&
         words.every((word) =>
-          key.toLowerCase().replace(/[-_]/g, " ").includes(word),
+          (normalize(key) + " " + normalize(spriteLabel(key))).includes(word),
         ),
     );
   }
@@ -135,7 +242,9 @@
     const family = key.replace(/-anim-\d+$/, ""),
       life = Array.from({ length: 4 }, (_, i) => family + "-anim-" + i);
     if (
-      /^pet-\d+-(?:idle|sleep|happy)(?:-anim-\d+)?$/.test(key) &&
+      /^(?:pet-\d+-(?:idle|sleep|happy)|person-\d+-(?:type|read|attention))(?:-anim-\d+)?$/.test(
+        key,
+      ) &&
       life.every((frame) => available.has(frame))
     )
       return life;
@@ -159,6 +268,7 @@
     frameKey,
     makeFrames,
     fitRect,
+    spriteLabel,
     filterKeys,
     animationKeys,
     kinds: KINDS,
@@ -280,12 +390,12 @@
       <summary>Preview &amp; download sprites</summary>
       <p class="h">Native PNGs and animation strips preserve the original transparency. Cosmetic effects never change agent work or accounting.</p>
       <div class="studio-options">
-        <label class="studio-option" for="studio-sprite-search">Find sprites<input id="studio-sprite-search" class="txt" type="search" maxlength="100" placeholder="For example, fern or pet 0" /></label>
+        <label class="studio-option" for="studio-sprite-search">Find sprites<input id="studio-sprite-search" class="txt" type="search" maxlength="100" placeholder="For example, orange cat or person 0" /></label>
         <label class="studio-option" for="studio-sprite-group">Category<select id="studio-sprite-group"><option value="all">All sprites</option><option value="characters">Characters</option><option value="companions">Companions</option><option value="furniture">Furniture</option><option value="effects">Effects &amp; icons</option></select></label>
       </div>
       <p id="studio-gallery-count" class="h" role="status"></p>
       <label class="studio-option" for="studio-sprite-choice">Studio sprite<select id="studio-sprite-choice"></select></label>
-      <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite"></canvas>
+      <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite" aria-describedby="studio-sprite-info"></canvas>
       <p id="studio-sprite-info" class="h"></p>
       <div class="cluster"><button type="button" class="btn" id="studio-preview-play" aria-pressed="false">Play animation</button><button type="button" class="btn" id="studio-sprite-download">Download PNG</button><button type="button" class="btn" id="studio-strip-download">Download strip</button></div>
       <p id="studio-gallery-message" class="h" role="status"></p>`;
@@ -351,9 +461,7 @@
       preview.dataset.frame = key;
       preview.setAttribute(
         "aria-label",
-        source
-          ? key.replaceAll("-", " ") + " native sprite"
-          : "No matching sprites",
+        source ? spriteLabel(key) + " native sprite" : "No matching sprites",
       );
     }
     function stop() {
@@ -428,7 +536,8 @@
         ...keys.map((key) => {
           const option = document.createElement("option");
           option.value = key;
-          option.textContent = key.replaceAll("-", " ");
+          option.textContent = spriteLabel(key);
+          option.title = key;
           return option;
         }),
       );
@@ -536,6 +645,7 @@
           ...art.directional,
           ...art.petDirectional,
           ...art.petLife,
+          ...(art.characterLife || []),
           ...art.surfaces,
           ...frames,
         ])

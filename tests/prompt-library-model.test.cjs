@@ -192,3 +192,111 @@ test("search finds literal names, destinations and content without changing stor
   );
   assert.equal(JSON.stringify(input), before);
 });
+
+test("backup serialization round trips the exact strict version-one source shape", () => {
+  const items = [brief(), brief("two", "Second")];
+  const raw = library.serializeLibrary(items);
+  assert.deepEqual(library.parseLibrary(raw), { version: 1, briefs: items });
+  assert.throws(
+    () => library.serializeLibrary([{ ...brief(), extra: true }]),
+    /invalid/i,
+  );
+  assert.throws(
+    () =>
+      library.parseLibrary(
+        JSON.stringify({ version: 1, briefs: [], extra: true }),
+      ),
+    /invalid/i,
+  );
+});
+
+test("the backup size limit measures UTF-8 bytes and accepts the exact boundary", () => {
+  const raw = JSON.stringify({
+    version: 1,
+    briefs: [{ ...brief(), text: "🙂".repeat(4096) }],
+  });
+  assert.equal(
+    library.parseLibrary(
+      " ".repeat(library.MAX_BYTES - Buffer.byteLength(raw)) + raw,
+    ).briefs.length,
+    1,
+  );
+  assert.throws(
+    () => library.parseLibrary(" ".repeat(library.MAX_BYTES) + raw),
+    /invalid/i,
+  );
+  assert.throws(
+    () =>
+      library.parseLibrary(
+        " ".repeat(library.MAX_BYTES - Buffer.byteLength(raw) + 1) + raw,
+      ),
+    /invalid/i,
+  );
+});
+
+test("reviewed Merge rejects all collisions and overflow without partially changing inputs", () => {
+  const current = [brief()],
+    incoming = [brief("two", "Second")],
+    before = JSON.stringify([current, incoming]);
+  assert.deepEqual(library.prepareImport(current, incoming, "merge").briefs, [
+    ...current,
+    ...incoming,
+  ]);
+  assert.equal(JSON.stringify([current, incoming]), before);
+  for (const conflict of [
+    [brief("one", "New name")],
+    [brief("different", "review api")],
+    Array.from({ length: 12 }, (_, i) => brief("b" + i, "Brief " + i)),
+  ])
+    assert.throws(
+      () => library.prepareImport(current, conflict, "merge"),
+      /same|already|12|conflict/i,
+    );
+  assert.throws(
+    () => library.prepareImport(current, incoming),
+    /choose|review|merge|replace/i,
+  );
+  assert.deepEqual(library.prepareImport(current, incoming, "replace"), {
+    version: 1,
+    briefs: incoming,
+  });
+  assert.deepEqual(library.prepareImport(current, [], "replace"), {
+    version: 1,
+    briefs: [],
+  });
+});
+
+test("import commits are atomic across quota failure, stale storage, and explicit retry", () => {
+  const f = fixture();
+  f.store.add(brief());
+  const initial = f.raw(),
+    raw = JSON.stringify({
+      version: 1,
+      briefs: [brief("incoming", "Incoming")],
+    });
+  f.failWrite(true);
+  assert.equal(f.store.importLibrary(raw, "merge").ok, false);
+  assert.equal(f.raw(), initial);
+  assert.deepEqual(
+    f.store.state().briefs.map((item) => item.name),
+    ["Review API"],
+  );
+  f.failWrite(false);
+  f.replace(
+    JSON.stringify({ version: 1, briefs: [brief("external", "Other tab")] }),
+  );
+  assert.equal(f.store.importLibrary(raw, "replace").ok, false);
+  assert.equal(JSON.parse(f.raw()).briefs[0].name, "Other tab");
+  assert.equal(f.store.importLibrary(raw, "merge").ok, true);
+  assert.deepEqual(
+    f.store.state().briefs.map((item) => item.name),
+    ["Other tab", "Incoming"],
+  );
+  const stored = f.raw();
+  assert.equal(
+    f.store.importLibrary('{"version":1,"briefs":[],"extra":true}', "replace")
+      .ok,
+    false,
+  );
+  assert.equal(f.raw(), stored);
+});

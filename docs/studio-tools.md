@@ -5,11 +5,22 @@ character, companion, furniture or effects; search by name; then inspect a nativ
 image, play its animation or export a native PNG/animation strip. An empty
 search result disables export instead of leaving an unrelated sprite selected.
 
+Choices and preview descriptions use appearance names and actions, such as
+“Orange cat · Happy” and “Studio robot · Reading”. Search those names or the
+original sprite IDs. `pet 0 happy anim` finds that companion's four happy frames;
+its identity number cannot match another companion's frame number. `frame 3`
+uses the displayed frame numbering, while `anim 2` retains the original source
+index. Free terms and category filters still combine. Download filenames keep
+their original sprite IDs.
+
 The gallery combines 197 base Studio entries, 96 directional character frames and
-96 companion directional frames, 96 companion life frames, four room surfaces,
-and 41 generated animation/lighting frames, making **530 sprite choices**. The
-watering families add four frames each for the succulent, fern and planter. They use the approved artwork, fixed
-native dimensions and shared foot anchors. The source-defined droplets appear
+96 companion directional frames, 96 companion life frames, 96 character life
+frames, four room surfaces, and 41 generated animation/lighting frames, making
+**626 sprite choices** when every pack is available. The count follows the loaded
+artwork; an unavailable optional pack removes only its choices. The watering
+families add four frames each for the succulent, fern and planter. They use the
+approved artwork, fixed native dimensions and shared foot anchors. The
+source-defined droplets appear
 only during an existing cosmetic watering reaction. Existing source sprites and
 all observer, collision and furniture placement state remain unchanged. A verified
 disconnected fragment is removed from the decoded fern canvas only; the original
@@ -27,7 +38,9 @@ second, honors office Pause/reduced motion, and stops when the gallery or panel
 closes, the tab is hidden, or the page is left. A downloaded strip contains four
 adjacent native frames with no padding or resizing. Walking strips repeat the
 middle walking pose to match the distance-driven cycle. Idle, sleep and happy
-companion families export their four source frames.
+companion families and typing, reading and needs-input character families export
+their four native frames in source order. A character strip is 128 × 36 pixels;
+a companion strip is 112 × 26 pixels.
 The info line distinguishes transparent sprites from opaque room textures. Late
 export results never replace feedback for another selection or a closed panel.
 

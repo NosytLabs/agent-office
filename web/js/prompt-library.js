@@ -3,7 +3,8 @@
 (function (root) {
   const MAX_BRIEFS = 12,
     MAX_TEXT = 8192,
-    MAX_NAME = 48;
+    MAX_NAME = 48,
+    MAX_BYTES = 1048576;
   const runtimes = new Set([
     "opencode",
     "claude",
@@ -47,7 +48,12 @@
   function parseLibrary(raw) {
     if (raw === null) return { version: 1, briefs: [] };
     try {
-      if (typeof raw !== "string" || raw.length > 1048576) throw new Error();
+      if (
+        typeof raw !== "string" ||
+        raw.length > MAX_BYTES ||
+        new TextEncoder().encode(raw).byteLength > MAX_BYTES
+      )
+        throw new Error();
       const value = JSON.parse(raw);
       if (
         !value ||
@@ -89,6 +95,34 @@
         ),
     );
   }
+  function serializeLibrary(briefs) {
+    const raw = JSON.stringify({ version: 1, briefs }, null, 2) + "\n";
+    parseLibrary(raw);
+    return raw;
+  }
+  function prepareImport(current, incoming, choice) {
+    if (choice !== "merge" && choice !== "replace")
+      throw new Error("Review this backup and choose Merge or Replace first.");
+    const existing = parseLibrary(serializeLibrary(current)).briefs;
+    const additions = parseLibrary(serializeLibrary(incoming)).briefs;
+    if (choice === "replace") return { version: 1, briefs: additions };
+    if (existing.length + additions.length > MAX_BRIEFS)
+      throw new Error(
+        "Merge would exceed the 12-brief limit. Choose Replace or Cancel; nothing has changed.",
+      );
+    if (
+      additions.some((item) =>
+        existing.some(
+          (saved) =>
+            saved.id === item.id || nameKey(saved.name) === nameKey(item.name),
+        ),
+      )
+    )
+      throw new Error(
+        "A saved brief already has the same name or identity. Merge cannot replace it. Choose Replace or Cancel; nothing has changed.",
+      );
+    return { version: 1, briefs: [...existing, ...additions] };
+  }
   function prepareLoad(current, item, choice) {
     if (
       !validBrief(item) ||
@@ -127,6 +161,7 @@
   }) {
     let briefs = [],
       revision,
+      revisionId = 0,
       available = false,
       error = "";
     const state = () => ({ available, briefs: copy(briefs), error });
@@ -135,6 +170,7 @@
         const raw = storage.getItem(key),
           next = parseLibrary(raw);
         briefs = next.briefs;
+        if (revision !== raw) revisionId++;
         revision = raw;
         available = true;
         error = "";
@@ -191,6 +227,7 @@
       }
       briefs = next;
       revision = raw;
+      revisionId++;
       error = "";
       return { ok: true };
     }
@@ -212,6 +249,16 @@
       state,
       read,
       checkFresh,
+      revisionToken: () => revisionId,
+      importLibrary(raw, choice) {
+        return change((items) => {
+          if (typeof raw !== "string")
+            throw new Error(
+              "Backup data is invalid. Your saved library is unchanged.",
+            );
+          return prepareImport(items, parseLibrary(raw).briefs, choice).briefs;
+        });
+      },
       add(item) {
         return change((items) => {
           if (items.length >= MAX_BRIEFS)
@@ -279,6 +326,11 @@
     element.innerHTML =
       '<h4 id="prompt-library-heading">Saved briefs</h4><p class="prompt-library-help">Save up to 12 reusable briefs in this browser. Loading a brief only changes your draft.</p><p id="prompt-library-coordination" class="prompt-library-help" hidden></p><form class="prompt-library-save-form"><label for="prompt-library-name">Brief name</label><div class="prompt-library-controls"><input id="prompt-library-name" class="txt" type="text" maxlength="48" autocomplete="off" placeholder="e.g. Review a change"><button id="prompt-library-save" class="btn" type="submit">Save current draft</button></div></form><label for="prompt-library-search">Find a saved brief</label><input id="prompt-library-search" class="txt" type="search" maxlength="160" autocomplete="off" placeholder="Search name, destination or text"><p id="prompt-library-count" class="prompt-library-help"></p><ul class="prompt-library-list"></ul><div id="prompt-library-review" class="prompt-library-review" hidden></div><p id="prompt-library-status" role="status" aria-live="polite"></p><button id="prompt-library-retry" class="btn" type="button" hidden>Retry reading saved briefs</button>';
     draft.append(element);
+    const backups = doc.createElement("div");
+    backups.className = "prompt-library-controls prompt-library-backups";
+    backups.innerHTML =
+      '<button id="prompt-library-export" class="btn" type="button">Export briefs</button><button id="prompt-library-import" class="btn" type="button">Import briefs</button><input id="prompt-library-file" type="file" accept=".json,application/json" aria-label="Choose a saved brief backup" hidden>';
+    element.querySelector(".prompt-library-save-form").before(backups);
     const find = (id) => element.querySelector("#prompt-library-" + id),
       name = find("name"),
       search = find("search"),
@@ -287,18 +339,45 @@
       status = find("status"),
       save = find("save"),
       retry = find("retry"),
+      exportButton = find("export"),
+      importButton = find("import"),
+      fileInput = find("file"),
       rows = new Map();
     find("coordination").hidden = coordinated;
     find("coordination").textContent = coordinated ? "" : coordinationMessage;
     let pending = null,
       busy = false,
-      storageGeneration = 0;
+      storageGeneration = 0,
+      reviewGeneration = 0,
+      destroyed = false;
     const savingMessage =
       "Saving changes to your briefs. Wait for the result before choosing another action.";
     const current = () => ({ text: text.value, runtime: runtime.value });
     const announce = (message) => {
       status.textContent = message || store.state().error;
     };
+    const visible = (control) =>
+      control?.isConnected &&
+      !control.disabled &&
+      control.getClientRects().length &&
+      !control.closest("[hidden], [inert]");
+    const activeWorkspace = () => visible(text);
+    const captureFocus = () => ({
+      control: doc.activeElement,
+      owned: element.contains(doc.activeElement),
+      origin: pending?.origin,
+    });
+    function focusWithin(...controls) {
+      if (activeWorkspace())
+        controls.find(visible)?.focus({ preventScroll: false });
+    }
+    function recoverFocus(before) {
+      if (
+        before.owned &&
+        (doc.activeElement === doc.body || !visible(doc.activeElement))
+      )
+        focusWithin(before.origin, before.control, search, retry, name);
+    }
     function button(label, action) {
       const control = doc.createElement("button");
       control.type = "button";
@@ -314,6 +393,7 @@
       return control;
     }
     function cancelReview(focus = false) {
+      reviewGeneration++;
       const origin = pending?.origin;
       const restore =
         focus &&
@@ -323,7 +403,7 @@
       pending = null;
       review.hidden = true;
       review.replaceChildren();
-      if (restore) (origin?.isConnected ? origin : search).focus();
+      if (restore) focusWithin(origin, search, retry, name);
     }
     function render() {
       const state = store.state(),
@@ -337,6 +417,10 @@
       save.disabled = !state.available || !coordinated;
       save.setAttribute("aria-disabled", String(save.disabled || busy));
       retry.hidden = state.available;
+      for (const control of [exportButton, importButton]) {
+        control.disabled = !state.available;
+        control.setAttribute("aria-disabled", String(control.disabled || busy));
+      }
       for (const [id, row] of rows)
         if (!state.briefs.some((item) => item.id === id)) {
           row.remove();
@@ -381,7 +465,7 @@
         }
       }
       for (const control of review.querySelectorAll("button, input")) {
-        control.setAttribute("aria-disabled", String(busy));
+        control.setAttribute("aria-disabled", String(busy || control.disabled));
         if (control.tagName === "INPUT") control.readOnly = busy;
       }
       list.hidden = !state.briefs.length;
@@ -401,7 +485,10 @@
         announce(coordinationMessage);
         return;
       }
-      const focused = doc.activeElement;
+      const beforeFocus = captureFocus();
+      // A later save supersedes an unfinished file read. Its completion must
+      // not replace the pending save's review or progress message.
+      if (pending?.action === "reading") cancelReview();
       const generation = storageGeneration;
       busy = true;
       render();
@@ -410,7 +497,7 @@
         // Cooperating tabs serialize writes; the action also rechecks the exact
         // stored revision after obtaining the lock.
         const result = await root.navigator.locks.request(key, () =>
-          generation === storageGeneration
+          !destroyed && generation === storageGeneration
             ? action()
             : {
                 ok: false,
@@ -433,15 +520,16 @@
         render();
         // An actual read failure can disable the focused action. Recover only
         // that lost focus, without stealing focus from intervening user edits.
-        if (doc.activeElement === doc.body && element.contains(focused))
-          (focused.isConnected && !focused.disabled ? focused : retry).focus();
+        recoverFocus(beforeFocus);
       }
     }
     function apply(item, choice) {
       if (busy) return;
+      const beforeFocus = captureFocus();
       if (!store.checkFresh().ok) {
         cancelReview();
         render();
+        recoverFocus(beforeFocus);
         announce();
         return;
       }
@@ -487,9 +575,11 @@
     }
     function begin(action, id, origin) {
       if (busy) return;
+      const beforeFocus = captureFocus();
       if (!store.checkFresh().ok) {
         cancelReview();
         render();
+        recoverFocus(beforeFocus);
         announce();
         return;
       }
@@ -598,6 +688,268 @@
         : review.querySelector("button")
       ).focus();
     }
+    function importFresh(stage) {
+      if (
+        destroyed ||
+        pending !== stage ||
+        stage.ticket !== reviewGeneration ||
+        !activeWorkspace()
+      )
+        return {
+          ok: false,
+          error:
+            "This import review was closed or changed. Choose the backup again before importing.",
+        };
+      if (!store.checkFresh().ok)
+        return { ok: false, error: store.state().error };
+      if (
+        stage.revision !== store.revisionToken() ||
+        stage.generation !== storageGeneration
+      )
+        return {
+          ok: false,
+          error:
+            "Saved briefs changed after this backup was selected. Choose the backup again and review the current library.",
+        };
+      return { ok: true };
+    }
+    function showImport(stage, incoming) {
+      const restore =
+        review.contains(doc.activeElement) ||
+        doc.activeElement === importButton;
+      stage.action = "import";
+      stage.raw = serializeLibrary(incoming);
+      stage.incoming = incoming;
+      review.replaceChildren();
+      const heading = doc.createElement("h5"),
+        summary = doc.createElement("p"),
+        mergeSummary = doc.createElement("p"),
+        replaceSummary = doc.createElement("p"),
+        entries = doc.createElement("div"),
+        controls = doc.createElement("div");
+      heading.textContent = "Import saved briefs?";
+      summary.id = "prompt-library-import-summary";
+      summary.textContent =
+        incoming.length +
+        (incoming.length === 1 ? " incoming brief · " : " incoming briefs · ") +
+        store.state().briefs.length +
+        " saved now. Your open draft will stay unchanged.";
+      mergeSummary.id = "prompt-library-merge-summary";
+      replaceSummary.id = "prompt-library-replace-summary";
+      replaceSummary.textContent =
+        "Replace removes " +
+        store.state().briefs.length +
+        " saved briefs and saves " +
+        incoming.length +
+        " from this backup.";
+      entries.className = "prompt-library-import-entries";
+      for (const item of incoming) {
+        const detail = doc.createElement("details"),
+          label = doc.createElement("summary"),
+          preview = doc.createElement("pre");
+        label.textContent =
+          item.name +
+          " · " +
+          runtimeLabel(item.runtime) +
+          " · " +
+          item.text.length.toLocaleString() +
+          " characters";
+        preview.textContent = item.text;
+        preview.tabIndex = 0;
+        preview.setAttribute("aria-label", item.name + " saved text");
+        detail.append(label, preview);
+        entries.append(detail);
+      }
+      const commit = (choice) =>
+        mutate(
+          () => {
+            const fresh = importFresh(stage);
+            return fresh.ok ? store.importLibrary(stage.raw, choice) : fresh;
+          },
+          () => {
+            if (pending === stage) {
+              cancelReview(true);
+              announce(
+                (choice === "merge" ? "Merged " : "Imported ") +
+                  incoming.length +
+                  (incoming.length === 1 ? " brief." : " briefs.") +
+                  " Your open draft and destination are unchanged.",
+              );
+            }
+          },
+        );
+      const merge = button("Merge briefs", () => commit("merge")),
+        replace = button("Replace saved library", () => commit("replace"));
+      try {
+        const result = prepareImport(store.state().briefs, incoming, "merge");
+        mergeSummary.textContent =
+          "Merge adds " +
+          incoming.length +
+          (incoming.length === 1 ? " brief and keeps " : " briefs and keeps ") +
+          store.state().briefs.length +
+          (store.state().briefs.length === 1
+            ? " saved brief ("
+            : " saved briefs (") +
+          result.briefs.length +
+          " total).";
+      } catch (failure) {
+        mergeSummary.textContent = failure.message;
+        merge.disabled = true;
+      }
+      merge.disabled ||= !coordinated;
+      replace.disabled = !coordinated;
+      controls.className = "prompt-library-controls";
+      controls.append(
+        merge,
+        replace,
+        button("Cancel", () => {
+          cancelReview(true);
+          announce(
+            "Import cancelled. Your saved library and draft are unchanged.",
+          );
+        }),
+      );
+      review.append(
+        heading,
+        summary,
+        entries,
+        mergeSummary,
+        replaceSummary,
+        controls,
+      );
+      render();
+      announce(
+        "Backup ready to review. Expand a brief to read its text, then choose Merge, Replace or Cancel.",
+      );
+      if (restore) focusWithin(merge, replace, controls.lastChild);
+    }
+    async function readBackup(file) {
+      if (busy) {
+        announce(savingMessage);
+        return;
+      }
+      const beforeFocus = captureFocus();
+      if (!store.checkFresh().ok) {
+        cancelReview();
+        render();
+        recoverFocus(beforeFocus);
+        announce();
+        return;
+      }
+      cancelReview();
+      const stage = {
+        action: "reading",
+        origin: importButton,
+        ticket: reviewGeneration,
+        revision: store.revisionToken(),
+        generation: storageGeneration,
+      };
+      pending = stage;
+      const heading = doc.createElement("h5"),
+        message = doc.createElement("p");
+      heading.textContent = "Reading brief backup";
+      message.textContent =
+        "Preparing a review. Your saved library and draft are unchanged.";
+      const cancel = button("Cancel", () => {
+        cancelReview(true);
+        announce(
+          "Import cancelled. Your saved library and draft are unchanged.",
+        );
+      });
+      review.append(heading, message, cancel);
+      review.hidden = false;
+      announce("Reading the selected backup. No saved briefs have changed.");
+      if (beforeFocus.owned || doc.activeElement === doc.body)
+        focusWithin(cancel);
+      try {
+        if (file.size > MAX_BYTES) throw new Error("size");
+        const data = await file.arrayBuffer();
+        if (
+          pending !== stage ||
+          stage.ticket !== reviewGeneration ||
+          !activeWorkspace()
+        )
+          return;
+        if (data.byteLength > MAX_BYTES) throw new Error("size");
+        let incoming;
+        try {
+          incoming = parseLibrary(
+            new TextDecoder("utf-8", { fatal: true }).decode(data),
+          ).briefs;
+        } catch {
+          throw new Error("invalid");
+        }
+        const fresh = importFresh(stage);
+        if (!fresh.ok) {
+          heading.textContent = "Backup review changed";
+          message.textContent = fresh.error;
+          announce(fresh.error);
+          return;
+        }
+        showImport(stage, incoming);
+      } catch (failure) {
+        if (
+          pending !== stage ||
+          stage.ticket !== reviewGeneration ||
+          !activeWorkspace()
+        )
+          return;
+        const error =
+          failure.message === "size"
+            ? "The backup is too large. Choose a brief backup no larger than 1 MB. Your saved library and draft are unchanged."
+            : failure.message === "invalid"
+              ? "This backup is invalid. Choose an Agent Office brief backup; your saved library and draft are unchanged."
+              : "Could not read this backup. Your saved library and draft are unchanged.";
+        heading.textContent = "Backup could not be reviewed";
+        message.textContent = error;
+        announce(error);
+      }
+    }
+    importButton.addEventListener("click", () => {
+      if (busy) {
+        announce(savingMessage);
+        return;
+      }
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      fileInput.value = "";
+      if (file) void readBackup(file);
+    });
+    exportButton.addEventListener("click", () => {
+      if (busy) {
+        announce(savingMessage);
+        return;
+      }
+      const beforeFocus = captureFocus();
+      if (!store.checkFresh().ok) {
+        cancelReview();
+        render();
+        recoverFocus(beforeFocus);
+        announce();
+        return;
+      }
+      try {
+        const url = root.URL.createObjectURL(
+          new root.Blob([serializeLibrary(store.state().briefs)], {
+            type: "application/json;charset=utf-8",
+          }),
+        );
+        const link = doc.createElement("a");
+        link.href = url;
+        link.download = "agent-office-briefs.json";
+        link.click();
+        root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
+        announce(
+          "Saved brief backup exported. Your saved library and draft are unchanged.",
+        );
+      } catch {
+        announce(
+          "The backup could not be exported. Your saved library and draft are unchanged.",
+        );
+      }
+    });
     element
       .querySelector(".prompt-library-save-form")
       .addEventListener("submit", (event) => {
@@ -617,9 +969,11 @@
       });
     search.addEventListener("input", render);
     retry.addEventListener("click", () => {
+      const beforeFocus = captureFocus();
       store.read();
       cancelReview();
       render();
+      recoverFocus(beforeFocus);
       announce(
         store.state().available
           ? "Saved briefs are available. Review the library before continuing."
@@ -644,10 +998,12 @@
         (event.key === key || event.key === null) &&
         event.storageArea === storage
       ) {
+        const beforeFocus = captureFocus();
         storageGeneration++;
         store.read();
         cancelReview();
         render();
+        recoverFocus(beforeFocus);
         announce(
           store.state().available
             ? "Saved briefs changed in another tab. Review the updated library; your current draft is unchanged."
@@ -656,18 +1012,45 @@
       }
     }
     root.addEventListener("storage", onStorage);
+    const visibility = new root.MutationObserver((records) => {
+      if (
+        !records.some(
+          (record) => record.oldValue !== record.target.getAttribute("hidden"),
+        )
+      )
+        return;
+      reviewGeneration++;
+      if (pending?.action === "reading" || pending?.action === "import") {
+        const beforeFocus = captureFocus();
+        cancelReview();
+        render();
+        recoverFocus(beforeFocus);
+      }
+    });
+    for (const target of [draft, draft.closest(".sheet")])
+      if (target)
+        visibility.observe(target, {
+          attributes: true,
+          attributeFilter: ["hidden"],
+          attributeOldValue: true,
+        });
     store.read();
     render();
     announce();
     return {
       element,
       refresh: () => {
+        const beforeFocus = captureFocus();
         store.read();
         cancelReview();
         render();
+        recoverFocus(beforeFocus);
         announce();
       },
       destroy: () => {
+        destroyed = true;
+        reviewGeneration++;
+        visibility.disconnect();
         root.removeEventListener("storage", onStorage);
         element.remove();
       },
@@ -676,8 +1059,11 @@
   const api = {
     MAX_BRIEFS,
     MAX_TEXT,
+    MAX_BYTES,
     storageKey,
     parseLibrary,
+    serializeLibrary,
+    prepareImport,
     searchBriefs,
     prepareLoad,
     createStore,

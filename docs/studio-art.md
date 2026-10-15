@@ -23,7 +23,12 @@ door and task terminal, including idle, running, finished, failed and disconnect
 terminal states. The base task-terminal entry shares its idle-state canvas.
 
 Movement uses distance-driven walk frames. Reading and human-input poses use
-reported activity. Typing hands are drawn over the existing desktop, rather than
+reported activity. A 72-frame character activity sheet adds four-frame typing, reading
+and attention loops for the six base identities; two palette variants add another
+24 frames. These 32 × 36 poses keep their bottom-center anchor and run only while
+stationary. Typing runs at four frames per second, reading and attention at two.
+Pause and reduced motion hold frame zero; shell work, errors, completion and idle
+retain their established poses. Typing hands are drawn over the existing desktop, rather than
 adding a second baked-in desk. Four cat looks, three dogs and a pocket robot use
 the existing two companion slots; the second slot keeps its original unlock.
 Coffee, watering and sparkle effects remain cosmetic. A newly observed completed
@@ -45,7 +50,7 @@ reduced motion use still poses; these loops do not alter pet movement or rewards
 The earned sofa sleeper uses the same chosen look. Four 128 × 128 room
 surfaces provide oak/slate floors and matching plaster walls. A cached repeat
 pattern preserves geometry, room lighting and object interactions. Original theme
-remains selectable. The searchable gallery contains 530 entries in total.
+remains selectable. The searchable gallery contains 626 entries in total.
 
 ## Compatibility
 
@@ -60,7 +65,7 @@ identity with one shared scale and nearest-neighbor sampling. Run
 `node tools/build_studio_directional.mjs --check` to reproduce all 72 native frames;
 this is also part of `npm run check:sprites`. The environment compiler
 `node tools/build_studio_environment.mjs --check` also reproduces all 192 companion
-walking/life frames and four seamless surface tiles from their preserved source and full
+walking/life frames, 72 character activity frames and four seamless surface tiles from their preserved source and full
 prompts. The surface compiler reflects reviewed tiles to match opposite edges.
 
 If any supplementary sheet is unavailable or fails validation, the base artwork

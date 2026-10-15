@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
+import tempfile
 
 import pytest
 
@@ -95,6 +97,7 @@ def test_publication_rejects_symlinks_and_local_pack_files(tmp_path, fault):
     project = tmp_path / "source"
     (project / "tools/fixtures").mkdir(parents=True)
     shutil.copyfile(SCRIPT, project / "tools/build_preview.mjs")
+    shutil.copyfile(ROOT / "tools/build_paths.mjs", project / "tools/build_paths.mjs")
     shutil.copyfile(SEED, project / "tools/fixtures/preview.json")
     shutil.copytree(ROOT / "web", project / "web")
     if fault == "symlink":
@@ -107,3 +110,81 @@ def test_publication_rejects_symlinks_and_local_pack_files(tmp_path, fault):
     result = build(output, script=project / "tools/build_preview.mjs", check=False)
     assert result.returncode != 0
     assert not output.exists()
+
+
+@pytest.mark.parametrize("relative", ["web/assets", "web/js", "web/css", "web/arcade",
+                                      "web/template.html", "tools/fixtures/preview.json"])
+def test_top_level_public_inputs_cannot_redirect_to_external_files(tmp_path, relative):
+    project = tmp_path / "source"
+    (project / "tools/fixtures").mkdir(parents=True)
+    shutil.copyfile(SCRIPT, project / "tools/build_preview.mjs")
+    shutil.copyfile(ROOT / "tools/build_paths.mjs", project / "tools/build_paths.mjs")
+    shutil.copyfile(SEED, project / "tools/fixtures/preview.json")
+    shutil.copytree(ROOT / "web", project / "web")
+    source = project / relative
+    external = tmp_path / "external"
+    source.rename(external)
+    source.symlink_to(external, target_is_directory=external.is_dir())
+    output = tmp_path / "site"
+    output.mkdir()
+    (output / "preview-build.json").write_text(json.dumps({"format": "agent-office-static-preview-v1"}))
+    keep = output / "keep.txt"
+    keep.write_text("previous public build")
+    result = build(output, script=project / "tools/build_preview.mjs", check=False)
+    assert result.returncode != 0
+    assert "symlink" in result.stderr.lower()
+    assert keep.read_text() == "previous public build"
+
+
+@pytest.mark.parametrize("redirect", ["parent", "marker", "dangling_output"])
+def test_output_redirects_are_rejected_before_replacing_any_directory(tmp_path, redirect):
+    original = tmp_path / "original"
+    original.mkdir()
+    keep = original / "keep.txt"
+    keep.write_text("keep unrelated content")
+    marker = {"format": "agent-office-static-preview-v1"}
+    if redirect == "parent":
+        (original / "preview-build.json").write_text(json.dumps(marker))
+        alias = tmp_path / "alias"
+        alias.symlink_to(tmp_path, target_is_directory=True)
+        output = alias / original.name
+    elif redirect == "marker":
+        external = tmp_path / "external-marker.json"
+        external.write_text(json.dumps(marker))
+        (original / "preview-build.json").symlink_to(external)
+        output = original
+    else:
+        output = tmp_path / "dangling"
+        output.symlink_to(tmp_path / "missing", target_is_directory=True)
+    result = build(output, check=False)
+    assert result.returncode != 0
+    assert "symlink" in result.stderr.lower()
+    assert keep.read_text() == "keep unrelated content"
+    if redirect == "dangling_output":
+        assert output.is_symlink()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS temporary-directory system aliases")
+@pytest.mark.parametrize("temporary_root", [None, "/tmp"])
+def test_macos_system_aliases_accept_safe_preview_output(temporary_root):
+    with tempfile.TemporaryDirectory(prefix="office-preview-portability-", dir=temporary_root) as temporary:
+        output = Path(temporary) / "preview"
+        build(output)
+        assert json.loads((output / "preview-build.json").read_text())["synthetic"] is True
+        (output / "stale.txt").write_text("previous generated build")
+        build(output)
+        assert not (output / "stale.txt").exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS temporary-directory system aliases")
+def test_macos_alias_cannot_bypass_preview_source_boundary():
+    with tempfile.TemporaryDirectory(prefix="office-preview-boundary-", dir="/tmp") as temporary:
+        project = Path(temporary) / "source"
+        (project / "tools").mkdir(parents=True)
+        script = project / "tools/build_preview.mjs"
+        shutil.copyfile(SCRIPT, script)
+        shutil.copyfile(ROOT / "tools/build_paths.mjs", project / "tools/build_paths.mjs")
+        result = build(project / "private", script=script, check=False)
+        assert result.returncode != 0
+        assert "outside the source checkout" in result.stderr
+        assert not (project / "private").exists()

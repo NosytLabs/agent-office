@@ -219,6 +219,6 @@ vm.runInContext(
     await sheet.toBuffer("png"),
   );
   console.log(
-    "Actual scene rendered at desktop/mobile/night; 19 assets loaded; agents seated; decor cells visible. This is CPU canvas verification, not browser DOM QA.",
+    "Actual scene rendered at desktop/mobile/night; 23 assets loaded; agents seated; decor cells visible. This is CPU canvas verification, not browser DOM QA.",
   );
 })();

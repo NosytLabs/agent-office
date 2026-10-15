@@ -31,7 +31,11 @@ def test_authoring_art_and_generation_records_stay_in_checkout_only(public_build
         assert sha256(source.read_bytes()).hexdigest() == digest, source
         assert not (output / source.relative_to(WEB)).exists(), source
     assert not (output / "assets/sprites/studio/source").exists()
+    for name in ("character-life.png", "character-life.json"):
+        assert WEB / "assets/sprites/studio/source" / name in originals
     published = json.loads((output / "preview-build.json").read_text())["files"]
+    actual = {str(file.relative_to(output)) for file in output.rglob("*") if file.is_file()}
+    assert actual == set(published) | {"preview-build.json"}
     assert not any("/source/" in name or "/generated-" in name for name in published)
 
 
@@ -50,7 +54,7 @@ def test_every_classic_fallback_sheet_is_preserved_byte_for_byte(public_build):
 def test_studio_compiled_manifests_and_supplements_remain_runtime_inputs(public_build):
     output, _ = public_build
     folder = Path("assets/sprites/studio")
-    for name in ("studio.json", "directional.json", "pet-walk.json", "pet-life.json", "room-surfaces.json"):
+    for name in ("studio.json", "directional.json", "character-life.json", "pet-walk.json", "pet-life.json", "room-surfaces.json"):
         manifest = json.loads((WEB / folder / name).read_text())
         assert (output / folder / name).read_bytes() == (WEB / folder / name).read_bytes()
         images = manifest.get("pages", [manifest.get("image")])

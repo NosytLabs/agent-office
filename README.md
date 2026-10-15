@@ -87,7 +87,7 @@ source research and follow-on ideas.
 | --- | --- |
 | Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file |
 | Understand tokens and estimated cost | Usage cards and runtime/model breakdowns; [how to read them](docs/usage.md) |
-| Prepare or run a new task | Tasks → Draft prompt, [Saved briefs](docs/task-briefs.md), or the opt-in Local runs panel |
+| Prepare or run a new task | Tasks → Draft prompt, [Saved briefs](docs/task-briefs.md) with reviewed JSON import/export, or the opt-in Local runs panel |
 | Personalize the office | Customize → Jump to: artwork, layouts, furniture, companions, lighting, and storage |
 | Browse or download artwork | Customize → Preview & download sprites: search, category filters, native PNGs, and animation strips |
 
@@ -113,7 +113,7 @@ catch up when visible again. [Refresh and filtering behavior](docs/usage.md#find
 ## Make the room yours
 
 Open **Customize** and use **Jump to** to reach a section. **Studio artwork** offers
-four-direction character walking, companion blink/sleep/happy loops, optional seasonal wall accents,
+four-direction character walking, typing/reading/attention animations, companion blink/sleep/happy loops, optional seasonal wall accents,
 and a choice of Studio pixel art or Original artwork. The sprite gallery previews
 individual sprites and animations, with native PNG and animation-strip
 downloads. These artwork choices stay in your browser, separately for the demo and

@@ -95,21 +95,29 @@
     }
     return `pet-${index}-${family}-anim-${frame}`;
   }
+  function characterLifeKey(index, state, time = 0, paused = false) {
+    const speed = { type: 4, read: 2, attention: 2 }[state];
+    if (!speed) return null;
+    const clock = Number.isFinite(time) ? Math.max(0, time) : 0,
+      frame = paused ? 0 : Math.floor(clock * speed) % 4;
+    return `person-${index}-${state}-anim-${frame}`;
+  }
   function validEnvironmentManifest(m, name) {
     const surfaces = name === "room-surfaces",
-      pets = name === "pet-walk" || name === "pet-life";
+      pets = name === "pet-walk" || name === "pet-life",
+      characters = name === "character-life";
     if (
-      (!surfaces && !pets) ||
+      (!surfaces && !pets && !characters) ||
       !m ||
       m.version !== 1 ||
       m.image !== name + ".png" ||
-      m.width !== (surfaces ? 256 : 336) ||
-      m.height !== (surfaces ? 256 : 208) ||
+      m.width !== (surfaces ? 256 : characters ? 384 : 336) ||
+      m.height !== (surfaces ? 256 : characters ? 216 : 208) ||
       !/^[a-f0-9]{64}$/.test(m.rgbaSha256) ||
       !m.entries ||
       typeof m.entries !== "object" ||
       Array.isArray(m.entries) ||
-      Object.keys(m.entries).length !== (surfaces ? 4 : 96)
+      Object.keys(m.entries).length !== (surfaces ? 4 : characters ? 72 : 96)
     )
       return false;
     const expected = [];
@@ -121,6 +129,14 @@
           [0, 0],
         ]),
       );
+    else if (characters)
+      for (let actor = 0; actor < 6; actor++)
+        for (let column = 0; column < 12; column++)
+          expected.push([
+            `person-${actor}-${["type", "read", "attention"][Math.floor(column / 4)]}-anim-${column % 4}`,
+            [column * 32, actor * 36, 32, 36],
+            [16, 35],
+          ]);
     else if (name === "pet-life")
       for (let pet = 0; pet < 8; pet++)
         for (let column = 0; column < 12; column++)
@@ -470,6 +486,7 @@
     petMotion,
     petDirectionalKey,
     petLifeKey,
+    characterLifeKey,
     validEnvironmentManifest,
     addStudioDetails,
   });
@@ -500,6 +517,7 @@
     surfaces: new Map(),
     petDirectional: new Map(),
     petLife: new Map(),
+    characterLife: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -578,6 +596,11 @@
         art.directional.get(directionalKey(person(a), c, this.paused)),
       im =
         directional ||
+        (!c.moving &&
+          enabled() &&
+          art.characterLife.get(
+            characterLifeKey(person(a), state, this.time, this.paused),
+          )) ||
         sprite(`person-${person(a)}-${state === "type" ? "idle" : state}`);
     if (!im) return original.character.call(this, a, x, y, c);
     const g = this.ctx,
@@ -1098,6 +1121,23 @@
     }
     return sprites;
   }
+  async function loadCharacterLife() {
+    const sprites = await loadEnvironment("character-life");
+    for (const [id, finish] of [
+      [6, "rose"],
+      [7, "moss"],
+    ])
+      for (const family of ["type", "read", "attention"])
+        for (let frame = 0; frame < 4; frame++)
+          sprites.set(
+            `person-${id}-${family}-anim-${frame}`,
+            paletteVariant(
+              sprites.get(`person-3-${family}-anim-${frame}`),
+              finish,
+            ),
+          );
+    return sprites;
+  }
   async function load() {
     try {
       const response = await fetch("assets/sprites/studio/studio.json", {
@@ -1164,20 +1204,25 @@
         loadEnvironment("room-surfaces"),
         loadEnvironment("pet-walk"),
         loadEnvironment("pet-life"),
+        loadCharacterLife(),
       ]);
       art.directionalError = "";
       art.environmentError = "";
-      ["directional", "surfaces", "petDirectional", "petLife"].forEach(
-        (property, index) => {
-          const result = extras[index];
-          art[property] =
-            result.status === "fulfilled" ? result.value : new Map();
-          if (result.status === "rejected") {
-            if (index === 0) art.directionalError = result.reason.message;
-            else art.environmentError += result.reason.message + ". ";
-          }
-        },
-      );
+      [
+        "directional",
+        "surfaces",
+        "petDirectional",
+        "petLife",
+        "characterLife",
+      ].forEach((property, index) => {
+        const result = extras[index];
+        art[property] =
+          result.status === "fulfilled" ? result.value : new Map();
+        if (result.status === "rejected") {
+          if (index === 0) art.directionalError = result.reason.message;
+          else art.environmentError += result.reason.message + ". ";
+        }
+      });
       art.directionalReady = art.directional.size === 96;
       art.sprites = sprites;
       art.ready = true;
@@ -1185,7 +1230,7 @@
       art.manifest = manifest;
       status.textContent =
         art.directionalReady && !art.environmentError
-          ? "Studio sprites, room finishes and directional walking ready. Viewing choices stay on this browser."
+          ? "Studio sprites, character activity, room finishes and directional walking ready. Viewing choices stay on this browser."
           : "Studio sprites ready. Some optional artwork is unavailable; use Retry artwork to restore it.";
       redraw();
     } catch (error) {
@@ -1196,6 +1241,7 @@
       art.surfaces.clear();
       art.petDirectional.clear();
       art.petLife.clear();
+      art.characterLife.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =

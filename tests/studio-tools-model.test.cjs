@@ -89,3 +89,132 @@ test("animated props fit their bounds without nonuniform stretching", () => {
     [0, 10, 20, 10],
   );
 });
+
+test("actor searches keep identity numbers separate from animation frame numbers", () => {
+  const { filterKeys } = require("../web/js/studio-tools.js"),
+    keys = Array.from({ length: 8 }, (_, pet) =>
+      Array.from({ length: 4 }, (_, frame) => `pet-${pet}-happy-anim-${frame}`),
+    ).flat();
+  for (const [query, expected] of [
+    [
+      "pet 0 happy anim",
+      [
+        "pet-0-happy-anim-0",
+        "pet-0-happy-anim-1",
+        "pet-0-happy-anim-2",
+        "pet-0-happy-anim-3",
+      ],
+    ],
+    [
+      "PET_1 happy anim",
+      [
+        "pet-1-happy-anim-0",
+        "pet-1-happy-anim-1",
+        "pet-1-happy-anim-2",
+        "pet-1-happy-anim-3",
+      ],
+    ],
+    [
+      "pet-2 happy anim",
+      [
+        "pet-2-happy-anim-0",
+        "pet-2-happy-anim-1",
+        "pet-2-happy-anim-2",
+        "pet-2-happy-anim-3",
+      ],
+    ],
+    [
+      "happy pet 3 anim",
+      [
+        "pet-3-happy-anim-0",
+        "pet-3-happy-anim-1",
+        "pet-3-happy-anim-2",
+        "pet-3-happy-anim-3",
+      ],
+    ],
+    ["pet-0-happy-anim-1", ["pet-0-happy-anim-1"]],
+  ])
+    assert.deepEqual(filterKeys(keys, query), expected, query);
+  const characters = [
+    "person-1-read-anim-0",
+    "person-10-read-anim-1",
+    "person-2-read-anim-1",
+  ];
+  assert.deepEqual(filterKeys(characters, "person 1 read"), [
+    "person-1-read-anim-0",
+  ]);
+  assert.deepEqual(filterKeys(keys, "pet 0", "characters"), []);
+});
+
+test("friendly appearance and action names remain searchable alongside source IDs", () => {
+  const { filterKeys } = require("../web/js/studio-tools.js"),
+    keys = [
+      "pet-4-happy-anim-0",
+      "pet-0-happy-anim-1",
+      "person-4-read",
+      "person-2-attention",
+      "taskterminal-running-anim-0",
+    ];
+  assert.deepEqual(filterKeys(keys, "corgi happy"), ["pet-4-happy-anim-0"]);
+  assert.deepEqual(filterKeys(keys, "studio robot reading"), ["person-4-read"]);
+  assert.deepEqual(filterKeys(keys, "indigo needs input"), [
+    "person-2-attention",
+  ]);
+  assert.deepEqual(filterKeys(keys, "task terminal running"), [
+    "taskterminal-running-anim-0",
+  ]);
+  assert.deepEqual(filterKeys(keys, "person-4-read"), ["person-4-read"]);
+});
+
+test("displayed frame numbers and source animation indices each select one frame", () => {
+  const { filterKeys } = require("../web/js/studio-tools.js"),
+    keys = [
+      "pet-0-happy-anim-0",
+      "pet-0-happy-anim-1",
+      "pet-0-happy-anim-2",
+      "pet-0-happy-anim-3",
+      "fx-sparkles-0",
+      "fx-sparkles-1",
+    ];
+  assert.deepEqual(filterKeys(keys, "orange cat happy frame 3"), [
+    "pet-0-happy-anim-2",
+  ]);
+  assert.deepEqual(filterKeys(keys, "pet 0 happy anim 3"), [
+    "pet-0-happy-anim-3",
+  ]);
+  assert.deepEqual(filterKeys(keys, "sparkles frame 2"), ["fx-sparkles-1"]);
+  assert.deepEqual(filterKeys(keys, "fx-sparkles-1"), ["fx-sparkles-1"]);
+  assert.deepEqual(filterKeys(keys, "fx sparkles 1", "companions"), []);
+  assert.deepEqual(filterKeys(keys, "frame 9"), []);
+});
+
+test("character life families expose native source order and retain static fallback", () => {
+  const { animationKeys } = require("../web/js/studio-tools.js"),
+    keys = [
+      "person-0-type",
+      "person-0-type-anim-0",
+      "person-0-type-anim-1",
+      "person-0-type-anim-2",
+      "person-0-type-anim-3",
+      "person-1-read-anim-0",
+      "person-1-read-anim-1",
+    ];
+  assert.deepEqual(animationKeys("person-0-type", keys), [
+    "person-0-type-anim-0",
+    "person-0-type-anim-1",
+    "person-0-type-anim-2",
+    "person-0-type-anim-3",
+  ]);
+  assert.deepEqual(animationKeys("person-0-type-anim-2", keys), [
+    "person-0-type-anim-0",
+    "person-0-type-anim-1",
+    "person-0-type-anim-2",
+    "person-0-type-anim-3",
+  ]);
+  assert.deepEqual(animationKeys("person-1-read-anim-0", keys), [
+    "person-1-read-anim-0",
+  ]);
+  assert.deepEqual(animationKeys("person-0-type", ["person-0-type"]), [
+    "person-0-type",
+  ]);
+});

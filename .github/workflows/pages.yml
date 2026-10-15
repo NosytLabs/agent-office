@@ -5,6 +5,7 @@ on:
     paths:
       - "site/**"
       - "tools/build_site.mjs"
+      - "tools/build_paths.mjs"
       - "docs/screenshots/**"
       - "web/assets/**"
       - "LICENSE"

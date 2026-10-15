@@ -52,3 +52,13 @@ three four-frame families (idle, sleep, happy), anchored at (14,25). Their compl
 original source and built-in imagegen prompt are preserved in `source/pet-life.*`.
 The environment compiler reproduces the reviewed alpha crops, per-look shared
 scale, native pixels and checksums. Runtime loops are cosmetic and stop with Pause.
+
+`character-life.png` / `character-life.json` add 72 native 32×36 frames: six
+base identities, with four typing, four reading and four attention poses each.
+The runtime creates 24 matching rose/moss palette variants. Each identity uses
+one shared scale and anchor (16,35), with a transparent margin and grounded feet.
+The unmodified 1536×1024 built-in imagegen source and complete prompt are retained
+in `source/character-life.*`; the manifest records the reviewed crops and decoded
+pixel checksum. The environment compiler reproduces this pack with the other
+supplements. Stationary reported activity selects these loops; walking and the
+existing error/completion/shell poses retain their separate artwork.

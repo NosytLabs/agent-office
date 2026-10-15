@@ -24,6 +24,22 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.prompt-library-backups {
+  margin-block: 12px;
+}
+.prompt-library-import-entries {
+  max-height: 320px;
+  overflow: auto;
+}
+.prompt-library-import-entries details {
+  padding-block: 8px;
+  border-block: 1px solid var(--line);
+}
+.prompt-library-import-entries summary {
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
 .prompt-library .txt {
   min-width: 0;
   max-width: 100%;
