@@ -11,7 +11,10 @@ test("studio has an independent, testable pose selector", () => {
 test("attention wins over a stale command; errors are not guessed", () => {
   assert.equal(studio.pose?.({ status: "waiting", tool: "Bash" }), "attention");
   assert.equal(studio.pose?.({ status: "idle", detail: "⚠ failed" }), "error");
-  assert.equal(studio.pose?.({ status: "idle", detail: "error-handling.py" }), "idle");
+  assert.equal(
+    studio.pose?.({ status: "idle", detail: "error-handling.py" }),
+    "idle",
+  );
 });
 test("observed commands differ from human input requests", () => {
   assert.equal(studio.pose?.({ status: "working", tool: "Bash" }), "wait");
@@ -38,11 +41,27 @@ test("companion poses use real walk, sleep and affection frames", () => {
   assert.equal(studio.petPose?.({ moving: true }, false, true), "idle");
 });
 test("preferences reject unexpected values and omit telemetry", () => {
-  assert.deepEqual(studio.preferences?.({ art: "x", pets: [99, -1], season: "auto", tokens: 100 }), { art: "studio", pets: [0, 1], season: "none" });
-  assert.deepEqual(studio.preferences?.({ art: "classic", pets: [4, 7], season: "winter" }), { art: "classic", pets: [4, 7], season: "winter" });
+  assert.deepEqual(
+    studio.preferences?.({
+      art: "x",
+      pets: [99, -1],
+      season: "auto",
+      tokens: 100,
+    }),
+    { art: "studio", pets: [0, 1], season: "none" },
+  );
+  assert.deepEqual(
+    studio.preferences?.({ art: "classic", pets: [4, 7], season: "winter" }),
+    { art: "classic", pets: [4, 7], season: "winter" },
+  );
 });
 test("manifest rejects missing poses, out-of-bounds frames and bad anchors", () => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "../web/assets/sprites/studio/studio.json"), "utf8"));
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "../web/assets/sprites/studio/studio.json"),
+      "utf8",
+    ),
+  );
   assert.equal(studio.validManifest?.(manifest), true);
   const missing = structuredClone(manifest);
   delete missing.entries["person-0-idle"];
@@ -53,4 +72,16 @@ test("manifest rejects missing poses, out-of-bounds frames and bad anchors", () 
   const anchor = structuredClone(manifest);
   anchor.entries["pet-0-idle"].anchor[0] = 99;
   assert.equal(studio.validManifest?.(anchor), false);
+});
+
+test("failed completion does not show a cheer", () => {
+  assert.equal(
+    studio.pose({ status: "done", detail: "⚠ Review failed" }),
+    "error",
+  );
+});
+test("companion feedback matches cats, dogs and the robot", () => {
+  assert.equal(studio.companionFeedback?.(0, "Miso"), "Miso purrs.");
+  assert.equal(studio.companionFeedback?.(4, "Scout"), "Scout wags happily.");
+  assert.equal(studio.companionFeedback?.(7, "Bit"), "Bit beeps hello.");
 });
