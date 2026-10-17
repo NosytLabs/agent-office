@@ -690,6 +690,9 @@ function normalizeSettings(data) {
     } else if (
       [
         "sound",
+        "sound_needs_input",
+        "sound_error",
+        "sound_reward",
         "show_labels",
         "show_pets",
         "pets_roam",

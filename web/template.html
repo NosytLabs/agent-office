@@ -674,6 +674,61 @@
         /><button class="btn" type="submit">Save pet names</button>
         <p class="h">Names appear when you pet a cat.</p>
       </form>
+      <form id="sound-prefs-form" class="settings-section">
+        <h3 id="sound-prefs-heading">Notification sounds</h3>
+        <p class="h">
+          The Sound button in the header mutes every office sound. Leave it on
+          and pick which kinds still chime below.
+        </p>
+        <label class="setting-label">
+          <input
+            type="checkbox"
+            id="sound-needs-input"
+            data-sound-pref="sound_needs_input"
+          />
+          Needs input
+        </label>
+        <label class="setting-label">
+          <input
+            type="checkbox"
+            id="sound-error"
+            data-sound-pref="sound_error"
+          />
+          Errors
+        </label>
+        <label class="setting-label">
+          <input
+            type="checkbox"
+            id="sound-reward"
+            data-sound-pref="sound_reward"
+          />
+          Achievements and rewards
+        </label>
+      </form>
+      <section class="settings-section" aria-labelledby="recap-heading">
+        <h3 id="recap-heading">Activity recap</h3>
+        <p class="h">
+          A browser-local review surface built from observed event history. It
+          never sends prompts, approves requests, or moves the office floor.
+        </p>
+        <fieldset id="recap-controls" class="recap-controls">
+          <legend class="sr">Recap range</legend>
+          <label class="setting-label">
+            <input type="radio" name="recap-range" value="today" />
+            Today
+          </label>
+          <label class="setting-label">
+            <input type="radio" name="recap-range" value="since_review" />
+            Since last review
+          </label>
+        </fieldset>
+        <button class="btn" id="recap-mark-reviewed" type="button">
+          Mark reviewed
+        </button>
+        <p class="h" id="recap-last-reviewed" role="status"></p>
+        <dl id="recap-summary" class="recap-summary" aria-live="polite"></dl>
+        <ol id="recap-events" class="recap-events"></ol>
+      </section>
       <section class="settings-section" aria-labelledby="retention-heading">
         <h3 id="retention-heading">History &amp; storage</h3>
         <p class="h">

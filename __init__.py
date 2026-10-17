@@ -123,6 +123,9 @@ _DEFAULTS = {
     "history_limit": 1000,
     "history_days": 7,
     "history_max_bytes": 5 * 1024 * 1024,
+    "sound_needs_input": True,
+    "sound_error": True,
+    "sound_reward": True,
     "pet_names": {},
     "budget_usd": 0,
     "aquarium_name": "",
@@ -176,7 +179,9 @@ def _valid_settings(data: Any) -> Dict[str, Any]:
         if key in choices:
             if isinstance(value, str) and value in choices[key]:
                 out[key] = value
-        elif key in ("sound", "show_labels", "show_pets", "pets_roam", "decorations", "room_lights", "aquarium_light") and isinstance(value, bool):
+        elif key in ("sound", "sound_needs_input", "sound_error", "sound_reward",
+                     "show_labels", "show_pets", "pets_roam",
+                     "decorations", "room_lights", "aquarium_light") and isinstance(value, bool):
             out[key] = value
         elif key == "max_chars" and type(value) is int and 2 <= value <= 8:
             out[key] = value
