@@ -669,22 +669,28 @@ function scrollSheetToTarget(target) {
   if (desired >= 0) sheet.scrollTop = desired;
 }
 // Tab/Shift+Tab on tiny viewports can leave the focused control under the
-// sticky sheet-header. Listen for keyboard-driven focus changes inside sheets
-// and nudge the scroll so the focused control sits below the header.
+// sticky sheet-header. Track a short-lived "tab pressed" flag set by the
+// keydown handler and read by the next focusin event; the scroll runs
+// after focus has actually moved, never on click or programmatic focus.
+let tabPressedAt = 0;
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Tab") return;
+    tabPressedAt = Date.now();
+  },
+  true,
+);
 for (const sheet of document.querySelectorAll(".sheet")) {
-  sheet.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.key !== "Tab") return;
-      // Tab moves focus after the keydown handler; defer the scroll past
-      // focus + layout to read the now-focused element's true position.
-      setTimeout(() => {
-        const target = sheet.querySelector(":focus");
-        if (target && target !== sheet) scrollSheetToTarget(target);
-      }, 0);
-    },
-    true,
-  );
+  sheet.addEventListener("focusin", (event) => {
+    if (Date.now() - tabPressedAt > 250) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target === sheet) return;
+    if (target.closest(".sheet-header")) return;
+    scrollSheetToTarget(target);
+    tabPressedAt = 0;
+  });
 }
 new MutationObserver(syncSettingsSections).observe(
   $("sheet-settings").querySelector(".sheet-body"),
