@@ -648,8 +648,39 @@ settingsSectionSelect.onchange = () => {
   if (target.tagName !== "SUMMARY") target.tabIndex = -1;
   settingsSectionSelect.value = "";
   target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "start" });
+  // scrollIntoView does not always honor scroll-margin-top on focused elements
+  // through every Chromium path; explicitly offset the sheet's scrollTop so the
+  // sticky sheet-header never covers the focused control on small viewports.
+  scrollSheetToTarget(target);
 };
+function scrollSheetToTarget(target) {
+  const sheet = target.closest(".sheet");
+  if (!sheet) return;
+  const header = sheet.querySelector(".sheet-header");
+  const offset = (header?.offsetHeight || 0) + 18;
+  const targetTop = target.getBoundingClientRect().top;
+  const sheetTop = sheet.getBoundingClientRect().top;
+  const desired = sheet.scrollTop + (targetTop - sheetTop - offset);
+  if (desired >= 0) sheet.scrollTop = desired;
+}
+// Tab/Shift+Tab on tiny viewports can leave the focused control under the
+// sticky sheet-header. Listen for keyboard-driven focus changes inside sheets
+// and nudge the scroll so the focused control sits below the header.
+for (const sheet of document.querySelectorAll(".sheet")) {
+  sheet.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Tab") return;
+      // Tab moves focus after the keydown handler; defer the scroll past
+      // focus + layout to read the now-focused element's true position.
+      setTimeout(() => {
+        const target = sheet.querySelector(":focus");
+        if (target && target !== sheet) scrollSheetToTarget(target);
+      }, 0);
+    },
+    true,
+  );
+}
 new MutationObserver(syncSettingsSections).observe(
   $("sheet-settings").querySelector(".sheet-body"),
   {

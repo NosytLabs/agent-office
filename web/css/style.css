@@ -479,7 +479,9 @@ html.panel-open {
 .sheet-body {
   padding: 0 var(--sheet-padding) var(--sheet-padding);
 }
-.sheet-body :focus {
+.sheet-body :focus,
+.sheet-body .settings-section,
+.sheet-body .settings-section h3 {
   scroll-margin-top: calc(var(--sheet-header-height, 0px) + 18px);
   scroll-margin-bottom: var(--sheet-padding);
 }
