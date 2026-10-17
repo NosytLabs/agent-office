@@ -479,7 +479,79 @@ html.panel-open {
 .sheet-body {
   padding: 0 var(--sheet-padding) var(--sheet-padding);
 }
-.sheet-body :focus {
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.recap-controls {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.recap-controls legend {
+  float: left;
+  padding: 0;
+}
+.recap-summary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.recap-summary dt {
+  color: var(--muted);
+}
+.recap-summary dd {
+  margin: 0;
+}
+.recap-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+}
+.recap-events li {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9em;
+}
+.recap-events li:last-child {
+  border-bottom: 0;
+}
+.recap-events li[data-kind="needs_input"] {
+  border-left: 3px solid var(--gold);
+}
+.recap-events li[data-kind="error"] {
+  border-left: 3px solid #c45;
+}
+.recap-events li[data-kind="reward"] {
+  border-left: 3px solid var(--accent);
+}
+.recap-events time {
+  color: var(--muted);
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-body :focus,
+.sheet-body .settings-section,
+.sheet-body .settings-section h3 {
   scroll-margin-top: calc(var(--sheet-header-height, 0px) + 18px);
   scroll-margin-bottom: var(--sheet-padding);
 }

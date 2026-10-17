@@ -287,13 +287,18 @@ function toast(message) {
     }, 4500),
   );
 }
-function chime() {
+function chime(kind) {
   if (
     !settings.sound ||
     document.hidden ||
     !navigator.userActivation?.hasBeenActive
   )
     return;
+  // Per-kind guard. Each chime caller passes a kind so individual preferences
+  // can mute waiting/error/reward independently of the master sound toggle.
+  if (kind === "needs_input" && settings.sound_needs_input === false) return;
+  if (kind === "error" && settings.sound_error === false) return;
+  if (kind === "reward" && settings.sound_reward === false) return;
   try {
     audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
     audioContext.resume().catch(() => {});
@@ -648,8 +653,45 @@ settingsSectionSelect.onchange = () => {
   if (target.tagName !== "SUMMARY") target.tabIndex = -1;
   settingsSectionSelect.value = "";
   target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "start" });
+  // scrollIntoView does not always honor scroll-margin-top on focused elements
+  // through every Chromium path; explicitly offset the sheet's scrollTop so the
+  // sticky sheet-header never covers the focused control on small viewports.
+  scrollSheetToTarget(target);
 };
+function scrollSheetToTarget(target) {
+  const sheet = target.closest(".sheet");
+  if (!sheet) return;
+  const header = sheet.querySelector(".sheet-header");
+  const offset = (header?.offsetHeight || 0) + 18;
+  const targetTop = target.getBoundingClientRect().top;
+  const sheetTop = sheet.getBoundingClientRect().top;
+  const desired = sheet.scrollTop + (targetTop - sheetTop - offset);
+  if (desired >= 0) sheet.scrollTop = desired;
+}
+// Tab/Shift+Tab on tiny viewports can leave the focused control under the
+// sticky sheet-header. Track a short-lived "tab pressed" flag set by the
+// keydown handler and read by the next focusin event; the scroll runs
+// after focus has actually moved, never on click or programmatic focus.
+let tabPressedAt = 0;
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Tab") return;
+    tabPressedAt = Date.now();
+  },
+  true,
+);
+for (const sheet of document.querySelectorAll(".sheet")) {
+  sheet.addEventListener("focusin", (event) => {
+    if (Date.now() - tabPressedAt > 250) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target === sheet) return;
+    if (target.closest(".sheet-header")) return;
+    scrollSheetToTarget(target);
+    tabPressedAt = 0;
+  });
+}
 new MutationObserver(syncSettingsSections).observe(
   $("sheet-settings").querySelector(".sheet-body"),
   {
@@ -2052,7 +2094,8 @@ function updateAttention(state, previousState) {
     received = state.tracking?.received,
     previousReceived = previousState?.tracking?.received;
   let fresh = [],
-    notify = false;
+    notify = false,
+    notifyKind = "needs_input";
   if (initialized) {
     if (Number.isFinite(received) && Number.isFinite(previousReceived)) {
       const count = received - previousReceived;
@@ -2074,22 +2117,24 @@ function updateAttention(state, previousState) {
     if (
       ["approval_request", "input_request"].includes(event.event) &&
       agent.status === "waiting"
-    )
+    ) {
       attentionNotice = { id, kind: "waiting" };
-    else if (
+      notifyKind = "needs_input";
+    } else if (
       event.event === "session_error" ||
       (event.event === "tool_end" && event.status === "error")
-    )
+    ) {
       attentionNotice = {
         id,
         kind: "error",
         detail:
           event.error_message || "Inspect the recorded event for details.",
       };
-    else continue;
+      notifyKind = "error";
+    } else continue;
     notify = true;
   }
-  if (notify) chime();
+  if (notify) chime(notifyKind);
   syncAttention();
 }
 $("attention-dismiss").onclick = () => {
@@ -2112,6 +2157,12 @@ function applyState(state, pollRevision = settingsRevision) {
     state.settings_status?.available !== false;
   const previousState = window._state;
   window._state = state;
+  try {
+    renderRecap();
+  } catch {}
+  try {
+    syncSoundPrefCheckboxes(canReadSettings ? state.settings : null);
+  } catch {}
   offline = false;
   agents = state.agents;
   progress = state.progress || null;
@@ -2182,7 +2233,7 @@ function applyState(state, pollRevision = settingsRevision) {
         : newUnlocks.length +
             " achievements earned. Open Achievements to see your rewards.",
     );
-    chime();
+    chime("reward");
   }
   updateAttention(state, previousState);
   const last = state.events.at(-1);
@@ -2894,8 +2945,185 @@ $("themeNextbtn").onclick = () =>
 $("sound").onclick = () => {
   const sound = !settings.sound;
   updateSetting("sound", sound);
-  if (sound) chime();
+  if (sound) chime("needs_input");
 };
+// Notification sound preferences. Each checkbox is a per-kind gate that
+// suppresses chime() while the master Sound button stays on. Persisted via
+// updateSetting so they live in settings.json like every other preference.
+// Reads from the incoming state snapshot so it always reflects the latest
+// server-saved values, even before the global `settings` is updated.
+function syncSoundPrefCheckboxes(stateSettings) {
+  const source = stateSettings || settings;
+  for (const checkbox of document.querySelectorAll("[data-sound-pref]")) {
+    const key = checkbox.dataset.soundPref;
+    checkbox.checked = source[key] !== false;
+  }
+}
+for (const checkbox of document.querySelectorAll("[data-sound-pref]")) {
+  checkbox.addEventListener("change", () => {
+    updateSetting(checkbox.dataset.soundPref, checkbox.checked);
+  });
+}
+// Activity recap: a browser-local surface that summarizes the observed
+// events kept by the office. The recap range and the last-reviewed marker
+// are kept in localStorage, never in settings.json, so a second browser or
+// a fresh install starts clean.
+const RECAP_RANGE_KEY = "agentOffice.recapRange";
+const RECAP_REVIEWED_KEY = "agentOffice.lastReviewedAt";
+const RECAP_RANGES = { today: "Today", since_review: "Since last review" };
+const RECAP_DAY_MS = 24 * 60 * 60 * 1000;
+function safeLocalGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function safeLocalSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function loadRecapRange() {
+  const stored = safeLocalGet(RECAP_RANGE_KEY);
+  return stored === "today" || stored === "since_review" ? stored : "today";
+}
+function saveRecapRange(range) {
+  if (range === "today" || range === "since_review") {
+    safeLocalSet(RECAP_RANGE_KEY, range);
+  }
+}
+function recapSince(range) {
+  if (range === "since_review") {
+    const stored = Number(safeLocalGet(RECAP_REVIEWED_KEY));
+    if (Number.isFinite(stored) && stored > 0) return stored;
+    // No marker yet — fall back to start of today so the first visit isn't
+    // an empty review of the entire history.
+    return startOfLocalDay();
+  }
+  return startOfLocalDay();
+}
+function startOfLocalDay() {
+  const now = new Date();
+  return (
+    new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000
+  );
+}
+function recapKind(event) {
+  if (!event) return "info";
+  if (
+    ["approval_request", "input_request"].includes(event.event) &&
+    (event.status === "waiting" || event.kind === "waiting")
+  )
+    return "needs_input";
+  if (
+    event.event === "session_error" ||
+    (event.event === "tool_end" && event.status === "error")
+  )
+    return "error";
+  if (event.event === "achievement" || event.kind === "achievement")
+    return "reward";
+  return "info";
+}
+function formatRecapTime(ts) {
+  if (!Number.isFinite(ts)) return "";
+  return new Date(ts * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+function renderRecap() {
+  const list = $("recap-events");
+  const summary = $("recap-summary");
+  if (!list || !summary) return;
+  const range = loadRecapRange();
+  const since = recapSince(range);
+  const events = (window._state?.events || []).filter(
+    (e) => Number(e.ts) >= since,
+  );
+  const counts = { needs_input: 0, error: 0, reward: 0, info: 0 };
+  for (const e of events) counts[recapKind(e)] += 1;
+  summary.replaceChildren();
+  const rows = [
+    ["Range", RECAP_RANGES[range]],
+    ["Events", String(events.length)],
+    ["Needs input", String(counts.needs_input)],
+    ["Errors", String(counts.error)],
+    ["Achievements", String(counts.reward)],
+    ["Other", String(counts.info)],
+  ];
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    summary.append(dt, dd);
+  }
+  list.replaceChildren();
+  const interesting = events.filter((e) => recapKind(e) !== "info");
+  if (!interesting.length) {
+    const li = document.createElement("li");
+    li.textContent = `No needs-input, error, or achievement events in ${RECAP_RANGES[range].toLowerCase()}.`;
+    list.append(li);
+  } else {
+    for (const e of interesting.slice(-50).reverse()) {
+      const li = document.createElement("li");
+      li.dataset.kind = recapKind(e);
+      const time = document.createElement("time");
+      time.textContent = formatRecapTime(Number(e.ts));
+      li.append(time);
+      const text = document.createElement("span");
+      text.textContent = recapLine(e);
+      li.append(text);
+      list.append(li);
+    }
+  }
+  const marker = Number(safeLocalGet(RECAP_REVIEWED_KEY));
+  $("recap-last-reviewed").textContent =
+    Number.isFinite(marker) && marker > 0
+      ? `Last reviewed ${new Date(marker * 1000).toLocaleString()}`
+      : "Never reviewed yet.";
+  for (const radio of document.querySelectorAll('input[name="recap-range"]')) {
+    radio.checked = radio.value === range;
+  }
+}
+function recapLine(event) {
+  if (!event) return "";
+  const label =
+    event.session_label ||
+    event.session_id ||
+    event.child_session_id ||
+    "session";
+  const detail =
+    event.command ||
+    event.question ||
+    event.error_message ||
+    event.message ||
+    event.event;
+  return `${label} — ${detail}`;
+}
+for (const radio of document.querySelectorAll('input[name="recap-range"]')) {
+  radio.addEventListener("change", () => {
+    if (radio.checked) {
+      saveRecapRange(radio.value);
+      renderRecap();
+    }
+  });
+}
+$("recap-mark-reviewed")?.addEventListener("click", () => {
+  safeLocalSet(RECAP_REVIEWED_KEY, String(Date.now() / 1000));
+  saveRecapRange("since_review");
+  renderRecap();
+});
+// Re-render the recap whenever the floor state changes; the event list
+// lives in window._state.events.
+const _renderRecapHook = () => renderRecap();
+addEventListener("storage", (event) => {
+  if (event.key && event.key.startsWith("agentOffice.")) renderRecap();
+});
 $("zoom-in").onclick = () => scene.setZoom(scene.zoom + 0.25);
 $("zoom-out").onclick = () => scene.setZoom(scene.zoom - 0.25);
 $("zoom-fit").onclick = () => scene.setZoom(1);

@@ -143,6 +143,29 @@ polling and is cleared when you switch sessions. A late clipboard result cannot
 insert another session's report into the new inspector. No report is persisted to
 browser storage or the server. Review paths and command previews before sharing.
 
+## Notification sounds and activity recap
+
+The header **Sound** button mutes every office sound. With it on, open
+**Customize → Notification sounds** to choose which kinds still chime:
+needs input, errors, and achievements/rewards. Each checkbox is saved
+alongside your other preferences in `settings.json`. The master toggle and
+the three kind-level toggles are independent: turning off "Errors" silences
+the error chime without affecting needs-input or reward sounds.
+
+**Customize → Activity recap** shows a browser-local review of the office's
+own observed events. Pick **Today** to see every event since local midnight,
+or **Since last review** to see everything after your last **Mark reviewed**
+click. The summary counts events, needs-input requests, errors, and
+achievements separately. The list below shows only the kinds that matter
+for a review: needs-input prompts, errors, and reward unlocks.
+
+Recap data lives in this browser's `localStorage`, not in `settings.json`,
+so a second browser or a fresh install starts clean. **Mark reviewed** sets
+the local marker to the current time. Retained event history is the same
+data the rest of the office uses; clearing history does not change the
+recap marker. The recap surface never sends a prompt, approves a request,
+or moves the office floor.
+
 ## Export exactly the activity you need
 
 In **Activity → Saved**, combine the search and runtime filter, or open **Saved
