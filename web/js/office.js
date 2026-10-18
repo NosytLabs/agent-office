@@ -64,7 +64,10 @@ let lockedPage = null,
   viewRestored = false,
   viewSaveTimer = null;
 let sessionUsageIndex = new Map();
-let inspectorCopyVersion = 0;
+let inspectorCopyVersion = 0,
+  panelInteractionVersion = 0,
+  setupCopyVersion = 0,
+  setupCopyRuntime = null;
 let preferenceWritePending = false,
   preferenceCleanupPending = false;
 let pendingHistoryScroll = null;
@@ -391,6 +394,20 @@ function rememberPanel(id = opened) {
     view.focus = document.activeElement;
   panelViews.set(id, view);
 }
+// Clipboard permission can outlive a panel visit, a task tab, or this page.
+function capturePanelInteraction() {
+  const version = panelInteractionVersion,
+    panel = opened;
+  return () =>
+    !!panel &&
+    opened === panel &&
+    version === panelInteractionVersion &&
+    !document.hidden;
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) panelInteractionVersion++;
+});
+window.addEventListener("pagehide", () => panelInteractionVersion++);
 function positionNotices() {
   const target = opened
     ? $(opened).querySelector(".sheet-notices")
@@ -477,6 +494,7 @@ function syncPanelNavigation() {
   }
 }
 function displayPanel(id) {
+  panelInteractionVersion++;
   if (opened === "sheet-tasks" && id !== "sheet-tasks")
     window.officeTaskRunner?.close();
   for (const panel of document.querySelectorAll(".sheet"))
@@ -504,6 +522,7 @@ function displayPanel(id) {
   persistView();
 }
 function closeSheets() {
+  panelInteractionVersion++;
   rememberPanel();
   if (opened === "sheet-tasks") window.officeTaskRunner?.close();
   for (const panel of document.querySelectorAll(".sheet")) panel.hidden = true;
@@ -801,7 +820,12 @@ function fillSetup() {
   const runtime = $("setup-runtime").value;
   const integration = runtime === "telegram" ? "hermes" : runtime;
   const command = "python3 install.py --only " + integration;
-  if ($("command-install").textContent !== command) {
+  if (
+    setupCopyRuntime !== runtime ||
+    $("command-install").textContent !== command
+  ) {
+    setupCopyRuntime = runtime;
+    setupCopyVersion++;
     $("command-install").textContent = command;
     $("setup-copy-status").textContent = "";
   }
@@ -843,12 +867,34 @@ $("setup-runtime").onchange = fillSetup;
 $("setup-done").onclick = closeSheets;
 for (const button of document.querySelectorAll("[data-copy-command]")) {
   button.onclick = async () => {
-    const command = $(button.dataset.copyCommand);
-    const commandText = command.textContent.trim().replace(/\s+/g, " ");
+    const command = $(button.dataset.copyCommand),
+      readCommand = () => command.textContent.trim().replace(/\s+/g, " "),
+      commandText = readCommand(),
+      version = ++setupCopyVersion,
+      panelCurrent = capturePanelInteraction(),
+      current = () =>
+        panelCurrent() &&
+        version === setupCopyVersion &&
+        command.getClientRects().length;
     try {
       await navigator.clipboard.writeText(commandText);
-      $("setup-copy-status").textContent = "Copied: " + commandText;
+      if (!current()) return;
+      $("setup-copy-status").textContent =
+        readCommand() === commandText
+          ? "Copied: " + commandText
+          : "The command changed. Copy the current command again.";
     } catch {
+      if (!current()) return;
+      if (readCommand() !== commandText) {
+        $("setup-copy-status").textContent =
+          "The command changed. Copy the current command again.";
+        return;
+      }
+      if (document.activeElement !== button) {
+        $("setup-copy-status").textContent =
+          "Clipboard unavailable. Copy the command manually.";
+        return;
+      }
       const range = document.createRange();
       range.selectNodeContents(command);
       const selection = window.getSelection();
@@ -1155,6 +1201,7 @@ function fillTasks() {
 }
 for (const button of $("task-tabs").children)
   button.onclick = () => {
+    if (button.dataset.taskView !== taskMode) panelInteractionVersion++;
     taskMode = ["activity", "reported", "draft", "local-runs"].includes(
       button.dataset.taskView,
     )
@@ -1527,8 +1574,10 @@ $("inspector-copy").onclick = async () => {
   if (!agent) return;
   const id = agent.id,
     version = ++inspectorCopyVersion,
+    panelCurrent = capturePanelInteraction(),
     text = sessionReport(agent);
   const current = () =>
+    panelCurrent() &&
     version === inspectorCopyVersion &&
     opened === "sheet-inspector" &&
     focusedId === id &&
@@ -1545,10 +1594,14 @@ $("inspector-copy").onclick = async () => {
     const field = $("inspector-report-text");
     field.value = text;
     $("inspector-report").hidden = false;
-    $("inspector-copy-status").textContent =
-      "Clipboard unavailable. Snapshot selected below; use your device’s Copy action.";
-    field.focus();
-    field.select();
+    const select = document.activeElement === $("inspector-copy");
+    $("inspector-copy-status").textContent = select
+      ? "Clipboard unavailable. Snapshot selected below; use your device’s Copy action."
+      : "Clipboard unavailable. Copy the snapshot below manually.";
+    if (select) {
+      field.focus();
+      field.select();
+    }
   }
 };
 $("inspector-customize").onclick = () => {
@@ -2621,7 +2674,9 @@ function syncHealth() {
     : () => {
         openSheet("sheet-settings");
         $("storage-diagnostics").open = true;
-        $("storage-diagnostics").scrollIntoView({ block: "center" });
+        const summary = $("storage-diagnostics").querySelector("summary");
+        summary.focus({ preventScroll: true });
+        scrollSheetToTarget(summary);
       };
 }
 function syncBudget() {

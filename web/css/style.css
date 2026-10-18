@@ -217,12 +217,13 @@ select.btn {
 #workspace {
   display: flex;
   flex: 1;
-  min-height: 0;
+  min-height: min-content;
   flex-direction: column;
   padding: 8px 32px 0;
 }
 .scene-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -247,7 +248,9 @@ h2 {
 }
 #summary {
   display: flex;
+  flex-wrap: wrap;
   flex-shrink: 0;
+  max-width: 100%;
   gap: 12px;
   font-size: 14px;
   font-weight: 500;
@@ -262,8 +265,9 @@ h2 {
 }
 #stage {
   position: relative;
+  contain: size;
   flex: 1;
-  min-height: 0;
+  min-height: 240px;
   background: #111720;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -1107,6 +1111,46 @@ html.panel-open {
   }
   .repo-link {
     display: none;
+  }
+}
+@media (min-width: 601px) {
+  .scene-heading > :first-child {
+    flex: 1 1 240px;
+  }
+}
+@media (max-height: 480px) {
+  .sheet-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .sheet-back {
+    margin: 0;
+    align-self: center;
+  }
+  .sheet-title-row {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .sheet-back[hidden] + .sheet-title-row {
+    grid-column: 1 / -1;
+  }
+  .sheet .sheet-header h2 {
+    font-size: 20px;
+  }
+  .sheet-section-navigation,
+  .sheet-notices {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+  .sheet-notices:has(#toast:not(:empty)),
+  .sheet-notices:has(#settings-save-notice:not([hidden])) {
+    margin-top: 0;
+  }
+  .sheet-notices {
+    max-height: max(44px, 16dvh);
   }
 }
 @media (max-width: 600px) {
