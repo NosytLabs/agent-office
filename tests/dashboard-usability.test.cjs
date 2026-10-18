@@ -314,12 +314,10 @@ test("the empty-room welcome card keeps its instructions reachable inside a shor
     },
     async ({ page }) => {
       await page.evaluate(() => document.fonts.ready);
-      const bounds = await page
-        .locator("#empty-state")
-        .evaluate((card) => ({
-          card: card.getBoundingClientRect().toJSON(),
-          stage: card.closest("#stage").getBoundingClientRect().toJSON(),
-        }));
+      const bounds = await page.locator("#empty-state").evaluate((card) => ({
+        card: card.getBoundingClientRect().toJSON(),
+        stage: card.closest("#stage").getBoundingClientRect().toJSON(),
+      }));
       assert.ok(
         bounds.card.top >= bounds.stage.top &&
           bounds.card.bottom <= bounds.stage.bottom,
@@ -327,12 +325,10 @@ test("the empty-room welcome card keeps its instructions reachable inside a shor
           JSON.stringify(bounds),
       );
       await page.locator("#empty-demo").scrollIntoViewIfNeeded();
-      const bottom = await page
-        .locator("#empty-demo")
-        .evaluate((node) => ({
-          text: node.getBoundingClientRect().bottom,
-          stage: node.closest("#stage").getBoundingClientRect().bottom,
-        }));
+      const bottom = await page.locator("#empty-demo").evaluate((node) => ({
+        text: node.getBoundingClientRect().bottom,
+        stage: node.closest("#stage").getBoundingClientRect().bottom,
+      }));
       assert.ok(bottom.text <= bottom.stage, JSON.stringify(bottom));
       await page.click("#empty-connect");
       assert.equal(await page.locator("#sheet-setup").isVisible(), true);
