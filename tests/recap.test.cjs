@@ -331,8 +331,15 @@ test("failed recap preference writes keep the previous marker and show a retryab
         true,
       );
       const after = await (await fetch(base + "/state")).json();
-      for (const field of ["progress", "usage", "events", "agents"])
+      for (const field of ["progress", "usage", "events"])
         assert.deepEqual(after[field], before[field]);
+      // Observer ages advance independently of browser-local recap preferences.
+      const withoutAges = (agents) =>
+        agents.map(({ duration_s, idle_s, ...agent }) => agent);
+      assert.deepEqual(withoutAges(after.agents), withoutAges(before.agents));
+      for (let i = 0; i < after.agents.length; i++)
+        for (const field of ["duration_s", "idle_s"])
+          assert.ok(after.agents[i][field] >= before.agents[i][field]);
     },
   );
 });
