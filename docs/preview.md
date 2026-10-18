@@ -24,7 +24,7 @@ npm run build:site
 python3 -m http.server 8080 --directory site-dist
 ```
 
-Open `http://127.0.0.1:8080`. The generated `site-dist/` has 19 explicit public
+Open `http://127.0.0.1:8080`. The generated `site-dist/` contains only explicit public
 files plus its build manifest. Every resource and local page link is relative,
 so the same output works at `/agent-office/` on GitHub Pages or `/about/` on the
 existing Vercel demo. The build reads only its allowlisted source files and

@@ -2160,9 +2160,6 @@ function applyState(state, pollRevision = settingsRevision) {
   try {
     renderRecap();
   } catch {}
-  try {
-    syncSoundPrefCheckboxes(canReadSettings ? state.settings : null);
-  } catch {}
   offline = false;
   agents = state.agents;
   progress = state.progress || null;
@@ -2759,6 +2756,8 @@ function syncSettingsReadiness() {
     control.disabled = !settingsReady;
 }
 function fillSettings() {
+  renderRecap();
+  syncSoundPrefCheckboxes();
   fillInactivePreferences();
   for (const [id, value] of [
     ["pet-cat1-name", settings.pet_names?.cat1 || ""],
@@ -2950,13 +2949,12 @@ $("sound").onclick = () => {
 // Notification sound preferences. Each checkbox is a per-kind gate that
 // suppresses chime() while the master Sound button stays on. Persisted via
 // updateSetting so they live in settings.json like every other preference.
-// Reads from the incoming state snapshot so it always reflects the latest
-// server-saved values, even before the global `settings` is updated.
-function syncSoundPrefCheckboxes(stateSettings) {
-  const source = stateSettings || settings;
+// Use the revision-checked settings owner, including pending edits and rollback,
+// rather than painting a raw poll response that may predate a newer save.
+function syncSoundPrefCheckboxes() {
   for (const checkbox of document.querySelectorAll("[data-sound-pref]")) {
     const key = checkbox.dataset.soundPref;
-    checkbox.checked = source[key] !== false;
+    checkbox.checked = settings[key] !== false;
   }
 }
 for (const checkbox of document.querySelectorAll("[data-sound-pref]")) {
@@ -2964,47 +2962,75 @@ for (const checkbox of document.querySelectorAll("[data-sound-pref]")) {
     updateSetting(checkbox.dataset.soundPref, checkbox.checked);
   });
 }
-// Activity recap: a browser-local surface that summarizes the observed
-// events kept by the office. The recap range and the last-reviewed marker
-// are kept in localStorage, never in settings.json, so a second browser or
-// a fresh install starts clean.
-const RECAP_RANGE_KEY = "agentOffice.recapRange";
-const RECAP_REVIEWED_KEY = "agentOffice.lastReviewedAt";
+// Recap filters the bounded recent snapshot. Only viewing choices are stored
+// in this browser; demo and observer markers never share a storage record.
 const RECAP_RANGES = { today: "Today", since_review: "Since last review" };
-const RECAP_DAY_MS = 24 * 60 * 60 * 1000;
-function safeLocalGet(key) {
+let recapNotice = "",
+  recapRowNodes = new Map();
+function recapStorageKey() {
+  return (
+    "agent-office:recap:v1:" +
+    (document.body.dataset.agentOfficePreview === "1" ||
+    window._state?.mode === "demo"
+      ? "preview"
+      : "observer")
+  );
+}
+function loadRecapChoices() {
+  const defaults = { version: 1, range: "today", reviewedAt: null };
+  let raw;
   try {
-    return localStorage.getItem(key);
+    raw = localStorage.getItem(recapStorageKey());
   } catch {
-    return null;
+    return {
+      choices: defaults,
+      available: false,
+      warning:
+        "Recap choices could not be read in this browser. Showing Today; event data is unchanged.",
+    };
   }
-}
-function safeLocalSet(key, value) {
+  if (raw === null) return { choices: defaults, available: true, warning: "" };
   try {
-    localStorage.setItem(key, value);
-    return true;
+    if (raw.length > 256) throw new Error();
+    const value = JSON.parse(raw);
+    if (
+      !value ||
+      Object.keys(value).sort().join(",") !== "range,reviewedAt,version" ||
+      value.version !== 1 ||
+      !Object.hasOwn(RECAP_RANGES, value.range) ||
+      (value.reviewedAt !== null &&
+        (typeof value.reviewedAt !== "number" ||
+          !Number.isFinite(value.reviewedAt) ||
+          value.reviewedAt <= 0 ||
+          value.reviewedAt > Date.now() / 1000))
+    )
+      throw new Error();
+    return { choices: value, available: true, warning: "" };
   } catch {
-    return false;
+    return {
+      choices: defaults,
+      available: true,
+      warning:
+        "Saved recap choices are invalid. Showing Today until you choose a range again; stored events are unchanged.",
+    };
   }
 }
-function loadRecapRange() {
-  const stored = safeLocalGet(RECAP_RANGE_KEY);
-  return stored === "today" || stored === "since_review" ? stored : "today";
-}
-function saveRecapRange(range) {
-  if (range === "today" || range === "since_review") {
-    safeLocalSet(RECAP_RANGE_KEY, range);
+function saveRecapChoices(patch) {
+  const current = loadRecapChoices();
+  try {
+    if (!current.available) throw new Error();
+    localStorage.setItem(
+      recapStorageKey(),
+      JSON.stringify({ ...current.choices, ...patch }),
+    );
+    recapNotice = patch.reviewedAt
+      ? "Review marker saved in this browser. Observer activity is unchanged."
+      : "Recap range saved in this browser.";
+  } catch {
+    recapNotice =
+      "Recap choices were not saved. The previous range and review marker are unchanged. Try again.";
   }
-}
-function recapSince(range) {
-  if (range === "since_review") {
-    const stored = Number(safeLocalGet(RECAP_REVIEWED_KEY));
-    if (Number.isFinite(stored) && stored > 0) return stored;
-    // No marker yet — fall back to start of today so the first visit isn't
-    // an empty review of the entire history.
-    return startOfLocalDay();
-  }
-  return startOfLocalDay();
+  renderRecap();
 }
 function startOfLocalDay() {
   const now = new Date();
@@ -3014,18 +3040,13 @@ function startOfLocalDay() {
 }
 function recapKind(event) {
   if (!event) return "info";
-  if (
-    ["approval_request", "input_request"].includes(event.event) &&
-    (event.status === "waiting" || event.kind === "waiting")
-  )
+  if (["approval_request", "input_request"].includes(event.event))
     return "needs_input";
   if (
     event.event === "session_error" ||
     (event.event === "tool_end" && event.status === "error")
   )
     return "error";
-  if (event.event === "achievement" || event.kind === "achievement")
-    return "reward";
   return "info";
 }
 function formatRecapTime(ts) {
@@ -3036,58 +3057,102 @@ function formatRecapTime(ts) {
   });
 }
 function renderRecap() {
+  if (opened !== "sheet-settings") return;
   const list = $("recap-events");
   const summary = $("recap-summary");
   if (!list || !summary) return;
-  const range = loadRecapRange();
-  const since = recapSince(range);
-  const events = (window._state?.events || []).filter(
-    (e) => Number(e.ts) >= since,
-  );
-  const counts = { needs_input: 0, error: 0, reward: 0, info: 0 };
+  const { choices, warning } = loadRecapChoices();
+  const range = choices.range,
+    marker = choices.reviewedAt;
+  const reviewed = range === "since_review" && marker !== null;
+  const since = reviewed ? marker : startOfLocalDay();
+  const now = Date.now() / 1000;
+  const events = (window._state?.events || [])
+    .slice(-30)
+    .filter(
+      (e) =>
+        e &&
+        Number.isFinite(Number(e.ts)) &&
+        Number(e.ts) <= now &&
+        (reviewed ? Number(e.ts) > since : Number(e.ts) >= since),
+    );
+  const counts = { needs_input: 0, error: 0, info: 0 };
   for (const e of events) counts[recapKind(e)] += 1;
-  summary.replaceChildren();
   const rows = [
-    ["Range", RECAP_RANGES[range]],
+    [
+      "Range",
+      range === "since_review" && !reviewed
+        ? "Today (no review yet)"
+        : RECAP_RANGES[range],
+    ],
     ["Events", String(events.length)],
-    ["Needs input", String(counts.needs_input)],
+    ["Input requests", String(counts.needs_input)],
     ["Errors", String(counts.error)],
-    ["Achievements", String(counts.reward)],
     ["Other", String(counts.info)],
   ];
-  for (const [label, value] of rows) {
-    const dt = document.createElement("dt");
-    dt.textContent = label;
-    const dd = document.createElement("dd");
-    dd.textContent = value;
-    summary.append(dt, dd);
-  }
-  list.replaceChildren();
-  const interesting = events.filter((e) => recapKind(e) !== "info");
-  if (!interesting.length) {
-    const li = document.createElement("li");
-    li.textContent = `No needs-input, error, or achievement events in ${RECAP_RANGES[range].toLowerCase()}.`;
-    list.append(li);
-  } else {
-    for (const e of interesting.slice(-50).reverse()) {
-      const li = document.createElement("li");
-      li.dataset.kind = recapKind(e);
-      const time = document.createElement("time");
-      time.textContent = formatRecapTime(Number(e.ts));
-      li.append(time);
-      const text = document.createElement("span");
-      text.textContent = recapLine(e);
-      li.append(text);
-      list.append(li);
+  if (!summary.children.length) {
+    for (const [label] of rows) {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      summary.append(dt, document.createElement("dd"));
     }
   }
-  const marker = Number(safeLocalGet(RECAP_REVIEWED_KEY));
-  $("recap-last-reviewed").textContent =
-    Number.isFinite(marker) && marker > 0
+  rows.forEach(([, value], index) =>
+    setText(summary.children[index * 2 + 1], value),
+  );
+  const interesting = events.filter((e) => recapKind(e) !== "info").reverse();
+  const next = new Map(),
+    occurrences = new Map();
+  let cursor = list.firstChild;
+  const insert = (row) => {
+    if (row === cursor) cursor = cursor.nextSibling;
+    else list.insertBefore(row, cursor);
+  };
+  if (!interesting.length) {
+    const li =
+      list.querySelector(".recap-empty") || document.createElement("li");
+    li.className = "recap-empty";
+    setText(
+      li,
+      "No input-request or error events match this range in the recent snapshot.",
+    );
+    insert(li);
+  } else {
+    for (const e of interesting) {
+      const identity = JSON.stringify(e),
+        occurrence = occurrences.get(identity) || 0;
+      occurrences.set(identity, occurrence + 1);
+      const key = identity + ":" + occurrence;
+      let li = recapRowNodes.get(key);
+      if (!li) {
+        li = document.createElement("li");
+        li.dataset.kind = recapKind(e);
+        const time = document.createElement("time");
+        time.textContent = formatRecapTime(Number(e.ts));
+        const text = document.createElement("span");
+        text.textContent = recapLine(e);
+        li.append(time, text);
+      }
+      next.set(key, li);
+      insert(li);
+    }
+  }
+  while (cursor) {
+    const sibling = cursor.nextSibling;
+    cursor.remove();
+    cursor = sibling;
+  }
+  recapRowNodes = next;
+  setText(
+    $("recap-last-reviewed"),
+    marker !== null
       ? `Last reviewed ${new Date(marker * 1000).toLocaleString()}`
-      : "Never reviewed yet.";
+      : "Never reviewed yet. Since last review uses today until you mark a review.",
+  );
+  setText($("recap-status"), recapNotice || warning);
   for (const radio of document.querySelectorAll('input[name="recap-range"]')) {
-    radio.checked = radio.value === range;
+    if (radio.checked !== (radio.value === range))
+      radio.checked = radio.value === range;
   }
 }
 function recapLine(event) {
@@ -3108,21 +3173,23 @@ function recapLine(event) {
 for (const radio of document.querySelectorAll('input[name="recap-range"]')) {
   radio.addEventListener("change", () => {
     if (radio.checked) {
-      saveRecapRange(radio.value);
-      renderRecap();
+      saveRecapChoices({ range: radio.value });
     }
   });
 }
 $("recap-mark-reviewed")?.addEventListener("click", () => {
-  safeLocalSet(RECAP_REVIEWED_KEY, String(Date.now() / 1000));
-  saveRecapRange("since_review");
-  renderRecap();
+  saveRecapChoices({ range: "since_review", reviewedAt: Date.now() / 1000 });
 });
-// Re-render the recap whenever the floor state changes; the event list
-// lives in window._state.events.
-const _renderRecapHook = () => renderRecap();
 addEventListener("storage", (event) => {
-  if (event.key && event.key.startsWith("agentOffice.")) renderRecap();
+  try {
+    if (event.storageArea !== localStorage) return;
+  } catch {
+    return;
+  }
+  if (event.key === null || event.key === recapStorageKey()) {
+    recapNotice = "";
+    renderRecap();
+  }
 });
 $("zoom-in").onclick = () => scene.setZoom(scene.zoom + 0.25);
 $("zoom-out").onclick = () => scene.setZoom(scene.zoom - 0.25);

@@ -1,115 +1,9 @@
 /* Browser-local recap and per-kind sound preferences. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("node:path");
-const fs = require("node:fs");
-const { spawn, spawnSync } = require("node:child_process");
-const net = require("node:net");
-const os = require("node:os");
-const { chromium } = require("playwright");
+const { observerFixture } = require("./observer-fixture.cjs");
 const { fetchSettings } = require("./settings-helper.cjs");
-
-const root = path.resolve(__dirname, "..");
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function observerFixture(options, run) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "office-recap-flow-"));
-  const directory = path.join(home, "pixel-office");
-  const python = process.env.PYTHON || "python";
-  const environment = { ...process.env, HERMES_HOME: home };
-  delete environment.AGENT_OFFICE_DEMO;
-  const publish = (events) => {
-    const result = spawnSync(
-      python,
-      [
-        "-c",
-        "import json,sys; from pathlib import Path; from event_inbox import publish; [publish(Path(sys.argv[1]), event) for event in json.load(sys.stdin)]",
-        directory,
-      ],
-      {
-        cwd: root,
-        env: environment,
-        input: JSON.stringify(events),
-        encoding: "utf8",
-        timeout: 5000,
-      },
-    );
-    assert.equal(result.status, 0, "Actual inbox publisher: " + result.stderr);
-  };
-  let server,
-    browser,
-    output = "";
-  try {
-    publish(options.events || []);
-    const probe = net.createServer();
-    await new Promise((resolve, reject) =>
-      probe.once("error", reject).listen(0, "127.0.0.1", resolve),
-    );
-    const port = probe.address().port;
-    await new Promise((resolve) => probe.close(resolve));
-    const base = `http://127.0.0.1:${port}`;
-    server = spawn(python, ["run.py", "--port", String(port)], {
-      cwd: root,
-      env: environment,
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    server.stderr.on(
-      "data",
-      (chunk) => (output = (output + chunk).slice(-5000)),
-    );
-    let ready = false;
-    for (let attempt = 0; attempt < 100; attempt++) {
-      try {
-        if ((await fetch(base + "/state")).ok) {
-          ready = true;
-          break;
-        }
-      } catch {}
-      assert.equal(server.exitCode, null, "Observer exited: " + output);
-      await delay(50);
-    }
-    assert.ok(ready, "Observer started: " + output);
-    await fetchSettings(base + "/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sound: true,
-        max_chars: 2,
-        ambience: "day",
-        ...(options.settings || {}),
-      }),
-    });
-    browser = await chromium.launch({
-      headless: true,
-      executablePath: process.env.CHROMIUM_PATH || undefined,
-      args: ["--no-sandbox", ...(options.browserArgs || [])],
-    });
-    const page = await browser.newPage({
-      viewport: options.viewport || { width: 1280, height: 800 },
-    });
-    page.setDefaultTimeout(10000);
-    const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(base);
-    await page.waitForFunction(
-      () => initialized && settingsReady && officeScene?.sprites?.petbed,
-    );
-    await run({ page, base });
-    assert.deepEqual(errors, [], "pageerror events: " + errors.join(" | "));
-  } finally {
-    if (browser) await browser.close();
-    if (server && server.exitCode === null) {
-      server.kill("SIGKILL");
-      await new Promise((resolve) => server.once("exit", resolve));
-    }
-    try {
-      fs.rmSync(path.join(home, "pixel-office"), {
-        recursive: true,
-        force: true,
-      });
-    } catch {}
-  }
-}
 
 function makeEvent(overrides) {
   return {
@@ -133,15 +27,7 @@ test("per-kind sound preferences hide or show checkboxes by setting", async () =
         sound_reward: false,
       },
     },
-    async ({ page, base }) => {
-      const resp = await fetchSettings(base + "/settings");
-      const s = await resp.json();
-      console.log(
-        "DEBUG s:",
-        s.sound_needs_input,
-        s.sound_error,
-        s.sound_reward,
-      );
+    async ({ page }) => {
       await page.locator("#settingsbtn").click();
       await page.waitForFunction(
         () => !!document.querySelector("#sound-prefs-form"),
@@ -185,14 +71,28 @@ test("toggling a sound preference persists in settings.json", async () => {
   assert.equal(saved.sound_reward, true);
 });
 
-test("recap today counts waiting, error and reward events separately", async () => {
+test("recap counts actual request event payloads without invented waiting or reward fields", async () => {
   const now = Date.now() / 1000;
   const events = [
     makeEvent({ event: "tool_end", tool: "Bash", status: "ok" }),
-    makeEvent({ event: "approval_request", status: "waiting" }),
+    {
+      ts: now,
+      session_id: "approval",
+      platform: "claude",
+      event: "approval_request",
+      request_id: "approval-1",
+      command: "Synthetic approval",
+    },
+    {
+      ts: now,
+      session_id: "question",
+      platform: "codex",
+      event: "input_request",
+      request_id: "question-1",
+      question: "Synthetic question",
+    },
     makeEvent({ event: "session_error", error_message: "boom" }),
     makeEvent({ event: "tool_end", tool: "read", status: "error" }),
-    makeEvent({ event: "achievement", kind: "achievement" }),
   ];
   await observerFixture({ events }, async ({ page }) => {
     await page.locator("#settingsbtn").click();
@@ -208,16 +108,233 @@ test("recap today counts waiting, error and reward events separately", async () 
     const asMap = Object.fromEntries(summary);
     assert.equal(asMap.Range, "Today");
     assert.equal(Number(asMap.Events), 5);
-    assert.equal(Number(asMap["Needs input"]), 1);
+    assert.equal(Number(asMap["Input requests"] ?? asMap["Needs input"]), 2);
     assert.equal(Number(asMap.Errors), 2);
-    assert.equal(Number(asMap.Achievements), 1);
+    assert.equal(
+      Object.hasOwn(asMap, "Achievements"),
+      false,
+      "earned rewards are not raw history events",
+    );
     const items = await page.$$eval("#recap-events li", (nodes) =>
       nodes.map((n) => ({ kind: n.dataset.kind, text: n.textContent.trim() })),
     );
     assert.equal(items.length, 4);
     const kinds = items.map((i) => i.kind).sort();
-    assert.deepEqual(kinds, ["error", "error", "needs_input", "reward"]);
+    assert.deepEqual(kinds, ["error", "error", "needs_input", "needs_input"]);
   });
+});
+
+test("recap states its recent-snapshot scope when retained history has more than thirty events", async () => {
+  const events = Array.from({ length: 45 }, (_, i) =>
+    makeEvent({
+      session_id: "burst-" + i,
+      event: "session_error",
+      error_message: "Synthetic error " + i,
+    }),
+  );
+  await observerFixture({ events }, async ({ page, base }) => {
+    assert.equal(
+      (await (await fetch(base + "/state")).json()).events.length,
+      30,
+    );
+    assert.equal(
+      (await (await fetch(base + "/history?limit=100")).json()).events.length,
+      45,
+    );
+    await page.locator("#settingsbtn").click();
+    assert.match(
+      await page.textContent("#recap-scope"),
+      /latest 30|recent 30/i,
+    );
+    assert.match(
+      await page.textContent("#recap-scope"),
+      /not.*full|older.*activity/i,
+    );
+    assert.equal(await page.locator("#recap-events li").count(), 30);
+    await page.locator("#recap-open-activity").click();
+    assert.equal(await page.locator("#sheet-events").isVisible(), true);
+  });
+});
+
+test("unchanged recap polls preserve selected text, event nodes and reading position", async () => {
+  await observerFixture(
+    {
+      events: Array.from({ length: 22 }, (_, i) =>
+        makeEvent({
+          event: "session_error",
+          error_message: "Synthetic recap selection " + i,
+        }),
+      ),
+    },
+    async ({ page }) => {
+      await page.locator("#settingsbtn").click();
+      const result = await page.evaluate(async () => {
+        if (pollInFlight) await pollInFlight;
+        clearTimeout(pollTimer);
+        const list = document.querySelector("#recap-events"),
+          node = list.querySelector("li span"),
+          range = document.createRange();
+        list.scrollTop = 130;
+        range.selectNodeContents(node);
+        const selection = getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const text = selection.toString(),
+          offset = list.scrollTop;
+        await poll();
+        clearTimeout(pollTimer);
+        return {
+          same: node === list.querySelector("li span"),
+          selected: selection.toString(),
+          text,
+          offset,
+          after: list.scrollTop,
+        };
+      });
+      assert.equal(
+        result.same,
+        true,
+        "unchanged polling must reuse visible recap nodes",
+      );
+      assert.equal(result.selected, result.text);
+      assert.equal(result.after, result.offset);
+    },
+  );
+});
+
+test("hidden recap does no DOM work and opening Customize immediately shows its latest snapshot", async () => {
+  await observerFixture(
+    { events: [makeEvent({ event: "session_error" })] },
+    async ({ page, publish }) => {
+      await page.evaluate(() => {
+        clearTimeout(pollTimer);
+        window.recapMutations = [];
+        window.recapWatcher = new MutationObserver((records) =>
+          recapMutations.push(...records),
+        );
+        recapWatcher.observe(document.querySelector("#recap-events"), {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      });
+      publish([
+        makeEvent({
+          event: "session_error",
+          error_message: "Arrived while closed",
+        }),
+      ]);
+      await page.evaluate(async () => {
+        await poll();
+        clearTimeout(pollTimer);
+        await new Promise(requestAnimationFrame);
+      });
+      assert.equal(
+        await page.evaluate(() => recapMutations.length),
+        0,
+        "a closed recap should not recreate or update its contents",
+      );
+      await page.locator("#settingsbtn").click();
+      assert.equal(await page.locator("#recap-events li").count(), 2);
+      assert.match(
+        await page.textContent("#recap-events"),
+        /Arrived while closed/,
+      );
+    },
+  );
+});
+
+test("demo and observer review markers stay separate and ambiguous legacy markers are ignored", async () => {
+  await observerFixture(
+    { events: [makeEvent({ event: "session_error" })] },
+    async ({ page, base }) => {
+      await page.evaluate(async () => {
+        localStorage.setItem(
+          "agentOffice.lastReviewedAt",
+          String(Date.now() / 1000 + 86400),
+        );
+        localStorage.setItem("agentOffice.recapRange", "since_review");
+        await poll();
+        clearTimeout(pollTimer);
+      });
+      await page.locator("#settingsbtn").click();
+      assert.match(
+        await page.textContent("#recap-last-reviewed"),
+        /never reviewed/i,
+      );
+      await page.locator("#recap-mark-reviewed").click();
+      const local = await page.evaluate(() =>
+        localStorage.getItem("agent-office:recap:v1:observer"),
+      );
+      assert.ok(local);
+      await page.route(base + "/", async (route) => {
+        const response = await route.fetch();
+        const html = await response.text();
+        await route.fulfill({
+          response,
+          body: html.replace("<body>", '<body data-agent-office-preview="1">'),
+        });
+      });
+      await page.reload();
+      await page.waitForFunction(() => initialized && settingsReady);
+      await page.locator("#settingsbtn").click();
+      assert.match(
+        await page.textContent("#recap-last-reviewed"),
+        /never reviewed/i,
+      );
+      await page.locator("#recap-mark-reviewed").click();
+      assert.equal(
+        await page.evaluate(() =>
+          localStorage.getItem("agent-office:recap:v1:observer"),
+        ),
+        local,
+      );
+      assert.ok(
+        await page.evaluate(() =>
+          localStorage.getItem("agent-office:recap:v1:preview"),
+        ),
+      );
+    },
+  );
+});
+
+test("failed recap preference writes keep the previous marker and show a retryable message", async () => {
+  await observerFixture(
+    { events: [makeEvent({ event: "session_error" })] },
+    async ({ page, base }) => {
+      await page.locator("#settingsbtn").click();
+      const before = await (await fetch(base + "/state")).json();
+      await page.evaluate(() => {
+        const save = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+          if (
+            key.startsWith("agent-office:recap:") ||
+            key.startsWith("agentOffice.")
+          )
+            throw new DOMException("Synthetic quota", "QuotaExceededError");
+          return save.call(this, key, value);
+        };
+      });
+      await page.locator("#recap-mark-reviewed").click();
+      assert.match(
+        await page.textContent("#recap-status"),
+        /not saved|could not/i,
+      );
+      assert.match(
+        await page.textContent("#recap-last-reviewed"),
+        /never reviewed/i,
+      );
+      assert.equal(
+        await page
+          .locator('input[name="recap-range"][value="today"]')
+          .isChecked(),
+        true,
+      );
+      const after = await (await fetch(base + "/state")).json();
+      for (const field of ["progress", "usage", "events", "agents"])
+        assert.deepEqual(after[field], before[field]);
+    },
+  );
 });
 
 test("mark reviewed switches recap to the since-review window", async () => {
@@ -238,7 +355,6 @@ test("mark reviewed switches recap to the since-review window", async () => {
     assert.equal(eventsCount, "2");
     // Mark reviewed now and switch to since-review.
     await page.locator("#recap-mark-reviewed").click();
-    await delay(50);
     const since = await page.$eval(
       "#recap-summary dd:nth-of-type(2)",
       (n) => n.textContent,

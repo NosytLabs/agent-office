@@ -86,6 +86,8 @@ source research and follow-on ideas.
 | What you need | Where to go |
 | --- | --- |
 | Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file |
+| Review recent requests and errors | Customize → Activity recap; open Saved activity for retained history |
+| Choose which sounds play | Customize → Notification sounds; the main Sound button mutes all kinds |
 | Understand tokens and estimated cost | Usage cards and runtime/model breakdowns; [how to read them](docs/usage.md) |
 | Prepare or run a new task | Tasks → Draft prompt, [Saved briefs](docs/task-briefs.md) with reviewed JSON import/export, or the opt-in Local runs panel |
 | Personalize the office | Customize → Jump to: artwork, layouts, furniture, companions, lighting, and storage |

@@ -2,6 +2,7 @@
 /* Static product site. Only the explicit public inputs below can be published. */
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { canonicalSystemPath, rejectSymlinks } from "./build_paths.mjs";
 const root = canonicalSystemPath(
@@ -70,8 +71,31 @@ const inputs = new Map([
 for (const brand of ["claude", "codex", "opencode", "gemini"]) {
   inputs.set(`assets/brands/${brand}.svg`, `web/assets/brands/${brand}.svg`);
 }
+// Lossless responsive copies are checked in; publishing needs only Node.
+// Refuse stale/missing derivatives before replacing a previous build.
+function readInput(relative) {
+  const source = path.join(root, relative);
+  rejectSymlinks(source, "site");
+  if (!fs.statSync(source).isFile())
+    throw new Error(`Expected a public site file: ${relative}`);
+  return fs.readFileSync(source);
+}
+const digest = (bytes) => createHash("sha256").update(bytes).digest("hex"),
+  images = JSON.parse(readInput("site/screenshots/manifest.json")),
+  expectedImages = new Map();
+if (images.version !== 1 || JSON.stringify(images.widths) !== "[480,1440]")
+  throw new Error("Invalid responsive screenshot manifest");
 for (const shot of ["appearance", "usage", "settings", "aquarium"]) {
-  inputs.set(`assets/screenshots/${shot}.png`, `docs/screenshots/${shot}.png`);
+  const record = images.images?.[shot];
+  if (
+    record?.sourceSha256 !== digest(readInput(`docs/screenshots/${shot}.png`))
+  )
+    throw new Error(`Stale responsive screenshot source: ${shot}`);
+  for (const width of [480, 1440]) {
+    const relative = `site/screenshots/${shot}-${width}.webp`;
+    inputs.set(`assets/screenshots/${shot}-${width}.webp`, relative);
+    expectedImages.set(relative, record.variants?.[width]);
+  }
 }
 
 // Read every input successfully before replacing a previously generated site.
@@ -79,11 +103,13 @@ for (const shot of ["appearance", "usage", "settings", "aquarium"]) {
 // arbitrary docs, the public-demo seed, or optional commercial asset packs.
 const copies = new Map();
 for (const [destination, relative] of inputs) {
-  const source = path.join(root, relative);
-  rejectSymlinks(source, "site");
-  if (!fs.statSync(source).isFile())
-    throw new Error(`Expected a public site file: ${relative}`);
-  copies.set(destination, fs.readFileSync(source));
+  const bytes = readInput(relative);
+  if (expectedImages.has(relative)) {
+    const expected = expectedImages.get(relative);
+    if (expected?.sha256 !== digest(bytes) || expected.bytes !== bytes.length)
+      throw new Error(`Stale or invalid responsive screenshot: ${relative}`);
+  }
+  copies.set(destination, bytes);
 }
 copies.set(".nojekyll", Buffer.from(""));
 fs.rmSync(output, { recursive: true, force: true });

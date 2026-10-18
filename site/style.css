@@ -931,22 +931,26 @@ h1 span {
   overflow-wrap: anywhere;
 }
 .js .code-block pre {
-  padding-top: 48px;
+  padding-top: 64px;
 }
 .copy-button {
   position: absolute;
   top: 8px;
   right: 8px;
   min-width: 50px;
-  min-height: 30px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   background: #294635;
   border: 1px solid #54734e;
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   color: #dbdfc3;
-  font-size: 10px;
+  font-size: 12px;
+}
+.copy-button[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: progress;
 }
 .copy-button:hover {
   background: #3b563c;
@@ -983,7 +987,7 @@ h1 span {
   font-weight: 560;
   letter-spacing: -0.02em;
   line-height: 1.5;
-  min-height: 30px;
+  min-height: 44px;
 }
 .faq-grid summary::-webkit-details-marker {
   display: none;
@@ -1111,6 +1115,11 @@ h1 span {
   width: 100%;
   font-size: 10px;
   color: var(--muted);
+}
+.credits-nav {
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-block: 8px;
 }
 .credits-page {
   max-width: 820px;
@@ -1347,7 +1356,7 @@ h1 span {
     font-size: 13px;
   }
   .copy-button {
-    min-height: 34px;
+    min-height: 44px;
     font-size: 12px;
   }
   .faq-grid {
