@@ -160,3 +160,5 @@ selected runtimes and restart both the observer and those runtimes.
 Before sharing logs or screenshots, remove secrets, prompts, project paths, and
 other private content. Report the commit, OS, Python version, runtime, and exact
 reproduction steps using the [bug form](https://github.com/NosytLabs/agent-office/issues/new/choose).
+See [logs and maintenance](maintenance.md) for diagnostic locations and the
+distinction between clearing history, compacting storage and cleaning build output.

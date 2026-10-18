@@ -80,8 +80,6 @@ Find sessions and panels with **Find…** or **Ctrl/⌘ K**. **P / Shift+P** ope
 next/previous session needing input; the browser tab shows a count and clears it
 when disconnected. Customize includes section jumps, oak/slate room finishes,
 eight companion looks and a searchable gallery with native sprite-strip export.
-See the [current reference review](docs/reference-review-2026-10-15.md) for the
-source research and follow-on ideas.
 
 | What you need | Where to go |
 | --- | --- |
@@ -165,6 +163,8 @@ on its default loopback address and do not publish your data folder.
 Raw event history defaults to **1,000 events / seven days / 5 MiB**. That is not a
 whole-directory size limit. Clearing history preserves XP and usage accounting;
 resetting progress also clears that ledger. [Retention and safe maintenance](docs/architecture.md).
+For terminal diagnostics, browser storage and generated files, see
+[logs and cleanup](docs/maintenance.md).
 
 ## Update and get help
 
@@ -189,7 +189,9 @@ Preserve your local edits if Git refuses to pull; do not force-reset the checkou
 Project code is [MIT licensed](LICENSE). Artwork, fonts, runtime marks, and
 upstream games retain their [individual notices](web/assets/ATTRIBUTION.md) and
 [sprite provenance](web/assets/sprites/ATTRIBUTION.md). Optional licensed Smallburg
-art is not distributed here. [Source references and reuse decisions](docs/reference-review-2026-10-07.md).
+art is not distributed here. The dated [7–8 October comparison](docs/reference-review-2026-10-07.md)
+and [15 October reference review](docs/reference-review-2026-10-15.md) record source
+research and reuse decisions; they are not the current feature backlog.
 
 Agent Office is maintained by **NosytLabs** and is independent of the runtimes
 and reference projects it supports.
