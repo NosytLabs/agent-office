@@ -707,9 +707,12 @@
       </form>
       <section class="settings-section" aria-labelledby="recap-heading">
         <h3 id="recap-heading">Activity recap</h3>
-        <p class="h">
-          A browser-local review surface built from observed event history. It
-          never sends prompts, approves requests, or moves the office floor.
+        <p class="h" id="recap-scope">
+          Filters the latest 30 events in the last received snapshot, not the
+          full day or saved history. Older events are available in Activity.
+          Input requests here are historical events; use the needs-input
+          indicator for requests still waiting. Earned rewards are in
+          Achievements.
         </p>
         <fieldset id="recap-controls" class="recap-controls">
           <legend class="sr">Recap range</legend>
@@ -725,7 +728,16 @@
         <button class="btn" id="recap-mark-reviewed" type="button">
           Mark reviewed
         </button>
+        <button
+          class="btn"
+          id="recap-open-activity"
+          data-sheet="sheet-events"
+          type="button"
+        >
+          View activity
+        </button>
         <p class="h" id="recap-last-reviewed" role="status"></p>
+        <p class="h" id="recap-status" role="status"></p>
         <dl id="recap-summary" class="recap-summary" aria-live="polite"></dl>
         <ol id="recap-events" class="recap-events"></ol>
       </section>

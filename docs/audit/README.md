@@ -4,20 +4,35 @@ This is a verification snapshot, not a promise that every runtime or device has
 been tested. Browser fixtures use synthetic activity and isolated data folders;
 they do not represent paid-provider work or the owner's live sessions.
 
-## Current local validation
+## Recorded local validation — 18 October 2026
 
-The 15 October 2026 cleanup uses Python 3.13.15, Node 22.23.3, Playwright
-1.63.0 and Google Chrome 155 on macOS. The release gate repeats the complete
-suite on Ubuntu 24.04 / Python 3.13 / Node 22 with the runner’s maintained Chrome.
+The 18 October 2026 UI/pages cleanup uses Python 3.13.15, Node 22.23.3,
+Playwright 1.63.0 and Google Chrome 155 on macOS. The table records local checks;
+hosted verification and deployment must be checked against the exact merged commit.
+The configured release gate runs on Ubuntu 24.04 / Python 3.13 / Node 22 with the
+runner's maintained Chrome.
 
 | Check | Recorded local result |
 | --- | --- |
-| Python suite, including HTTP-boundary and build regressions | **687 passed**, **2 optional native Gemini fixture skips** |
+| Python suite, including HTTP-boundary and build regressions | **692 passed**, **2 optional native Gemini fixture skips** |
 | Node models, controllers, and bridges | **182 passed** |
 | Browser flows | Full compatibility, Studio, product-site, navigation and attention command defined by `package.json`; see the exact commit’s [CI checks](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml) for the release gate |
 | Compiled sprites | **47 native sprites / 23 sheets**, **72 character walking frames**, **96 companion walking frames**, **96 companion life frames**, **72 character activity frames**, **4 seamless surfaces** reproduced from preserved sources |
 | Syntax, formatting, local documentation links, and tracked-artifact checks | Required in CI; reproduced locally before publication |
-| Public builds | **120 demo files** and **20 product-site files** |
+| Public builds | **120 demo files** and **24 product-site files** |
+
+The product site uses responsive lossless screenshots: full-size copies match the
+original decoded pixels, while narrow layouts fetch smaller images. Build tests
+reject stale or missing derivatives before replacing output. Setup clipboard
+regressions cover delayed responses after tab switches and newer copy actions.
+
+Per-kind notification sound preferences follow the same settings revision,
+pending-edit and rollback rules as other controls. Activity recap filters the
+latest 30 snapshot events, with an explicit scope label; its range and review
+marker are browser-local and separate for demo/observer views. Unchanged visible
+polls retain selected event text, and closed recaps do no DOM work. Activity →
+Saved provides retained-history review. The [usage guide](../usage.md#notification-sounds-and-activity-recap)
+defines these viewing and sound preferences.
 
 Focused real-observer browser fixtures cover all character/companion directions,
 Pause, native PNG/strip pixels, art fallback/retry without draft loss, oak/slate/
@@ -86,6 +101,7 @@ commit's actual check results for evidence of hosted verification.
 | Publication, transactions, reset, and replay | `test_event_inbox.py`, `test_event_store.py`, `test_reset_protocol.py` |
 | Retention, measurements, and explicit compaction | `test_storage_health.py`, `test_storage_maintenance.py`, `test_event_cache.py` |
 | Settings and preferences | `test_settings_concurrency.py`, `test_personalization.py`, and corresponding browser flows |
+| Notification preferences and recent activity review | `recap.test.cjs`, `sound-preferences-browser.test.cjs`: recent-snapshot ranges, request/error semantics, browser-local review controls, and sound-control stale-poll/rollback/conflict handling |
 | Lifecycle, usage, and reported tasks | `test_state_model.py`, `test_agent_lifecycle.py`, `test_usage.py`, `test_tasks*.py` |
 | Runtime hooks and local task processes | `test_runtime_adapters.py`, runtime-specific hook tests, `test_task_runner*.py` |
 | Office, rooms, assets, arcade, and mobile controls | Node models and browser files listed by `package.json`; `test_assets.py`; `native-sprites.test.cjs` |
@@ -166,7 +182,7 @@ into the agent loop. This is not a global quota on external service logs; see
 
 ## Source and asset review
 
-The dated [current reference review](../reference-review-2026-10-15.md) preserves inspected
+The dated [reference review](../reference-review-2026-10-15.md) preserves inspected
 sources and reuse decisions. It is background, not the current feature backlog.
 Automatic orchestration, agent hiring, and answering permission prompts are not
 implemented by copying a product description.

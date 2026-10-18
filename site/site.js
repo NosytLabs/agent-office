@@ -1,6 +1,13 @@
 /* Progressive enhancement; no tracking, network requests, or browser storage. */
 "use strict";
 
+const status = document.getElementById("copy-status");
+let copyGeneration = 0;
+function invalidateCopy() {
+  copyGeneration++;
+  if (status) status.textContent = "";
+}
+
 for (const group of document.querySelectorAll("[data-tab-group]")) {
   const list = group.querySelector("[data-tab-list]");
   const tabs = [...group.querySelectorAll("[data-tab-button]")];
@@ -17,6 +24,7 @@ for (const group of document.querySelectorAll("[data-tab-group]")) {
     panels[index].tabIndex = 0;
   });
   function activate(index) {
+    if (tabs[index].getAttribute("aria-selected") !== "true") invalidateCopy();
     tabs.forEach((tab, i) => {
       tab.setAttribute("aria-selected", String(i === index));
       tab.tabIndex = i === index ? 0 : -1;
@@ -114,30 +122,57 @@ if (menu && nav) {
     });
 }
 
-const status = document.getElementById("copy-status");
+const copyingButtons = new WeakSet();
+const visible = (element) =>
+  element.isConnected &&
+  element.getClientRects().length > 0 &&
+  !element.closest("[hidden], [inert]");
 for (const button of document.querySelectorAll("[data-copy-target]")) {
   button.addEventListener("click", async () => {
     const command = document.getElementById(button.dataset.copyTarget);
-    if (!command || !status || button.disabled) return;
-    button.disabled = true;
+    if (!command || !status || button.disabled || copyingButtons.has(button))
+      return;
+    const generation = ++copyGeneration,
+      text = command.textContent.trim(),
+      current = () =>
+        generation === copyGeneration &&
+        !document.hidden &&
+        visible(button) &&
+        visible(command) &&
+        command.textContent.trim() === text;
+    copyingButtons.add(button);
+    // Keep the action focused while the browser resolves clipboard permission.
+    button.setAttribute("aria-disabled", "true");
     status.textContent = "";
     try {
       if (!navigator.clipboard?.writeText)
         throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(command.textContent.trim());
-      status.textContent = "Copied. Paste the command when you are ready.";
+      await navigator.clipboard.writeText(text);
+      if (current())
+        status.textContent = "Copied. Paste the command when you are ready.";
     } catch {
-      const range = document.createRange();
-      range.selectNodeContents(command);
+      if (!current()) return;
       const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      command.focus({ preventScroll: true });
-      status.textContent =
-        "Clipboard access is unavailable. The command is selected so you can copy it manually.";
+      if (document.activeElement === button && selection) {
+        const range = document.createRange();
+        range.selectNodeContents(command);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        command.focus({ preventScroll: true });
+        status.textContent =
+          "Clipboard access is unavailable. The command is selected so you can copy it manually.";
+      } else {
+        status.textContent =
+          "Clipboard access is unavailable. Select the command and copy it manually.";
+      }
     } finally {
-      button.disabled = false;
+      copyingButtons.delete(button);
+      button.removeAttribute("aria-disabled");
     }
   });
 }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) invalidateCopy();
+});
+window.addEventListener("pagehide", invalidateCopy);
 document.documentElement.classList.add("js");

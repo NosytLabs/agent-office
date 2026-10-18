@@ -30,6 +30,7 @@ before(async () => {
     ".js": "text/javascript",
     ".css": "text/css",
     ".png": "image/png",
+    ".webp": "image/webp",
     ".svg": "image/svg+xml",
     ".woff2": "font/woff2",
     ".txt": "text/plain",
@@ -70,7 +71,7 @@ after(async () => {
 });
 
 async function withPage(run, options = {}) {
-  const { clipboardBlocked, ...contextOptions } = options;
+  const { clipboardBlocked, clipboardDeferred, ...contextOptions } = options;
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     ...contextOptions,
@@ -102,6 +103,19 @@ async function withPage(run, options = {}) {
           },
         }),
       );
+    if (clipboardDeferred)
+      await page.addInitScript(() => {
+        window.pendingCopies = [];
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText: (text) =>
+              new Promise((resolve, reject) =>
+                window.pendingCopies.push({ text, resolve, reject }),
+              ),
+          },
+        });
+      });
     await page.goto(url);
     await page.evaluate(() => document.fonts.ready);
     await run(page, context);
@@ -149,7 +163,16 @@ test("desktop product site loads its real screenshots and local assets under a p
     );
     const image = page.locator(".hero-image");
     await image.evaluate((i) => i.decode());
-    assert.equal(await image.evaluate((i) => i.naturalWidth), 1440);
+    const dimensions = await image.evaluate((i) => ({
+      width: i.naturalWidth,
+      height: i.naturalHeight,
+    }));
+    assert.ok(dimensions.width > 0 && dimensions.height > 0);
+    assert.ok(
+      Math.abs(dimensions.width / dimensions.height - 1440 / 1000) < 0.005,
+      "The decoded hero keeps the source aspect ratio: " +
+        JSON.stringify(dimensions),
+    );
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
@@ -252,6 +275,146 @@ test("clipboard denial provides a selected command and an honest recovery messag
       );
     },
     { clipboardBlocked: true },
+  ));
+
+async function finishCopy(page, index, result, target) {
+  await page.evaluate(
+    ({ index, result }) => {
+      const pending = window.pendingCopies[index];
+      if (result === "resolve") pending.resolve();
+      else
+        pending.reject(new DOMException("Clipboard denied", "NotAllowedError"));
+    },
+    { index, result },
+  );
+  await page.waitForFunction((target) => {
+    const button = document.querySelector(`[data-copy-target="${target}"]`);
+    return !button.disabled && button.getAttribute("aria-disabled") !== "true";
+  }, target);
+}
+
+test("delayed clipboard results cannot change feedback or select a command after setup tabs change", async () => {
+  for (const [result, returnToStart] of [
+    ["resolve", false],
+    ["reject", false],
+    ["reject", true],
+  ])
+    await withPage(
+      async (page) => {
+        await page.getByRole("button", { name: "Copy start commands" }).click();
+        await page.getByRole("tab", { name: "2. Connect" }).click();
+        if (returnToStart)
+          await page.getByRole("tab", { name: "1. Start" }).click();
+        const tab = page.getByRole("tab", {
+          name: returnToStart ? "1. Start" : "2. Connect",
+        });
+        await finishCopy(page, 0, result, "command-start");
+        assert.equal(await page.locator("#copy-status").textContent(), "");
+        assert.equal(
+          await tab.evaluate((element) => document.activeElement === element),
+          true,
+        );
+        assert.equal(
+          await page.evaluate(() =>
+            window
+              .getSelection()
+              .containsNode(document.getElementById("command-start"), true),
+          ),
+          false,
+        );
+      },
+      { clipboardDeferred: true },
+    );
+});
+
+test("an older clipboard attempt cannot replace a newer copy result", async () => {
+  for (const [older, newer] of [
+    ["reject", "resolve"],
+    ["resolve", "reject"],
+  ])
+    await withPage(
+      async (page) => {
+        await page.getByRole("button", { name: "Copy start commands" }).click();
+        await page.getByRole("tab", { name: "2. Connect" }).click();
+        await page
+          .getByRole("button", { name: "Copy connection command" })
+          .click();
+        await finishCopy(page, 1, newer, "command-connect");
+        const message = await page.locator("#copy-status").textContent(),
+          focused = await page.evaluate(() => document.activeElement.id),
+          selection = await page.evaluate(() =>
+            window.getSelection().toString(),
+          );
+        assert.match(message, newer === "resolve" ? /^Copied/ : /unavailable/);
+        await finishCopy(page, 0, older, "command-start");
+        assert.equal(await page.locator("#copy-status").textContent(), message);
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          focused,
+        );
+        assert.equal(
+          await page.evaluate(() => window.getSelection().toString()),
+          selection,
+        );
+      },
+      { clipboardDeferred: true },
+    );
+});
+
+test("a delayed clipboard fallback respects focus moved to another visible control", () =>
+  withPage(
+    async (page) => {
+      const copy = page.getByRole("button", { name: "Copy start commands" });
+      await copy.click();
+      const tab = page.getByRole("tab", { name: "1. Start" });
+      await tab.focus();
+      await finishCopy(page, 0, "reject", "command-start");
+      assert.equal(
+        await tab.evaluate((element) => document.activeElement === element),
+        true,
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          window
+            .getSelection()
+            .containsNode(document.getElementById("command-start"), true),
+        ),
+        false,
+      );
+      assert.match(
+        await page.locator("#copy-status").textContent(),
+        /unavailable.*manually/,
+      );
+      assert.doesNotMatch(
+        await page.locator("#copy-status").textContent(),
+        /is selected/,
+      );
+    },
+    { clipboardDeferred: true },
+  ));
+
+test("pending clipboard work retains keyboard focus and prevents duplicate copies", () =>
+  withPage(
+    async (page) => {
+      const copy = page.getByRole("button", { name: "Copy start commands" });
+      await copy.click();
+      assert.equal(
+        await copy.evaluate((element) => document.activeElement === element),
+        true,
+      );
+      assert.equal(await copy.getAttribute("aria-disabled"), "true");
+      await page.keyboard.press("Enter");
+      assert.equal(await page.evaluate(() => window.pendingCopies.length), 1);
+      await finishCopy(page, 0, "resolve", "command-start");
+      assert.equal(
+        await copy.evaluate((element) => document.activeElement === element),
+        true,
+      );
+      await page.keyboard.press("Enter");
+      assert.equal(await page.evaluate(() => window.pendingCopies.length), 2);
+      await finishCopy(page, 1, "resolve", "command-start");
+    },
+    { clipboardDeferred: true },
   ));
 
 test("mobile menu closes with Escape and navigation leaves focus in the selected section", () =>

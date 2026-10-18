@@ -16,20 +16,21 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to credits</a>
     <header class="site-header">
-      <div class="nav-wrap shell">
+      <div class="nav-wrap shell credits-nav">
         <a class="brand" href="index.html"
           ><img src="assets/office.svg" alt="" width="40" height="40" /><span
             >Agent Office<small>by Nosyt Labs</small></span
           ></a
         ><a class="text-link" href="index.html"
-          >Back to the office <span aria-hidden="true">↗</span></a
+          >Back to overview <span aria-hidden="true">↗</span></a
         >
       </div>
     </header>
-    <main class="shell credits-page">
+    <main id="main" class="shell credits-page" aria-labelledby="credits-title">
       <p class="eyebrow">Made with care, credited by source</p>
-      <h1>Credits &amp; licenses</h1>
+      <h1 id="credits-title">Credits &amp; licenses</h1>
       <p>
         Agent Office is an independent open source project by Nosyt Labs. The
         project code is available under the
@@ -41,9 +42,10 @@
       <p>
         The website uses original layout and copy, with screenshots captured
         from the actual Agent Office application using synthetic test sessions.
-        The screenshots do not represent a live connected account. The public
-        app’s original generated furniture, robot, and fish are documented in
-        the
+        The screenshots do not represent a live connected account. Smaller
+        lossless WebP copies are served according to the display size; the
+        original PNG captures remain in the repository. The public app’s
+        original generated furniture, robot, and fish are documented in the
         <a
           href="https://github.com/NosytLabs/agent-office/blob/main/web/assets/sprites/ATTRIBUTION.md"
           >sprite provenance record</a

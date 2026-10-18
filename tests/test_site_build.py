@@ -7,7 +7,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote
+import re
 
 import pytest
 
@@ -63,7 +64,7 @@ def test_product_build_uses_relative_links_and_bundled_public_assets(tmp_path):
     assert all(not urlsplit(target).scheme for target in parser.resources)
     for relative in ("assets/office.svg", "assets/fonts/OFL.txt", "assets/icons/LICENSE.txt",
                      "assets/brands/SVGL-LICENSE.txt", "assets/sprites/PIXEL-AGENTS-LICENSE.txt",
-                     "assets/screenshots/appearance.png", "LICENSE.txt"):
+                     "assets/screenshots/appearance-480.webp", "assets/screenshots/appearance-1440.webp", "LICENSE.txt"):
         assert (output / relative).is_file()
     metadata = json.loads((output / "site-build.json").read_text())
     assert metadata["format"] == "agent-office-product-site-v1"
@@ -71,6 +72,8 @@ def test_product_build_uses_relative_links_and_bundled_public_assets(tmp_path):
     assert metadata["screenshots"] == "synthetic examples"
     actual = {str(p.relative_to(output)) for p in output.rglob("*") if p.is_file()}
     assert actual == set(metadata["files"]) | {"site-build.json"}
+    assert not list((output / "assets/screenshots").glob("*.png"))
+    assert not (output / "screenshots/manifest.json").exists()
     for file in output.rglob("*"):
         if file.is_file():
             assert b"PRIVATE_" not in file.read_bytes()
@@ -91,7 +94,7 @@ def test_rebuild_only_replaces_generated_output(tmp_path):
     assert not (generated / "stale.txt").exists()
 
 
-@pytest.mark.parametrize("fault", ["missing", "symlink", "parent_symlink"])
+@pytest.mark.parametrize("fault", ["missing", "symlink", "parent_symlink", "stale_source", "stale_variant", "missing_variant", "symlink_variant"])
 def test_invalid_asset_input_preserves_previous_site(tmp_path, fault):
     project = tmp_path / "source"
     (project / "tools").mkdir(parents=True)
@@ -105,7 +108,19 @@ def test_invalid_asset_input_preserves_previous_site(tmp_path, fault):
     build(output)
     (output / "previous-build.txt").write_text("must survive failure")
     asset = project / "docs/screenshots/appearance.png"
-    if fault == "parent_symlink":
+    if fault == "stale_source":
+        asset.write_bytes(asset.read_bytes() + b"changed source")
+    elif fault in {"stale_variant", "missing_variant", "symlink_variant"}:
+        variant = project / "site/screenshots/appearance-480.webp"
+        if fault == "stale_variant":
+            variant.write_bytes(variant.read_bytes() + b"changed variant")
+        else:
+            variant.unlink()
+            if fault == "symlink_variant":
+                private = tmp_path / "private.webp"
+                private.write_bytes(b"private source")
+                variant.symlink_to(private)
+    elif fault == "parent_symlink":
         original = project / "docs/screenshots"
         moved = project / "outside-screenshots"
         original.rename(moved)
@@ -182,3 +197,31 @@ def test_macos_alias_cannot_bypass_source_output_boundary():
         assert result.returncode != 0
         assert "outside the source checkout" in result.stderr
         assert not (project / "private").exists()
+
+
+def test_product_links_target_existing_repository_documents_and_headings():
+    class RepositoryLinks(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.links = []
+        def handle_starttag(self, tag, attrs):
+            if tag == "a":
+                self.links.append(dict(attrs).get("href", ""))
+    parser = RepositoryLinks()
+    for file in (ROOT / "site").glob("*.html"):
+        parser.feed(file.read_text())
+    base = "https://github.com/NosytLabs/agent-office"
+    for href in parser.links:
+        target = urlsplit(href)
+        if href.startswith(base + "/blob/main/"):
+            relative = unquote(target.path.split("/blob/main/", 1)[1])
+        elif href.startswith(base + "#"):
+            relative = "README.md"
+        else:
+            continue
+        document = ROOT / relative
+        assert document.is_file(), href
+        if target.fragment:
+            headings = re.findall(r"^#{1,6} +(.+)$", document.read_text(), re.M)
+            anchors = {re.sub(r"[^\w -]", "", title.lower()).replace(" ", "-") for title in headings}
+            assert unquote(target.fragment) in anchors, href

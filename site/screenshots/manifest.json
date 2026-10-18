@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "encoder": "cwebp 1.6.0",
+  "options": [
+    "-lossless",
+    "-z",
+    "9",
+    "-exact",
+    "-metadata",
+    "none"
+  ],
+  "widths": [
+    480,
+    1440
+  ],
+  "images": {
+    "appearance": {
+      "sourceSha256": "3289aca9e2cf40681fa9024866c1b832075e612273389271b66e7b2b3f74ac27",
+      "sourceWidth": 1440,
+      "sourceHeight": 1000,
+      "variants": {
+        "480": {
+          "sha256": "fdc7970b204a451a3d456bfaa4f7d0d385fc878a3856dcdf81182fbca2b4f624",
+          "bytes": 28194
+        },
+        "1440": {
+          "sha256": "e26f44bbdffe0509c6eab4c1037b43f61e13b21d7951473a074c7f72a8b33b68",
+          "bytes": 68824
+        }
+      }
+    },
+    "usage": {
+      "sourceSha256": "7f466c6e91ccc889a7a15b945b4f7e65939acbf6fadd2df72fa5bdb8558e28bc",
+      "sourceWidth": 1440,
+      "sourceHeight": 1000,
+      "variants": {
+        "480": {
+          "sha256": "0f0c0c28d9536b638c444c98b0cee70ceaf4116bf34249bc6e3deeb3bddfc290",
+          "bytes": 34296
+        },
+        "1440": {
+          "sha256": "5db73bc9993d0d37341eeb426bdba08567942cf2ec78505f4ced4264ace35e79",
+          "bytes": 135816
+        }
+      }
+    },
+    "settings": {
+      "sourceSha256": "0c8d6e3a73cef51d3dfe0e4c745e53d54c08ea2c4d0591b50a6839d2024566e3",
+      "sourceWidth": 1440,
+      "sourceHeight": 1000,
+      "variants": {
+        "480": {
+          "sha256": "dc235449387717ae7a896d306198b1e51ed221930d8854bd86b8f32abcc5d5e8",
+          "bytes": 38208
+        },
+        "1440": {
+          "sha256": "c80b6888137595bbb1098910b3c523628475e7a94c1dc70c8d59c420891f6a45",
+          "bytes": 149986
+        }
+      }
+    },
+    "aquarium": {
+      "sourceSha256": "793f170daed79cb80628f5a226c1eb7d7a317db9463e001385ab5c299ef4521f",
+      "sourceWidth": 1440,
+      "sourceHeight": 1000,
+      "variants": {
+        "480": {
+          "sha256": "e5f909d34b25d0713f5cb0cb14ce24b24d37e792a4961644a2af320c4093739f",
+          "bytes": 36724
+        },
+        "1440": {
+          "sha256": "a2fc29812ac26b124716f8874db4914b20be0bfa336d126f7eb3d7be965f6814",
+          "bytes": 122462
+        }
+      }
+    }
+  }
+}

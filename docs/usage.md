@@ -152,19 +152,27 @@ alongside your other preferences in `settings.json`. The master toggle and
 the three kind-level toggles are independent: turning off "Errors" silences
 the error chime without affecting needs-input or reward sounds.
 
-**Customize → Activity recap** shows a browser-local review of the office's
-own observed events. Pick **Today** to see every event since local midnight,
-or **Since last review** to see everything after your last **Mark reviewed**
-click. The summary counts events, needs-input requests, errors, and
-achievements separately. The list below shows only the kinds that matter
-for a review: needs-input prompts, errors, and reward unlocks.
+**Customize → Activity recap** filters the latest 30 observed events from the
+last received office snapshot. **Today** includes events in that window since
+local midnight; **Since last review** includes those after your last **Mark
+reviewed** click. These counts are a recent sample, not complete totals for the
+day or the saved history. **View activity** opens the existing Activity panel;
+choose **Saved** there to browse retained history.
 
-Recap data lives in this browser's `localStorage`, not in `settings.json`,
-so a second browser or a fresh install starts clean. **Mark reviewed** sets
-the local marker to the current time. Retained event history is the same
-data the rest of the office uses; clearing history does not change the
-recap marker. The recap surface never sends a prompt, approves a request,
-or moves the office floor.
+The summary counts events, input-request events, errors and other events. The
+list shows the matching input requests and errors. A request remains a historical
+event after it is answered, so these counts do not mean requests are still
+waiting. Use the live needs-input indicator for current requests. Earned rewards
+remain in **Achievements**; the recap does not infer unlocks from work events.
+
+Only the range and review marker live in this browser's `localStorage`; recap
+event data comes from the observer snapshot. Demo and observer views keep separate
+choices. A failed preference write leaves the prior range and marker intact and
+shows a retry message. Older, unscoped recap markers are ignored because their
+demo/observer source is unknown. **Mark reviewed** sets the marker to the current
+time; before the first marker, **Since last review** uses today. Clearing retained
+history does not change the marker. Recap controls never submit prompts, approve
+requests, alter work accounting, or move the office floor.
 
 ## Export exactly the activity you need
 

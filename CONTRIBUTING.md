@@ -67,6 +67,11 @@ flows. It allows 20 minutes and keeps browser artifacts for three days on failed
 or manual runs. Builds create `dist/` (demo and product site) or `site-dist/`
 (`npm run build:site`); they do not deploy anything.
 
+The product site serves checked-in lossless, responsive screenshots. Original
+PNG captures stay in `docs/screenshots/`; the site builder refuses stale source
+or derivative hashes before replacing output. See the
+[screenshot maintenance guide](site/screenshots/README.md) when updating captures.
+
 Optional checks require explicit local tools:
 
 ```sh

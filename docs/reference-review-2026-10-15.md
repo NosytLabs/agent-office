@@ -1,6 +1,6 @@
 # Reference review — 15 October 2026
 
-This fresh review covers source mechanisms, current Agent Office overlap, selected improvements and useful deferred work. It supplements the [7–8 October review](reference-review-2026-10-07.md).
+This review records source mechanisms inspected on 15 October 2026 and supplements the [7–8 October review](reference-review-2026-10-07.md). Shipped-feature descriptions were reconciled on 18 October; the source revisions and retrieval evidence below remain those of the original review.
 
 Public source was read through GitHub and pinned, read-only checkouts. No upstream application was run or installed, and no third-party application code or artwork was imported by this review. BridgeMind and Termi findings are their publishers' product and release claims; source inspection supports the repository findings below. Local synthetic browser checks establish only the Agent Office flows explicitly described under verification.
 
@@ -17,29 +17,48 @@ Public source was read through GitHub and pinned, read-only checkouts. No upstre
 | BridgeMind / BridgeVerse, official product and dated releases | [BridgeVerse product](https://www.bridgemind.ai/bridgeverse), [v0.3.3, 2 October](https://www.bridgemind.ai/changelog/bridgemind-one/v0-3-3), [v0.3.4, 5 October](https://www.bridgemind.ai/changelog/bridgemind-one/v0-3-4) | Publisher-described urgency boards, saved/searchable prompts, stable restoration and reduced background rendering are useful interaction references. Existing Agent Office needs-input filters, summaries, quiet/retained labels and focus preservation already cover part of this. Terminal access, voice relay, remote approvals and background execution are separate control capabilities. |
 | Termi Protocol, official October/August release notes | [Official changelog](https://termiprotocol.com/changelog), retrieved 15 October 2026, including October v0.4.0 and v0.3.1 | Publisher-described alert-loop, false-waiting, focus-theft, clipped-request, offline-continuity and usage-count fixes supply concrete regression scenarios. They do not establish executed behavior in an installed Termi app. Agent Office already has bounded rendering, hidden-page handling, durable accounting and explicit unavailable-data labels. |
 
-## Selected improvements for this update
+## Shipped improvements informed by this review
 
-These are implementation decisions for the current local work, not a substitute for the final release validation record. Selected items may still be undergoing integration; see the [validation report](audit/README.md) and current guides for shipped behavior.
+Quick navigation, attention controls, panel navigation, and the artwork supplements are now present in Agent Office. The table describes their scope; exact-commit verification belongs in the [validation report](audit/README.md).
 
 | Area | Decision and limits |
 | --- | --- |
-| Quick navigation | Independently implement searchable navigation to existing panels and observed sessions, with keyboard selection, Escape and focus return. Protect text entry and editing. Results open established views; searching never submits a prompt, approves a request, installs a runtime or starts a process. |
-| Attention navigation and tab awareness | Add P / Shift+P next/previous navigation through observed waiting sessions and a count-only tab title. Use all observed waiting sessions even if the floor filter hides one. Clear resolved/departed sessions and state disconnection explicitly. Preserve typing, furniture editing and unrelated modal keys. Source/session order is honest with current data; do not claim oldest-request ordering. |
-| Long-panel usability | The current working tree adds a Customize section jump control and places history exports before potentially long results. Hidden/unavailable destinations must not appear as working jumps; focus and drafts survive navigation. The tab trap includes textareas and filters disabled/hidden controls. |
-| Original art and room presentation | The generated directional source is preserved, with its prompt, source hash and reproducible compiler. Six identities provide 72 source frames; two palette variants provide another 24 at runtime. The current integration retains base-art fallback, an available retry, paused poses, crown alignment and native-size export. The environment supplement adds 96 generated companion frames and four reproducible seamless room surfaces under the same original-art/provenance boundary. Focused browser checks verify real travel, Pause, native strip pixels, finish persistence and missing-pack recovery. See [studio art](studio-art.md), [asset pipeline](asset-pipeline.md) and [studio tools](studio-tools.md). |
+| Quick navigation | Search existing panels and observed sessions with keyboard selection, Escape and focus return. Text-entry and editing guards preserve their existing keys. Results open established views; searching never submits a prompt, approves a request, installs a runtime or starts a process. |
+| Attention navigation and tab awareness | P / Shift+P moves through observed waiting sessions, including those hidden by the floor filter. A count-only tab title clears resolved/departed sessions and states disconnection explicitly. Typing, furniture editing and unrelated modal keys keep their own behavior. Ordering follows available source/session data; it does not establish the age of a pending request. |
+| Long-panel usability | Customize includes section jumps, and history exports sit before potentially long results. Hidden or unavailable destinations are omitted. Panel navigation preserves focus and drafts; the tab trap includes textareas and excludes disabled/hidden controls. |
+| Original art and room presentation | Generated directional sources retain their prompts, source hashes and reproducible compilers. Six identities provide 72 walking frames and 72 activity frames; each character pack gains 24 palette variants at runtime. Companion packs provide 96 walking and 96 life frames, with four seamless room surfaces. Base-art fallback, retry, paused poses and native PNG/strip export remain supported. See [studio art](studio-art.md), [asset pipeline](asset-pipeline.md) and [studio tools](studio-tools.md). |
 | Room/HUD restraint | Keep desk capacity, labels, furniture footprints and walking geometry consistent across desktop and narrow layouts. Use reported work states for HUD information. Existing 30 fps room rendering, 8 fps paused rendering and hidden-page drawing suppression already address part of the power-use lessons; decoration never produces work, usage or XP. |
 
-The current local observer already includes per-session summary copy, filtered saved-history export, one editable task brief, explicit per-tab draft retention, optional local-run preparation, artwork fallback/retry and stable panel return context. These should remain available while adding search and presentation improvements.
+The local observer also includes per-session summary copy, filtered saved-history export, an editable task brief, a named saved-brief library, explicit per-tab draft retention, optional local-run preparation, artwork fallback/retry and stable panel return context.
 
-## Bounded useful work left for later
+## Follow-through and remaining options
 
 The reusable task-brief proposal has shipped: a named, searchable browser-local
 library with Load/Append, Rename/Delete, and reviewed JSON backup import/export.
 Saving/loading preserves exact text and never contacts a runtime. See the
 [current saved-brief guide](task-briefs.md) for the supported flows and limits.
 
-1. **Recorded activity recap.** Add Today / Since last review using retained observer events, linked to existing filtered history. A manual Mark reviewed changes only a browser-local marker. Label time zone, freshness, retained window and fetched-event limit; distinguish errors and input requests from successful completion. The current history reader caps returned rows at 5,000, and default retention is seven days/1,000 events. Never turn session end, tool activity or animation into a successful shipment.
-2. **Attention preferences.** Separate needs-input/error/reward sound policy. A later optional browser notification feature should start off, request permission only from a deliberate action, deduplicate fresh event/request identities, remain silent for bootstrap/reconnect replay, and open an inspector rather than answer anything. Preserve the current hidden-tab sound rule until that behavior is explicitly designed and tested.
+**Activity recap and notification sound preferences have shipped.** Customize
+offers Today / Since last review over the latest 30 snapshot events. Range and
+Mark reviewed state stay in browser storage; observed events remain in the
+observer's snapshot. This is a bounded recent-activity view. Activity → Saved
+provides retained-history review and export. The separate master Sound toggle
+and needs-input/error/reward preferences control notification chimes; the
+kind-level preferences are saved with office settings. See the
+[usage guide](usage.md#notification-sounds-and-activity-recap).
+
+A fuller retained-history recap remains a possible extension. Its retrieval
+limit, time zone, freshness, retention window and partial coverage would need
+clear labels. The history reader caps returned rows at 5,000, and default
+retention is seven days/1,000 events. Session end, tool activity and animation
+do not establish a successful shipment; achievements have their existing
+Achievements surface.
+
+Browser/OS notifications are still a separate optional proposal. They should
+start off, request permission only from a deliberate action, deduplicate fresh
+event/request identities, remain silent for bootstrap/reconnect replay, and open
+an inspector without answering anything. Existing chimes remain silent in hidden
+tabs.
 
 Named view presets are another possible bounded extension of existing persistence; the inspected Harish panel source does not implement them. Oldest-request sorting first needs a durable `waiting_since` projection from still-pending request events, including multiple requests, resolution, restart and pruning tests. `updated_at`, `observed_at` and `idle_s` can change during later tool activity and cannot substitute for request age.
 
@@ -62,4 +81,4 @@ Existing-session OpenCode handoff remains excluded. These proposals do not add i
 
 The review did not run provider CLIs, upstream applications or real user sessions. Earlier isolated Agent Office checks used temporary homes, random ports and synthetic events at 1440, 390 and 320 px widths. They exercised needs-input inspection/copy, panel Back/close focus, exact draft copy and preservation, filtered history export, art switching, optional-art recovery, lights, arcade open/close and companion feedback. Accounting remained unchanged, and the captured flows had no missing artwork or failed requests apart from deliberately injected asset failures.
 
-Those checks preceded the final integration of the selected search/attention/background changes and do not validate changes that had not yet been written. Current source review found a hidden-gallery Customize jump edge case; a focused synthetic fallback check confirmed that the updated hidden-target filtering removed that unavailable destination. Final checks and any remaining live-runtime/VS Code limitations belong in the [validation report](audit/README.md), not an inferred claim of upstream feature parity.
+Those checks preceded the final integration of the selected search/attention/background changes and do not validate changes that had not yet been written. During that review, a hidden-gallery Customize jump edge case was corrected and checked with a synthetic fallback fixture. Release-specific checks and remaining live-runtime/VS Code limitations belong in the [validation report](audit/README.md). The pinned review evidence does not establish upstream feature parity or verification of later releases.

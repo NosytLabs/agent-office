@@ -104,7 +104,13 @@
           <div class="hero-image-wrap">
             <img
               class="hero-image"
-              src="assets/screenshots/appearance.png"
+              src="assets/screenshots/appearance-1440.webp"
+              srcset="
+                assets/screenshots/appearance-480.webp   480w,
+                assets/screenshots/appearance-1440.webp 1440w
+              "
+              sizes="(max-width: 650px) calc(100vw - 62px), (max-width: 900px) calc(100vw - 122px), 700px"
+              decoding="async"
               alt="Agent Office in the green Juniper theme, with people and a robot at walnut desks, a lounge, and room controls."
               width="1440"
               height="1000"
@@ -265,7 +271,13 @@
             <div id="tour-floor" class="tour-panel" data-tab-panel>
               <div class="tour-image">
                 <img
-                  src="assets/screenshots/appearance.png"
+                  src="assets/screenshots/appearance-1440.webp"
+                  srcset="
+                    assets/screenshots/appearance-480.webp   480w,
+                    assets/screenshots/appearance-1440.webp 1440w
+                  "
+                  sizes="(max-width: 650px) calc(100vw - 62px), (max-width: 900px) calc(100vw - 122px), 700px"
+                  decoding="async"
                   alt="A Juniper-themed office with working agents, a delegated robot, and clickable furniture."
                   width="1440"
                   height="1000"
@@ -283,7 +295,9 @@
                 <ul>
                   <li>Session activity and source-reported task lists</li>
                   <li>Optional local CLI runs with output and cancellation</li>
-                  <li>Named agents and preferred desk assignments</li>
+                  <li>
+                    Reusable briefs with reviewed JSON backup import/export
+                  </li>
                   <li>Follow an agent, zoom, pause, and save your scene</li>
                 </ul>
                 <a
@@ -295,7 +309,13 @@
             <div id="tour-usage" class="tour-panel" data-tab-panel>
               <div class="tour-image">
                 <img
-                  src="assets/screenshots/usage.png"
+                  src="assets/screenshots/usage-1440.webp"
+                  srcset="
+                    assets/screenshots/usage-480.webp   480w,
+                    assets/screenshots/usage-1440.webp 1440w
+                  "
+                  sizes="(max-width: 650px) calc(100vw - 62px), (max-width: 900px) calc(100vw - 122px), 700px"
+                  decoding="async"
                   alt="Agent Office's usage panel with token totals, runtime estimates, coverage, and source details from synthetic sessions."
                   width="1440"
                   height="1000"
@@ -314,6 +334,7 @@
                   <li>Per-agent usage details</li>
                   <li>Retained accounting through history pruning</li>
                   <li>Optional cost threshold notices</li>
+                  <li>A recent-activity recap with a link to saved history</li>
                 </ul>
                 <p class="tour-fineprint">
                   Coverage depends on the runtime. Estimates are not provider
@@ -329,7 +350,13 @@
             <div id="tour-room" class="tour-panel" data-tab-panel>
               <div class="tour-image">
                 <img
-                  src="assets/screenshots/settings.png"
+                  src="assets/screenshots/settings-1440.webp"
+                  srcset="
+                    assets/screenshots/settings-480.webp   480w,
+                    assets/screenshots/settings-1440.webp 1440w
+                  "
+                  sizes="(max-width: 650px) calc(100vw - 62px), (max-width: 900px) calc(100vw - 122px), 700px"
+                  decoding="async"
                   alt="The Agent Office customization panel over the office floor, with room and appearance settings."
                   width="1440"
                   height="1000"
@@ -340,29 +367,38 @@
                 <span class="tour-number">03 / Your room</span>
                 <h3>Make it feel familiar.</h3>
                 <p>
-                  Pick a theme, choose a desk finish, and give agents a
-                  recognizable appearance. Arrange the space with furniture that
-                  opens useful views when you click it.
+                  Choose oak or slate floors, a theme, and recognizable
+                  characters. Arrange the space with furniture that opens useful
+                  views when you click it.
                 </p>
                 <ul>
-                  <li>26 placeable props, including earned additions</li>
+                  <li>Placeable props, including earned room additions</li>
                   <li>Undo, redo, and portable room preferences</li>
-                  <li>37 activity-based achievements</li>
+                  <li>Walking and activity animations that respect Pause</li>
+                  <li>
+                    Searchable sprites with native PNG and strip downloads
+                  </li>
                 </ul>
                 <p class="tour-fineprint">
                   Appearance changes never inflate work XP. XP represents
                   observed activity, not work quality.
                 </p>
                 <a
-                  href="https://github.com/NosytLabs/agent-office#earned-room-rewards"
-                  >Explore earned rewards <span aria-hidden="true">↗</span></a
+                  href="https://github.com/NosytLabs/agent-office#make-the-room-yours"
+                  >Customize the room <span aria-hidden="true">↗</span></a
                 >
               </div>
             </div>
             <div id="tour-aquarium" class="tour-panel" data-tab-panel>
               <div class="tour-image">
                 <img
-                  src="assets/screenshots/aquarium.png"
+                  src="assets/screenshots/aquarium-1440.webp"
+                  srcset="
+                    assets/screenshots/aquarium-480.webp   480w,
+                    assets/screenshots/aquarium-1440.webp 1440w
+                  "
+                  sizes="(max-width: 650px) calc(100vw - 62px), (max-width: 900px) calc(100vw - 122px), 700px"
+                  decoding="async"
                   alt="An interactive aquarium with colorful pixel fish, feeding controls, and a species collection."
                   width="1440"
                   height="1000"
@@ -374,12 +410,13 @@
                 <h3>Enjoy the room.</h3>
                 <p>
                   Feed your fish, unlock species, and choose the aquarium’s
-                  residents. Let the cats roam, or put on one of three original
-                  jukebox loops.
+                  residents. Choose cats, dogs or a pocket robot, or put on an
+                  original jukebox loop.
                 </p>
                 <ul>
                   <li>Four collectible fish species</li>
-                  <li>Named pets, roaming, and placeable nap beds</li>
+                  <li>Companion looks, roaming, and placeable nap beds</li>
+                  <li>Duck Hunt, Breakout and Snake in the room’s arcade</li>
                   <li>Audio starts only when you press Play</li>
                 </ul>
                 <p class="tour-fineprint">
@@ -387,8 +424,8 @@
                   respected.
                 </p>
                 <a
-                  href="https://github.com/NosytLabs/agent-office#aquarium-and-jukebox"
-                  >About the aquarium and music
+                  href="https://github.com/NosytLabs/agent-office/blob/main/docs/arcade.md"
+                  >Explore the room’s arcade
                   <span aria-hidden="true">↗</span></a
                 >
               </div>
@@ -766,11 +803,10 @@ python3 run.py</code></pre>
               What is still being built?<span aria-hidden="true">＋</span>
             </summary>
             <p>
-              More runtime adapters, current-context gauges, and broader host
-              integration checks are still open work. Tasks brings together
-              session activity, reported lists, editable briefs, and optional
-              local runs. Full interactive terminals, resuming existing
-              sessions, and scheduled orchestration remain future work. The
+              Tasks brings together session activity, reported lists, saved
+              briefs with backup import/export, and optional new local runs.
+              Sending work into existing OpenCode sessions, interactive
+              terminals, and scheduled orchestration are not available. The
               <a
                 href="https://github.com/NosytLabs/agent-office/blob/main/docs/audit/README.md"
                 >audit record</a
