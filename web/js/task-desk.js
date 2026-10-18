@@ -20,6 +20,7 @@
   let retained = false;
   let wantsRetention = false;
   let storageWarning = "";
+  let copyVersion = 0;
 
   function announce(message = "") {
     status.textContent = [message, storageWarning].filter(Boolean).join(" ");
@@ -91,16 +92,19 @@
     /* A damaged/unavailable tab draft never blocks the dashboard. */
   }
   text.addEventListener("input", () => {
+    copyVersion++;
     update();
     save();
     announce();
   });
   runtime.addEventListener("change", () => {
+    copyVersion++;
     update();
     save();
     announce();
   });
   remember.addEventListener("change", () => {
+    copyVersion++;
     wantsRetention = remember.checked;
     announce(
       save()
@@ -119,6 +123,7 @@
       return;
     }
     text.value = next;
+    copyVersion++;
     update();
     save();
     text.focus();
@@ -127,27 +132,40 @@
     );
   });
   copy.addEventListener("click", async () => {
-    const draft = text.value;
-    const name = runtime.selectedOptions[0].textContent;
-    copy.disabled = true;
+    const draft = text.value,
+      destination = runtime.value,
+      name = runtime.selectedOptions[0].textContent,
+      version = ++copyVersion,
+      panelCurrent = capturePanelInteraction(),
+      current = () => panelCurrent() && version === copyVersion;
     try {
       await navigator.clipboard.writeText(draft);
+      if (!current()) return;
       announce(
         text.value === draft
           ? "Copied for " + name + ". Nothing has been sent or executed."
           : "Copied the earlier draft. Your newer changes have not been copied.",
       );
     } catch {
+      if (!current()) return;
+      if (text.value !== draft || runtime.value !== destination) {
+        announce("The draft changed. Copy the current draft again.");
+        return;
+      }
+      const select = canSelectCopyFallback(copy);
       announce(
-        "Clipboard access could not be used. Copy the selected draft manually; nothing was sent.",
+        select
+          ? "Clipboard access could not be used. Copy the selected draft manually; nothing was sent."
+          : "Clipboard access could not be used. Copy the draft manually; nothing was sent.",
       );
-      text.focus();
-      text.select();
-    } finally {
-      update();
+      if (select) {
+        text.focus();
+        text.select();
+      }
     }
   });
   exportButton.addEventListener("click", () => {
+    copyVersion++;
     const url = URL.createObjectURL(
       new Blob([text.value], { type: "text/plain;charset=utf-8" }),
     );

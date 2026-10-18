@@ -255,3 +255,295 @@ test("blocked settings retain an unsaved name while local artwork and section na
     },
   );
 });
+
+async function deferClipboard(page) {
+  await page.evaluate(() => {
+    window.pendingPanelCopies = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (text) =>
+          new Promise((resolve, reject) =>
+            pendingPanelCopies.push({ text, resolve, reject }),
+          ),
+      },
+    });
+  });
+}
+
+const copyViews = [
+  {
+    name: "connection guide",
+    copy: '[data-copy-command="command-install"]',
+    status: "#setup-copy-status",
+    focus: "#setup-runtime",
+    open: async (page) => {
+      await page.click("#helpbtn");
+      await page.click('#sheet-legend [data-sheet="sheet-setup"]');
+    },
+  },
+  {
+    name: "task draft",
+    copy: "#task-draft-copy",
+    status: "#task-draft-status",
+    focus: "#task-draft-runtime",
+    open: async (page) => {
+      await page.click("#tasksbtn");
+      await page.click('[data-task-view="draft"]');
+      if (!(await page.inputValue("#task-draft-text")))
+        await page.fill("#task-draft-text", "Keep this unsent audit brief.");
+    },
+  },
+  {
+    name: "session report",
+    copy: "#inspector-copy",
+    status: "#inspector-copy-status",
+    focus: "#agent-name-input",
+    open: async (page) => {
+      await page.click("#floorbtn");
+      await page.locator('#roster [data-agent="review-a"]').click();
+    },
+  },
+];
+
+for (const view of copyViews) {
+  test(`a failed ${view.name} copy preserves a later keyboard text selection`, async () => {
+    await observerFixture({ events }, async ({ page }) => {
+      await deferClipboard(page);
+      await view.open(page);
+      await page.click(view.copy);
+      await page.keyboard.press(
+        process.platform === "darwin" ? "Meta+a" : "Control+a",
+      );
+      const heading = page.locator(".sheet:not([hidden]) h2");
+      assert.equal(
+        await heading.evaluate((node) =>
+          getSelection().containsNode(node, true),
+        ),
+        true,
+        "Native Select All selected panel text",
+      );
+      await page.evaluate(() =>
+        pendingPanelCopies[0].reject(new Error("Synthetic permission denial")),
+      );
+      assert.equal(
+        await heading.evaluate((node) =>
+          getSelection().containsNode(node, true),
+        ),
+        true,
+        "Copy feedback must not replace a later selection",
+      );
+    });
+  });
+
+  test(`a delayed ${view.name} copy cannot select text after the panel is closed and reopened`, async () => {
+    await observerFixture({ events }, async ({ page, state }) => {
+      const before = await state();
+      await deferClipboard(page);
+      await view.open(page);
+      const original = await page.textContent(view.status);
+      await page.click(view.copy);
+      await page.locator(".sheet:not([hidden]) .close").click();
+      await view.open(page);
+      const focus = await page.evaluate(() => document.activeElement.id);
+      await page.evaluate(() =>
+        pendingPanelCopies[0].reject(
+          new Error("Delayed synthetic permission denial"),
+        ),
+      );
+      assert.equal(
+        await page.evaluate(() => document.activeElement.id),
+        focus,
+        "A previous visit must not steal focus",
+      );
+      assert.equal(
+        await page.textContent(view.status),
+        original,
+        "A previous visit must not replace current feedback",
+      );
+      assert.equal(await page.evaluate(() => getSelection().toString()), "");
+      const after = await state();
+      assert.deepEqual(after.progress, before.progress);
+      assert.deepEqual(after.tasks, before.tasks);
+      assert.deepEqual(after.usage, before.usage);
+    });
+  });
+
+  test(`a failed ${view.name} copy preserves focus after the user moves to another control`, async () => {
+    await observerFixture({ events }, async ({ page }) => {
+      await deferClipboard(page);
+      await view.open(page);
+      await page.click(view.copy);
+      await page.locator(view.focus).focus();
+      await page.evaluate(() =>
+        pendingPanelCopies[0].reject(
+          new Error("Delayed synthetic permission denial"),
+        ),
+      );
+      assert.equal(
+        await page.evaluate(() => document.activeElement.id),
+        view.focus.slice(1),
+      );
+      assert.equal(
+        await page.evaluate(() => getSelection().toString()),
+        "",
+        "Manual Copy must not replace the user's selection elsewhere",
+      );
+    });
+  });
+}
+
+for (const outcome of ["resolve", "reject"]) {
+  test(`connection command copy ignores a delayed ${outcome} after changing runtimes`, async () => {
+    await observerFixture({}, async ({ page }) => {
+      await deferClipboard(page);
+      await copyViews[0].open(page);
+      await page.selectOption("#setup-runtime", "codex");
+      await page.click('[data-copy-command="command-install"]');
+      await page.selectOption("#setup-runtime", "claude");
+      await page.evaluate(
+        (outcome) =>
+          pendingPanelCopies[0][outcome](
+            outcome === "reject"
+              ? new Error("Synthetic permission denial")
+              : undefined,
+          ),
+        outcome,
+      );
+      assert.equal(await page.textContent("#setup-copy-status"), "");
+      assert.equal(await page.evaluate(() => getSelection().toString()), "");
+      assert.match(
+        await page.textContent("#command-install"),
+        /--only claude$/,
+      );
+    });
+  });
+}
+
+test("newer setup Copy feedback survives an older response arriving last", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await deferClipboard(page);
+    await copyViews[0].open(page);
+    await page.click('[data-copy-command="command-install"]');
+    await page.click('[data-copy-command="command-observer"]');
+    await page.evaluate(() => pendingPanelCopies[1].resolve());
+    const latest = await page.textContent("#setup-copy-status");
+    assert.match(latest, /python3 run.py/);
+    await page.evaluate(() => pendingPanelCopies[0].resolve());
+    assert.equal(await page.textContent("#setup-copy-status"), latest);
+  });
+});
+
+test("a delayed draft copy failure does not select newer text or move its caret", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await deferClipboard(page);
+    await copyViews[1].open(page);
+    await page.click("#task-draft-copy");
+    await page.fill(
+      "#task-draft-text",
+      "This newer draft has not been copied.",
+    );
+    const before = await page
+      .locator("#task-draft-text")
+      .evaluate((field) => [field.selectionStart, field.selectionEnd]);
+    await page.evaluate(() =>
+      pendingPanelCopies[0].reject(new Error("Synthetic permission denial")),
+    );
+    assert.deepEqual(
+      await page
+        .locator("#task-draft-text")
+        .evaluate((field) => [field.selectionStart, field.selectionEnd]),
+      before,
+    );
+    assert.equal(
+      await page.inputValue("#task-draft-text"),
+      "This newer draft has not been copied.",
+    );
+  });
+});
+
+test("leaving and returning to the Draft tab invalidates its pending Copy feedback", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await deferClipboard(page);
+    await copyViews[1].open(page);
+    await page.click("#task-draft-copy");
+    await page.click('[data-task-view="activity"]');
+    await page.click('[data-task-view="draft"]');
+    await page.evaluate(() => pendingPanelCopies[0].resolve());
+    assert.equal(await page.textContent("#task-draft-status"), "");
+    assert.equal(
+      await page.inputValue("#task-draft-text"),
+      "Keep this unsent audit brief.",
+    );
+  });
+});
+
+test("returning from a hidden page does not revive pending session-report selection", async () => {
+  await observerFixture({ events }, async ({ page }) => {
+    await deferClipboard(page);
+    await copyViews[2].open(page);
+    await page.click("#inspector-copy");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        get: () => true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        get: () => false,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+      pendingPanelCopies[0].reject(
+        new Error("Synthetic delayed clipboard denial"),
+      );
+    });
+    assert.equal(await page.locator("#inspector-report").isVisible(), false);
+    assert.equal(await page.textContent("#inspector-copy-status"), "");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "inspector-copy",
+    );
+  });
+});
+
+test("a pending session copy does not replace an older report that the user is selecting", async () => {
+  await observerFixture({ events }, async ({ page, publish }) => {
+    await deferClipboard(page);
+    await copyViews[2].open(page);
+    await page.click("#inspector-copy");
+    await page.evaluate(() =>
+      pendingPanelCopies[0].reject(new Error("Synthetic clipboard denial")),
+    );
+    const field = page.locator("#inspector-report-text"),
+      before = await field.inputValue();
+    publish([
+      {
+        event: "session_update",
+        session_id: "review-a",
+        platform: "codex",
+        title: "Updated report label",
+      },
+    ]);
+    await page.evaluate(() => poll());
+    await page.click("#inspector-copy");
+    await field.focus();
+    await field.press(process.platform === "darwin" ? "Meta+a" : "Control+a");
+    const selection = await field.evaluate((node) => [
+      node.selectionStart,
+      node.selectionEnd,
+    ]);
+    await page.evaluate(() =>
+      pendingPanelCopies[1].reject(new Error("Synthetic delayed denial")),
+    );
+    assert.equal(
+      await field.inputValue(),
+      before,
+      "The report being selected must retain its text",
+    );
+    assert.deepEqual(
+      await field.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+      selection,
+    );
+  });
+});
