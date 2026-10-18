@@ -171,8 +171,23 @@ and local office state must stay out of commits. After reviewing evidence, remov
 only generated folders you recognize. Do not use blanket `git clean -fdX`: ignored
 files can include local credentials or data. Never delete/truncate a live database,
 legacy log, pending inbox, or user artwork as part of repository tidying.
-[Diagnostics and maintenance](docs/architecture.md#diagnostic-logs-and-safe-cleanup)
+[Logs and maintenance](docs/maintenance.md)
 explain what each cleanup operation actually changes.
+
+## Maintain the documentation
+
+Keep user instructions in the guide linked from [the documentation index](docs/README.md).
+Update that guide when behavior changes. Put reproducible checks here and keep
+release-specific counts, source commits and verification limits in the existing
+[validation record](docs/audit/README.md). Historical source reviews are dated
+background, not another feature backlog.
+
+Keep raw logs and temporary reports under ignored `reports/` or outside the
+checkout. Link the relevant CI run for hosted evidence; a local pass is not a
+hosted result. When replacing an old audit narrative, preserve a commit-pinned
+Git link in [the history index](docs/audit/history.md). Screenshots committed as
+documentation must use synthetic data and follow the
+[screenshot maintenance guide](site/screenshots/README.md).
 
 ## VS Code development
 

@@ -1,195 +1,98 @@
 # Validation and integration limits
 
-This is a verification snapshot, not a promise that every runtime or device has
-been tested. Browser fixtures use synthetic activity and isolated data folders;
-they do not represent paid-provider work or the owner's live sessions.
+[Documentation](../README.md) · [Development checks](../../CONTRIBUTING.md#checks) · [Historical evidence](history.md)
 
-## Recorded local validation — 18 October 2026
+Tests use synthetic activity and isolated data folders. Their results establish
+the exercised contracts, not paid-provider work or the owner's live sessions.
 
-The 18 October 2026 UI/pages cleanup uses Python 3.13.15, Node 22.23.3,
-Playwright 1.63.0 and Google Chrome 155 on macOS. The table records local checks;
-hosted verification and deployment must be checked against the exact merged commit.
-The configured release gate runs on Ubuntu 24.04 / Python 3.13 / Node 22 with the
-runner's maintained Chrome.
+## Verified application snapshot — 18 October 2026
 
-| Check | Recorded local result |
+These results belong to commit
+[`2fbd6fc`](https://github.com/NosytLabs/agent-office/commit/2fbd6fcc0c8730522523a7634724710927bfee08).
+[PR #39](https://github.com/NosytLabs/agent-office/pull/39) fixed crowded HUDs,
+landscape panels, diagnostics focus and stale Copy feedback.
+[PR #40](https://github.com/NosytLabs/agent-office/pull/40) allowed slow optional
+artwork downloads to finish. [PR #41](https://github.com/NosytLabs/agent-office/pull/41)
+corrected timing-dependent browser assertions without changing the application.
+
+| Check | Recorded result |
 | --- | --- |
-| Python suite, including HTTP-boundary and build regressions | **692 passed**, **2 optional native Gemini fixture skips** |
-| Node models, controllers, and bridges | **182 passed** |
-| Browser flows | Full compatibility, Studio, product-site, navigation and attention command defined by `package.json`; see the exact commit’s [CI checks](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml) for the release gate |
-| Compiled sprites | **47 native sprites / 23 sheets**, **72 character walking frames**, **96 companion walking frames**, **96 companion life frames**, **72 character activity frames**, **4 seamless surfaces** reproduced from preserved sources |
-| Syntax, formatting, local documentation links, and tracked-artifact checks | Required in CI; reproduced locally before publication |
-| Public builds | **120 demo files** and **24 product-site files** |
+| [Final PR CI](https://github.com/NosytLabs/agent-office/actions/runs/39148888553) and [merged main CI](https://github.com/NosytLabs/agent-office/actions/runs/39149806699) | Passed on their exact commits |
+| Python on Ubuntu 24.04 / Python 3.13 | **686 passed**, 8 optional/platform-specific skips |
+| Node 22 models, controllers and bridges | **182 passed** |
+| Complete browser command | **383 passed**, 1 optional private-art skip; Original 273 + Studio 110 |
+| Syntax, formatting, sprite reproduction, public builds and repository hygiene | Passed |
+| Production smoke | 1440, 768, 601, 390 and 320px flows, plus a 667 × 320px landscape panel; no page errors or failed resources |
+| Published output | 30 checked files matched the tested application; 3 authoring paths returned 404 |
 
-The product site uses responsive lossless screenshots: full-size copies match the
-original decoded pixels, while narrow layouts fetch smaller images. Build tests
-reject stale or missing derivatives before replacing output. Setup clipboard
-regressions cover delayed responses after tab switches and newer copy actions.
+The five fresh-browser production flows loaded every supplemental artwork pack
+without Retry. They exercised actual command copying, delayed setup-copy
+feedback, settings persistence, draft retention, Back/Escape and unchanged
+synthetic activity/accounting. The last merge changed only two tests; the
+published application was checked against the same verified source.
 
-Per-kind notification sound preferences follow the same settings revision,
-pending-edit and rollback rules as other controls. Activity recap filters the
-latest 30 snapshot events, with an explicit scope label; its range and review
-marker are browser-local and separate for demo/observer views. Unchanged visible
-polls retain selected event text, and closed recaps do no DOM work. Activity →
-Saved provides retained-history review. The [usage guide](../usage.md#notification-sounds-and-activity-recap)
-defines these viewing and sound preferences.
-
-Focused real-observer browser fixtures cover all character/companion directions,
-Pause, native PNG/strip pixels, art fallback/retry without draft loss, oak/slate/
-original finishes, 320-pixel panels, Customize jumps, history exports, Quick
-navigation, attention keyboard cycling and disconnected tab titles. The broader
-suite also covers storage, settings conflicts, local runner fixtures, arcade,
-aquarium, room editing and usage. Saved-brief regressions cover explicit review,
-exact multiline text, reviewed JSON backup Merge/Replace/Cancel, concurrent
-browser saves, storage failures, stale file reads and visible keyboard focus. Panel
-checks cover composing Escape and disconnected attention controls. Publication
-checks exercise the actual reduced demo, all 23 source fallback sheets and the
-served arcade. Build regressions reject symlinked source roots and output ancestors
-before any destination is replaced. No viewing or brief-library action changes work accounting.
-
-The native Gemini tests require an explicit installed CLI path. The private-art
-case requires the owner’s licensed Smallburg pack; public art and synthetic
-fallback tests run without it. A successful Vercel deployment is separate from
-suite results. Hosted checks and production smoke results must match the merged
-commit. Earlier results remain in [history](history.md).
-
-Cold-page connection resets were reproduced with the standard five-connection
-listener backlog. The observer now queues 128 requests, and an HTTP regression
-queues 32 connections before accepting them. The boundary suite covers foreign
-Host/Origin/Fetch Metadata requests, local aliases and explicitly trusted forwarded
-origins. A real-Chrome sandboxed forwarding fixture verified preserved and rewritten
-Host forms; that is not actual VS Code extension-host verification.
+Counts describe this snapshot, not every later commit. Check a newer revision's
+actual [CI run](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml)
+and deployment separately. A successful deployment does not establish a test pass.
 
 ## Reproduce the checks
 
-Use the [development setup](../../CONTRIBUTING.md#development-setup), then run:
+Follow [the development setup and complete checks](../../CONTRIBUTING.md#development-setup).
+The full browser gate is `npm run test:browser`, which runs both compatibility
+and Studio flows. Focused passes do not replace that complete release check.
 
-```sh
-python3 tools/check_repository.py
-python -m pytest -q
-npm test
-npm run check
-npm run format:check
-npm run check:sprites
-npm run test:browser
-npm run build:preview
-```
+Stage intended new source files before running `python3 tools/check_repository.py`.
+It reads tracked working files and the Git index, checks local Markdown links and
+anchors, rejects generated/local-only artifacts and conflict markers, and rejects
+unsafe symlinks before reading their targets. It does not delete data, validate
+external websites or scan arbitrary file contents for secrets.
 
-`check_repository.py` inspects the Git index and tracked working files only.
-Tracked symlinks to untracked or local-only files are rejected before content is
-read. Rejected local data is never parsed as documentation. It
-checks local Markdown paths/anchors, tracked logs/caches/local data, and conflict
-markers without making network requests or deleting files. It is not a complete
-Markdown parser or a secret-content scanner. Stage intended new source files
-before running it; untracked local files cannot satisfy a committed docs link.
+Both [CI](../../.github/workflows/ci.yml) and
+[repository hygiene](../../.github/workflows/hygiene.yml) run for every PR and push
+to main, including documentation-only changes. Full CI uses the runner's maintained
+Chrome, allows 20 minutes, and retains browser artifacts for three days after
+failed or manual runs. Keep raw logs and temporary reports outside Git; see
+[logs and maintenance](../maintenance.md#keep-development-output-out-of-git).
 
-The small [repository-hygiene workflow](../../.github/workflows/hygiene.yml)
-checks every pull request and push to `main` without installing npm packages or
-running browsers. Asset-only deletions can break unchanged Markdown links, and
-any tracked file can contain a conflict marker or forbidden artifact. The full
-[CI workflow](../../.github/workflows/ci.yml) uses the same unfiltered events so
-required checks are present on documentation changes too. Its 20-minute gate
-runs Python and Node tests, syntax and formatting checks, read-only sprite pixel
-verification, public builds, and the complete browser command in `package.json`.
-Failed or manual runs retain browser artifacts for three days. Consult each
-commit's actual check results for evidence of hosted verification.
-
-## Automated coverage
-
-| Area | Main tests and contract |
-| --- | --- |
-| Publication, transactions, reset, and replay | `test_event_inbox.py`, `test_event_store.py`, `test_reset_protocol.py` |
-| Retention, measurements, and explicit compaction | `test_storage_health.py`, `test_storage_maintenance.py`, `test_event_cache.py` |
-| Settings and preferences | `test_settings_concurrency.py`, `test_personalization.py`, and corresponding browser flows |
-| Notification preferences and recent activity review | `recap.test.cjs`, `sound-preferences-browser.test.cjs`: recent-snapshot ranges, request/error semantics, browser-local review controls, and sound-control stale-poll/rollback/conflict handling |
-| Lifecycle, usage, and reported tasks | `test_state_model.py`, `test_agent_lifecycle.py`, `test_usage.py`, `test_tasks*.py` |
-| Runtime hooks and local task processes | `test_runtime_adapters.py`, runtime-specific hook tests, `test_task_runner*.py` |
-| Office, rooms, assets, arcade, and mobile controls | Node models and browser files listed by `package.json`; `test_assets.py`; `native-sprites.test.cjs` |
-| Log failure handling | `test_observer_logging.py`: concurrent failures, bounded warnings, redaction, continued publication, broken log handlers |
-| Repository hygiene | `test_repository_hygiene.py`: real temporary Git indexes, generated artifacts, local links, anchors, and code examples |
-
-The [tests directory](../../tests) is the source of truth for individual cases.
-Do not copy changing test totals into feature descriptions or treat synthetic
-fixtures as installed-runtime proof.
-
-## Interface evidence
-
-![Task terminal, status beacon, pet bed, and fern in an isolated test office](../screenshots/signals.png)
-
-| View | Screenshot |
-| --- | --- |
-| Aquarium | [Fish selection and feeding](../screenshots/aquarium.png) |
-| Usage | [Reported counters and coverage](../screenshots/usage.png) |
-| Settings | [Desk, pet, and saved-choice controls](../screenshots/settings.png) |
-| Personalization | [Individual desk and character preferences](../screenshots/personalization.png) |
-| Appearance | [Juniper, walnut desks, and a delegated robot](../screenshots/appearance.png) |
-| Product website | [Responsive product introduction](../screenshots/product-site.png) |
-| New interactive props | [Desktop](../screenshots/signals.png) and [320-pixel mobile reflow](../screenshots/signals-mobile.png) |
-| Pet bed | [Cat resting at the placed bed](../screenshots/pet-bed.png) |
-| Gemini lifecycle | [Mobile inspector with a synthetic hook fixture and unreported usage](../screenshots/gemini-mobile.png) |
-| Narrow office heading | [A 48-character name at 320 pixels](../screenshots/long-office-name-mobile.png) |
-| Keyboard settings | [Visible focused control below the sticky header](../screenshots/keyboard-settings.png) |
-| Arcade | [Duck Hunt with a scored hit](../screenshots/arcade-duck-hunt.png) and [Breakout in play](../screenshots/arcade-breakout.png) |
-| Snake | [Desktop play](../screenshots/arcade-snake-desktop.png) and [mobile controls](../screenshots/arcade-snake-mobile.png) |
-| Room toys and characters | [Moss engineer and Orbit courier in the office](../screenshots/office-toys.png) and [saved room lighting](../screenshots/room-lights.png) |
-| Aquarium interactions | [Public fish, tank lighting, and visible artwork source](../screenshots/aquarium-interactions.png) |
-| Local task runs | [Desktop form](../screenshots/local-runs-desktop.png), [completed fixture output](../screenshots/local-runs-output.png), and [320-pixel mobile output](../screenshots/local-runs-mobile.png) |
-| Task console | [Original generated console in the assembled office](../screenshots/task-console-running.png) |
-
-See [the preview guide](../preview.md) for the demonstration and [CONTRIBUTING.md](../../CONTRIBUTING.md) to reproduce local browser checks.
+<a id="automated-coverage"></a>
 
 ## Integration limits
 
-**Runtime coverage is version-specific.** The earlier Gemini CLI 0.63.0 review
-exercised real hooks against a synthetic loopback provider, not a paid account.
-That opt-in check was not repeated in this cleanup. Hermes, Claude Code, Codex,
-and OpenCode adapters are fixture-tested here; authenticated installed sessions
-remain unverified. See [runtime contracts](../runtime-observers.md).
+| Area | Coverage and practical limit |
+| --- | --- |
+| Observation, persistence and accounting | Event inbox/store, reset/replay, retention, usage and task-model tests use isolated local data. Reported usage is an estimate; missing counters remain unknown. See [runtime contracts](../runtime-observers.md). |
+| UI and artwork | Real HTTP/browser flows cover panels, focus, drafts, settings conflicts, room controls, sprite fallback/retry, exports, arcade and aquarium. See the browser commands in [package.json](../../package.json). Physical mobile devices and Safari/iOS were not independently exercised. |
+| Runtime adapters | Fixture-tested here. The optional native Gemini fixture targets a specific installed version and synthetic loopback provider; it does not prove paid-provider success. Authenticated Hermes, Claude Code, Codex and OpenCode sessions were not verified by this snapshot. |
+| Local task runner | Temporary Codex/Claude-shaped executables exercise admission, prompts, output, cancellation and retry contracts. They do not prove credentials, model access or useful task completion. Native Windows cleanup remains best-effort/unverified. See [runner limits](../local-task-runner.md). |
+| VS Code | Packaging, simulated APIs and real HTTP checks are separate from actual extension-host installation, activation and remote-forwarding verification. See [the extension guide](../../vscode/README.md). |
+| Clipboard | Browser checks cover successful copies, denied/delayed responses and preserved selection/focus. Real operating-system permission prompts were not exercised. |
+| Logs and cleanup | Publication failures, bounded warnings, redaction and broken log handlers are covered by `test_observer_logging.py`. The repository checker has isolated Git-index tests in `test_repository_hygiene.py`. See [maintenance](../maintenance.md) for storage and log boundaries. |
 
-**Local runs start fresh processes.** Tests use temporary Codex/Claude-shaped
-executables. They do not prove authentication, model access, provider completion,
-or compatibility with every CLI version. POSIX process-group cleanup is covered;
-native Windows cleanup is still unverified/best-effort. Existing-session OpenCode
-handoff and durable delivery receipts remain open in
-[issue #18](https://github.com/NosytLabs/agent-office/issues/18).
-See the [runner contract](../local-task-runner.md).
+Existing-session OpenCode handoff and durable delivery receipts remain deferred in
+[issue #18](https://github.com/NosytLabs/agent-office/issues/18). Fresh local tasks,
+observed task lists and saved briefs do not implement that adapter. Dated
+[reference reviews](history.md#source-reviews) preserve research and reuse decisions;
+they are not proof that upstream software ran here or that a proposed feature shipped.
 
-**VS Code packaging is not extension-host verification.** Earlier VSIX packaging
-and simulated-API/real-HTTP tests passed. Actual installation, activation, remote
-forwarding, and authentication still need a working VS Code host. Physical
-mobile devices and Safari/iOS were not independently exercised in this cleanup.
+## Interface evidence
 
-**Usage and task data remain observations.** Missing counters stay unknown;
-runtime costs are estimates, not invoices. A completed session does not complete
-its task list. Recent capture replays have bounded memory; a previously unseen
-capture without a source clock follows receipt order. See
-[usage and task contracts](../runtime-observers.md).
+The maintained captures use synthetic data. They illustrate the interface;
+the commit-specific checks above establish the recorded verification.
 
-**Retention is not a whole-directory quota.** Raw history uses the configured
-count/age/byte limits. Compact accounting and unresolved prompts survive pruning;
-usage identities can grow, pending offline inbox files remain, and legacy JSONL
-files are read-only. Invalid/unavailable retention settings suspend pruning.
-Settings locks protect cooperating local servers, not arbitrary external editors,
-network filesystems, or power-loss durability. See
-[storage and maintenance](../architecture.md#storage-and-retention).
-
-**Diagnostics are separate from event history.** Repeated hook-publish failures
-emit at most one warning per minute per process, with a suppressed-count summary
-on the next warning. Raw exception messages and event bodies are not included in
-that warning. All event attempts still occur, and logging failures cannot escape
-into the agent loop. This is not a global quota on external service logs; see
-[diagnostics and safe cleanup](../architecture.md#diagnostic-logs-and-safe-cleanup).
+| View | Capture |
+| --- | --- |
+| Office and characters | [Studio office](../screenshots/studio-office.png), [appearance](../screenshots/appearance.png), [personalization](../screenshots/personalization.png) |
+| Activity and usage | [Usage](../screenshots/usage.png), [Gemini fixture inspector](../screenshots/gemini-mobile.png) |
+| Settings and narrow layouts | [Settings](../screenshots/settings.png), [keyboard focus](../screenshots/keyboard-settings.png), [long mobile title](../screenshots/long-office-name-mobile.png) |
+| Props and lighting | [Task signals](../screenshots/signals.png), [mobile signals](../screenshots/signals-mobile.png), [pet bed](../screenshots/pet-bed.png), [room toys](../screenshots/office-toys.png), [lights](../screenshots/room-lights.png) |
+| Arcade and aquarium | [Duck Hunt](../screenshots/arcade-duck-hunt.png), [Breakout](../screenshots/arcade-breakout.png), [Snake desktop](../screenshots/arcade-snake-desktop.png), [Snake mobile](../screenshots/arcade-snake-mobile.png), [fish](../screenshots/aquarium.png), [tank controls](../screenshots/aquarium-interactions.png) |
+| Local run fixtures | [Form](../screenshots/local-runs-desktop.png), [output](../screenshots/local-runs-output.png), [mobile output](../screenshots/local-runs-mobile.png), [console](../screenshots/task-console-running.png) |
+| Product website | [Product introduction](../screenshots/product-site.png) |
 
 ## Source and asset review
 
-The dated [reference review](../reference-review-2026-10-15.md) preserves inspected
-sources and reuse decisions. It is background, not the current feature backlog.
-Automatic orchestration, agent hiring, and answering permission prompts are not
-implemented by copying a product description.
-
-Original artwork and licenses are preserved. The public aquarium uses original
-fish; the owner's optional commercial Smallburg pack is installed outside Git.
-Duck Hunt package metadata is not a separate license for its artwork/audio.
-Consult [arcade provenance](../arcade.md), [sprite provenance](../../web/assets/sprites/ATTRIBUTION.md),
-[font/icon/runtime marks](../../web/assets/ATTRIBUTION.md), and
-[optional aquarium artwork](../aquarium-assets.md).
+Project code, runtime marks, fonts, games and artwork have separate source notices.
+Keep [asset notices](../../web/assets/ATTRIBUTION.md),
+[sprite provenance](../../web/assets/sprites/ATTRIBUTION.md) and
+[arcade provenance](../arcade.md) with their assets. The optional licensed
+[Smallburg aquarium pack](../aquarium-assets.md) is not distributed in Git.
