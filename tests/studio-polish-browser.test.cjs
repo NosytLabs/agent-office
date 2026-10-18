@@ -17,6 +17,40 @@ const ledger = (s) => ({
   received: s.tracking.received,
 });
 
+test("a slow optional sprite download finishes without losing panel edits", async () => {
+  await observerFixture({}, async ({ page, state }) => {
+    await ready(page);
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Keep this unsaved name");
+    const before = ledger(await state());
+    await page.route("**/character-life.png", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 5500));
+      await route.continue().catch(() => {});
+    });
+    await page.evaluate(() => {
+      void officeStudio.reload();
+    });
+    await page.waitForFunction(() => !officeStudio.loading, null, {
+      timeout: 20000,
+    });
+    assert.equal(
+      await page.evaluate(() => officeStudio.characterLife.size),
+      96,
+    );
+    assert.equal(await page.evaluate(() => officeStudio.environmentError), "");
+    assert.equal(
+      await page.inputValue("#room-name-input"),
+      "Keep this unsaved name",
+    );
+    assert.equal(await page.evaluate(() => opened), "sheet-settings");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "room-name-input",
+    );
+    assert.deepEqual(ledger(await state()), before);
+  });
+});
+
 test("in-place recovery keeps drafts, panel, focus and one wrapper set", async () => {
   await observerFixture({}, async ({ page, state }) => {
     await ready(page);
