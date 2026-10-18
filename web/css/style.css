@@ -489,6 +489,18 @@ html.panel-open {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+#sound-prefs-form .setting-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+#sound-prefs-form input {
+  flex-shrink: 0;
+  margin: 0;
+}
 .recap-controls {
   border: 0;
   padding: 0;
@@ -540,9 +552,6 @@ html.panel-open {
 }
 .recap-events li[data-kind="error"] {
   border-left: 3px solid #c45;
-}
-.recap-events li[data-kind="reward"] {
-  border-left: 3px solid var(--accent);
 }
 .recap-events time {
   color: var(--muted);
