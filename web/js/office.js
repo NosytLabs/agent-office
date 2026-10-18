@@ -404,6 +404,12 @@ function capturePanelInteraction() {
     version === panelInteractionVersion &&
     !document.hidden;
 }
+function canSelectCopyFallback(button) {
+  return (
+    document.activeElement === button &&
+    window.getSelection()?.isCollapsed !== false
+  );
+}
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelInteractionVersion++;
 });
@@ -890,7 +896,7 @@ for (const button of document.querySelectorAll("[data-copy-command]")) {
           "The command changed. Copy the current command again.";
         return;
       }
-      if (document.activeElement !== button) {
+      if (!canSelectCopyFallback(button)) {
         $("setup-copy-status").textContent =
           "Clipboard unavailable. Copy the command manually.";
         return;
@@ -1592,9 +1598,18 @@ $("inspector-copy").onclick = async () => {
   } catch {
     if (!current()) return;
     const field = $("inspector-report-text");
+    if (
+      window.getSelection()?.isCollapsed === false ||
+      (document.activeElement === field &&
+        field.selectionStart !== field.selectionEnd)
+    ) {
+      $("inspector-copy-status").textContent =
+        "Clipboard unavailable. Your selection was kept; use your device’s Copy action.";
+      return;
+    }
     field.value = text;
     $("inspector-report").hidden = false;
-    const select = document.activeElement === $("inspector-copy");
+    const select = canSelectCopyFallback($("inspector-copy"));
     $("inspector-copy-status").textContent = select
       ? "Clipboard unavailable. Snapshot selected below; use your device’s Copy action."
       : "Clipboard unavailable. Copy the snapshot below manually.";

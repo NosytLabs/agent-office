@@ -307,6 +307,35 @@ const copyViews = [
 ];
 
 for (const view of copyViews) {
+  test(`a failed ${view.name} copy preserves a later keyboard text selection`, async () => {
+    await observerFixture({ events }, async ({ page }) => {
+      await deferClipboard(page);
+      await view.open(page);
+      await page.click(view.copy);
+      await page.keyboard.press(
+        process.platform === "darwin" ? "Meta+a" : "Control+a",
+      );
+      const heading = page.locator(".sheet:not([hidden]) h2");
+      assert.equal(
+        await heading.evaluate((node) =>
+          getSelection().containsNode(node, true),
+        ),
+        true,
+        "Native Select All selected panel text",
+      );
+      await page.evaluate(() =>
+        pendingPanelCopies[0].reject(new Error("Synthetic permission denial")),
+      );
+      assert.equal(
+        await heading.evaluate((node) =>
+          getSelection().containsNode(node, true),
+        ),
+        true,
+        "Copy feedback must not replace a later selection",
+      );
+    });
+  });
+
   test(`a delayed ${view.name} copy cannot select text after the panel is closed and reopened`, async () => {
     await observerFixture({ events }, async ({ page, state }) => {
       const before = await state();
@@ -474,6 +503,47 @@ test("returning from a hidden page does not revive pending session-report select
     assert.equal(
       await page.evaluate(() => document.activeElement.id),
       "inspector-copy",
+    );
+  });
+});
+
+test("a pending session copy does not replace an older report that the user is selecting", async () => {
+  await observerFixture({ events }, async ({ page, publish }) => {
+    await deferClipboard(page);
+    await copyViews[2].open(page);
+    await page.click("#inspector-copy");
+    await page.evaluate(() =>
+      pendingPanelCopies[0].reject(new Error("Synthetic clipboard denial")),
+    );
+    const field = page.locator("#inspector-report-text"),
+      before = await field.inputValue();
+    publish([
+      {
+        event: "session_update",
+        session_id: "review-a",
+        platform: "codex",
+        title: "Updated report label",
+      },
+    ]);
+    await page.evaluate(() => poll());
+    await page.click("#inspector-copy");
+    await field.focus();
+    await field.press(process.platform === "darwin" ? "Meta+a" : "Control+a");
+    const selection = await field.evaluate((node) => [
+      node.selectionStart,
+      node.selectionEnd,
+    ]);
+    await page.evaluate(() =>
+      pendingPanelCopies[1].reject(new Error("Synthetic delayed denial")),
+    );
+    assert.equal(
+      await field.inputValue(),
+      before,
+      "The report being selected must retain its text",
+    );
+    assert.deepEqual(
+      await field.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+      selection,
     );
   });
 });

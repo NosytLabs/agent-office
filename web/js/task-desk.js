@@ -152,7 +152,7 @@
         announce("The draft changed. Copy the current draft again.");
         return;
       }
-      const select = document.activeElement === copy;
+      const select = canSelectCopyFallback(copy);
       announce(
         select
           ? "Clipboard access could not be used. Copy the selected draft manually; nothing was sent."

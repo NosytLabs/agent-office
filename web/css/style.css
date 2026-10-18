@@ -284,9 +284,12 @@ h2 {
 #empty-state {
   position: absolute;
   left: 50%;
-  top: 55%;
+  top: 50%;
   transform: translate(-50%, -50%);
   width: min(90%, 380px);
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
   text-align: center;
   background: var(--panel);
   padding: 18px;
