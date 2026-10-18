@@ -232,7 +232,7 @@ test("missing directional artwork keeps the base set and retries without losing 
     assert.equal(await page.locator("#studio-art-retry").isHidden(), true);
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      626,
+      722,
     );
     assert.deepEqual(accounting(await state()), before);
   });

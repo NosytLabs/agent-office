@@ -89,6 +89,13 @@ manifest: 72 native 32×36 typing, reading, and attention frames. The runtime ad
 A missing or invalid activity supplement leaves the other Studio packs available;
 Retry artwork restores it without reloading the page or its unsent drafts.
 
+The separate `studio/character-reactions.png` supplement adds 72 native idle,
+celebration and error frames, plus 24 runtime palette variants. It follows the
+same compiler, checksum, native-anchor and independent retry contracts. Its
+unchanged image-generation source and complete prompt stay in `studio/source/`
+and are excluded from public builds. The static poses remain required fallbacks;
+neither these nor the Classic source sheets are dead assets.
+
 A same-input comparison on 15 October 2026, including the character activity
 supplement, omitted 25 authoring files. The packaged build shrank from 146 files
 and 25,052,300 bytes to 121 files and 15,376,620 bytes: about 9.7 MB (38.6%) before

@@ -13,6 +13,47 @@ async function gallery(page) {
   await page.locator("#studio-gallery summary").click();
 }
 
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 667, height: 320 },
+])
+  test(`starting a sprite animation keeps its preview and Stop control visible at ${viewport.width}px`, async () => {
+    await observerFixture({ viewport }, async ({ page }) => {
+      await gallery(page);
+      await page.fill("#studio-sprite-search", "studio robot reading");
+      await page.selectOption("#studio-sprite-choice", "person-4-read-anim-2");
+      await page.click("#studio-preview-play");
+      const geometry = await page.evaluate(() => {
+        const panel = document.getElementById("sheet-settings"),
+          header = panel.querySelector(".sheet-header").getBoundingClientRect(),
+          bounds = panel.getBoundingClientRect();
+        return ["studio-sprite-preview", "studio-preview-play"].map((id) => {
+          const rect = document.getElementById(id).getBoundingClientRect();
+          return {
+            id,
+            top: rect.top,
+            bottom: rect.bottom,
+            header: header.bottom,
+            panel: bounds.bottom,
+          };
+        });
+      });
+      for (const rect of geometry) {
+        assert.ok(rect.top >= rect.header, JSON.stringify(rect));
+        assert.ok(rect.bottom <= rect.panel, JSON.stringify(rect));
+      }
+      assert.equal(
+        await page.locator("#studio-preview-play").getAttribute("aria-pressed"),
+        "true",
+      );
+      await page.click("#studio-preview-play");
+      assert.equal(
+        await page.locator("#studio-preview-play").getAttribute("aria-pressed"),
+        "false",
+      );
+    });
+  });
+
 test("an older sprite export cannot overwrite feedback for the selected export", async () => {
   await observerFixture({}, async ({ page }) => {
     await gallery(page);

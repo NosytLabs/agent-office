@@ -27,6 +27,7 @@ try {
     "pet-walk",
     "pet-life",
     "character-life",
+    "character-reactions",
   ]) {
     const sourceName = `source/${name}.png`;
     const source = await fs.readFile(path.join(directory, sourceName));
@@ -45,7 +46,7 @@ try {
           entries = {},
           bounds = [],
           scales = [];
-        const characters = name === "character-life",
+        const characters = name.startsWith("character-"),
           frameWidth = characters ? 32 : 28,
           frameHeight = characters ? 36 : 26,
           actors = characters ? 6 : 8;
@@ -157,7 +158,9 @@ try {
               const suffix =
                 name === "pet-life" || characters
                   ? (characters
-                      ? ["type", "read", "attention"]
+                      ? name === "character-reactions"
+                        ? ["idle", "cheer", "error"]
+                        : ["type", "read", "attention"]
                       : ["idle", "sleep", "happy"])[Math.floor(column / 4)] +
                     "-anim-" +
                     (column % 4)

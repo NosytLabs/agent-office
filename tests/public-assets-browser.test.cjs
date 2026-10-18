@@ -159,10 +159,18 @@ test("the reduced public demo loads Studio supplements and exports a sprite with
         pets: officeStudio.petDirectional.size,
         petLife: officeStudio.petLife.size,
         characters: officeStudio.characterLife.size,
+        reactions: officeStudio.characterReactions.size,
         surfaces: officeStudio.surfaces.size,
         error: officeStudio.environmentError,
       })),
-      { pets: 96, petLife: 96, characters: 96, surfaces: 4, error: "" },
+      {
+        pets: 96,
+        petLife: 96,
+        characters: 96,
+        reactions: 96,
+        surfaces: 4,
+        error: "",
+      },
     );
     await page.locator("#settingsbtn").click();
     await page.locator("#studio-gallery summary").click();
