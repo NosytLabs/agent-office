@@ -27,8 +27,11 @@ reported activity. A 72-frame character activity sheet adds four-frame typing, r
 and attention loops for the six base identities; two palette variants add another
 24 frames. These 32 × 36 poses keep their bottom-center anchor and run only while
 stationary. Typing runs at four frames per second, reading and attention at two.
-Pause and reduced motion hold frame zero; shell work, errors, completion and idle
-retain their established poses. Typing hands are drawn over the existing desktop, rather than
+Pause and reduced motion hold frame zero. A separate 72-frame reaction sheet
+(96 with palette variants) adds occasional idle blinks, gentle completion waves
+and calm error gestures. These use the existing reported poses: they do not infer
+successful work or repair a reported failure. Shell work retains its waiting pose.
+Typing hands are drawn over the existing desktop, rather than
 adding a second baked-in desk. Four cat looks, three dogs and a pocket robot use
 the existing two companion slots; the second slot keeps its original unlock.
 Coffee, watering and sparkle effects remain cosmetic. A newly observed completed
@@ -50,7 +53,7 @@ reduced motion use still poses; these loops do not alter pet movement or rewards
 The earned sofa sleeper uses the same chosen look. Four 128 × 128 room
 surfaces provide oak/slate floors and matching plaster walls. A cached repeat
 pattern preserves geometry, room lighting and object interactions. Original theme
-remains selectable. The searchable gallery contains 626 entries in total.
+remains selectable. The searchable gallery contains 722 entries in total.
 
 ## Compatibility
 
@@ -65,7 +68,8 @@ identity with one shared scale and nearest-neighbor sampling. Run
 `node tools/build_studio_directional.mjs --check` to reproduce all 72 native frames;
 this is also part of `npm run check:sprites`. The environment compiler
 `node tools/build_studio_environment.mjs --check` also reproduces all 192 companion
-walking/life frames, 72 character activity frames and four seamless surface tiles from their preserved source and full
+walking/life frames, 72 character activity frames, 72 character reaction frames
+and four seamless surface tiles from their preserved source and full
 prompts. The surface compiler reflects reviewed tiles to match opposite edges.
 
 If any supplementary sheet is unavailable or fails validation, the base artwork

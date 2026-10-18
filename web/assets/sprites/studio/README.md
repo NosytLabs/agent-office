@@ -62,3 +62,14 @@ in `source/character-life.*`; the manifest records the reviewed crops and decode
 pixel checksum. The environment compiler reproduces this pack with the other
 supplements. Stationary reported activity selects these loops; walking and the
 existing error/completion/shell poses retain their separate artwork.
+
+## Character reaction loops
+
+`character-reactions.png` / `character-reactions.json` add 72 native 32×36 idle,
+celebration and error frames for the same six identities. The runtime adds 24
+rose/moss palette variants. The original 1536×1024 built-in image-generation edit
+and its complete prompt are preserved unchanged in `source/character-reactions.*`.
+The existing character-life sheet served as the identity and style reference.
+The shared environment compiler records one scale per identity, reviewed alpha
+bounds, foot anchors, source hash and decoded pixel hash. This optional supplement
+has independent fallback/retry; the static poses are retained for that purpose.

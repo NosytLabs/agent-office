@@ -96,16 +96,30 @@
     return `pet-${index}-${family}-anim-${frame}`;
   }
   function characterLifeKey(index, state, time = 0, paused = false) {
-    const speed = { type: 4, read: 2, attention: 2 }[state];
-    if (!speed) return null;
+    const speed = {
+      type: 4,
+      read: 2,
+      attention: 2,
+      idle: 8,
+      cheer: 3,
+      error: 1,
+    }[state];
+    if (typeof speed !== "number") return null;
     const clock = Number.isFinite(time) ? Math.max(0, time) : 0,
-      frame = paused ? 0 : Math.floor(clock * speed) % 4;
+      phase = Math.floor(clock * speed),
+      frame = paused
+        ? 0
+        : state === "idle"
+          ? phase % 32 >= 16 && phase % 32 <= 18
+            ? (phase % 32) - 15
+            : 0
+          : phase % 4;
     return `person-${index}-${state}-anim-${frame}`;
   }
   function validEnvironmentManifest(m, name) {
     const surfaces = name === "room-surfaces",
       pets = name === "pet-walk" || name === "pet-life",
-      characters = name === "character-life";
+      characters = name === "character-life" || name === "character-reactions";
     if (
       (!surfaces && !pets && !characters) ||
       !m ||
@@ -133,7 +147,7 @@
       for (let actor = 0; actor < 6; actor++)
         for (let column = 0; column < 12; column++)
           expected.push([
-            `person-${actor}-${["type", "read", "attention"][Math.floor(column / 4)]}-anim-${column % 4}`,
+            `person-${actor}-${(name === "character-reactions" ? ["idle", "cheer", "error"] : ["type", "read", "attention"])[Math.floor(column / 4)]}-anim-${column % 4}`,
             [column * 32, actor * 36, 32, 36],
             [16, 35],
           ]);
@@ -518,6 +532,7 @@
     petDirectional: new Map(),
     petLife: new Map(),
     characterLife: new Map(),
+    characterReactions: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -591,17 +606,18 @@
   };
   scene.character = function (a, x, y, c) {
     const state = pose(a, c, this.time, this.paused),
-      directional =
+      actor = person(a),
+      life =
+        !c.moving &&
         enabled() &&
-        art.directional.get(directionalKey(person(a), c, this.paused)),
+        characterLifeKey(actor, state, this.time, this.paused),
+      directional =
+        enabled() && art.directional.get(directionalKey(actor, c, this.paused)),
       im =
         directional ||
-        (!c.moving &&
-          enabled() &&
-          art.characterLife.get(
-            characterLifeKey(person(a), state, this.time, this.paused),
-          )) ||
-        sprite(`person-${person(a)}-${state === "type" ? "idle" : state}`);
+        (life &&
+          (art.characterLife.get(life) || art.characterReactions.get(life))) ||
+        sprite(`person-${actor}-${state === "type" ? "idle" : state}`);
     if (!im) return original.character.call(this, a, x, y, c);
     const g = this.ctx,
       left = Math.round(x - 8),
@@ -1122,13 +1138,15 @@
     }
     return sprites;
   }
-  async function loadCharacterLife() {
-    const sprites = await loadEnvironment("character-life");
+  async function loadCharacterLife(name = "character-life") {
+    const sprites = await loadEnvironment(name);
     for (const [id, finish] of [
       [6, "rose"],
       [7, "moss"],
     ])
-      for (const family of ["type", "read", "attention"])
+      for (const family of name === "character-reactions"
+        ? ["idle", "cheer", "error"]
+        : ["type", "read", "attention"])
         for (let frame = 0; frame < 4; frame++)
           sprites.set(
             `person-${id}-${family}-anim-${frame}`,
@@ -1206,6 +1224,7 @@
         loadEnvironment("pet-walk"),
         loadEnvironment("pet-life"),
         loadCharacterLife(),
+        loadCharacterLife("character-reactions"),
       ]);
       art.directionalError = "";
       art.environmentError = "";
@@ -1215,6 +1234,7 @@
         "petDirectional",
         "petLife",
         "characterLife",
+        "characterReactions",
       ].forEach((property, index) => {
         const result = extras[index];
         art[property] =
@@ -1243,6 +1263,7 @@
       art.petDirectional.clear();
       art.petLife.clear();
       art.characterLife.clear();
+      art.characterReactions.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =

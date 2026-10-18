@@ -242,7 +242,7 @@
     const family = key.replace(/-anim-\d+$/, ""),
       life = Array.from({ length: 4 }, (_, i) => family + "-anim-" + i);
     if (
-      /^(?:pet-\d+-(?:idle|sleep|happy)|person-\d+-(?:type|read|attention))(?:-anim-\d+)?$/.test(
+      /^(?:pet-\d+-(?:idle|sleep|happy)|person-\d+-(?:type|read|attention|idle|cheer|error))(?:-anim-\d+)?$/.test(
         key,
       ) &&
       life.every((frame) => available.has(frame))
@@ -395,9 +395,13 @@
       </div>
       <p id="studio-gallery-count" class="h" role="status"></p>
       <label class="studio-option" for="studio-sprite-choice">Studio sprite<select id="studio-sprite-choice"></select></label>
-      <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite" aria-describedby="studio-sprite-info"></canvas>
+      <div class="studio-preview-stage">
+        <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite" aria-describedby="studio-sprite-info"></canvas>
+        <div class="studio-preview-controls">
+          <div class="cluster"><button type="button" class="btn" id="studio-preview-play" aria-pressed="false">Play animation</button><button type="button" class="btn" id="studio-sprite-download">Download PNG</button><button type="button" class="btn" id="studio-strip-download">Download strip</button></div>
+        </div>
+      </div>
       <p id="studio-sprite-info" class="h"></p>
-      <div class="cluster"><button type="button" class="btn" id="studio-preview-play" aria-pressed="false">Play animation</button><button type="button" class="btn" id="studio-sprite-download">Download PNG</button><button type="button" class="btn" id="studio-strip-download">Download strip</button></div>
       <p id="studio-gallery-message" class="h" role="status"></p>`;
     section.append(gallery);
     const select = gallery.querySelector("#studio-sprite-choice"),
@@ -514,6 +518,7 @@
       started = null;
       play.textContent = "Stop preview";
       play.setAttribute("aria-pressed", "true");
+      scrollSheetToTarget(gallery.querySelector(".studio-preview-stage"));
       raf = requestAnimationFrame(tick);
     };
     function selectionChanged() {
@@ -646,6 +651,7 @@
           ...art.petDirectional,
           ...art.petLife,
           ...(art.characterLife || []),
+          ...(art.characterReactions || []),
           ...art.surfaces,
           ...frames,
         ])

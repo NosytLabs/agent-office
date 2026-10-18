@@ -15,8 +15,8 @@ their original sprite IDs.
 
 The gallery combines 197 base Studio entries, 96 directional character frames and
 96 companion directional frames, 96 companion life frames, 96 character life
-frames, four room surfaces, and 41 generated animation/lighting frames, making
-**626 sprite choices** when every pack is available. The count follows the loaded
+frames, 96 character reaction frames, four room surfaces, and 41 generated
+animation/lighting frames, making **722 sprite choices** when every pack is available. The count follows the loaded
 artwork; an unavailable optional pack removes only its choices. The watering
 families add four frames each for the succulent, fern and planter. They use the
 approved artwork, fixed native dimensions and shared foot anchors. The
@@ -38,9 +38,11 @@ second, honors office Pause/reduced motion, and stops when the gallery or panel
 closes, the tab is hidden, or the page is left. A downloaded strip contains four
 adjacent native frames with no padding or resizing. Walking strips repeat the
 middle walking pose to match the distance-driven cycle. Idle, sleep and happy
-companion families and typing, reading and needs-input character families export
+companion families and typing, reading, needs-input, idle, celebration and error character families export
 their four native frames in source order. A character strip is 128 × 36 pixels;
 a companion strip is 112 × 26 pixels.
+Starting a preview brings the canvas and Stop control below the fixed panel
+header. Wider panels place them side by side, including short landscape screens.
 The info line distinguishes transparent sprites from opaque room textures. Late
 export results never replace feedback for another selection or a closed panel.
 
