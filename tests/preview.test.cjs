@@ -674,7 +674,15 @@ test("two native demo views serialize conditional map saves and keep a rejected 
         1,
         "one revision wins, so one stale map is rejected",
       );
-      const rejected = (await p.isVisible("#settings-save-notice")) ? p : other;
+      const rejected = Object.hasOwn(names, "cat1") ? other : p;
+      await rejected.bringToFront();
+      await rejected.waitForFunction(() => {
+        const notice = document.getElementById("settings-save-notice");
+        return (
+          !notice.hidden && /changed in another view/.test(notice.textContent)
+        );
+      });
+      assert.equal(await rejected.isVisible("#settings-save-notice"), true);
       assert.match(
         await rejected.textContent("#settings-save-notice"),
         /changed in another view/,
