@@ -50,16 +50,15 @@
 .studio-preview-controls {
   min-width: 0;
 }
-@media (min-width: 601px) {
+@media (min-width: 480px), (max-height: 480px) {
   .studio-preview-stage {
     display: grid;
     grid-template-columns: 130px minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
     gap: 12px;
     margin: 12px 0;
   }
-  #studio-gallery .studio-preview-stage canvas,
-  #studio-gallery .studio-preview-stage p {
+  #studio-gallery .studio-preview-stage canvas {
     margin: 0;
   }
   .studio-preview-controls .cluster {

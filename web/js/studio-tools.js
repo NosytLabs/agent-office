@@ -398,10 +398,10 @@
       <div class="studio-preview-stage">
         <canvas id="studio-sprite-preview" width="128" height="128" role="img" aria-label="Selected studio sprite" aria-describedby="studio-sprite-info"></canvas>
         <div class="studio-preview-controls">
-          <p id="studio-sprite-info" class="h"></p>
           <div class="cluster"><button type="button" class="btn" id="studio-preview-play" aria-pressed="false">Play animation</button><button type="button" class="btn" id="studio-sprite-download">Download PNG</button><button type="button" class="btn" id="studio-strip-download">Download strip</button></div>
         </div>
       </div>
+      <p id="studio-sprite-info" class="h"></p>
       <p id="studio-gallery-message" class="h" role="status"></p>`;
     section.append(gallery);
     const select = gallery.querySelector("#studio-sprite-choice"),

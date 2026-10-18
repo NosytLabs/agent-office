@@ -14,10 +14,13 @@ async function gallery(page) {
 }
 
 for (const viewport of [
+  { width: 320, height: 320 },
   { width: 320, height: 568 },
+  { width: 568, height: 320 },
+  { width: 600, height: 320 },
   { width: 667, height: 320 },
 ])
-  test(`starting a sprite animation keeps its preview and Stop control visible at ${viewport.width}px`, async () => {
+  test(`starting a sprite animation keeps its preview and Stop control visible at ${viewport.width}×${viewport.height}`, async () => {
     await observerFixture({ viewport }, async ({ page }) => {
       await gallery(page);
       await page.fill("#studio-sprite-search", "studio robot reading");
