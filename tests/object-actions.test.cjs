@@ -43,6 +43,55 @@ async function clickProp(page, kind) {
   await page.mouse.click(point.x, point.y);
 }
 
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 568, height: 320 },
+])
+  test(`the pet bed opens a visible, focused name field at ${viewport.width}×${viewport.height}`, async () => {
+    await observerFixture(
+      {
+        viewport,
+        events: [
+          {
+            event: "session_start",
+            session_id: "pet-bed-jump",
+            platform: "codex",
+          },
+        ],
+        settings: { furniture: [{ kind: "petbed", x: 0.5, y: 0.55 }] },
+      },
+      async ({ page }) => {
+        await page.locator("#c").scrollIntoViewIfNeeded();
+        await clickProp(page, "petbed");
+        assert.equal(await page.locator("#sheet-settings").isVisible(), true);
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          "pet-cat1-name",
+        );
+        const bounds = await page
+          .locator("#pet-cat1-name")
+          .evaluate((field) => ({
+            top: field.getBoundingClientRect().top,
+            bottom: field.getBoundingClientRect().bottom,
+            labelTop: field.labels[0].getBoundingClientRect().top,
+            header: field
+              .closest(".sheet")
+              .querySelector(".sheet-header")
+              .getBoundingClientRect().bottom,
+            panel: field.closest(".sheet").getBoundingClientRect().bottom,
+          }));
+        assert.ok(
+          bounds.labelTop >= bounds.header && bounds.bottom <= bounds.panel,
+          JSON.stringify(bounds),
+        );
+        await page.fill("#pet-cat1-name", "Miso");
+        await page.keyboard.press("Escape");
+        await page.click("#settingsbtn");
+        assert.equal(await page.inputValue("#pet-cat1-name"), "Miso");
+      },
+    );
+  });
+
 test("a lamp switches room lighting, persists through reload, and is keyboard accessible", async () => {
   await observerFixture(
     {
