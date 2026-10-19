@@ -48,7 +48,7 @@ reconnect, removal, missing parents and observed errors do not create successful
 
 Studio portraits and editor thumbnails follow the same artwork choice.
 Clicking a pet bed opens Customize at the first companion name field, with
-keyboard focus and enough space below the fixed panel header to edit it.
+keyboard focus and both its label and input below the fixed panel header.
 Existing cards reuse their pixels until the appearance changes; source changes cause one
 portrait repaint rather than native and studio repaints in sequence. Artwork
 controls do not displace the established reset/export keyboard order. Focused

@@ -59,7 +59,7 @@
       openSheet("sheet-settings");
       const field = $("pet-cat1-name");
       if (!field.disabled) field.focus({ preventScroll: true });
-      scrollSheetToTarget(field);
+      scrollSheetToTarget(field.labels[0] || field);
     } else if (kind === "server") openSheet("sheet-floor");
     else if (kind === "printer") {
       eventMode = "latest";

@@ -73,6 +73,7 @@ for (const viewport of [
           .evaluate((field) => ({
             top: field.getBoundingClientRect().top,
             bottom: field.getBoundingClientRect().bottom,
+            labelTop: field.labels[0].getBoundingClientRect().top,
             header: field
               .closest(".sheet")
               .querySelector(".sheet-header")
@@ -80,7 +81,7 @@ for (const viewport of [
             panel: field.closest(".sheet").getBoundingClientRect().bottom,
           }));
         assert.ok(
-          bounds.top >= bounds.header && bounds.bottom <= bounds.panel,
+          bounds.labelTop >= bounds.header && bounds.bottom <= bounds.panel,
           JSON.stringify(bounds),
         );
         await page.fill("#pet-cat1-name", "Miso");
