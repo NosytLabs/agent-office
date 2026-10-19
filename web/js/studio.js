@@ -1005,8 +1005,9 @@
       const im = new Image(),
         timer = setTimeout(
           () => finish(new Error("Studio image timed out: " + index)),
-          // Larger optional atlases share browser connections with the scene.
-          typeof index === "number" ? 5000 : 15000,
+          // Optional atlases share connections; slow valid transfers can exceed
+          // fifteen seconds when all six supplements start together.
+          typeof index === "number" ? 5000 : 30000,
         );
       function finish(error) {
         clearTimeout(timer);
