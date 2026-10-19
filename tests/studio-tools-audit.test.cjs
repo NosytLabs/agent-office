@@ -77,6 +77,55 @@ test("Studio prop animation owns its pixels while Original retains procedural de
   });
 });
 
+test("a Studio terminal retains its running lamp when native state artwork is unavailable", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.waitForFunction(
+      () =>
+        officeStudio.ready && !officeStudio.loading && officeStudioTools.frames,
+    );
+    const sample = await page.evaluate(() => {
+      const s = officeScene,
+        canvas = document.createElement("canvas"),
+        native = s.sprites["taskterminal-running"],
+        saved = {
+          ctx: s.ctx,
+          rect: s.rect,
+          time: s.time,
+          propHits: s.propHits,
+          taskRunner: s.taskRunner,
+        },
+        rectangles = [];
+      canvas.width = canvas.height = 120;
+      try {
+        s.ctx = canvas.getContext("2d");
+        s.time = 0.75;
+        s.propHits = [];
+        s.rect = (...args) => rectangles.push(args);
+        s.taskRunner = {
+          enabled: true,
+          connected: true,
+          runs: [{ status: "running" }],
+        };
+        delete s.sprites["taskterminal-running"];
+        s.prop("taskterminal", 30, 30, 24, 34);
+        return {
+          key: s.taskTerminalSpriteKey(),
+          rectangles,
+          hits: s.propHits,
+        };
+      } finally {
+        s.sprites["taskterminal-running"] = native;
+        Object.assign(s, saved);
+      }
+    });
+    assert.equal(sample.key, "taskterminal");
+    assert.deepEqual(sample.rectangles, [
+      [30 + 24 * 0.72, 30 + 34 * 0.12, 2, 2, "#568d84"],
+    ]);
+    assert.equal(sample.hits[0].kind, "taskterminal");
+  });
+});
+
 test("watering a Studio plant keeps its pot anchored and selects its reaction frame", async () => {
   await observerFixture({}, async ({ page }) => {
     await page.waitForFunction(

@@ -301,11 +301,16 @@
     const enabled = () => art.ready && art.prefs.art === "studio";
     const originalPropDetails = scene.propUsesSpriteDetails;
     scene.propUsesSpriteDetails = function (kind) {
+      const terminalKey =
+        kind === "taskterminal" ? this.taskTerminalSpriteKey() : null;
+      // The neutral fallback has no running signal; keep its activity lamp.
+      const terminalDetails =
+        terminalKey &&
+        art.sprites.has(terminalKey) &&
+        (terminalKey !== "taskterminal" ||
+          this.taskTerminalState() !== "running");
       return (
-        (enabled() &&
-          (frames.has(kind + "-anim-0") ||
-            (kind === "taskterminal" &&
-              art.sprites.has(this.taskTerminalSpriteKey())))) ||
+        (enabled() && (frames.has(kind + "-anim-0") || terminalDetails)) ||
         originalPropDetails?.call(this, kind) ||
         false
       );

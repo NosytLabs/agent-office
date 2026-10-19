@@ -38,6 +38,8 @@ Coffee, watering and sparkle effects remain cosmetic.
 Studio's animated prop families and task-terminal states own their detail layer
 and do not receive the Original renderer's extra eyes, lights or reaction pixels.
 Room-light overlays and the beacon's observed-input signal remain available.
+If running-state terminal artwork is unavailable, the fallback retains its
+activity lamp.
 Watering keeps Studio plant pots on their original anchor. Status marks are
 centered over the seated character; a completion carrying a reported failure
 shows a warning instead of a success check.
