@@ -635,11 +635,15 @@ class OfficeScene {
     const age = this.time - reaction.started;
     return age >= 0 && age < 4 ? age : null;
   }
+  propUsesSpriteDetails() {
+    return false;
+  }
   prop(kind, x, y, w, h) {
-    const reaction = this.propReaction(kind, x, y),
+    const spriteDetails = this.propUsesSpriteDetails(kind),
+      reaction = this.propReaction(kind, x, y),
       plant = ["monstera", "succulent", "planter", "fern"].includes(kind),
       sway =
-        plant && reaction !== null
+        plant && reaction !== null && !spriteDetails
           ? Math.round(Math.sin(reaction * 5) * (1 - reaction / 4))
           : 0;
     this.image(
@@ -651,6 +655,7 @@ class OfficeScene {
     );
     if (Object.hasOwn(PROP_HINTS, kind))
       this.propHits.push({ kind, x, y, w, h });
+    if (spriteDetails) return;
     const r = this.rect.bind(this),
       pulse = Math.floor(this.time * 3) % 2;
     if (kind === "server") {
@@ -1151,12 +1156,21 @@ class OfficeScene {
       r(x, y + 1, 7, 2, "#95aa75");
     }
     if (a.status === "waiting") {
-      r(x + 17, y - 28, 10, 9, "#f0b19d");
-      r(x + 20, y - 19, 3, 2, "#f0b19d");
-      this.text("!", x + 22, y - 21, "#382d33", 7, "center");
+      r(x + 11, y - 28, 10, 9, "#f0b19d");
+      r(x + 15, y - 19, 2, 2, "#f0b19d");
+      this.text("!", x + 16, y - 21, "#382d33", 7, "center");
     }
-    if (a.status === "done")
-      this.text("✓", x + 21, y - 17, "#c1d9aa", 7, "center");
+    if (a.status === "done") {
+      const failed = String(a.detail || "").startsWith("⚠ ");
+      this.text(
+        failed ? "!" : "✓",
+        x + 16,
+        y - 17,
+        failed ? "#f0b19d" : "#c1d9aa",
+        7,
+        "center",
+      );
+    }
     if (this.focus === a.id) {
       g.strokeStyle = "#edd1a0";
       g.lineWidth = 1;

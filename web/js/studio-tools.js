@@ -299,6 +299,17 @@
       all = new Map();
     api.frames = frames;
     const enabled = () => art.ready && art.prefs.art === "studio";
+    const originalPropDetails = scene.propUsesSpriteDetails;
+    scene.propUsesSpriteDetails = function (kind) {
+      return (
+        (enabled() &&
+          (frames.has(kind + "-anim-0") ||
+            (kind === "taskterminal" &&
+              art.sprites.has(this.taskTerminalSpriteKey())))) ||
+        originalPropDetails?.call(this, kind) ||
+        false
+      );
+    };
     const originalImage = scene.image,
       originalCharacter = scene.character;
     scene.image = function (key, x, y, w, h) {

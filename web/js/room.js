@@ -57,7 +57,9 @@
       openSheet("sheet-tasks");
     } else if (kind === "petbed") {
       openSheet("sheet-settings");
-      $("pet-name-form").scrollIntoView({ block: "center" });
+      const field = $("pet-cat1-name");
+      if (!field.disabled) field.focus({ preventScroll: true });
+      scrollSheetToTarget(field);
     } else if (kind === "server") openSheet("sheet-floor");
     else if (kind === "printer") {
       eventMode = "latest";

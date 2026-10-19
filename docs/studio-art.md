@@ -34,12 +34,20 @@ successful work or repair a reported failure. Shell work retains its waiting pos
 Typing hands are drawn over the existing desktop, rather than
 adding a second baked-in desk. Four cat looks, three dogs and a pocket robot use
 the existing two companion slots; the second slot keeps its original unlock.
-Coffee, watering and sparkle effects remain cosmetic. A newly observed completed
-subagent can send a parcel to its parent; bootstrap, reconnect, removal, missing
-parents and observed errors do not create successful handoffs.
+Coffee, watering and sparkle effects remain cosmetic.
+Studio's animated prop families and task-terminal states own their detail layer
+and do not receive the Original renderer's extra eyes, lights or reaction pixels.
+Room-light overlays and the beacon's observed-input signal remain available.
+Watering keeps Studio plant pots on their original anchor. Status marks are
+centered over the seated character; a completion carrying a reported failure
+shows a warning instead of a success check.
+A newly observed completed subagent can send a parcel to its parent; bootstrap,
+reconnect, removal, missing parents and observed errors do not create successful handoffs.
 
-Studio portraits and editor thumbnails follow the same artwork choice. Existing
-cards reuse their pixels until the appearance changes; source changes cause one
+Studio portraits and editor thumbnails follow the same artwork choice.
+Clicking a pet bed opens Customize at the first companion name field, with
+keyboard focus and enough space below the fixed panel header to edit it.
+Existing cards reuse their pixels until the appearance changes; source changes cause one
 portrait repaint rather than native and studio repaints in sequence. Artwork
 controls do not displace the established reset/export keyboard order. Focused
 notifications retain keyboard access and resume their expiry after focus leaves.
