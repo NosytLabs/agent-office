@@ -77,6 +77,9 @@ remains usable and **Retry artwork** restores optional artwork in place without
 discarding drafts. Directional frames also appear in the searchable sprite gallery
 and export as native PNGs or four-frame strips. Supplementary packs load
 concurrently and recover independently; diagnostics identify an unavailable pack.
+Their larger images allow up to 30 seconds for a slow transfer while the original
+scene remains usable. Small base tiles and manifest requests retain five-second
+limits. A failed or stalled supplement still falls back and offers Retry artwork.
 
 Animations never submit prompts, answer approvals, call models, grant XP or change
 token/cost accounting. Seasonal ornaments are decorative wall art rather than

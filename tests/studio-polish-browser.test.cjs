@@ -23,18 +23,18 @@ test("a slow optional sprite download finishes without losing panel edits", asyn
     await page.click("#settingsbtn");
     await page.fill("#room-name-input", "Keep this unsaved name");
     const before = ledger(await state());
-    await page.route("**/character-life.png", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 5500));
+    await page.route("**/character-reactions.png", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 16000));
       await route.continue().catch(() => {});
     });
     await page.evaluate(() => {
       void officeStudio.reload();
     });
     await page.waitForFunction(() => !officeStudio.loading, null, {
-      timeout: 20000,
+      timeout: 35000,
     });
     assert.equal(
-      await page.evaluate(() => officeStudio.characterLife.size),
+      await page.evaluate(() => officeStudio.characterReactions.size),
       96,
     );
     assert.equal(await page.evaluate(() => officeStudio.environmentError), "");
