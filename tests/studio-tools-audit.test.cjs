@@ -13,6 +13,34 @@ async function gallery(page) {
   await page.locator("#studio-gallery summary").click();
 }
 
+test("optional manifests finish before large image downloads compete for connections", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
+    let manifestReleased = false;
+    const early = [];
+    await page.route("**/studio/prop-life.json", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+      manifestReleased = true;
+    });
+    await page.route("**/studio/*.png", (route) => {
+      if (!/\/studio-\d\.png$/.test(route.request().url()) && !manifestReleased)
+        early.push(route.request().url());
+      return route.continue();
+    });
+    await page.evaluate(() => officeStudio.reload());
+    assert.deepEqual(
+      early,
+      [],
+      "Large images must not starve the last small manifest",
+    );
+    assert.equal(await page.evaluate(() => officeStudio.propLife.size), 8);
+    assert.equal(await page.evaluate(() => officeStudio.environmentError), "");
+  });
+});
+
 test("native prop loops preserve their idle seed, baseline and actual render selection", async () => {
   await observerFixture({}, async ({ page }) => {
     await page.waitForFunction(

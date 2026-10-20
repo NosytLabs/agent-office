@@ -92,6 +92,8 @@ remains usable and **Retry artwork** restores optional artwork in place without
 discarding drafts. Directional frames also appear in the searchable sprite gallery
 and export as native PNGs or four-frame strips. Supplementary packs load
 concurrently and recover independently; diagnostics identify an unavailable pack.
+Their small manifests finish before the larger image downloads begin, preventing
+image transfers from starving a queued manifest on a cold connection.
 Their larger images allow up to 30 seconds for a slow transfer while the original
 scene remains usable. Small base tiles and manifest requests retain five-second
 limits. A failed or stalled supplement still falls back and offers Retry artwork.

@@ -1059,12 +1059,14 @@
     context.putImageData(pixels, 0, 0);
     return canvas;
   }
-  async function loadDirectional() {
-    const response = await fetch("assets/sprites/studio/directional.json", {
+  async function loadManifest(name) {
+    const response = await fetch(`assets/sprites/studio/${name}.json`, {
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) throw new Error("Directional manifest unavailable");
-    const manifest = await response.json();
+    if (!response.ok) throw new Error(`${name} manifest unavailable`);
+    return response.json();
+  }
+  async function loadDirectional(manifest) {
     if (!validDirectionalManifest(manifest))
       throw new Error("Invalid directional atlas");
     const image = await loadImage("directional.png");
@@ -1110,12 +1112,7 @@
           );
     return sprites;
   }
-  async function loadEnvironment(name) {
-    const response = await fetch(`assets/sprites/studio/${name}.json`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) throw new Error(`${name} manifest unavailable`);
-    const manifest = await response.json();
+  async function loadEnvironment(name, manifest) {
     if (!validEnvironmentManifest(manifest, name))
       throw new Error(`Invalid ${name} atlas`);
     const image = await loadImage(name + ".png");
@@ -1152,8 +1149,8 @@
     }
     return sprites;
   }
-  async function loadCharacterLife(name = "character-life") {
-    const sprites = await loadEnvironment(name);
+  async function loadCharacterLife(name, manifest) {
+    const sprites = await loadEnvironment(name, manifest);
     for (const [id, finish] of [
       [6, "rose"],
       [7, "moss"],
@@ -1232,15 +1229,30 @@
           );
         }
       addStudioDetails(sprites);
-      const extras = await Promise.allSettled([
-        loadDirectional(),
-        loadEnvironment("room-surfaces"),
-        loadEnvironment("pet-walk"),
-        loadEnvironment("pet-life"),
-        loadCharacterLife(),
-        loadCharacterLife("character-reactions"),
-        loadEnvironment("prop-life"),
-      ]);
+      // Finish the small manifests before large image requests occupy browser
+      // connections and push a queued manifest past its five-second deadline.
+      const names = [
+          "directional",
+          "room-surfaces",
+          "pet-walk",
+          "pet-life",
+          "character-life",
+          "character-reactions",
+          "prop-life",
+        ],
+        manifests = await Promise.allSettled(names.map(loadManifest)),
+        extras = await Promise.allSettled(
+          manifests.map((result, index) => {
+            if (result.status === "rejected")
+              return Promise.reject(result.reason);
+            const name = names[index];
+            return name === "directional"
+              ? loadDirectional(result.value)
+              : name.startsWith("character-")
+                ? loadCharacterLife(name, result.value)
+                : loadEnvironment(name, result.value);
+          }),
+        );
       art.directionalError = "";
       art.environmentError = "";
       [
