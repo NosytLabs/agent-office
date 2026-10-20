@@ -60,7 +60,7 @@ test("mirrored characters keep crowns above the same head and animation variants
         }),
       ),
     }));
-    assert.equal(frames.count, 41);
+    assert.equal(frames.count, 49);
     for (const group of frames.groups) {
       assert.ok(group.every(Boolean));
       assert.equal(new Set(group.map((f) => f.w + ":" + f.h)).size, 1);
