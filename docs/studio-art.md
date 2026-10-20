@@ -63,7 +63,12 @@ reduced motion use still poses; these loops do not alter pet movement or rewards
 The earned sofa sleeper uses the same chosen look. Four 128 × 128 room
 surfaces provide oak/slate floors and matching plaster walls. A cached repeat
 pattern preserves geometry, room lighting and object interactions. Original theme
-remains selectable. The searchable gallery contains 722 entries in total.
+remains selectable. The searchable gallery contains 730 entries in total.
+An eight-frame prop supplement adds a quiet arcade attract loop and a printer
+paper-feed reaction. The printer opens latest Activity by pointer or the
+keyboard-accessible room action. These animations create no work events. Both
+families start with their exact shipped idle sprite and freeze on Pause or
+reduced motion. Their optional pack falls back and retries independently.
 
 ## Compatibility
 
@@ -79,7 +84,7 @@ identity with one shared scale and nearest-neighbor sampling. Run
 this is also part of `npm run check:sprites`. The environment compiler
 `node tools/build_studio_environment.mjs --check` also reproduces all 192 companion
 walking/life frames, 72 character activity frames, 72 character reaction frames
-and four seamless surface tiles from their preserved source and full
+eight prop frames and four seamless surface tiles from their preserved source and full
 prompts. The surface compiler reflects reviewed tiles to match opposite edges.
 
 If any supplementary sheet is unavailable or fails validation, the base artwork

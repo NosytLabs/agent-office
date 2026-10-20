@@ -13,6 +13,302 @@ async function gallery(page) {
   await page.locator("#studio-gallery summary").click();
 }
 
+test("native prop loops preserve their idle seed, baseline and actual render selection", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.waitForFunction(
+      () => officeStudioTools.frames && !officeStudio.loading,
+    );
+    const result = await page.evaluate(() => {
+      const s = officeScene,
+        canvas = document.createElement("canvas"),
+        saved = {
+          ctx: s.ctx,
+          rect: s.rect,
+          time: s.time,
+          paused: s.paused,
+          propHits: s.propHits,
+          propReactions: s.propReactions,
+        },
+        groups = [],
+        drawn = [],
+        rects = [];
+      for (const kind of ["arcade", "printer"]) {
+        const frames = Array.from({ length: 4 }, (_, i) =>
+          officeStudio.propLife.get(`${kind}-anim-${i}`),
+        );
+        groups.push({
+          kind,
+          seed:
+            frames[0].toDataURL() ===
+            officeStudio.sprites.get(kind).toDataURL(),
+          frames: frames.map((c) => {
+            const d = c
+              .getContext("2d")
+              .getImageData(0, 0, c.width, c.height).data;
+            const seed = frames[0]
+                .getContext("2d")
+                .getImageData(0, 0, c.width, c.height).data,
+              regions =
+                kind === "arcade"
+                  ? [[6, 10, 15, 10]]
+                  : [
+                      [7, 0, 10, 7],
+                      [3, 9, 3, 3],
+                    ];
+            const stableBody = d.every((v, i) => {
+              const x = Math.floor(i / 4) % c.width,
+                y = Math.floor(i / 4 / c.width);
+              return (
+                regions.some(
+                  ([rx, ry, w, h]) =>
+                    x >= rx && x < rx + w && y >= ry && y < ry + h,
+                ) || v === seed[i]
+              );
+            });
+            let bottom = -1,
+              fractional = false;
+            for (let i = 3; i < d.length; i += 4) {
+              if (d[i])
+                bottom = Math.max(bottom, Math.floor((i - 3) / 4 / c.width));
+              fractional ||= d[i] !== 0 && d[i] !== 255;
+            }
+            return {
+              width: c.width,
+              height: c.height,
+              bottom,
+              fractional,
+              stableBody,
+              png: c.toDataURL(),
+            };
+          }),
+        });
+      }
+      canvas.width = canvas.height = 120;
+      try {
+        s.ctx = canvas.getContext("2d");
+        s.rect = (...a) => rects.push(a);
+        s.propHits = [];
+        s.ctx.drawImage = (im) =>
+          drawn.push(
+            [...officeStudio.propLife].find(([, c]) => c === im)?.[0] ||
+              "fallback",
+          );
+        s.time = 0.75;
+        s.paused = false;
+        s.propReactions = [];
+        s.prop("arcade", 30, 30, 24, 34);
+        s.prop("printer", 30, 30, 24, 24);
+        s.propReactions = [{ kind: "printer", x: 30, y: 30, started: 0 }];
+        s.prop("printer", 30, 30, 24, 24);
+        s.paused = true;
+        s.prop("arcade", 30, 30, 24, 34);
+        s.prop("printer", 30, 30, 24, 24);
+      } finally {
+        Object.assign(s, saved);
+      }
+      return { groups, drawn, rects };
+    });
+    assert.deepEqual(result.drawn, [
+      "arcade-anim-1",
+      "printer-anim-0",
+      "printer-anim-3",
+      "arcade-anim-0",
+      "printer-anim-0",
+    ]);
+    assert.deepEqual(
+      result.rects,
+      [],
+      "Native arcade frames must not receive a second screen overlay",
+    );
+    for (const group of result.groups) {
+      assert.equal(group.seed, true, group.kind);
+      assert.ok(new Set(group.frames.map((f) => f.png)).size >= 3, group.kind);
+      assert.equal(
+        new Set(group.frames.map((f) => f.bottom)).size,
+        1,
+        group.kind,
+      );
+      for (const f of group.frames) {
+        assert.equal(f.width, 24);
+        assert.equal(f.height, group.kind === "arcade" ? 34 : 24);
+        assert.equal(f.fractional, false);
+        assert.equal(
+          f.stableBody,
+          true,
+          "Furniture bodies remain pixel-identical between frames",
+        );
+      }
+    }
+  });
+});
+
+test("prop strips export exact native pixels in order", async () => {
+  const fs = require("node:fs");
+  await observerFixture({}, async ({ page }) => {
+    await gallery(page);
+    for (const kind of ["arcade", "printer"]) {
+      await page.fill("#studio-sprite-search", kind + " anim");
+      assert.equal(
+        await page.locator("#studio-sprite-choice option").count(),
+        4,
+      );
+      await page.selectOption("#studio-sprite-choice", kind + "-anim-2");
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.click("#studio-strip-download"),
+      ]);
+      const bytes = fs.readFileSync(await download.path()),
+        height = kind === "arcade" ? 34 : 24;
+      assert.equal(bytes.readUInt32BE(16), 96);
+      assert.equal(bytes.readUInt32BE(20), height);
+      assert.equal(
+        await page.evaluate(
+          async ({ base64, kind, height }) => {
+            const i = new Image();
+            i.src = "data:image/png;base64," + base64;
+            await i.decode();
+            const c = document.createElement("canvas"),
+              r = document.createElement("canvas");
+            c.width = r.width = 96;
+            c.height = r.height = height;
+            c.getContext("2d").drawImage(i, 0, 0);
+            for (let frame = 0; frame < 4; frame++)
+              r.getContext("2d").drawImage(
+                officeStudio.propLife.get(`${kind}-anim-${frame}`),
+                frame * 24,
+                0,
+              );
+            const a = c.getContext("2d").getImageData(0, 0, 96, height).data,
+              b = r.getContext("2d").getImageData(0, 0, 96, height).data;
+            return a.every((v, n) => v === b[n]);
+          },
+          { base64: bytes.toString("base64"), kind, height },
+        ),
+        true,
+      );
+    }
+  });
+});
+
+test("clearing sprite filters recovers from an empty category search and retains keyboard focus", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await gallery(page);
+    const total = await page.locator("#studio-sprite-choice option").count();
+    await page.selectOption("#studio-sprite-group", "furniture");
+    await page.fill("#studio-sprite-search", "no matching office prop");
+    assert.equal(await page.locator("#studio-sprite-choice option").count(), 0);
+    await page
+      .getByRole("button", { name: "Clear filters", exact: true })
+      .click();
+    assert.equal(await page.inputValue("#studio-sprite-search"), "");
+    assert.equal(await page.inputValue("#studio-sprite-group"), "all");
+    assert.equal(
+      await page.locator("#studio-sprite-choice option").count(),
+      total,
+    );
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "studio-sprite-search",
+    );
+    assert.equal(
+      await page.locator("#studio-sprite-download").isDisabled(),
+      false,
+    );
+  });
+});
+
+test("missing prop artwork keeps static fallback and retry preserves drafts and accounting", async () => {
+  await observerFixture({}, async ({ page, state }) => {
+    await gallery(page);
+    const before = await state();
+    await page.fill("#room-name-input", "Keep this prop draft");
+    await page.route("**/studio/prop-life.png", (r) =>
+      r.fulfill({ status: 404, body: "missing" }),
+    );
+    await page.evaluate(() => officeStudio.reload());
+    assert.equal(await page.evaluate(() => officeStudio.ready), true);
+    assert.equal(await page.evaluate(() => officeStudio.propLife.size), 0);
+    assert.equal(
+      await page.evaluate(() => officeScene.propUsesSpriteDetails("arcade")),
+      false,
+    );
+    await page.fill("#studio-sprite-search", "printer anim");
+    assert.equal(await page.locator("#studio-sprite-choice option").count(), 0);
+    assert.equal(
+      await page.locator("#studio-strip-download").isDisabled(),
+      true,
+    );
+    await page.unroute("**/studio/prop-life.png");
+    await page.click("#studio-art-retry");
+    await page.waitForFunction(
+      () => !officeStudio.loading && officeStudio.propLife.size === 8,
+    );
+    assert.equal(await page.locator("#studio-sprite-choice option").count(), 4);
+    assert.equal(
+      await page.inputValue("#room-name-input"),
+      "Keep this prop draft",
+    );
+    const after = await state();
+    for (const key of ["events", "usage", "progress"])
+      assert.deepEqual(after[key], before[key]);
+  });
+});
+
+test("the placed printer opens latest Activity by pointer and keyboard without reporting work", async () => {
+  await observerFixture(
+    {
+      viewport: { width: 390, height: 844 },
+      events: [
+        {
+          event: "session_start",
+          session_id: "printer-flow",
+          platform: "codex",
+        },
+      ],
+      settings: { furniture: [{ kind: "printer", x: 0.5, y: 0.6 }] },
+    },
+    async ({ page, state }) => {
+      await page.waitForFunction(
+        () => officeStudioTools.frames && !officeStudio.loading,
+      );
+      const before = await state();
+      await page.locator("#c").scrollIntoViewIfNeeded();
+      const point = await page.evaluate(() => {
+        const s = officeScene;
+        s.draw(0);
+        const h = s.propHits.find((p) => p.kind === "printer"),
+          r = s.canvas.getBoundingClientRect(),
+          t = s.transform;
+        return {
+          x: r.x + t.ox + (h.x + h.w / 2) * t.scale,
+          y: r.y + t.oy + (h.y + h.h / 2) * t.scale,
+        };
+      });
+      await page.mouse.click(point.x, point.y);
+      assert.equal(await page.locator("#sheet-events").isVisible(), true);
+      assert.equal(
+        await page.evaluate(() =>
+          officeScene.propReactions.some((p) => p.kind === "printer"),
+        ),
+        true,
+      );
+      await page.keyboard.press("Escape");
+      await page.click("#settingsbtn");
+      const button = page.getByRole("button", {
+        name: "Read activity at printer",
+        exact: true,
+      });
+      await button.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.locator("#sheet-events").isVisible(), true);
+      assert.equal(await page.evaluate(() => eventMode), "latest");
+      const after = await state();
+      for (const key of ["events", "usage", "progress"])
+        assert.deepEqual(after[key], before[key]);
+    },
+  );
+});
+
 test("Studio prop animation owns its pixels while Original retains procedural details", async () => {
   await observerFixture({}, async ({ page }) => {
     await page.waitForFunction(

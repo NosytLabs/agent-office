@@ -119,23 +119,35 @@
   function validEnvironmentManifest(m, name) {
     const surfaces = name === "room-surfaces",
       pets = name === "pet-walk" || name === "pet-life",
-      characters = name === "character-life" || name === "character-reactions";
+      characters = name === "character-life" || name === "character-reactions",
+      props = name === "prop-life";
     if (
-      (!surfaces && !pets && !characters) ||
+      (!surfaces && !pets && !characters && !props) ||
       !m ||
       m.version !== 1 ||
       m.image !== name + ".png" ||
-      m.width !== (surfaces ? 256 : characters ? 384 : 336) ||
-      m.height !== (surfaces ? 256 : characters ? 216 : 208) ||
+      m.width !== (props ? 96 : surfaces ? 256 : characters ? 384 : 336) ||
+      m.height !== (props ? 58 : surfaces ? 256 : characters ? 216 : 208) ||
       !/^[a-f0-9]{64}$/.test(m.rgbaSha256) ||
       !m.entries ||
       typeof m.entries !== "object" ||
       Array.isArray(m.entries) ||
-      Object.keys(m.entries).length !== (surfaces ? 4 : characters ? 72 : 96)
+      Object.keys(m.entries).length !==
+        (props ? 8 : surfaces ? 4 : characters ? 72 : 96)
     )
       return false;
     const expected = [];
-    if (surfaces)
+    if (props)
+      ["arcade", "printer"].forEach((kind, row) => {
+        const height = row ? 24 : 34;
+        for (let frame = 0; frame < 4; frame++)
+          expected.push([
+            `${kind}-anim-${frame}`,
+            [frame * 24, row ? 34 : 0, 24, height],
+            [12, height - 1],
+          ]);
+      });
+    else if (surfaces)
       ["oak-floor", "slate-floor", "oak-wall", "slate-wall"].forEach((key, i) =>
         expected.push([
           `surface-${key}`,
@@ -533,6 +545,7 @@
     petLife: new Map(),
     characterLife: new Map(),
     characterReactions: new Map(),
+    propLife: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -1006,7 +1019,7 @@
         timer = setTimeout(
           () => finish(new Error("Studio image timed out: " + index)),
           // Optional atlases share connections; slow valid transfers can exceed
-          // fifteen seconds when all six supplements start together.
+          // fifteen seconds when the supplements start together.
           typeof index === "number" ? 5000 : 30000,
         );
       function finish(error) {
@@ -1226,6 +1239,7 @@
         loadEnvironment("pet-life"),
         loadCharacterLife(),
         loadCharacterLife("character-reactions"),
+        loadEnvironment("prop-life"),
       ]);
       art.directionalError = "";
       art.environmentError = "";
@@ -1236,6 +1250,7 @@
         "petLife",
         "characterLife",
         "characterReactions",
+        "propLife",
       ].forEach((property, index) => {
         const result = extras[index];
         art[property] =
@@ -1265,6 +1280,7 @@
       art.petLife.clear();
       art.characterLife.clear();
       art.characterReactions.clear();
+      art.propLife.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =

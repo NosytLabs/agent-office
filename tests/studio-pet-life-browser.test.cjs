@@ -227,7 +227,7 @@ test("a missing life pack leaves walking usable and retries without losing draft
     assert.equal(await page.locator("#studio-art-retry").isHidden(), true);
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      722,
+      730,
     );
     assert.deepEqual(accounting(await state()), before);
   });

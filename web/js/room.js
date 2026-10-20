@@ -62,6 +62,7 @@
       scrollSheetToTarget(field.labels[0] || field);
     } else if (kind === "server") openSheet("sheet-floor");
     else if (kind === "printer") {
+      scene.reactToProp(kind, target);
       eventMode = "latest";
       eventSession = null;
       openSheet("sheet-events");
@@ -77,6 +78,7 @@
     ["Aquarium", () => window.openAquarium?.()],
     ["Jukebox", () => window.officeJukebox?.open()],
     ["Open task terminal", () => interact("taskterminal"), "taskterminal"],
+    ["Read activity at printer", () => interact("printer"), "printer"],
     ["Switch room lights", lights],
     ["Brew coffee", () => floorReaction("coffee"), "coffee"],
     ["Pour water", () => floorReaction("cooler"), "cooler"],

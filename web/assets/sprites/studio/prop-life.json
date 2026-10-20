@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "image": "prop-life.png",
+  "width": 96,
+  "height": 58,
+  "rgbaSha256": "87efe2f8a6eaf19e6a6f8ba433ef5a1b9c79efb931f3ebc9a73cf510be74fae9",
+  "source": "source/prop-life.png",
+  "sourceSha256": "027b6815f24b2e5c96ca1a81d9a3aceb7e09dd653cdf0be2383599cf19e73a54",
+  "sourceDimensions": [
+    1536,
+    1024
+  ],
+  "sourcePreservedUnmodified": true,
+  "sourceBounds": [
+    [
+      [
+        73,
+        140,
+        239,
+        309
+      ],
+      [
+        457,
+        140,
+        239,
+        309
+      ],
+      [
+        841,
+        140,
+        239,
+        309
+      ],
+      [
+        1225,
+        140,
+        239,
+        309
+      ]
+    ],
+    [
+      [
+        92,
+        722,
+        192,
+        240
+      ],
+      [
+        476,
+        722,
+        192,
+        240
+      ],
+      [
+        860,
+        722,
+        192,
+        240
+      ],
+      [
+        1244,
+        722,
+        192,
+        240
+      ]
+    ]
+  ],
+  "rowScales": [
+    0.10032362459546926,
+    0.09583333333333334
+  ],
+  "entries": {
+    "arcade-anim-0": {
+      "rect": [
+        0,
+        0,
+        24,
+        34
+      ],
+      "anchor": [
+        12,
+        33
+      ]
+    },
+    "arcade-anim-1": {
+      "rect": [
+        24,
+        0,
+        24,
+        34
+      ],
+      "anchor": [
+        12,
+        33
+      ]
+    },
+    "arcade-anim-2": {
+      "rect": [
+        48,
+        0,
+        24,
+        34
+      ],
+      "anchor": [
+        12,
+        33
+      ]
+    },
+    "arcade-anim-3": {
+      "rect": [
+        72,
+        0,
+        24,
+        34
+      ],
+      "anchor": [
+        12,
+        33
+      ]
+    },
+    "printer-anim-0": {
+      "rect": [
+        0,
+        34,
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        23
+      ]
+    },
+    "printer-anim-1": {
+      "rect": [
+        24,
+        34,
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        23
+      ]
+    },
+    "printer-anim-2": {
+      "rect": [
+        48,
+        34,
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        23
+      ]
+    },
+    "printer-anim-3": {
+      "rect": [
+        72,
+        34,
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        23
+      ]
+    }
+  },
+  "seed": "source/prop-seeds.png",
+  "seedSha256": "6bcb5a8a75a85c5b5b151395e1ffbc48e38caddf0732627a34919464b24d34fe",
+  "lockedFirstFrames": true,
+  "alphaThreshold": 224,
+  "palette": "nearest seed RGB",
+  "animatedRegions": {
+    "arcade": [
+      [
+        6,
+        10,
+        15,
+        10
+      ]
+    ],
+    "printer": [
+      [
+        7,
+        0,
+        10,
+        7
+      ],
+      [
+        3,
+        9,
+        3,
+        3
+      ]
+    ]
+  }
+}

@@ -119,6 +119,10 @@ individual sprites and animations, with native PNG and animation-strip
 downloads. These artwork choices stay in your browser, separately for the demo and
 local office. Missing Studio artwork falls back to the original set;
 **Retry artwork** reloads it without discarding unsaved changes.
+Use **Clear filters** to restore the complete gallery after a narrow search.
+The arcade has a quiet attract loop; a placed printer animates when it opens
+latest Activity, also reachable through **Read activity at printer**. These
+cosmetic loops stop with Pause or reduced motion and do not report agent work.
 [Artwork, gallery, and compatibility details](docs/studio-art.md).
 
 Place up to 24 custom props, arrange them with the room editor, or select an agent

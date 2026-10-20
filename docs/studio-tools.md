@@ -15,8 +15,9 @@ their original sprite IDs.
 
 The gallery combines 197 base Studio entries, 96 directional character frames and
 96 companion directional frames, 96 companion life frames, 96 character life
-frames, 96 character reaction frames, four room surfaces, and 41 generated
-animation/lighting frames, making **722 sprite choices** when every pack is available. The count follows the loaded
+frames, 96 character reaction frames, four room surfaces, eight generated prop
+frames and 41 procedural animation/lighting frames, making **730 sprite choices**
+when every pack is available. The count follows the loaded
 artwork; an unavailable optional pack removes only its choices. The watering
 families add four frames each for the succulent, fern and planter. They use the
 approved artwork, fixed native dimensions and shared foot anchors. The
@@ -32,6 +33,16 @@ robot, record player, terrarium and running task terminal; there is also an unli
 lamp. Server flicker is decorative, not uptime. Music and task-terminal animation
 follow their existing playback/running states. Animated props fit the same
 bottom-centered rectangle as static art, without nonuniform stretching.
+The arcade has a quiet two-frame-per-second attract loop. The printer feeds paper
+only after interaction, and opens the latest Activity view. The room action
+**Read activity at printer** provides the same route by keyboard when a printer is
+placed. These are cosmetic responses, not print jobs or reports of agent work.
+Both four-frame strips retain their exact native dimensions: 96 × 34 for the
+arcade and 96 × 24 for the printer. Their first frames match the shipped idle
+sprites. Missing prop artwork retains the static sprites and existing overlays.
+
+**Clear filters** resets both the search and category and returns focus to the
+search field, including after a search with no matches.
 
 **Play animation** is explicit, not automatic. Preview runs at four frames per
 second, honors office Pause/reduced motion, and stops when the gallery or panel
