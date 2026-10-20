@@ -81,7 +81,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
     assert.equal(await page.evaluate(() => opened), "sheet-settings");
     assert.equal(await page.locator(".studio-controls").count(), 1);
     assert.equal(await page.locator("#studio-gallery").count(), 1);
-    assert.equal(await page.evaluate(() => officeStudioTools.frames.size), 41);
+    assert.equal(await page.evaluate(() => officeStudioTools.frames.size), 49);
     assert.equal(
       await page.evaluate(() => document.activeElement.id),
       "studio-art-status",
@@ -96,7 +96,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
     assert.equal(shared, true, "Concurrent retries share one request set");
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      722,
+      730,
     );
     assert.deepEqual(ledger(await state()), before);
   });

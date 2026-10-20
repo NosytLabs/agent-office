@@ -102,6 +102,16 @@
   }
   function frameKey(key, state = {}) {
     if (key === "lamp" && state.lights === false) return "lamp-off";
+    if (key === "arcade" || key === "printer") {
+      const time = Number.isFinite(state.time) ? Math.max(0, state.time) : 0;
+      return (
+        key +
+        "-anim-" +
+        (state.paused || (key === "printer" && !state.reacting)
+          ? 0
+          : Math.floor(time * (key === "arcade" ? 2 : 4)) % 4)
+      );
+    }
     const moving =
       key === "server" ||
       key === "taskterminal-running" ||
@@ -318,16 +328,17 @@
     const originalImage = scene.image,
       originalCharacter = scene.character;
     scene.image = function (key, x, y, w, h) {
-      const selected = frameKey(key, {
-        lights: this.settings.room_lights,
-        time: this.time,
-        paused: this.paused,
-        music: this.musicPlaying,
-        reacting:
-          this.propReaction(key, x, y) !== null ||
-          (key === "robot" && this.cosmetics.includes("robot_wave")) ||
-          (key === "terrarium" && this.cosmetics.includes("terrarium_glow")),
-      });
+      const reaction = this.propReaction(key, x, y),
+        selected = frameKey(key, {
+          lights: this.settings.room_lights,
+          time: key === "printer" ? (reaction ?? 0) : this.time,
+          paused: this.paused,
+          music: this.musicPlaying,
+          reacting:
+            reaction !== null ||
+            (key === "robot" && this.cosmetics.includes("robot_wave")) ||
+            (key === "terrarium" && this.cosmetics.includes("terrarium_glow")),
+        });
       const image = enabled() && frames.get(selected);
       if (!image) return originalImage.call(this, key, x, y, w, h);
       this.ctx.drawImage(image, ...fitRect(image, x, y, w, h));
@@ -409,6 +420,7 @@
         <label class="studio-option" for="studio-sprite-search">Find sprites<input id="studio-sprite-search" class="txt" type="search" maxlength="100" placeholder="For example, orange cat or person 0" /></label>
         <label class="studio-option" for="studio-sprite-group">Category<select id="studio-sprite-group"><option value="all">All sprites</option><option value="characters">Characters</option><option value="companions">Companions</option><option value="furniture">Furniture</option><option value="effects">Effects &amp; icons</option></select></label>
       </div>
+      <button type="button" class="btn" id="studio-clear-filters" hidden>Clear filters</button>
       <p id="studio-gallery-count" class="h" role="status"></p>
       <label class="studio-option" for="studio-sprite-choice">Studio sprite<select id="studio-sprite-choice"></select></label>
       <div class="studio-preview-stage">
@@ -423,6 +435,7 @@
     const select = gallery.querySelector("#studio-sprite-choice"),
       search = gallery.querySelector("#studio-sprite-search"),
       group = gallery.querySelector("#studio-sprite-group"),
+      clear = gallery.querySelector("#studio-clear-filters"),
       preview = gallery.querySelector("canvas"),
       save = gallery.querySelector("#studio-sprite-download"),
       strip = gallery.querySelector("#studio-strip-download"),
@@ -568,11 +581,19 @@
           ? "robot-anim-0"
           : keys[0] || "";
       select.disabled = keys.length === 0;
+      clear.hidden = !search.value && group.value === "all";
       count.textContent = `${keys.length} of ${all.size} sprites`;
       selectionChanged();
     }
     search.oninput = filter;
     group.onchange = filter;
+    clear.onclick = () => {
+      search.value = "";
+      group.value = "all";
+      filter();
+      search.focus({ preventScroll: true });
+      scrollSheetToTarget(search.closest("label") || search);
+    };
     select.onchange = selectionChanged;
     function download(source, name) {
       const generation = ++exportGeneration;
@@ -661,6 +682,7 @@
         renderFurniturePreviews();
         for (const [key, value] of makeFrames(art.sprites, document))
           frames.set(key, value);
+        for (const [key, value] of art.propLife || []) frames.set(key, value);
         for (const [key, value] of [
           ...art.sprites,
           ...art.directional,

@@ -1,5 +1,20 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+
+test("arcade motion is quiet and printer motion requires an interaction", () => {
+  const { frameKey } = require("../web/js/studio-tools.js");
+  assert.equal(frameKey("arcade", { time: 0.75 }), "arcade-anim-1");
+  assert.equal(frameKey("arcade", { time: 3, paused: true }), "arcade-anim-0");
+  assert.equal(frameKey("printer", { time: 0.75 }), "printer-anim-0");
+  assert.equal(
+    frameKey("printer", { time: 0.75, reacting: true }),
+    "printer-anim-3",
+  );
+  assert.equal(
+    frameKey("printer", { time: 0.75, reacting: true, paused: true }),
+    "printer-anim-0",
+  );
+});
 const { frameKey } = require("../web/js/studio-tools.js");
 test("ambient and observed-running frames follow scene time and freeze with Pause", () => {
   assert.equal(frameKey("server", { time: 0.5 }), "server-anim-2");

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const studio = require("../web/js/studio.js");
 
 test("room and companion atlases reject missing, off-grid and floating entries", () => {
-  for (const name of ["room-surfaces", "pet-walk"]) {
+  for (const name of ["room-surfaces", "pet-walk", "prop-life"]) {
     const manifest = JSON.parse(
       fs.readFileSync(`web/assets/sprites/studio/${name}.json`, "utf8"),
     );

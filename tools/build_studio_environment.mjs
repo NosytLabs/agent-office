@@ -28,11 +28,16 @@ try {
     "pet-life",
     "character-life",
     "character-reactions",
+    "prop-life",
   ]) {
     const sourceName = `source/${name}.png`;
     const source = await fs.readFile(path.join(directory, sourceName));
+    const seed =
+      name === "prop-life"
+        ? await fs.readFile(path.join(directory, "source/prop-seeds.png"))
+        : null;
     const compiled = await page.evaluate(
-      async ({ base64, name }) => {
+      async ({ base64, name, seed64 }) => {
         const image = new Image();
         image.src = "data:image/png;base64," + base64;
         await image.decode();
@@ -44,17 +49,174 @@ try {
         const data = reader.getImageData(0, 0, input.width, input.height).data;
         const atlas = document.createElement("canvas"),
           entries = {},
+          animatedRegions = {},
           bounds = [],
           scales = [];
-        const characters = name.startsWith("character-"),
+        const props = name === "prop-life",
+          characters = name.startsWith("character-"),
           frameWidth = characters ? 32 : 28,
           frameHeight = characters ? 36 : 26,
           actors = characters ? 6 : 8;
-        atlas.width = name === "room-surfaces" ? 256 : characters ? 384 : 336;
-        atlas.height = name === "room-surfaces" ? 256 : characters ? 216 : 208;
+        atlas.width = props
+          ? 96
+          : name === "room-surfaces"
+            ? 256
+            : characters
+              ? 384
+              : 336;
+        atlas.height = props
+          ? 58
+          : name === "room-surfaces"
+            ? 256
+            : characters
+              ? 216
+              : 208;
         const context = atlas.getContext("2d", { willReadFrequently: true });
         context.imageSmoothingEnabled = false;
-        if (name === "room-surfaces") {
+        if (props) {
+          if (image.width !== 1536 || image.height !== 1024)
+            throw new Error("Unexpected prop source dimensions");
+          const seedImage = new Image();
+          seedImage.src = "data:image/png;base64," + seed64;
+          await seedImage.decode();
+          if (seedImage.width !== 24 || seedImage.height !== 58)
+            throw new Error("Unexpected prop seed dimensions");
+          const seedCanvas = document.createElement("canvas");
+          seedCanvas.width = 24;
+          seedCanvas.height = 58;
+          const sg = seedCanvas.getContext("2d", { willReadFrequently: true });
+          sg.drawImage(seedImage, 0, 0);
+          ["arcade", "printer"].forEach((kind, row) => {
+            animatedRegions[kind] = row
+              ? [
+                  [7, 0, 10, 7],
+                  [3, 9, 3, 3],
+                ]
+              : [[6, 10, 15, 10]];
+            const height = row ? 24 : 34,
+              targetY = row ? 34 : 0,
+              seedData = sg.getImageData(0, targetY, 24, height).data,
+              palette = new Map();
+            let left = 24,
+              right = -1,
+              top = height,
+              bottom = -1;
+            for (let i = 0; i < seedData.length; i += 4)
+              if (seedData[i + 3] >= 224) {
+                const x = (i / 4) % 24,
+                  y = Math.floor(i / 4 / 24);
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+                const rgb = Array.from(seedData.slice(i, i + 3));
+                palette.set(rgb.join(","), rgb);
+              }
+            let x0 = 384,
+              x1 = -1,
+              y0 = 512,
+              y1 = -1;
+            for (let column = 0; column < 4; column++)
+              for (let y = 0; y < 512; y++)
+                for (let x = 0; x < 384; x++) {
+                  if (
+                    data[
+                      ((row * 512 + y) * image.width + column * 384 + x) * 4 + 3
+                    ] < 224
+                  )
+                    continue;
+                  x0 = Math.min(x0, x);
+                  x1 = Math.max(x1, x);
+                  y0 = Math.min(y0, y);
+                  y1 = Math.max(y1, y);
+                }
+            if (x1 < x0 || y1 < y0) throw new Error("Empty prop source row");
+            const scale = Math.min(
+              (right - left + 1) / (x1 - x0 + 1),
+              (bottom - top + 1) / (y1 - y0 + 1),
+            );
+            scales.push(scale);
+            bounds.push(
+              Array.from({ length: 4 }, (_, column) => [
+                column * 384 + x0,
+                row * 512 + y0,
+                x1 - x0 + 1,
+                y1 - y0 + 1,
+              ]),
+            );
+            for (let frame = 0; frame < 4; frame++) {
+              const native = document.createElement("canvas");
+              native.width = 24;
+              native.height = height;
+              const ng = native.getContext("2d", { willReadFrequently: true });
+              ng.imageSmoothingEnabled = false;
+              if (frame === 0)
+                ng.drawImage(
+                  seedImage,
+                  0,
+                  targetY,
+                  24,
+                  height,
+                  0,
+                  0,
+                  24,
+                  height,
+                );
+              else {
+                const w = Math.round((x1 - x0 + 1) * scale),
+                  h = Math.round((y1 - y0 + 1) * scale);
+                ng.drawImage(
+                  image,
+                  ...bounds[row][frame],
+                  Math.round((left + right + 1 - w) / 2),
+                  bottom + 1 - h,
+                  w,
+                  h,
+                );
+                const pixels = ng.getImageData(0, 0, 24, height),
+                  colors = [...palette.values()];
+                for (let i = 0; i < pixels.data.length; i += 4) {
+                  if (pixels.data[i + 3] < 224) {
+                    pixels.data.fill(0, i, i + 4);
+                    continue;
+                  }
+                  let best,
+                    distance = Infinity;
+                  for (const rgb of colors) {
+                    const d = rgb.reduce(
+                      (sum, v, k) => sum + (v - pixels.data[i + k]) ** 2,
+                      0,
+                    );
+                    if (d < distance) {
+                      best = rgb;
+                      distance = d;
+                    }
+                  }
+                  pixels.data.set([...best, 255], i);
+                }
+                // Only the screen/paper/light can change. Keep the physical
+                // cabinet and stand exactly on their shipped pixel footprint.
+                const locked = new ImageData(
+                  new Uint8ClampedArray(seedData),
+                  24,
+                  height,
+                );
+                for (const [x, y, w, h] of animatedRegions[kind])
+                  for (let dy = y; dy < y + h; dy++)
+                    for (let dx = x; dx < x + w; dx++) {
+                      const i = (dy * 24 + dx) * 4;
+                      locked.data.set(pixels.data.subarray(i, i + 4), i);
+                    }
+                ng.putImageData(locked, 0, 0);
+              }
+              context.drawImage(native, frame * 24, targetY);
+              entries[`${kind}-anim-${frame}`] = {
+                rect: [frame * 24, targetY, 24, height],
+                anchor: [12, height - 1],
+              };
+            }
+          });
+        } else if (name === "room-surfaces") {
           if (image.width !== 1254 || image.height !== 1254)
             throw new Error("Unexpected surface source dimensions");
           const names = [
@@ -190,9 +352,14 @@ try {
           sourceBounds: bounds,
           rowScales: scales,
           entries,
+          animatedRegions,
         };
       },
-      { base64: source.toString("base64"), name },
+      {
+        base64: source.toString("base64"),
+        name,
+        seed64: seed?.toString("base64"),
+      },
     );
     const manifest = {
       version: 1,
@@ -207,6 +374,16 @@ try {
       sourceBounds: compiled.sourceBounds,
       rowScales: compiled.rowScales,
       entries: compiled.entries,
+      ...(seed
+        ? {
+            seed: "source/prop-seeds.png",
+            seedSha256: hash(seed),
+            lockedFirstFrames: true,
+            alphaThreshold: 224,
+            palette: "nearest seed RGB",
+            animatedRegions: compiled.animatedRegions,
+          }
+        : {}),
     };
     const pngPath = path.join(directory, name + ".png"),
       manifestPath = path.join(directory, name + ".json");
@@ -232,7 +409,8 @@ try {
         throw new Error(name + " pixels differ from source");
       if (
         checksums[`studio/${sourceName}`] !== hash(source) ||
-        checksums[`studio/${name}.png`] !== hash(stored)
+        checksums[`studio/${name}.png`] !== hash(stored) ||
+        (seed && checksums["studio/source/prop-seeds.png"] !== hash(seed))
       )
         throw new Error(name + " checksum inventory differs");
     } else {
@@ -243,6 +421,7 @@ try {
       );
       checksums[`studio/${sourceName}`] = hash(source);
       checksums[`studio/${name}.png`] = hash(await fs.readFile(pngPath));
+      if (seed) checksums["studio/source/prop-seeds.png"] = hash(seed);
     }
     console.log(
       `${check ? "Verified" : "Built"} ${Object.keys(compiled.entries).length} ${name} entries from preserved artwork.`,

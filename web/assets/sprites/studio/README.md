@@ -73,3 +73,14 @@ The existing character-life sheet served as the identity and style reference.
 The shared environment compiler records one scale per identity, reviewed alpha
 bounds, foot anchors, source hash and decoded pixel hash. This optional supplement
 has independent fallback/retry; the static poses are retained for that purpose.
+
+## Arcade and printer loops
+
+`prop-life.png` / `prop-life.json` add eight frames: four 24×34 arcade frames and
+four 24×24 printer frames. The unmodified built-in image-generation output,
+complete prompt and exact idle seeds are in `source/prop-life.*` and
+`source/prop-seeds.png`. The environment compiler reproduces one shared crop and
+scale per object, seed-palette fitting, crisp alpha, locked idle frames and hashes.
+The arcade runs at two frames per second. The printer animates an interaction
+that opens Activity; it does not create a print job or observer event. Pause and
+reduced motion use the idle frame. Runtime and gallery use the same native pixels.
