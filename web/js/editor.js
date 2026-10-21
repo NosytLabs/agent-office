@@ -202,7 +202,7 @@ function pickFurniture(index) {
   $("edit-message").textContent =
     "Move " +
     PROP_NAMES[settings.furniture[index].kind].toLowerCase() +
-    ". Click free floor or use arrows and Enter. Delete removes.";
+    ". Click free floor, or use arrows and Enter on the canvas. Remove deletes it.";
   syncFurnitureControls();
   scene.draw(0);
 }
