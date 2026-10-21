@@ -193,7 +193,7 @@ async function assertGeometry(page) {
   }
 }
 
-test("four signal props place through Customize, survive mobile reflow, and open their existing panels without accounting writes", async () => {
+test("four signal props place through Customize, survive mobile reflow, and reach their matching interactions without accounting writes", async () => {
   await observerFixture({ events, settings }, async ({ page, state }) => {
     const before = accounting(await state());
     const sprites = await page.evaluate(
@@ -261,9 +261,8 @@ test("four signal props place through Customize, survive mobile reflow, and open
       );
       assert.equal(await page.isVisible("#taskboard"), false);
       await clickProp(page, "statusbeacon");
-      await page.waitForFunction(
-        () => opened === "sheet-tasks" && taskMode === "activity",
-      );
+      assert.equal(await page.evaluate(() => opened), null);
+      assert.match(await page.textContent("#toast"), /No agents.*need input/i);
       assert.equal(await page.isVisible("#reported-taskboard"), false);
       await clickProp(page, "petbed");
       await page.waitForFunction(() => opened === "sheet-settings");
