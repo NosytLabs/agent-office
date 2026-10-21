@@ -1017,9 +1017,9 @@
       const im = new Image(),
         timer = setTimeout(
           () => finish(new Error("Studio image timed out: " + index)),
-          // Optional atlases share connections; slow valid transfers can exceed
-          // fifteen seconds when the supplements start together.
-          typeof index === "number" ? 5000 : 30000,
+          // Core and optional atlases share browser connections. Allow valid
+          // cold transfers to finish before replacing them with fallback art.
+          typeof index === "number" ? 15000 : 30000,
         );
       function finish(error) {
         clearTimeout(timer);
@@ -1060,7 +1060,7 @@
   }
   async function loadManifest(name) {
     const response = await fetch(`assets/sprites/studio/${name}.json`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) throw new Error(`${name} manifest unavailable`);
     return response.json();
@@ -1170,7 +1170,7 @@
   async function load() {
     try {
       const response = await fetch("assets/sprites/studio/studio.json", {
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error("Studio manifest unavailable");
       const manifest = await response.json();

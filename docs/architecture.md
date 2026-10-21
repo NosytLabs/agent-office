@@ -292,6 +292,13 @@ landscape screens. The ratio is independent of furniture warnings that change
 canvas height, preventing layout feedback loops. Reflow preserves logical seat identities and normalized prop
 positions; leaving Room view restores the regular narrow-screen layout.
 
+Compact sprites and Studio manifests/base images allow 15 seconds for a valid
+cold transfer; supplemental atlases allow 30 seconds. A five-second cutoff could
+abort healthy downloads and fan out into source-sheet fallback requests, delaying
+the remaining artwork. Actual failures retain the existing original-art fallback
+and Retry artwork controls. The public-package browser flow exercises valid
+six-second transfers through each loading stage.
+
 **Follow on floor** is an explicit inspector action. It brings the selected character into view at a minimum zoom of 1.75 while preserving a higher zoom, and bounds pan to the room edges. Switching panels preserves the target. Manual pan, Fit, filtering it out, furniture editing, or removal from the live roster cancels follow. A terminal sprite can remain followed during its existing exit interval; following does not prolong that interval or change accounting. The [three native browser flows](../tests/follow-camera.test.cjs) exercise controls and actual observer lifecycle events, including the 20-second ended-session fade under reduced motion.
 
 `pets.js` owns a deterministic, bounded movement controller for the existing cats. It reuses the office pathfinder within a local search window, checks furniture clearance while moving, and updates canvas hit targets from actual drawn positions. Cats wander, approach nearby idle agents, rest or sleep, and move away from active work. For a scheduled nap, a cat can reserve an unoccupied placed pet bed and follow bounded path segments to it. Overlapping cats or reservations exclude that target; moving or removing the bed cancels the stale reservation. If bounded routing cannot reach a candidate, the cat keeps a safe local nap instead of teleporting or searching the whole room. Bed footprints are walkable for pets while surrounding furniture and desks remain obstacles.

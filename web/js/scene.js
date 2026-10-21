@@ -67,7 +67,7 @@ class OfficeScene {
     this.spriteAssetSource = "loading";
     try {
       const response = await fetch("assets/sprites/runtime/manifest.json", {
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error("Compact sprite manifest unavailable");
       const manifest = await response.json(),
@@ -127,7 +127,9 @@ class OfficeScene {
         };
         const timer = setTimeout(
           () => finish(new Error("Compact sprite image timed out")),
-          5000,
+          // Cold transfers can exceed five seconds; avoid starting all source
+          // sheet requests while a valid compact atlas is still downloading.
+          15000,
         );
         image.onload = () => finish();
         image.onerror = () =>

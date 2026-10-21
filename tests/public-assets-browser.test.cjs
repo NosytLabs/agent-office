@@ -69,6 +69,7 @@ async function withPage(
     sourceFallback = false,
     beforeNavigate,
     expectedFailures = [],
+    navigationTimeout = 10000,
   } = {},
 ) {
   const context = await browser.newContext({
@@ -107,7 +108,7 @@ async function withPage(
       )
         bad.push(response.url());
     });
-    await page.goto(origin + prefix);
+    await page.goto(origin + prefix, { timeout: navigationTimeout });
     await page.waitForFunction(
       () => initialized && window._state?.mode === "demo",
     );
@@ -183,6 +184,76 @@ test("the reduced public demo loads Studio supplements and exports a sprite with
     fs.mkdirSync("reports/public-assets", { recursive: true });
     await page.screenshot({ path: "reports/public-assets/studio-packed.png" });
   }));
+
+test("valid slow artwork transfers keep the compact and Studio packs without source fallback", () => {
+  const delayed = [
+    "/assets/sprites/runtime/manifest.json",
+    "/assets/sprites/runtime/office.png",
+    "/assets/sprites/studio/studio.json",
+    "/assets/sprites/studio/studio-0.png",
+    "/assets/sprites/studio/directional.json",
+  ];
+  const reached = new Set();
+  return withPage(
+    async (page, requests) => {
+      await page.waitForFunction(
+        () =>
+          window.officeStudio &&
+          !officeStudio.loading &&
+          officeScene.spriteAssetSource !== "loading",
+        null,
+        { timeout: 35000 },
+      );
+      assert.equal(
+        await page.evaluate(() => officeScene.spriteAssetSource),
+        "native",
+      );
+      assert.equal(await page.evaluate(() => officeStudio.source), "studio");
+      assert.equal(
+        await page.evaluate(() => officeStudio.directionalReady),
+        true,
+      );
+      assert.deepEqual(
+        await page.evaluate(() => [
+          officeStudio.error,
+          officeStudio.directionalError,
+          officeStudio.environmentError,
+        ]),
+        ["", "", ""],
+      );
+      assert.deepEqual([...reached].sort(), delayed.slice().sort());
+      assert.equal(
+        requests.some(({ url }) =>
+          /\/assets\/sprites\/(?!runtime\/|studio\/)/.test(
+            new URL(url).pathname,
+          ),
+        ),
+        false,
+        "valid delayed transfers do not fan out into legacy source-sheet requests",
+      );
+      await page.click("#settingsbtn");
+      await page.fill("#room-name-input", "Slow artwork stays usable");
+      await page.keyboard.press("Escape");
+      assert.equal(await page.locator("#room-view-toggle").isEnabled(), true);
+    },
+    {
+      navigationTimeout: 35000,
+      beforeNavigate: async (context) => {
+        let closed = false;
+        context.on("close", () => {
+          closed = true;
+        });
+        for (const pathname of delayed)
+          await context.route("**" + pathname, async (route) => {
+            reached.add(pathname);
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, 6000));
+            if (!closed) await route.fulfill({ response });
+          });
+      },
+    },
+  );
+});
 
 async function accounting(page) {
   return page.evaluate(async () => {
