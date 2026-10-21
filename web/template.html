@@ -219,6 +219,14 @@
             >Click an agent to see what’s happening.</span
           >
           <div class="cluster">
+            <button
+              class="btn"
+              id="room-view-toggle"
+              aria-pressed="false"
+              title="Expand the room and simplify the HUD (V)"
+            >
+              Room view
+            </button>
             <button class="btn" id="arcade-open">Arcade</button>
             <button class="btn" id="room-lights" aria-pressed="true">
               Lights on
@@ -626,6 +634,13 @@
         <p class="h">Leave blank to use the selected layout’s name.</p>
       </section>
       <h3>Layout &amp; atmosphere</h3>
+      <label class="room-view-setting"
+        ><input type="checkbox" id="room-view-choice" /> Use room view</label
+      >
+      <p class="h">
+        Expand the room with a compact HUD. Saved in this browser. V toggles it;
+        Escape exits after closing panels or finishing furniture edits.
+      </p>
       <div id="layoutbox"></div>
       <div id="settingsbox"></div>
       <section class="settings-section" aria-labelledby="saved-choices-heading">

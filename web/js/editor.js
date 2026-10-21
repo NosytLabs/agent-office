@@ -313,7 +313,12 @@ $("export-settings").onclick = () => {
     "agent-office-layout.json",
   );
 };
+let layoutImportGeneration = 0;
 $("import-settings").onchange = async (e) => {
+  const generation = ++layoutImportGeneration,
+    panelCurrent = capturePanelInteraction(),
+    revision = settingsRevision,
+    current = () => generation === layoutImportGeneration && panelCurrent();
   if (!settingsReady) {
     toast("Loading office settings. Wait before importing a layout.");
     e.target.value = "";
@@ -324,8 +329,19 @@ $("import-settings").onchange = async (e) => {
     if (!file) return;
     if (file.size > 65536)
       throw new Error("Layout must be smaller than 64 KB.");
-    const data = JSON.parse(await file.text());
+    const contents = await file.text();
+    if (!current()) return;
+    if (!settingsReady || revision !== settingsRevision) {
+      toast(
+        "Room settings changed while reading this file. Choose the layout again.",
+      );
+      return;
+    }
+    const data = JSON.parse(contents);
     if (
+      !data ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
       data.version !== 1 ||
       !data.settings ||
       typeof data.settings !== "object" ||
@@ -343,7 +359,8 @@ $("import-settings").onchange = async (e) => {
       imported,
     );
   } catch (err) {
-    toast(err.message || "Could not import this layout.");
+    if (current()) toast(err.message || "Could not import this layout.");
+  } finally {
+    if (generation === layoutImportGeneration) e.target.value = "";
   }
-  e.target.value = "";
 };
