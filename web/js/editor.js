@@ -4,7 +4,8 @@ const furnitureHistory = [],
   furnitureFuture = [];
 let furnitureSignature = JSON.stringify(settings.furniture),
   furnitureSaving = false,
-  furnitureInteraction = 0;
+  furnitureInteraction = 0,
+  furniturePickerSignature = "";
 scene.onFurnitureResolution = ({ relocated, unplaced }) => {
   const status = $("furniture-status");
   status.hidden = !relocated && !unplaced;
@@ -13,7 +14,7 @@ scene.onFurnitureResolution = ({ relocated, unplaced }) => {
       ? `${relocated} custom prop${relocated === 1 ? " was" : "s were"} moved to free floor for this view.`
       : "",
     unplaced
-      ? `Could not find free floor for ${unplaced} prop${unplaced === 1 ? "" : "s"} in this view. Use Arrange custom furniture, then Space to select and Delete to remove.`
+      ? `Could not find free floor for ${unplaced} prop${unplaced === 1 ? "" : "s"} in this view. Use Arrange custom furniture and the Custom prop picker to move or remove them.`
       : "",
     relocated || unplaced ? "Your saved positions are unchanged." : "",
   ]
@@ -60,8 +61,71 @@ function renderFurniturePreviews() {
 }
 $("c").addEventListener("spritesready", renderFurniturePreviews);
 renderFurniturePreviews();
+$("furniture-search").oninput = filterFurnitureCatalog;
+$("furniture-availability").onchange = filterFurnitureCatalog;
+$("clear-furniture-filters").onclick = () => {
+  $("furniture-search").value = "";
+  $("furniture-availability").value = "all";
+  filterFurnitureCatalog();
+  $("furniture-search").focus({ preventScroll: true });
+};
+$("furniture-picker").onchange = (event) => {
+  if (furnitureSaving || !scene.edit) return;
+  if (event.target.value === "") {
+    resetSelection();
+    if (scene.edit === "move")
+      $("edit-message").textContent =
+        "Choose a custom prop below, or select or drag it on the floor. Space on the canvas cycles props.";
+    scene.draw(0);
+  } else {
+    scene.edit = "move";
+    scene.drag = null;
+    pickFurniture(Number(event.target.value));
+  }
+};
 syncFurnitureControls();
 
+function filterFurnitureCatalog() {
+  const query = $("furniture-search").value.trim().toLowerCase(),
+    available = $("furniture-availability").value === "available";
+  let count = 0;
+  for (const button of $("furniture-tools").children) {
+    const kind = button.dataset.kind,
+      reward = PROP_REWARDS[kind];
+    const hidden =
+      !`${PROP_NAMES[kind]} ${kind}`.toLowerCase().includes(query) ||
+      !!(available && reward && !haveUnlock(reward));
+    if (button.hidden !== hidden) button.hidden = hidden;
+    if (!hidden) count++;
+  }
+  const message = count
+    ? `${count} of ${Object.keys(PROP_SIZES).length} props shown. ${settings.furniture.length} of 24 placed.`
+    : "No props match. Try another name or clear the filters.";
+  if ($("furniture-results").textContent !== message)
+    $("furniture-results").textContent = message;
+  $("clear-furniture-filters").hidden = !query && !available;
+}
+function syncFurniturePicker(unavailable) {
+  const picker = $("furniture-picker"),
+    signature = JSON.stringify(settings.furniture.map((item) => item.kind));
+  if (signature !== furniturePickerSignature) {
+    furniturePickerSignature = signature;
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = settings.furniture.length
+      ? `Choose a prop (${settings.furniture.length})…`
+      : "No custom props placed";
+    picker.replaceChildren(empty);
+    settings.furniture.forEach((item, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `${index + 1}. ${PROP_NAMES[item.kind]}`;
+      picker.append(option);
+    });
+  }
+  picker.value = scene.movingIndex === null ? "" : String(scene.movingIndex);
+  picker.disabled = unavailable || !settings.furniture.length;
+}
 function syncFurnitureControls() {
   const unavailable = !settingsReady || furnitureSaving;
   $("undo-furniture").disabled = unavailable || !furnitureHistory.length;
@@ -101,6 +165,8 @@ function syncFurnitureControls() {
     "aria-pressed",
     String(scene.edit === "move"),
   );
+  syncFurniturePicker(unavailable);
+  filterFurnitureCatalog();
 }
 function startFurniture(kind) {
   if (!settingsReady || furnitureSaving) return;
@@ -115,7 +181,7 @@ function startFurniture(kind) {
   $("empty-state").hidden = true;
   $("edit-message").textContent =
     kind === "move"
-      ? "Select or drag a custom prop. Space on the canvas cycles props."
+      ? "Choose a custom prop below, or select or drag it on the floor. Space on the canvas cycles props."
       : "Place " +
         PROP_NAMES[kind].toLowerCase() +
         ". Arrows move; Enter places. Click a custom prop to remove it.";
@@ -136,7 +202,7 @@ function pickFurniture(index) {
   $("edit-message").textContent =
     "Move " +
     PROP_NAMES[settings.furniture[index].kind].toLowerCase() +
-    ". Click free floor or use arrows and Enter. Delete removes.";
+    ". Click free floor, or use arrows and Enter on the canvas. Remove deletes it.";
   syncFurnitureControls();
   scene.draw(0);
 }
@@ -227,6 +293,9 @@ $("arrange-furniture").onclick = $("edit-furniture").onclick = () =>
 $("catalog-furniture").onclick = () => {
   finishFurniture();
   openSheet("sheet-settings");
+  const search = $("furniture-search");
+  search.focus({ preventScroll: true });
+  scrollSheetToTarget(search.closest("label"));
 };
 $("delete-furniture").onclick = () => {
   scene.onRemove();

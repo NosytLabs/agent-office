@@ -103,7 +103,7 @@ concurrently and recover independently; diagnostics identify an unavailable pack
 Their small manifests finish before the larger image downloads begin, preventing
 image transfers from starving a queued manifest on a cold connection.
 Their larger images allow up to 30 seconds for a slow transfer while the original
-scene remains usable. Small base tiles and manifest requests retain five-second
+scene remains usable. Small base tiles and manifest requests have 15-second
 limits. A failed or stalled supplement still falls back and offers Retry artwork.
 
 Animations never submit prompts, answer approvals, call models, grant XP or change

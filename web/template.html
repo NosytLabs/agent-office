@@ -206,8 +206,14 @@
         </div>
         <p id="furniture-status" class="h" role="status" hidden></p>
         <div id="edit-hint" hidden>
-          <span id="edit-message">Choose free floor space.</span>
+          <span id="edit-message" role="status">Choose free floor space.</span>
           <button class="btn" id="arrange-furniture">Move</button>
+          <label id="furniture-picker-label">
+            Custom prop
+            <select class="txt" id="furniture-picker">
+              <option value="">Choose a prop…</option>
+            </select>
+          </label>
           <button class="btn" id="delete-furniture" disabled>Remove</button>
           <button class="btn" id="undo-furniture" disabled>Undo</button>
           <button class="btn" id="redo-furniture" disabled>Redo</button>
@@ -661,6 +667,34 @@
         Choose a prop, then click a free area on the floor. Up to 24 custom
         props.
       </p>
+      <div class="furniture-filters">
+        <label>
+          Find a prop
+          <input
+            class="txt"
+            id="furniture-search"
+            type="search"
+            maxlength="100"
+            placeholder="Name or prop ID"
+            aria-controls="furniture-tools"
+          />
+        </label>
+        <label>
+          Show
+          <select
+            class="txt"
+            id="furniture-availability"
+            aria-controls="furniture-tools"
+          >
+            <option value="all">All props</option>
+            <option value="available">Available now</option>
+          </select>
+        </label>
+        <button class="btn" id="clear-furniture-filters" hidden>
+          Clear filters
+        </button>
+      </div>
+      <p class="h" id="furniture-results" role="status"></p>
       <div id="furniture-tools" aria-label="Furniture catalog"></div>
       <button class="btn" id="edit-furniture">Arrange custom furniture</button>
       <button class="btn" id="clear-furniture">Clear custom furniture</button>

@@ -139,8 +139,12 @@ latest Activity, also reachable through **Read activity at printer**. These
 cosmetic loops stop with Pause or reduced motion and do not report agent work.
 [Artwork, gallery, and compatibility details](docs/studio-art.md).
 
-Place up to 24 custom props, arrange them with the room editor, or select an agent
-to change its local name, preferred desk, and appearance. Use **Jump to → History &
+Place up to 24 custom props. Search the furniture catalog by name or prop ID, or
+show **Available now** to hide locked rewards. In the room editor, **Props** returns
+to the catalog; the **Custom prop** picker selects saved props for moving or removal,
+including props that cannot fit on the current floor. Undo and Redo retain up to
+20 edits in this session. Select an agent to change its local name, preferred desk,
+and appearance. Use **Jump to → History &
 storage** to set retention limits.
 Motion can be paused, and reduced-motion preferences are respected. Animation
 reflects reported activity; it does not prove that an agent completed useful work.

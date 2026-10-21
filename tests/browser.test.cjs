@@ -855,15 +855,34 @@ test("all new furniture can be placed, retained, and removed through the canvas"
         const s = officeScene,
           b = s.canvas.getBoundingClientRect(),
           t = s.transform;
+        // Pointer coordinates lose tiny fractions in Chrome. Click inside a
+        // free region rather than exactly on the two-pixel collision boundary.
         for (let y = s.grid.h - 12; y > 40; y -= 4)
           for (let x = 28; x < s.grid.w - 20; x += 4)
-            if (s.placement({ x, y }).valid)
-              return {
+            if (
+              [-1, 0, 1].every((dx) =>
+                [-1, 0, 1].every(
+                  (dy) => s.placement({ x: x + dx, y: y + dy }).valid,
+                ),
+              )
+            ) {
+              const point = {
                 x: b.left + t.ox + x * t.scale,
                 y: b.top + t.oy + y * t.scale,
               };
-        throw new Error("No free floor for " + s.edit);
+              if (document.elementFromPoint(point.x, point.y)?.id === "c")
+                return point;
+            }
+        throw new Error("No visible free floor for " + s.edit);
       });
+      assert.equal(
+        await p.evaluate(
+          ({ x, y }) => document.elementFromPoint(x, y)?.id,
+          point,
+        ),
+        "c",
+        `Visible floor for ${kind}: ${JSON.stringify(point)}`,
+      );
       await p.mouse.click(point.x, point.y);
       await p.waitForFunction(
         (n) => settings.furniture.length === n && pendingSaves === 0,
