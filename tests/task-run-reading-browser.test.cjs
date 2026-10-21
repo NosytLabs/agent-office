@@ -28,6 +28,30 @@ const makeCapability = () => ({
   ],
   runs: [],
 });
+
+for (const missing of ["runtime", "mode"]) {
+  test(`retaining edits with a missing ${missing} keeps a readable draft and requires a valid selection`, () =>
+    observerFixture({}, async ({ page }) => {
+      const cap = makeCapability();
+      await setup(page, cap);
+      await page.selectOption("#task-run-mode", "edit");
+      await page.check("#task-run-remember");
+      await page.fill("#task-run-prompt", exact);
+      if (missing === "runtime") cap.runtimes = [];
+      else cap.runtimes[0].modes.pop();
+      await page.evaluate(() => officeTaskRunner.refresh());
+      const edited = exact + "New edits while choice is missing";
+      await page.fill("#task-run-prompt", edited);
+      const retained = JSON.parse(
+        await page.evaluate((key) => sessionStorage.getItem(key), draftKey),
+      );
+      assert.equal(retained.runtime, "codex");
+      assert.equal(retained.mode, "edit");
+      await reopen(page);
+      assert.equal(await page.inputValue("#task-run-prompt"), edited);
+      assert.equal(await page.isDisabled("#task-run-submit"), true);
+    }));
+}
 async function setup(page, cap, onPost = async (route) => route.abort()) {
   await page.route("**/task-runs**", async (route) => {
     if (route.request().method() === "POST") return onPost(route);

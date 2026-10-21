@@ -119,13 +119,26 @@
         return;
       }
       const payload = formPayload();
+      const retainedRuntime = runtime.value || selectedRuntimeId;
+      const retainedMode = mode.value || selectedModeId;
+      if (
+        !["codex", "claude", "opencode"].includes(retainedRuntime) ||
+        !["read", "edit", "default"].includes(retainedMode)
+      ) {
+        draftSaveDeferred = true;
+        setText(
+          draftStatus,
+          "Choose a CLI and mode before retaining this draft. Current edits have not been retained yet.",
+        );
+        return;
+      }
       savedDraft = {
         version: 1,
         prompt: prompt.value,
         workspace_path: project.path,
         workspace_id: workspace.value,
-        runtime: runtime.value,
-        mode: mode.value,
+        runtime: retainedRuntime,
+        mode: retainedMode,
         instance_id: capability.instance_id || null,
         pending_id:
           pendingRequest?.signature === payloadSignature(payload)
