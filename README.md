@@ -112,6 +112,15 @@ catch up when visible again. [Refresh and filtering behavior](docs/usage.md#find
 
 ## Make the room yours
 
+Choose **Room view** below the floor, or press **V**, to expand the office with a
+compact HUD. Agents, Tasks, Activity, Customize, runtime filtering and Find stay
+available; connection status moves to the footer. **Escape** closes a panel or
+finishes furniture editing before exiting Room view. The choice also appears in
+**Customize → Layout & atmosphere** and stays in this browser, separately for the
+demo and local office. If storage is blocked it works for the current visit and
+shows that limitation. Short landscape screens use wider desk rows to keep the
+room readable; rotating the screen keeps each agent's workstation assignment.
+
 Open **Customize** and use **Jump to** to reach a section. **Studio artwork** offers
 four-direction character walking, typing/reading/attention animations, companion blink/sleep/happy loops, optional seasonal wall accents,
 and a choice of Studio pixel art or Original artwork. The sprite gallery previews

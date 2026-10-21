@@ -748,11 +748,12 @@ positionNotices();
 function persistView() {
   if (!viewRestored || !window.officeViewState) return;
   rememberPanel();
-  window.officeViewState.write({
+  return window.officeViewState.write({
     version: 1,
     zoom: scene.zoom,
     runtime: platFilter,
     paused: scene.paused,
+    roomView,
     panel: opened,
     eventMode,
     taskMode,
@@ -770,10 +771,46 @@ function queueViewSave() {
   clearTimeout(viewSaveTimer);
   viewSaveTimer = setTimeout(persistView, 200);
 }
+let roomView = false;
+function setRoomView(value) {
+  roomView = value === true;
+  scene.roomView = roomView;
+  document.body.classList.toggle("room-focus", roomView);
+  const connection = $("connection").parentElement;
+  if (roomView) document.querySelector("#wrap > footer").append(connection);
+  else $("hdr").insertBefore(connection, $("hdr").querySelector(".rankbox"));
+  $("room-view-choice").checked = roomView;
+  $("room-view-toggle").textContent = roomView ? "Exit room view" : "Room view";
+  $("room-view-toggle").setAttribute("aria-pressed", String(roomView));
+  scene.draw(0);
+  positionNoticeSlot();
+}
+$("room-view-toggle").onclick = () => {
+  setRoomView(!roomView);
+  saveRoomView();
+};
+$("room-view-choice").onchange = (event) => {
+  setRoomView(event.target.checked);
+  saveRoomView();
+};
+function saveRoomView() {
+  if (persistView() === false)
+    toast("Room view applies to this visit. Browser storage is unavailable.");
+}
+for (const [id, title] of Object.entries({
+  floorbtn: "Agents",
+  tasksbtn: "Tasks",
+  eventsbtn: "Activity",
+  settingsbtn: "Customize",
+  "zoom-fit": "Fit room",
+  pausebtn: "Pause or resume motion",
+}))
+  $(id).title = title;
 function restoreViewState() {
   viewRestored = true;
   const view = window.officeViewState?.read();
   if (!view) return null;
+  setRoomView(view.roomView);
   platFilter = view.runtime;
   $("filterbtn").value = platFilter;
   rosterRuntime = view.rosterRuntime || "every";
@@ -3301,7 +3338,8 @@ $("legendbox").innerHTML = kv([
   ["T / N", "Palette / Lighting"],
   ["P / Shift+P", "Next / previous session needing input"],
   ["Ctrl / ⌘ K", "Find sessions and panels"],
-  ["Escape", "Close panel or finish placing props"],
+  ["V", "Toggle room view"],
+  ["Escape", "Close panel, finish placing props, then exit room view"],
   ["Zoom + drag", "Explore the room at a larger scale"],
 ]);
 document.addEventListener("keydown", (e) => {
@@ -3309,7 +3347,12 @@ document.addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
   if (e.key === "Escape") {
     if (opened) backSheet();
-    else finishFurniture();
+    else if (scene.edit) finishFurniture();
+    else if (roomView) {
+      setRoomView(false);
+      saveRoomView();
+      $("room-view-toggle").focus({ preventScroll: true });
+    }
     return;
   }
   if (opened && e.key === "Tab") {
@@ -3357,6 +3400,9 @@ document.addEventListener("keydown", (e) => {
   if (ids[key]) {
     e.preventDefault();
     openSheet(ids[key]);
+  } else if (key === "v" && !e.repeat) {
+    e.preventDefault();
+    $("room-view-toggle").click();
   } else if (key === "t") $("themeNextbtn").click();
   else if (key === "n") {
     const modes = ["auto", "day", "night"];

@@ -18,6 +18,7 @@ class OfficeScene {
     this.following = null;
     this.filter = "every";
     this.zoom = 1;
+    this.roomView = false;
     this.pan = { x: 0, y: 0 };
     this.paused = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.time = 0;
@@ -507,19 +508,20 @@ class OfficeScene {
       patch: { agent_preferences: Object.fromEntries(entries) },
     };
   }
-  layout(width) {
-    const assigned = this.assignedSeats(),
-      max = width < 600 ? 2 : this.settings.max_chars;
+  layout(width, viewportAspect = 0) {
+    const narrow = width < 600 && !(this.roomView && viewportAspect > 1.5),
+      assigned = this.assignedSeats(),
+      max = narrow ? 2 : this.settings.max_chars;
     const capacity = Math.max(
       this.agents.length,
       (assigned.at(-1)?.slot ?? -1) + 1,
     );
     const columns = Math.max(1, Math.min(max, Math.max(2, this.agents.length)));
     const rows = Math.max(1, Math.ceil(capacity / columns));
-    const w = Math.max(width < 600 ? 210 : 320, columns * 68 + 72),
+    const w = Math.max(narrow ? 210 : 320, columns * 68 + 72),
       // Keep a single desktop row close to its lounge. Narrow floors already
       // fit by width, so retain their height instead of adding letterboxing.
-      h = Math.max(width < 600 ? 238 : 210, rows * 76 + 110);
+      h = Math.max(narrow ? 238 : 210, rows * 76 + 110);
     const start = (w - ((columns - 1) * 68 + 40)) / 2;
     const seats = assigned
       .filter(({ a }) => this.filter === "every" || platOf(a) === this.filter)
@@ -1251,7 +1253,9 @@ class OfficeScene {
     g.clearRect(0, 0, W, H);
     g.fillStyle = "#111720";
     g.fillRect(0, 0, W, H);
-    const room = this.layout(W);
+    // Furniture warnings can change canvas height. Use the viewport shape so
+    // displaying a warning cannot repeatedly flip the desk layout.
+    const room = this.layout(W, this.roomView ? innerWidth / innerHeight : 0);
     const geometry = room.w + ":" + room.h + ":" + room.columns;
     this.relayout = !!this.geometry && this.geometry !== geometry;
     this.geometry = geometry;
