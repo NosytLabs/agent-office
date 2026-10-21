@@ -35,6 +35,16 @@
   const draftRun = byId("task-draft-run");
   const draftTemplate = byId("task-draft-template");
   const preview = document.body.dataset.agentOfficePreview === "1";
+  const remember = byId("task-run-remember");
+  const clearDraft = byId("task-run-clear-draft");
+  const newDraft = byId("task-run-new-draft");
+  const draftStatus = byId("task-run-draft-status");
+  const outputSize = byId("task-run-output-size");
+  const wrap = byId("task-run-wrap");
+  const readingStatus = byId("task-run-reading-status");
+  const draftKey = "agent-office:local-run-draft:v1";
+  const outputKey = "agent-office:run-output:v1";
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
   let active = false;
   let connected = false;
@@ -58,7 +68,182 @@
   let selectionVersion = 0;
   let copyVersion = 0;
   let discovering = false;
+  let savedDraft = null;
+  let draftRestored = false;
+  let formEdited = false;
+  let reviewRequired = false;
   const runNodes = new Map();
+
+  function formPayload() {
+    return {
+      runtime: runtime.value,
+      workspace_id: workspace.value,
+      prompt: prompt.value,
+      mode: mode.value,
+    };
+  }
+
+  function persistDraft() {
+    if (!remember || preview) return;
+    try {
+      if (!remember.checked) {
+        sessionStorage.removeItem(draftKey);
+        savedDraft = null;
+        setText(
+          draftStatus,
+          "Draft retention is off. Your open prompt is unchanged.",
+        );
+        return;
+      }
+      const project = capability?.workspaces?.find(
+        (item) => item.id === workspace.value,
+      );
+      if (!project?.path || !capability?.enabled) return;
+      if (Array.from(prompt.value).length > 8192) {
+        setText(
+          draftStatus,
+          "This prompt is too long to retain. The previously saved draft is unchanged.",
+        );
+        return;
+      }
+      const payload = formPayload();
+      savedDraft = {
+        version: 1,
+        prompt: prompt.value,
+        workspace_path: project.path,
+        workspace_id: workspace.value,
+        runtime: runtime.value,
+        mode: mode.value,
+        instance_id: capability.instance_id || null,
+        pending_id:
+          pendingRequest?.signature === payloadSignature(payload)
+            ? pendingRequest.id
+            : null,
+        review_required: reviewRequired,
+      };
+      sessionStorage.setItem(draftKey, JSON.stringify(savedDraft));
+      setText(
+        draftStatus,
+        "Draft retained in this tab until cleared. Reloading never starts a run.",
+      );
+    } catch {
+      setText(
+        draftStatus,
+        "Browser storage is unavailable. This draft is usable but changes were not retained.",
+      );
+    }
+  }
+
+  function restoreDraft() {
+    if (draftRestored || !capability?.enabled) return;
+    draftRestored = true;
+    if (!savedDraft) return;
+    const retained = savedDraft;
+    savedDraft = null;
+    if (formEdited) {
+      persistDraft();
+      return;
+    }
+    prompt.value = retained.prompt;
+    workspace.value =
+      capability.workspaces.find(
+        (item) => item.path === retained.workspace_path,
+      )?.id || "";
+    runtime.value = retained.runtime;
+    fillModes();
+    mode.value = retained.mode;
+    reviewRequired =
+      retained.review_required ||
+      (!!retained.pending_id &&
+        (!uuid.test(capability.instance_id || "") ||
+          capability.instance_id !== retained.instance_id ||
+          workspace.value !== retained.workspace_id));
+    if (retained.pending_id && !reviewRequired)
+      pendingRequest = {
+        id: retained.pending_id,
+        signature: payloadSignature(formPayload()),
+        instance_id: retained.instance_id,
+      };
+    newDraft.hidden = !reviewRequired;
+    formFeedback = reviewRequired
+      ? "The previous submission may have run, and this server cannot safely retry it. Check the CLI's activity, then review this as a new run or clear the draft."
+      : pendingRequest
+        ? "Draft restored with its previous request ID. Retrying the unchanged prompt will reuse that ID."
+        : "Draft restored. Review the project, CLI, mode, and exact prompt before running.";
+    setText(draftStatus, "Draft restored from this tab. No run was started.");
+    // Retire the initial restoration record. Later polls must never replace edits.
+    formEdited = true;
+  }
+
+  if (remember) {
+    remember.disabled = preview;
+    try {
+      const raw = !preview && sessionStorage.getItem(draftKey);
+      if (raw) {
+        if (raw.length > 70000) throw new Error("Oversized draft");
+        const value = JSON.parse(raw);
+        if (
+          value?.version !== 1 ||
+          typeof value.prompt !== "string" ||
+          Array.from(value.prompt).length > 8192 ||
+          typeof value.workspace_path !== "string" ||
+          !value.workspace_path ||
+          value.workspace_path.length > 4096 ||
+          typeof value.workspace_id !== "string" ||
+          value.workspace_id.length > 256 ||
+          !["codex", "claude", "opencode"].includes(value.runtime) ||
+          !["read", "edit", "default"].includes(value.mode) ||
+          (value.pending_id != null &&
+            (!uuid.test(value.pending_id) ||
+              !uuid.test(value.instance_id || ""))) ||
+          typeof value.review_required !== "boolean"
+        )
+          throw new Error("Invalid draft");
+        savedDraft = value;
+        remember.checked = true;
+      }
+    } catch {
+      setText(
+        draftStatus,
+        "The saved draft could not be read. Your open prompt is unchanged; enable retention to replace it.",
+      );
+    }
+    remember.addEventListener("change", persistDraft);
+  }
+
+  function applyReadingPreferences(save = false) {
+    if (!outputSize || !wrap) return;
+    output.dataset.size = outputSize.value;
+    output.dataset.wrap = String(wrap.checked);
+    if (!save) return;
+    try {
+      localStorage.setItem(
+        outputKey,
+        JSON.stringify({ size: outputSize.value, wrap: wrap.checked }),
+      );
+      if (readingStatus) readingStatus.hidden = true;
+    } catch {
+      setText(
+        readingStatus,
+        "Display preferences apply to this visit; browser storage is unavailable.",
+      );
+      if (readingStatus) readingStatus.hidden = false;
+    }
+  }
+  if (outputSize && wrap) {
+    try {
+      const raw = localStorage.getItem(outputKey);
+      const value = raw?.length <= 1024 ? JSON.parse(raw) : null;
+      if (["small", "medium", "large"].includes(value?.size))
+        outputSize.value = value.size;
+      if (typeof value?.wrap === "boolean") wrap.checked = value.wrap;
+    } catch {
+      /* Reading controls remain available without storage. */
+    }
+    applyReadingPreferences();
+    outputSize.addEventListener("change", () => applyReadingPreferences(true));
+    wrap.addEventListener("change", () => applyReadingPreferences(true));
+  }
 
   const publicStatus = {
     enabled: false,
@@ -141,6 +326,10 @@
       return "Local task running is disabled. Restart Agent Office with the command shown above.";
     if (!capability?.workspaces?.length)
       return "No project workspace is configured for local runs.";
+    if (!capability.workspaces.some((item) => item.id === workspace.value))
+      return "Choose a configured project workspace.";
+    if (reviewRequired)
+      return "Review the previous uncertain submission as a new run, or clear this draft, before starting.";
     const selected = selectedRuntime();
     if (!selected) return "Choose an installed CLI.";
     if (!selected.available)
@@ -422,6 +611,16 @@
   }
 
   function syncCapability() {
+    if (
+      pendingRequest?.instance_id &&
+      capability?.instance_id !== pendingRequest.instance_id
+    ) {
+      reviewRequired = true;
+      if (newDraft) newDraft.hidden = false;
+      formFeedback =
+        "The local server changed after an uncertain submission. Check the CLI's activity before reviewing this as a new run.";
+      persistDraft();
+    }
     if (refreshClis) {
       refreshClis.disabled = preview || !connected || !capability?.enabled;
       refreshClis.setAttribute("aria-disabled", String(discovering));
@@ -449,6 +648,7 @@
         `${capability.workspaces?.length || 0} configured project${capability.workspaces?.length === 1 ? "" : "s"} · ${capability.runtimes?.filter((item) => item.available).length || 0} CLI${capability.runtimes?.filter((item) => item.available).length === 1 ? "" : "s"} found on PATH`,
       );
     fillOptions();
+    restoreDraft();
     syncForm();
     emitStatus();
   }
@@ -584,10 +784,14 @@
   function prefill(value) {
     open();
     prompt.value = String(value ?? "");
+    formEdited = true;
     pendingRequest = null;
+    reviewRequired = false;
+    if (newDraft) newDraft.hidden = true;
     formFeedback =
       "Draft copied here. Review the project, CLI, mode, and prompt before running.";
     syncForm();
+    persistDraft();
     prompt.focus({ preventScroll: true });
   }
 
@@ -612,16 +816,16 @@
       setText(formStatus, formFeedback);
       return;
     }
-    const payload = {
-      runtime: runtime.value,
-      workspace_id: workspace.value,
-      prompt: prompt.value,
-      mode: mode.value,
-    };
+    const payload = formPayload();
     const signature = payloadSignature(payload);
     if (!pendingRequest || pendingRequest.signature !== signature)
-      pendingRequest = { signature, id: crypto.randomUUID() };
+      pendingRequest = {
+        signature,
+        id: crypto.randomUUID(),
+        instance_id: capability.instance_id,
+      };
     payload.request_id = pendingRequest.id;
+    persistDraft();
     submitting = true;
     formFeedback = "Starting local CLI run…";
     setText(formStatus, formFeedback);
@@ -640,6 +844,7 @@
       if (!run?.id) throw new Error("Server returned an invalid run");
       refreshSequence++;
       pendingRequest = null;
+      persistDraft();
       const index = runs.findIndex(
         (item) => String(item.id) === String(run.id),
       );
@@ -720,20 +925,49 @@
   }
 
   runtime.addEventListener("change", () => {
+    formEdited = true;
     pendingRequest = null;
     formFeedback = "";
     fillModes();
+    persistDraft();
   });
   for (const control of [workspace, mode])
     control.addEventListener("change", () => {
+      formEdited = true;
       pendingRequest = null;
       formFeedback = "";
       syncForm();
+      persistDraft();
     });
   prompt.addEventListener("input", () => {
+    formEdited = true;
     pendingRequest = null;
     formFeedback = "";
     syncForm();
+    persistDraft();
+  });
+  clearDraft?.addEventListener("click", () => {
+    prompt.value = "";
+    formEdited = true;
+    pendingRequest = null;
+    reviewRequired = false;
+    if (newDraft) newDraft.hidden = true;
+    if (remember) remember.checked = false;
+    formFeedback = "Draft cleared. Running CLI processes are unchanged.";
+    persistDraft();
+    syncForm();
+    prompt.focus({ preventScroll: true });
+  });
+  newDraft?.addEventListener("click", () => {
+    reviewRequired = false;
+    pendingRequest = null;
+    formEdited = true;
+    newDraft.hidden = true;
+    formFeedback =
+      "Prepared as a new run. Review all fields, then select Run task to start it.";
+    persistDraft();
+    syncForm();
+    prompt.focus({ preventScroll: true });
   });
   draft?.addEventListener("input", syncForm);
   draftTemplate?.addEventListener("click", () => queueMicrotask(syncForm));

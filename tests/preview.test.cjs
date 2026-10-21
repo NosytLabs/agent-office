@@ -676,12 +676,37 @@ test("two native demo views serialize conditional map saves and keep a rejected 
       );
       const rejected = Object.hasOwn(names, "cat1") ? other : p;
       await rejected.bringToFront();
-      await rejected.waitForFunction(() => {
-        const notice = document.getElementById("settings-save-notice");
-        return (
-          !notice.hidden && /changed in another view/.test(notice.textContent)
-        );
-      });
+      await rejected
+        .waitForFunction(() => {
+          const notice = document.getElementById("settings-save-notice");
+          return (
+            !notice.hidden && /changed in another view/.test(notice.textContent)
+          );
+        })
+        .catch(async (error) => {
+          console.error(
+            "Map conflict diagnostics",
+            await Promise.all(
+              [p, other].map((page) =>
+                page.evaluate(() => ({
+                  names: settings.pet_names,
+                  confirmed: confirmedSettings.pet_names,
+                  message: settingsSaveMessage,
+                  unavailable: settingsUnavailable,
+                  notice: document.getElementById("settings-save-notice")
+                    .outerHTML,
+                  pending: pendingSaves,
+                  drafts: [...settingsDrafts],
+                  fields: [
+                    document.getElementById("pet-cat1-name").value,
+                    document.getElementById("pet-cat2-name").value,
+                  ],
+                })),
+              ),
+            ),
+          );
+          throw error;
+        });
       assert.equal(await rejected.isVisible("#settings-save-notice"), true);
       assert.match(
         await rejected.textContent("#settings-save-notice"),

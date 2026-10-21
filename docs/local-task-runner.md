@@ -25,6 +25,24 @@ runtime, and execution mode, write a brief, and select **Run task**. You can
 also prepare text under **Draft prompt** and transfer it into the run form.
 Copying, exporting, or transferring a brief does not start a run.
 
+**Keep this draft in this tab** is an optional browser setting. It retains the
+exact prompt, project path, CLI and mode in session storage across reloads.
+It is off initially. Turning it off removes the retained copy while keeping
+the open prompt; **Clear draft** empties the prompt and turns retention off.
+Closing the tab normally ends this storage session, although browser session
+restore can restore it. No write token or terminal output is saved with the
+draft. Storage failures leave the form usable and report that changes were not
+retained.
+
+Restoration never runs a task. Projects are matched by their allowlisted path,
+so reordered project IDs cannot silently redirect a draft. A missing project
+requires a new selection. An uncertain submission retains its request ID for
+retry against the same server instance. If the server changed, **Run task** is
+blocked: check the CLI's own activity, then select **Review as a new run** or
+clear the draft. Reviewing prepares a draft; starting it still requires
+**Run task**. This does not recover a previous server's process history or
+promise that retrying after a server restart cannot duplicate work.
+
 | Runtime | Modes | Behavior |
 | --- | --- | --- |
 | Codex | Read-only review; project edits | Starts a fresh `codex exec` with the selected `read-only` or `workspace-write` sandbox, using the selected project as its working directory. The prompt arrives on standard input. |
@@ -61,6 +79,11 @@ and its exit code. **Finished** means that the CLI exited with code zero. Read
 the output and inspect the project changes to verify the task's outcome.
 A CLI can describe a permission denial or an incomplete task even when its
 process returns successfully.
+
+Output display offers three text sizes and optional line wrapping. Unwrapped
+output scrolls within its own area. These viewing preferences are saved in
+browser storage independently of prompt retention; they never change the
+captured text, copied output, or downloaded run.
 
 On POSIX, **Cancel** sends termination to the run's process group and escalates
 if the group does not exit. This also stops descendants that remain in that group,
