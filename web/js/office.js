@@ -774,6 +774,7 @@ function queueViewSave() {
 let roomView = false;
 function setRoomView(value) {
   roomView = value === true;
+  scene.roomView = roomView;
   document.body.classList.toggle("room-focus", roomView);
   const connection = $("connection").parentElement;
   if (roomView) document.querySelector("#wrap > footer").append(connection);

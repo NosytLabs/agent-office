@@ -173,6 +173,47 @@ test("room view stays usable and explains blocked browser storage", async () => 
   });
 });
 
+test("landscape room view uses a wide desk row while retaining seat identities across rotation", async () => {
+  await observerFixture(
+    {
+      viewport: { width: 568, height: 320 },
+      settings: { max_chars: 6 },
+      events: [
+        ...events,
+        ...Array.from({ length: 4 }, (_, i) => ({
+          event: "session_start",
+          session_id: "landscape-agent-" + i,
+          platform: "codex",
+        })),
+      ],
+    },
+    async ({ page, state }) => {
+      const before = await state();
+      const seats = () =>
+        page.evaluate(() =>
+          officeScene.assignedSeats().map(({ a, slot }) => [a.id, slot]),
+        );
+      const assigned = await seats();
+      assert.equal(await page.evaluate(() => officeScene.grid.columns), 2);
+      await page.click("#room-view-toggle");
+      await page.waitForFunction(() => officeScene.grid.columns === 5);
+      assert.equal(await page.evaluate(() => officeScene.grid.rows), 1);
+      assert.deepEqual(await seats(), assigned);
+      await page.setViewportSize({ width: 320, height: 568 });
+      await page.waitForFunction(() => officeScene.grid.columns === 2);
+      assert.deepEqual(await seats(), assigned);
+      await page.setViewportSize({ width: 568, height: 320 });
+      await page.waitForFunction(() => officeScene.grid.columns === 5);
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => officeScene.grid.columns === 2);
+      assert.deepEqual(await seats(), assigned);
+      const after = await state();
+      for (const k of ["settings", "events", "usage", "progress"])
+        assert.deepEqual(after[k], before[k]);
+    },
+  );
+});
+
 test("a null layout export gives a readable error without changing settings", async () => {
   await observerFixture({}, async ({ page, state }) => {
     const before = await state();
