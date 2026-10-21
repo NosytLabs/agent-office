@@ -52,7 +52,16 @@
         taskMode = "reported";
         openSheet("sheet-tasks");
       }
-    } else if (["whiteboard", "focusbooth", "statusbeacon"].includes(kind)) {
+    } else if (kind === "statusbeacon") {
+      if (!officeAttention.inspectNext())
+        toast(
+          offline
+            ? "Reconnect before navigating input requests."
+            : scene.edit
+              ? "Finish arranging furniture before inspecting input requests."
+              : "No agents currently need input.",
+        );
+    } else if (["whiteboard", "focusbooth"].includes(kind)) {
       taskMode = "activity";
       openSheet("sheet-tasks");
     } else if (kind === "petbed") {
@@ -79,6 +88,11 @@
     ["Jukebox", () => window.officeJukebox?.open()],
     ["Open task terminal", () => interact("taskterminal"), "taskterminal"],
     ["Read activity at printer", () => interact("printer"), "printer"],
+    [
+      "Inspect attention beacon",
+      () => interact("statusbeacon"),
+      "statusbeacon",
+    ],
     ["Switch room lights", lights],
     ["Brew coffee", () => floorReaction("coffee"), "coffee"],
     ["Pour water", () => floorReaction("cooler"), "cooler"],

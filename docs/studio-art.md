@@ -40,9 +40,17 @@ and do not receive the Original renderer's extra eyes, lights or reaction pixels
 Room-light overlays and the beacon's observed-input signal remain available.
 If running-state terminal artwork is unavailable, the fallback retains its
 activity lamp.
+If the optional arcade animation pack is unavailable, the Studio cabinet retains
+its static screen and marquee without Original-mode effects painting over them.
+Completed and ended characters share Original's observed-age fade, including
+when the artwork choice changes.
 Watering keeps Studio plant pots on their original anchor. Status marks are
 centered over the seated character; a completion carrying a reported failure
 shows a warning instead of a success check.
+The attention beacon opens the next observed agent needing input, just like the
+Needs input control. **Customize → Room interactions → Inspect attention beacon**
+provides the same keyboard action when a beacon is placed. An empty or disconnected
+office gives feedback instead of opening unrelated activity.
 A newly observed completed subagent can send a parcel to its parent; bootstrap,
 reconnect, removal, missing parents and observed errors do not create successful handoffs.
 

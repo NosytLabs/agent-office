@@ -43,6 +43,71 @@ async function clickProp(page, kind) {
   await page.mouse.click(point.x, point.y);
 }
 
+test("the attention beacon reaches real input requests by pointer and keyboard and explains empty or offline state", async () => {
+  const events = ["beacon-first", "beacon-second"].flatMap((session_id) => [
+    { event: "session_start", session_id, platform: "codex" },
+    {
+      event: "input_request",
+      session_id,
+      platform: "codex",
+      request_id: session_id + "-question",
+      question: "Review this synthetic change?",
+    },
+  ]);
+  await observerFixture(
+    {
+      events,
+      settings: {
+        decorations: false,
+        furniture: [{ kind: "statusbeacon", x: 0.5, y: 0.75 }],
+      },
+    },
+    async ({ page, state, publish }) => {
+      const before = await state();
+      await clickProp(page, "statusbeacon");
+      assert.equal(await page.evaluate(() => opened), "sheet-inspector");
+      assert.equal(await page.evaluate(() => focusedId), "beacon-first");
+      await page.keyboard.press("Escape");
+      await page.click("#settingsbtn");
+      const action = page.getByRole("button", {
+        name: "Inspect attention beacon",
+        exact: true,
+      });
+      await action.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.evaluate(() => focusedId), "beacon-second");
+      assert.equal(await page.evaluate(() => opened), "sheet-inspector");
+      const after = await state();
+      for (const key of ["events", "usage", "progress"])
+        assert.deepEqual(after[key], before[key]);
+      await page.locator("#sheet-inspector .close").click();
+      await page.route("**/state", (route) =>
+        route.fulfill({ status: 503, body: "unavailable" }),
+      );
+      await page.evaluate(() => poll());
+      await clickProp(page, "statusbeacon");
+      assert.equal(await page.evaluate(() => opened), null);
+      assert.match(await page.textContent("#toast"), /Reconnect.*input/i);
+      await page.unroute("**/state");
+      publish(
+        ["beacon-first", "beacon-second"].map((session_id) => ({
+          event: "input_response",
+          session_id,
+          platform: "codex",
+          request_id: session_id + "-question",
+        })),
+      );
+      await page.evaluate(() => poll());
+      await page.waitForFunction(
+        () => !agents.some((a) => a.status === "waiting"),
+      );
+      await clickProp(page, "statusbeacon");
+      assert.equal(await page.evaluate(() => opened), null);
+      assert.match(await page.textContent("#toast"), /No agents.*need input/i);
+    },
+  );
+});
+
 for (const viewport of [
   { width: 320, height: 568 },
   { width: 568, height: 320 },

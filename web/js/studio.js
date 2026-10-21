@@ -636,8 +636,7 @@
       left = Math.round(x - 8),
       top = Math.round(y - 4);
     g.save();
-    if (a.status === "gone") g.globalAlpha = 0.4;
-    else if (a.status === "done") g.globalAlpha = 0.85;
+    g.globalAlpha = this.characterOpacity(a);
     if (!directional && c.moving && c.dir === "left") {
       g.translate(left + 32, top);
       g.scale(-1, 1);
