@@ -119,7 +119,12 @@ finishes furniture editing before exiting Room view. The choice also appears in
 **Customize → Layout & atmosphere** and stays in this browser, separately for the
 demo and local office. If storage is blocked it works for the current visit and
 shows that limitation. Short landscape screens use wider desk rows to keep the
-room readable; rotating the screen keeps each agent's workstation assignment.
+room readable, with navigation and attention controls sharing one row. Rotating
+the screen keeps each agent's workstation assignment and focused control.
+
+Click an agent's visible sprite, desk or label to inspect it, including while it
+walks into the room. Pointer hints identify the session even when a small floor
+cannot show its full label.
 
 Open **Customize** and use **Jump to** to reach a section. **Studio artwork** offers
 four-direction character walking, typing/reading/attention animations, companion blink/sleep/happy loops, optional seasonal wall accents,

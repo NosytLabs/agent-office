@@ -459,6 +459,26 @@ footer {
   padding: 2px 4px;
   font-size: 10px;
 }
+.room-landscape #toolbar {
+  flex-wrap: wrap;
+}
+.room-landscape #toolbar > .secondary {
+  margin-left: auto;
+}
+.room-landscape .scene-heading,
+.room-landscape #count {
+  display: none;
+}
+.room-landscape #toolbar > #summary {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.room-landscape #toolbar #summary button {
+  width: auto;
+  font-size: 12px;
+  padding: 6px 9px;
+}
 .live-label {
   font-size: 11px;
   color: var(--ok);

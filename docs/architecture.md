@@ -291,6 +291,16 @@ Room view uses the viewport aspect ratio to allow desktop-width desk rows on sho
 landscape screens. The ratio is independent of furniture warnings that change
 canvas height, preventing layout feedback loops. Reflow preserves logical seat identities and normalized prop
 positions; leaving Room view restores the regular narrow-screen layout.
+On short landscape screens at least 500 CSS pixels wide, the actual summary
+controls move into the toolbar, preserving focused controls across rotation.
+The redundant floor count hides in that compact row; attention, Find and alert
+buttons retain their actions and wrap when necessary.
+
+Character renderers publish their actual painted bounds each frame. Pointer
+selection follows paint order: screen-space labels, frontmost characters, then
+stations. Classic and Studio use their respective sprite dimensions. Hover
+identification uses the same selection resolver and refreshes as characters or
+the camera move; resize, drag, editing and pointer exit clear stale hints.
 
 Compact sprites and Studio manifests/base images allow 15 seconds for a valid
 cold transfer; supplemental atlases allow 30 seconds. A five-second cutoff could
