@@ -83,7 +83,7 @@ eight companion looks and a searchable gallery with native sprite-strip export.
 
 | What you need | Where to go |
 | --- | --- |
-| Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file |
+| Find work that needs attention | Agents → Needs input, then filter by runtime or search the reported tool/file; a placed attention beacon also opens the next input request |
 | Review recent requests and errors | Customize → Activity recap; open Saved activity for retained history |
 | Choose which sounds play | Customize → Notification sounds; the main Sound button mutes all kinds |
 | Understand tokens and estimated cost | Usage cards and runtime/model breakdowns; [how to read them](docs/usage.md) |

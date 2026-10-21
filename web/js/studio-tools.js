@@ -319,8 +319,12 @@
         art.sprites.has(terminalKey) &&
         (terminalKey !== "taskterminal" ||
           this.taskTerminalState() !== "running");
+      // The static Studio arcade also owns its screen when its loop is missing.
       return (
-        (enabled() && (frames.has(kind + "-anim-0") || terminalDetails)) ||
+        (enabled() &&
+          (frames.has(kind + "-anim-0") ||
+            (kind === "arcade" && art.sprites.has(kind)) ||
+            terminalDetails)) ||
         originalPropDetails?.call(this, kind) ||
         false
       );

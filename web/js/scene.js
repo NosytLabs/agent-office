@@ -1179,6 +1179,19 @@ class OfficeScene {
     this.hitBoxes.push({ id: a.id, x: x - 4, y: y - 25, w: 48, h: 56 });
     if (c.moving) this.walking.push({ a, c });
   }
+  characterOpacity(
+    a,
+    age = Math.max(
+      0,
+      (Number(a.idle_s) || 0) + this.time - (this.stateAtTime || 0),
+    ),
+  ) {
+    return a.status === "gone"
+      ? Math.max(0.15, 0.7 * (1 - age / 20))
+      : a.status === "done"
+        ? Math.max(0.2, Math.min(1, (120 - age) / 10))
+        : 1;
+  }
   character(a, x, y, c) {
     const key = characterSpriteKey(a, this.settings, this.sprites),
       im = this.sprites[key];
@@ -1191,12 +1204,7 @@ class OfficeScene {
       0,
       (Number(a.idle_s) || 0) + this.time - (this.stateAtTime || 0),
     );
-    g.globalAlpha =
-      a.status === "gone"
-        ? Math.max(0.15, 0.7 * (1 - age / 20))
-        : a.status === "done"
-          ? Math.max(0.2, Math.min(1, (120 - age) / 10))
-          : 1;
+    g.globalAlpha = this.characterOpacity(a, age);
     if (a.status === "done" && age < 1.5 && !this.paused)
       y -= Math.abs(Math.sin(age * Math.PI * 2)) * 2;
     if (c.moving && c.dir === "left") {

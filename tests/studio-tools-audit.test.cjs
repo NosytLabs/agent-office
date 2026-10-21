@@ -2,6 +2,125 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { observerFixture } = require("./observer-fixture.cjs");
 
+test("missing prop animation keeps the Studio arcade pixels intact and Original effects available", async () => {
+  await observerFixture({}, async ({ page, state }) => {
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
+    const before = await state();
+    await page.route("**/studio/prop-life.json", (route) =>
+      route.fulfill({ status: 404, body: "missing" }),
+    );
+    await page.evaluate(() => officeStudio.reload());
+    const samples = await page.evaluate(() => {
+      const s = officeScene,
+        art = officeStudio,
+        mode = art.prefs.art,
+        saved = {
+          ctx: s.ctx,
+          rect: s.rect,
+          time: s.time,
+          propHits: s.propHits,
+        },
+        canvas = document.createElement("canvas"),
+        out = [];
+      canvas.width = canvas.height = 120;
+      try {
+        s.ctx = canvas.getContext("2d");
+        s.time = 0.75;
+        s.propHits = [];
+        for (const selected of ["studio", "classic"]) {
+          art.prefs.art = selected;
+          const rectangles = [],
+            images = [];
+          s.rect = (...args) => rectangles.push(args);
+          s.ctx.drawImage = (image, ...args) =>
+            images.push({ native: image === art.sprites.get("arcade"), args });
+          s.prop("arcade", 30, 30, 24, 34);
+          out.push({ selected, rectangles, images });
+        }
+      } finally {
+        Object.assign(s, saved);
+        art.prefs.art = mode;
+      }
+      return { out, frames: art.propLife.size };
+    });
+    assert.equal(samples.frames, 0);
+    assert.equal(samples.out[0].images[0].native, true);
+    assert.deepEqual(samples.out[0].images[0].args, [30, 30, 24, 34]);
+    assert.deepEqual(
+      samples.out[0].rectangles,
+      [],
+      "Fallback must not overpaint the Studio screen and marquee",
+    );
+    assert.ok(
+      samples.out[1].rectangles.length >= 4,
+      "Original retains its screen effects",
+    );
+    const after = await state();
+    for (const key of ["events", "usage", "progress"])
+      assert.deepEqual(after[key], before[key]);
+  });
+});
+
+test("Studio and Original characters fade by the same observed lifecycle age", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
+    const samples = await page.evaluate(() => {
+      const s = officeScene,
+        art = officeStudio,
+        mode = art.prefs.art,
+        saved = {
+          ctx: s.ctx,
+          time: s.time,
+          stateAtTime: s.stateAtTime,
+          paused: s.paused,
+          cosmetics: s.cosmetics,
+        },
+        canvas = document.createElement("canvas"),
+        out = [];
+      canvas.width = canvas.height = 120;
+      try {
+        s.ctx = canvas.getContext("2d");
+        s.time = 20;
+        s.stateAtTime = 19;
+        s.paused = true;
+        s.cosmetics = [];
+        for (const selected of ["classic", "studio"]) {
+          art.prefs.art = selected;
+          for (const status of ["gone", "done"])
+            for (const idle_s of [0, 10, 19, 115, 121]) {
+              let alpha;
+              s.ctx.drawImage = () => {
+                alpha = s.ctx.globalAlpha;
+              };
+              s.character({ id: "fade-audit", status, idle_s }, 30, 30, {
+                moving: false,
+              });
+              out.push({ selected, status, idle_s, alpha });
+            }
+        }
+      } finally {
+        Object.assign(s, saved);
+        art.prefs.art = mode;
+      }
+      return out;
+    });
+    for (let i = 0; i < 10; i++) {
+      assert.ok(Number.isFinite(samples[i].alpha));
+      assert.equal(
+        samples[i + 10].alpha,
+        samples[i].alpha,
+        JSON.stringify(samples[i]),
+      );
+    }
+    assert.ok(samples[0].alpha > samples[1].alpha);
+    assert.ok(samples[5].alpha > samples[8].alpha);
+  });
+});
+
 async function gallery(page) {
   await page.waitForFunction(
     () =>
@@ -258,7 +377,8 @@ test("missing prop artwork keeps static fallback and retry preserves drafts and 
     assert.equal(await page.evaluate(() => officeStudio.propLife.size), 0);
     assert.equal(
       await page.evaluate(() => officeScene.propUsesSpriteDetails("arcade")),
-      false,
+      true,
+      "The static Studio cabinet retains its own screen details",
     );
     await page.fill("#studio-sprite-search", "printer anim");
     assert.equal(await page.locator("#studio-sprite-choice option").count(), 0);
