@@ -227,7 +227,9 @@ test("a full-length agent name keeps its hover hint without resizing the canvas"
         `Inspect ${name} · Idle`,
       );
       assert.equal(
-        await page.locator("#c").evaluate((c) => c.getBoundingClientRect().height),
+        await page
+          .locator("#c")
+          .evaluate((c) => c.getBoundingClientRect().height),
         target.height,
       );
       assert.equal(
