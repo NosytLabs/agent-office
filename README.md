@@ -156,7 +156,7 @@ Achievements reflect observed activity—not code quality or verified task compl
 
 ## Run a local task
 
-This is optional. To allow **new Codex or Claude Code tasks** in a chosen project:
+This is optional. To allow **new Codex, Claude Code, or OpenCode tasks** in a chosen project:
 
 ```sh
 python3 run.py --enable-task-runner --workspace "/absolute/path/to/project"
@@ -171,6 +171,9 @@ The hosted demo cannot launch tasks. Read the [runner setup and limits](docs/loc
 before enabling it. Copy and cancellation feedback stays scoped to the selected
 run, even when replies arrive late. Idle background run checks use a slower
 refresh rate; opening Local runs refreshes immediately.
+OpenCode uses a fresh private server (requires 2.0.29+). Refresh CLI discovery
+without losing the prompt, search/filter retained runs, and download a selected
+run with its prompt and output before restarting the server.
 
 ## Usage, privacy, and local data
 

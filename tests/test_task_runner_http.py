@@ -29,6 +29,7 @@ class Server:
         self.workspace = tmp_path / "workspace"
         self.workspace.mkdir()
         binary_dir = tmp_path / "bin"
+        self.binary_dir = binary_dir
         binary_dir.mkdir()
         source = f"""#!{sys.executable}
 import json, os, sys, time
@@ -40,7 +41,7 @@ if prompt == 'sleep':
 else:
     print(json.dumps({{'argv': sys.argv[1:], 'stdin': prompt}}))
 """
-        for name in ("codex", "claude"):
+        for name in ("codex", "claude", "opencode"):
             binary = binary_dir / name
             binary.write_text(source)
             binary.chmod(0o755)
@@ -160,6 +161,21 @@ def test_cli_enablement_requires_an_explicit_absolute_workspace(tmp_path):
         assert message in result.stderr
 
 
+def test_refresh_is_authenticated_read_only_discovery_and_requires_empty_object(enabled_server):
+    server = enabled_server
+    _, caps, _ = server.request("GET", "/task-runs")
+    headers = {"X-Agent-Office-Token": caps["token"]}
+    (server.binary_dir / "opencode").unlink()
+    assert server.request("POST", "/task-runs/refresh", {})[0] == 403
+    assert server.request("POST", "/task-runs/refresh", {}, headers={**headers, "Origin": "https://elsewhere.test"})[0] == 403
+    assert server.request("POST", "/task-runs/refresh", {"command": "anything"}, headers=headers)[0] == 400
+    status, body, _ = server.request("POST", "/task-runs/refresh", {}, headers=headers)
+    assert status == 200
+    assert body["runs"] == []
+    assert next(r for r in body["runtimes"] if r["id"] == "opencode")["available"] is False
+    assert body["workspaces"] == caps["workspaces"]
+
+
 def test_enabled_runner_fails_clearly_when_port_is_already_bound(tmp_path):
     root = Path(__file__).resolve().parents[1]
     workspace = tmp_path / "workspace"
@@ -206,7 +222,7 @@ def test_capabilities_create_idempotency_detail_and_cancel(enabled_server):
         "id": "w1", "name": "workspace", "path": str(server.workspace.resolve())
     }]
     assert [(runtime["id"], runtime["name"]) for runtime in capabilities["runtimes"]] == [
-        ("codex", "Codex"), ("claude", "Claude Code")
+        ("codex", "Codex"), ("claude", "Claude Code"), ("opencode", "OpenCode")
     ]
     assert all(runtime["available"] for runtime in capabilities["runtimes"])
     assert "Access-Control-Allow-Origin" not in headers

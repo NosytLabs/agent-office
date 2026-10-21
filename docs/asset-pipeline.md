@@ -96,6 +96,13 @@ unchanged image-generation source and complete prompt stay in `studio/source/`
 and are excluded from public builds. The static poses remain required fallbacks;
 neither these nor the Classic source sheets are dead assets.
 
+`studio/workplace-life.png` adds eight seed-anchored native coffee/server frames.
+The environment compiler preserves their idle pixels and fixed furniture bounds,
+and limits generated changes to declared steam/light regions. Its source, full
+prompt, and extracted seeds remain in `studio/source/`; public builds contain the
+compiled image/manifest and source-hash provenance. The optional pack has an
+independent fallback/retry path and gallery strip export.
+
 A same-input comparison on 15 October 2026, including the character activity
 supplement, omitted 25 authoring files. The packaged build shrank from 146 files
 and 25,052,300 bytes to 121 files and 15,376,620 bytes: about 9.7 MB (38.6%) before

@@ -438,6 +438,14 @@
           role="status"
           aria-live="polite"
         ></p>
+        <div class="task-run-tools">
+          <button id="task-run-refresh" class="btn" type="button" disabled>
+            Refresh CLIs
+          </button>
+          <span class="h"
+            >Check for CLIs installed or removed since startup.</span
+          >
+        </div>
         <div id="task-run-enable" class="task-run-enable" hidden>
           <strong>Enable local runs when starting Agent Office</strong>
           <code
@@ -486,6 +494,37 @@
             <p class="h">
               Runs are held in memory and disappear when the server restarts.
             </p>
+            <div class="task-run-filters">
+              <label for="task-run-search" class="setting-label"
+                >Search local runs</label
+              >
+              <input
+                id="task-run-search"
+                class="txt"
+                type="search"
+                placeholder="Project, CLI, or prompt"
+              />
+              <label for="task-run-filter" class="setting-label"
+                >Run status</label
+              >
+              <select id="task-run-filter" class="txt">
+                <option value="all">All statuses</option>
+                <option value="running">Running</option>
+                <option value="succeeded">Finished</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="interrupted">Interrupted</option>
+              </select>
+              <button id="task-run-clear" class="btn" type="button">
+                Clear filters
+              </button>
+            </div>
+            <p
+              id="task-run-results"
+              class="h"
+              role="status"
+              aria-live="polite"
+            ></p>
             <div id="task-run-list" class="task-run-list"></div>
           </section>
         </div>
@@ -507,6 +546,9 @@
             </button>
             <button id="task-run-reuse" class="btn" type="button">
               Reuse prompt
+            </button>
+            <button id="task-run-download" class="btn" type="button" disabled>
+              Download run
             </button>
           </div>
           <p
@@ -975,9 +1017,9 @@
       <h2>A little orientation</h2>
       <p>
         This office observes your coding agents by default. Tasks → Local runs
-        can start a fresh Codex or Claude Code task only after you enable the
-        local runner. Existing sessions and approvals stay in the original
-        runtime. Room toys do not run agent commands.
+        can start a fresh Codex, Claude Code, or OpenCode task only after you
+        enable the local runner. Existing sessions and approvals stay in the
+        original runtime. Room toys do not run agent commands.
       </p>
       <h3>Connect a runtime</h3>
       <p>

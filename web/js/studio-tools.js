@@ -687,6 +687,8 @@
         for (const [key, value] of makeFrames(art.sprites, document))
           frames.set(key, value);
         for (const [key, value] of art.propLife || []) frames.set(key, value);
+        for (const [key, value] of art.workplaceLife || [])
+          frames.set(key, value);
         for (const [key, value] of [
           ...art.sprites,
           ...art.directional,

@@ -120,13 +120,23 @@
     const surfaces = name === "room-surfaces",
       pets = name === "pet-walk" || name === "pet-life",
       characters = name === "character-life" || name === "character-reactions",
-      props = name === "prop-life";
+      workplace = name === "workplace-life",
+      props = name === "prop-life" || workplace;
     if (
       (!surfaces && !pets && !characters && !props) ||
       !m ||
       m.version !== 1 ||
       m.image !== name + ".png" ||
-      m.width !== (props ? 96 : surfaces ? 256 : characters ? 384 : 336) ||
+      m.width !==
+        (props
+          ? workplace
+            ? 80
+            : 96
+          : surfaces
+            ? 256
+            : characters
+              ? 384
+              : 336) ||
       m.height !== (props ? 58 : surfaces ? 256 : characters ? 216 : 208) ||
       !/^[a-f0-9]{64}$/.test(m.rgbaSha256) ||
       !m.entries ||
@@ -138,15 +148,18 @@
       return false;
     const expected = [];
     if (props)
-      ["arcade", "printer"].forEach((kind, row) => {
-        const height = row ? 24 : 34;
-        for (let frame = 0; frame < 4; frame++)
-          expected.push([
-            `${kind}-anim-${frame}`,
-            [frame * 24, row ? 34 : 0, 24, height],
-            [12, height - 1],
-          ]);
-      });
+      (workplace ? ["server", "coffee"] : ["arcade", "printer"]).forEach(
+        (kind, row) => {
+          const width = workplace ? 20 : 24,
+            height = workplace ? (row ? 26 : 32) : row ? 24 : 34;
+          for (let frame = 0; frame < 4; frame++)
+            expected.push([
+              `${kind}-anim-${frame}`,
+              [frame * width, row ? (workplace ? 32 : 34) : 0, width, height],
+              [width / 2, height - 1],
+            ]);
+        },
+      );
     else if (surfaces)
       ["oak-floor", "slate-floor", "oak-wall", "slate-wall"].forEach((key, i) =>
         expected.push([
@@ -546,6 +559,7 @@
     characterLife: new Map(),
     characterReactions: new Map(),
     propLife: new Map(),
+    workplaceLife: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -1245,6 +1259,7 @@
           "character-life",
           "character-reactions",
           "prop-life",
+          "workplace-life",
         ],
         manifests = await Promise.allSettled(names.map(loadManifest)),
         extras = await Promise.allSettled(
@@ -1269,6 +1284,7 @@
         "characterLife",
         "characterReactions",
         "propLife",
+        "workplaceLife",
       ].forEach((property, index) => {
         const result = extras[index];
         art[property] =
@@ -1299,6 +1315,7 @@
       art.characterLife.clear();
       art.characterReactions.clear();
       art.propLife.clear();
+      art.workplaceLife.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =
