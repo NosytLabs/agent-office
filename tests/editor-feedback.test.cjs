@@ -363,3 +363,49 @@ test("a crowded phone floor keeps unplaced props selectable and removable withou
     },
   );
 });
+
+for (const width of [568, 667]) {
+  test(`landscape editing keeps its actions in one row and leaves the floor visible at ${width}px`, async () => {
+    await observerFixture(
+      {
+        viewport: { width, height: 320 },
+        settings: { furniture: [{ kind: "fern", x: 0.5, y: 0.5 }] },
+      },
+      async ({ page }) => {
+        await page.click("#room-view-toggle");
+        await page.click("#settingsbtn");
+        await page.click("#edit-furniture");
+        await page.selectOption("#furniture-picker", "0");
+        const geometry = await page.evaluate(() => {
+          const bounds = (id) =>
+            document.getElementById(id).getBoundingClientRect().toJSON();
+          return {
+            stage: bounds("stage"),
+            actions: [
+              "arrange-furniture",
+              "furniture-picker",
+              "delete-furniture",
+              "undo-furniture",
+              "redo-furniture",
+              "catalog-furniture",
+              "finish-furniture",
+            ].map(bounds),
+          };
+        });
+        assert.ok(
+          geometry.stage.height >= 80,
+          "Room remains visible while editing: " + geometry.stage.height,
+        );
+        assert.ok(
+          Math.max(...geometry.actions.map((r) => r.top)) -
+            Math.min(...geometry.actions.map((r) => r.top)) <
+            4,
+          "Actions share a single row",
+        );
+        for (const r of geometry.actions) {
+          assert.ok(r.left >= 0 && r.right <= width && r.height >= 42);
+        }
+      },
+    );
+  });
+}

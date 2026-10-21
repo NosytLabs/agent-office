@@ -1612,6 +1612,26 @@ button:disabled {
     font-size: 13px;
   }
 }
+@media (max-height: 450px) and (min-width: 550px) {
+  .room-focus #edit-hint {
+    gap: 4px;
+    padding: 6px;
+  }
+  .room-focus #edit-message {
+    flex-basis: 100%;
+    font-size: 12px;
+  }
+  .room-focus #edit-hint .btn {
+    padding: 4px 7px;
+    font-size: 12px;
+  }
+  .room-focus #edit-hint .icon {
+    display: none;
+  }
+  .room-focus #furniture-picker-label {
+    flex-basis: 190px;
+  }
+}
 
 .attention {
   display: flex;
