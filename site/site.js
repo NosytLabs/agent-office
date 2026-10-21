@@ -106,6 +106,16 @@ const menu = document.querySelector(".menu-toggle");
 const nav = document.getElementById("site-nav");
 if (menu && nav) {
   let focusedNavigation = null;
+  function restoreHiddenNavigationFocus() {
+    const focused = focusedNavigation || document.activeElement;
+    if (nav.contains(focused) && !focused.getClientRects().length) {
+      const links = [...nav.querySelectorAll("a[href]")],
+        next = links
+          .slice(links.indexOf(focused.closest("a")) + 1)
+          .find((link) => link.getClientRects().length);
+      next?.focus({ preventScroll: true });
+    }
+  }
   function closeMenu(restoreFocus = false) {
     nav.classList.remove("open");
     menu.setAttribute("aria-expanded", "false");
@@ -167,17 +177,11 @@ if (menu && nav) {
       closeMenu(restoreFocus);
       if (focusDesktopLink)
         nav.querySelector("a[href]")?.focus({ preventScroll: true });
+      restoreHiddenNavigationFocus();
     });
-  window.matchMedia("(min-width: 901px)").addEventListener("change", () => {
-    const focused = focusedNavigation || document.activeElement;
-    if (nav.contains(focused) && !focused.getClientRects().length) {
-      const links = [...nav.querySelectorAll("a[href]")],
-        next = links
-          .slice(links.indexOf(focused.closest("a")) + 1)
-          .find((link) => link.getClientRects().length);
-      next?.focus({ preventScroll: true });
-    }
-  });
+  window
+    .matchMedia("(min-width: 901px)")
+    .addEventListener("change", restoreHiddenNavigationFocus);
 }
 
 const copyingButtons = new WeakSet();

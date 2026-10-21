@@ -748,3 +748,35 @@ test("a focused desktop source link remains reachable when the tablet header hid
       true,
     );
   }));
+
+test("a focused mobile source link moves to visible navigation after expanding to tablet width", () =>
+  withPage(
+    async (page) => {
+      const nav = page.getByRole("navigation", { name: "Main navigation" });
+      await page.getByRole("button", { name: "Menu" }).click();
+      await nav.getByRole("link", { name: "GitHub" }).focus();
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      const focus = await page.evaluate(() => {
+        const e = document.activeElement;
+        return {
+          withinNavigation: !!e.closest("#site-nav"),
+          visible: e.getClientRects().length > 0,
+        };
+      });
+      assert.deepEqual(focus, { withinNavigation: true, visible: true });
+      await page.keyboard.press("Tab");
+      assert.equal(
+        await page
+          .getByRole("link", { name: "Run locally", exact: true })
+          .evaluate((e) => e === document.activeElement),
+        true,
+      );
+    },
+    { viewport: { width: 390, height: 844 } },
+  ));

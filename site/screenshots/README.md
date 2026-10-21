@@ -27,5 +27,5 @@ new hashes and decoded pixels rather than silently replacing the source PNGs.
 
 The 720px size keeps enough pixels for the product page’s tested 2× phone displays
 without downloading a 1440px image. Depending on the screenshot, it transfers
-33–55% fewer bytes than the full-size derivative. Large or denser displays can
+33–58% fewer bytes than the full-size derivative. Large or denser displays can
 still select the full-size source.
