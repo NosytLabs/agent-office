@@ -182,13 +182,11 @@ test("output reading preferences survive reload and keep long lines inside a 320
       await page.selectOption("#task-run-output-size", "large");
       await page.uncheck("#task-run-wrap");
       const reading = async () =>
-        page
-          .locator("#task-run-output")
-          .evaluate((node) => ({
-            size: getComputedStyle(node).fontSize,
-            wrap: getComputedStyle(node).whiteSpace,
-            overflow: node.scrollWidth > node.clientWidth,
-          }));
+        page.locator("#task-run-output").evaluate((node) => ({
+          size: getComputedStyle(node).fontSize,
+          wrap: getComputedStyle(node).whiteSpace,
+          overflow: node.scrollWidth > node.clientWidth,
+        }));
       assert.deepEqual(await reading(), {
         size: "16px",
         wrap: "pre",
