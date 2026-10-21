@@ -63,6 +63,7 @@ class TaskRunner:
             raise ValueError("at least one workspace is required")
 
         self.token = secrets.token_urlsafe(32)
+        self.instance_id = str(uuid.uuid4())
         self._workspaces = entries
         self._workspace_by_id = {entry["id"]: entry for entry in entries}
         self._executables = {
@@ -82,6 +83,7 @@ class TaskRunner:
         with self._lock:
             return {
                 "enabled": True,
+                "instance_id": self.instance_id,
                 "token": self.token,
                 "workspaces": [
                     {key: entry[key] for key in ("id", "name", "path")}

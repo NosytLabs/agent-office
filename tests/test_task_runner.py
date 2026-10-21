@@ -73,6 +73,19 @@ def _finished(manager, run_id, timeout=5):
     raise AssertionError("task did not finish")
 
 
+def test_public_instance_identity_is_stable_and_separate_from_write_token(runner):
+    identity = runner.capabilities()["instance_id"]
+    assert str(uuid.UUID(identity)) == identity
+    assert identity != runner.token
+    runner.refresh_runtimes()
+    assert runner.capabilities()["instance_id"] == identity
+    replacement = TaskRunner([runner.capabilities()["workspaces"][0]["path"]])
+    try:
+        assert replacement.capabilities()["instance_id"] != identity
+    finally:
+        replacement.shutdown()
+
+
 def test_codex_uses_fixed_read_only_command_exact_stdin_and_selected_cwd(runner):
     payload = _payload()
     created, is_new = runner.create(payload)

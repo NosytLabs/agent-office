@@ -476,6 +476,20 @@
               class="h"
               for="task-run-prompt"
             ></output>
+            <label class="task-run-check">
+              <input id="task-run-remember" type="checkbox" />
+              Keep this draft in this tab
+            </label>
+            <p id="task-run-draft-status" class="h" role="status">
+              Optional. Retains the exact prompt across reloads until cleared;
+              never starts a run automatically.
+            </p>
+            <button id="task-run-clear-draft" class="btn" type="button">
+              Clear draft
+            </button>
+            <button id="task-run-new-draft" class="btn" type="button" hidden>
+              Review as a new run
+            </button>
             <button id="task-run-submit" class="btn" type="submit" disabled>
               Run task
             </button>
@@ -536,6 +550,24 @@
         <section id="task-run-detail" class="task-run-detail" hidden>
           <h3 id="task-run-detail-title">Run output</h3>
           <p id="task-run-detail-meta" class="h"></p>
+          <div
+            class="task-run-reading"
+            role="group"
+            aria-label="Output display"
+          >
+            <label for="task-run-output-size" class="setting-label"
+              >Text size</label
+            >
+            <select id="task-run-output-size" class="txt">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+            </select>
+            <label class="task-run-check">
+              <input id="task-run-wrap" type="checkbox" checked /> Wrap lines
+            </label>
+          </div>
+          <p id="task-run-reading-status" class="h" role="status" hidden></p>
           <pre id="task-run-output" class="task-run-output" tabindex="0"></pre>
           <div class="cluster">
             <button id="task-run-cancel" class="btn" type="button">

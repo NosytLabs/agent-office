@@ -272,10 +272,20 @@ test("disabled local runs keep keyboard focus and the exact prompt inside Tasks"
     assert.equal(await page.locator("#task-run-submit").isDisabled(), true);
     await page.locator("#task-run-prompt").press("Tab");
     assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "task-run-clear-draft",
+    );
+    await page.keyboard.press("Tab");
+    assert.equal(
       await page.evaluate(() =>
         document.activeElement.classList.contains("close"),
       ),
       true,
+    );
+    await page.keyboard.press("Shift+Tab");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "task-run-clear-draft",
     );
     await page.keyboard.press("Shift+Tab");
     assert.equal(
