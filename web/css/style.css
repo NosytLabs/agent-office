@@ -1630,6 +1630,11 @@ button:disabled {
   }
   .room-focus #furniture-picker-label {
     flex-basis: 190px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .room-focus #furniture-picker {
+    flex-basis: 110px;
   }
 }
 
