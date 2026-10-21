@@ -27,6 +27,7 @@ function markup(preview = false) {
     <button id="task-draft-run">Use for local run</button>
     <section id="task-runs" class="task-runner" hidden>
       <p id="task-run-capability" role="status"></p>
+      <button id="task-run-refresh" type="button">Refresh CLIs</button>
       <div id="task-run-enable" hidden><code>python3 run.py --enable-task-runner --workspace /absolute/path/to/project</code></div>
       <form id="task-run-form" class="task-run-form">
         <label>Project<select id="task-run-workspace"></select></label>
@@ -39,6 +40,10 @@ function markup(preview = false) {
       </form>
       <p id="task-run-disclosure"></p>
       <div id="task-run-list" class="task-run-list"></div>
+      <input id="task-run-search" type="search" aria-label="Search local runs">
+      <select id="task-run-filter" aria-label="Run status"><option value="all">All</option><option value="failed">Failed</option><option value="succeeded">Finished</option></select>
+      <button id="task-run-clear" type="button">Clear filters</button>
+      <p id="task-run-results" role="status"></p>
       <section id="task-run-detail" class="task-run-detail" hidden>
         <h3 id="task-run-detail-title"></h3>
         <p id="task-run-detail-meta"></p>
@@ -46,6 +51,7 @@ function markup(preview = false) {
         <button id="task-run-cancel">Cancel run</button>
         <button id="task-run-copy">Copy output</button>
         <button id="task-run-reuse">Reuse prompt</button>
+        <button id="task-run-download" type="button">Download run</button>
         <p id="task-run-detail-status" role="status"></p>
       </section>
     </section>`;
@@ -132,7 +138,7 @@ if prompt == "sleep":
 else:
     sys.stdout.buffer.write(b"<b>literal</b>\\n\\x1b[31mred\\n" + prompt.encode())
 `;
-  for (const name of ["codex", "claude"]) {
+  for (const name of ["codex", "claude", "opencode"]) {
     const executable = path.join(bin, name);
     fs.writeFileSync(executable, fake, { mode: 0o755 });
   }
@@ -164,6 +170,7 @@ else:
       if (response.ok)
         return {
           base,
+          bin,
           close: async () => {
             processHandle.kill();
             await new Promise((resolve) => processHandle.once("exit", resolve));
@@ -200,6 +207,227 @@ test("preview mode gives local-only guidance without requesting or dispatching",
     },
     { preview: true },
   ));
+
+test("explicit CLI rediscovery preserves prompt and selected mode without launching", () =>
+  withPage(async (page) => {
+    let discoveries = 0;
+    let creates = 0;
+    await page.route("**/task-runs**", async (route) => {
+      if (route.request().url().endsWith("/refresh")) {
+        discoveries++;
+        assert.equal(route.request().method(), "POST");
+        assert.equal(
+          route.request().headers()["x-agent-office-token"],
+          "local-token",
+        );
+        assert.deepEqual(route.request().postDataJSON(), {});
+        return route.fulfill({
+          json: {
+            ...capability,
+            runtimes: capability.runtimes.map((r) => ({
+              ...r,
+              available: true,
+            })),
+          },
+        });
+      }
+      if (route.request().method() === "POST") creates++;
+      return route.fulfill({ json: capability });
+    });
+    await page.addScriptTag({ path: script });
+    await page.evaluate(() => officeTaskRunner.open());
+    await page.waitForFunction(() => officeTaskRunner.status.enabled);
+    await page.selectOption("#task-run-mode", "edit");
+    await page.fill("#task-run-prompt", " exact\n🪴 $(literal) ");
+    await page.click("#task-run-refresh");
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#task-run-runtime option[value=claude]")
+        .textContent.includes("Available"),
+    );
+    assert.equal(discoveries, 1);
+    assert.equal(creates, 0);
+    assert.equal(await page.inputValue("#task-run-mode"), "edit");
+    assert.equal(
+      await page.inputValue("#task-run-prompt"),
+      " exact\n🪴 $(literal) ",
+    );
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "task-run-refresh",
+    );
+  }));
+
+test("run history combines literal search and status while preserving output and focus", () =>
+  withPage(async (page) => {
+    const rows = [
+      {
+        id: "alpha",
+        workspace_id: "project",
+        workspace_name: "Alpha",
+        runtime: "codex",
+        mode: "read",
+        prompt: "review <b>invoice</b>",
+        status: "failed",
+        created_at: 1,
+        finished_at: 2,
+        exit_code: 1,
+      },
+      {
+        id: "beta",
+        workspace_id: "project",
+        workspace_name: "Beta",
+        runtime: "claude",
+        mode: "default",
+        prompt: "review invoice",
+        status: "succeeded",
+        created_at: 3,
+        finished_at: 4,
+        exit_code: 0,
+      },
+    ];
+    await page.route("**/task-runs**", (route) =>
+      route.fulfill({
+        json: route.request().url().endsWith("/alpha")
+          ? { run: { ...rows[0], output: "inspect this" } }
+          : { ...capability, runs: rows },
+      }),
+    );
+    await page.addScriptTag({ path: script });
+    await page.evaluate(() => officeTaskRunner.open());
+    await page.click('[data-run-id="alpha"]');
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#task-run-output").textContent ===
+        "inspect this",
+    );
+    await page.fill("#task-run-search", "INVOICE");
+    await page.selectOption("#task-run-filter", "succeeded");
+    assert.equal(await page.locator(".task-run-card:visible").count(), 1);
+    assert.equal(
+      await page.locator(".task-run-card:visible").getAttribute("data-run-id"),
+      "beta",
+    );
+    assert.equal(await page.textContent("#task-run-results"), "1 of 2 runs");
+    assert.equal(await page.locator("#task-run-detail").isVisible(), true);
+    await page.fill("#task-run-search", "<b>");
+    await page.focus("#task-run-search");
+    await page.evaluate(() => officeTaskRunner.refresh());
+    assert.equal(await page.locator(".task-run-card:visible").count(), 0);
+    assert.match(await page.textContent(".task-run-empty"), /No runs match/);
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "task-run-search",
+    );
+    assert.equal(await page.textContent("#task-run-output"), "inspect this");
+    await page.click("#task-run-clear");
+    assert.equal(await page.locator(".task-run-card:visible").count(), 2);
+    assert.equal(await page.inputValue("#task-run-search"), "");
+  }));
+
+test("download captures the selected run prompt and sanitized output with truncation scope", () =>
+  withPage(async (page) => {
+    const run = {
+      id: "exported",
+      workspace_id: "project",
+      workspace_name: "Project",
+      runtime: "codex",
+      mode: "read",
+      prompt: " exact\n$(literal) 🪴 ",
+      status: "succeeded",
+      created_at: 1,
+      finished_at: 2,
+      exit_code: 0,
+      output_truncated: true,
+    };
+    await page.route("**/task-runs**", (route) =>
+      route.fulfill({
+        json: route.request().url().endsWith("/exported")
+          ? { run: { ...run, output: "\u001b[31m<b>literal</b>\nresult" } }
+          : { ...capability, runs: [run] },
+      }),
+    );
+    await page.addScriptTag({ path: script });
+    await page.evaluate(() => officeTaskRunner.open());
+    await page.click('[data-run-id="exported"]');
+    await page.waitForFunction(() =>
+      document.querySelector("#task-run-output").textContent.includes("result"),
+    );
+    const [download] = await Promise.all([
+      page.waitForEvent("download", { timeout: 2000 }),
+      page.click("#task-run-download"),
+    ]);
+    const text = fs.readFileSync(await download.path(), "utf8");
+    assert.match(
+      download.suggestedFilename(),
+      /^agent-office-run-exported\.txt$/,
+    );
+    assert.ok(text.includes(" exact\n$(literal) 🪴 "));
+    assert.ok(text.includes("<b>literal</b>\nresult"));
+    assert.ok(!text.includes("\u001b"));
+    assert.match(text, /output truncated/i);
+    assert.match(text, /does not verify task completion/i);
+  }));
+
+test("silent and startup-failed runs export prompt, status and errors after detail arrives", () =>
+  withPage(async (page) => {
+    const rows = [
+      {
+        id: "silent",
+        workspace_name: "Project",
+        runtime: "opencode",
+        mode: "default",
+        prompt: "silent task",
+        status: "succeeded",
+        created_at: 1,
+        finished_at: 2,
+        exit_code: 0,
+        error: null,
+      },
+      {
+        id: "failed-start",
+        workspace_name: "Project",
+        runtime: "codex",
+        mode: "read",
+        prompt: "failed task",
+        status: "failed",
+        created_at: 3,
+        finished_at: 4,
+        exit_code: null,
+        error: "could not start codex CLI",
+      },
+    ];
+    await page.route("**/task-runs**", (route) => {
+      const row = rows.find((r) =>
+        route
+          .request()
+          .url()
+          .endsWith("/" + r.id),
+      );
+      return route.fulfill({
+        json: row
+          ? { run: { ...row, output: "" } }
+          : { ...capability, runs: rows },
+      });
+    });
+    await page.addScriptTag({ path: script });
+    await page.evaluate(() => officeTaskRunner.open());
+    for (const row of rows) {
+      await page.click(`[data-run-id="${row.id}"]`);
+      await page.waitForFunction(
+        () => !document.querySelector("#task-run-download").disabled,
+      );
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.click("#task-run-download"),
+      ]);
+      const text = fs.readFileSync(await download.path(), "utf8");
+      assert.ok(text.includes(row.prompt));
+      assert.ok(text.includes(row.status === "failed" ? "Failed" : "Finished"));
+      if (row.error) assert.ok(text.includes(row.error));
+      assert.equal(await page.locator("#task-run-copy").isDisabled(), true);
+    }
+  }));
 
 test("draft transfer is explicit, preserves exact text, and focuses an editable prompt", () =>
   withPage(async (page) => {
@@ -654,6 +882,35 @@ test(
         document
           .querySelector("#task-run-detail-meta")
           ?.textContent.includes("Cancelled"),
+      );
+      await page.selectOption("#task-run-runtime", "opencode");
+      assert.equal(await page.inputValue("#task-run-mode"), "default");
+      await page.fill("#task-run-prompt", "OpenCode exact\n$(literal) 🪴");
+      await page.click("#task-run-submit");
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector("#task-run-detail-title")
+            .textContent.includes("opencode") &&
+          document
+            .querySelector("#task-run-detail-meta")
+            .textContent.includes("Finished"),
+      );
+      assert.match(
+        await page.textContent("#task-run-output"),
+        /OpenCode exact\n\$\(literal\) 🪴/,
+      );
+      fs.unlinkSync(path.join(server.bin, "opencode"));
+      await page.click("#task-run-refresh");
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#task-run-runtime option:checked")
+          .textContent.includes("Not found"),
+      );
+      assert.equal(await page.locator("#task-run-submit").isDisabled(), true);
+      assert.equal(
+        await page.inputValue("#task-run-prompt"),
+        "OpenCode exact\n$(literal) 🪴",
       );
       assert.equal(
         await page.evaluate(

@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "image": "workplace-life.png",
+  "width": 80,
+  "height": 58,
+  "rgbaSha256": "34a247f6bdf113cf637a7a342f57f89fa28d3b67f3dffd24d3fed30e3ffbd4df",
+  "source": "source/workplace-life.png",
+  "sourceSha256": "0a746313986e47e984bccd6bf18c41714edaa0ac505243876cf6a894f75367ac",
+  "sourceDimensions": [
+    1536,
+    1024
+  ],
+  "sourcePreservedUnmodified": true,
+  "sourceBounds": [
+    [
+      [
+        71,
+        52,
+        242,
+        383
+      ],
+      [
+        455,
+        52,
+        242,
+        383
+      ],
+      [
+        839,
+        52,
+        242,
+        383
+      ],
+      [
+        1223,
+        52,
+        242,
+        383
+      ]
+    ],
+    [
+      [
+        32,
+        516,
+        308,
+        423
+      ],
+      [
+        416,
+        516,
+        308,
+        423
+      ],
+      [
+        800,
+        516,
+        308,
+        423
+      ],
+      [
+        1184,
+        516,
+        308,
+        423
+      ]
+    ]
+  ],
+  "rowScales": [
+    0.0783289817232376,
+    0.054373522458628844
+  ],
+  "entries": {
+    "server-anim-0": {
+      "rect": [
+        0,
+        0,
+        20,
+        32
+      ],
+      "anchor": [
+        10,
+        31
+      ]
+    },
+    "server-anim-1": {
+      "rect": [
+        20,
+        0,
+        20,
+        32
+      ],
+      "anchor": [
+        10,
+        31
+      ]
+    },
+    "server-anim-2": {
+      "rect": [
+        40,
+        0,
+        20,
+        32
+      ],
+      "anchor": [
+        10,
+        31
+      ]
+    },
+    "server-anim-3": {
+      "rect": [
+        60,
+        0,
+        20,
+        32
+      ],
+      "anchor": [
+        10,
+        31
+      ]
+    },
+    "coffee-anim-0": {
+      "rect": [
+        0,
+        32,
+        20,
+        26
+      ],
+      "anchor": [
+        10,
+        25
+      ]
+    },
+    "coffee-anim-1": {
+      "rect": [
+        20,
+        32,
+        20,
+        26
+      ],
+      "anchor": [
+        10,
+        25
+      ]
+    },
+    "coffee-anim-2": {
+      "rect": [
+        40,
+        32,
+        20,
+        26
+      ],
+      "anchor": [
+        10,
+        25
+      ]
+    },
+    "coffee-anim-3": {
+      "rect": [
+        60,
+        32,
+        20,
+        26
+      ],
+      "anchor": [
+        10,
+        25
+      ]
+    }
+  },
+  "seed": "source/workplace-seeds.png",
+  "seedSha256": "3a0d0a643653a94a8f1f7358e57e12e9ac43340f42bb6c70c70e7a9798cd46d5",
+  "lockedFirstFrames": true,
+  "alphaThreshold": 224,
+  "palette": "nearest seed RGB",
+  "animatedRegions": {
+    "server": [
+      [
+        3,
+        4,
+        3,
+        23
+      ],
+      [
+        13,
+        4,
+        3,
+        23
+      ]
+    ],
+    "coffee": [
+      [
+        13,
+        7,
+        4,
+        8
+      ],
+      [
+        2,
+        4,
+        3,
+        2
+      ]
+    ]
+  }
+}

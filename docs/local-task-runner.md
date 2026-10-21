@@ -1,6 +1,6 @@
 # Local task runs
 
-Agent Office can launch a new Codex or Claude Code task from its Tasks panel
+Agent Office can launch a new Codex, Claude Code, or OpenCode task from its Tasks panel
 when the standalone server is explicitly started with the local task runner.
 The office remains an observer with the ordinary `python3 run.py` command.
 
@@ -29,6 +29,14 @@ Copying, exporting, or transferring a brief does not start a run.
 | --- | --- | --- |
 | Codex | Read-only review; project edits | Starts a fresh `codex exec` with the selected `read-only` or `workspace-write` sandbox, using the selected project as its working directory. The prompt arrives on standard input. |
 | Claude Code | CLI permissions | Starts a fresh print-mode task with `--permission-mode default --permission-prompts none`. Normal configured permissions apply, and any request for a new permission is denied because this view cannot answer it. Requires Claude Code **2.1.259 or later** for `--permission-prompts none`. |
+| OpenCode | CLI permissions | Starts `opencode run --standalone` with literal standard input, a fresh session, and a private server owned by that process. Existing configured permissions apply; new requests are rejected by noninteractive mode. Does not pass `--auto`, `--continue`, `--session`, or remote server flags. Requires OpenCode **2.0.29 or later** for the verified V2 command contract. |
+
+**Refresh CLIs** checks the server process's PATH again after installing or
+removing a CLI. It preserves the project, CLI, mode, exact prompt, and pending
+submission identity. Running processes retain their original executable. A new
+PATH directory must be present in the server's environment; changing shell startup
+files requires restarting the server. Refresh does not install, authenticate,
+upgrade, or run a CLI.
 
 Runs use the CLI's existing account and configuration. Model usage belongs to
 that account. Agent Office does not collect credentials, select a paid plan,
@@ -40,6 +48,11 @@ The initial adapters use the official
 [Codex exec interface](https://github.com/openai/codex/blob/main/codex-rs/exec/src/cli.rs)
 and [Claude CLI reference](https://code.claude.com/docs/en/cli-reference).
 The application does not install or upgrade either runtime.
+
+OpenCode uses its [documented noninteractive run interface](https://opencode.ai/docs/cli/)
+and V2 private-server flag, checked with installed `opencode --version` and
+`opencode run --help` reporting **v2.0.29**. This is command-interface verification;
+provider-backed execution and account access are not established by a help check.
 
 ## Output and lifecycle
 
@@ -85,7 +98,16 @@ Run history, prompts, and output live in the server's memory for its current
 lifetime. After runs settle, the runner keeps the 40 most recent entries; up to
 two active entries can temporarily sit above that cap until completion pruning.
 Restarting the server clears them. The CLI may keep its own transcripts under
-its own retention policy. Copy output you need before restarting.
+its own retention policy. Use **Download run** before restarting to save the
+selected run's exact prompt, project name, runtime, mode, process status, timing,
+and displayed terminal output as plain UTF-8 text. Exports are snapshots,
+identify truncated output, and remove terminal control sequences. Downloads do
+not preserve server-side retry identities.
+
+Search local runs by project, CLI, or literal prompt text and combine the search
+with a process-status filter. Filtering leaves the selected run's output open.
+**Clear filters** restores all retained runs; starting a new run clears filters
+so its card is visible. These controls do not change observed task filters.
 
 Launching a run does not create synthetic observer events, mark reported tasks
 complete, award XP, or invent token costs. Installed runtime hooks can still
@@ -141,8 +163,8 @@ another process.
 The runner's Python and browser tests execute temporary local fixture programs.
 They exercise HTTP admission, prompt delivery, output, failure, cancellation,
 duplicate requests, and project concurrency without using a provider account.
-Those checks establish the runner's behavior, not that an installed Codex or
-Claude session completed a real provider-backed task on your computer.
+Those checks establish the runner's behavior, not that an installed Codex,
+Claude, or OpenCode session completed a real provider-backed task on your computer.
 Process-group cleanup has been exercised on POSIX. Windows cancellation,
 including console-event delivery and descendant cleanup, has not been exercised
 on a native Windows host for this update.

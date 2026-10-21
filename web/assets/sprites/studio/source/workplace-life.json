@@ -1,0 +1,7 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-21",
+  "prompt": "Use case: stylized-concept\nAsset type: pixel art sprite sheet for an existing agent office app.\nThe reference is the exact native seed image: a dark blue server rack above, a warm coffee cart below. Create a transparent PNG sprite sheet at exactly 1536x1024 pixels, 4 equal columns and 2 equal rows (cells 384x512). Top row: the SAME server rack in four subtle animation frames, blinking teal/amber indicator LEDs on the rack shelves only. Bottom row: the SAME coffee cart in four subtle animation frames, gentle wisps of cream steam rising above the cup, warm brewer indicator flicker. All four frames of each object must have identical footprint, dimensions, perspective and position within each cell. Match reference silhouette, front-facing elevated pixel art view, muted navy/moss/warm wood palette, dark pixel outlines and crisp large pixel clusters. Keep rack cabinet, shelves, cart legs, cup, and brewer stationary. Only lights and steam change. Each object centered horizontally, complete and unclipped, ample transparent padding. True alpha background, no floor, no background checkerboard baked into image, no labels, no text, no border, no grid lines, no blur, no smooth vector edges, no glow outside silhouette except the coffee steam. First column is idle. Columns 2,3,4 are successive loop poses. Use the attached seeds as identity/style references.",
+  "reference": "workplace-seeds.png",
+  "sourcePreservedUnmodified": true
+}

@@ -24,6 +24,12 @@
   const cancel = byId("task-run-cancel");
   const copy = byId("task-run-copy");
   const reuse = byId("task-run-reuse");
+  const download = byId("task-run-download");
+  const refreshClis = byId("task-run-refresh");
+  const search = byId("task-run-search");
+  const filter = byId("task-run-filter");
+  const clearFilters = byId("task-run-clear");
+  const results = byId("task-run-results");
   const detailStatus = byId("task-run-detail-status");
   const draft = byId("task-draft-text");
   const draftRun = byId("task-draft-run");
@@ -37,6 +43,7 @@
   let selectedId = null;
   let selectedRun = null;
   let selectedOutput = "";
+  let selectedOutputReady = false;
   let pollTimer = null;
   let refreshPromise = null;
   let detailPromise = null;
@@ -50,6 +57,7 @@
   let formFeedback = "";
   let selectionVersion = 0;
   let copyVersion = 0;
+  let discovering = false;
   const runNodes = new Map();
 
   const publicStatus = {
@@ -166,7 +174,7 @@
       `${Array.from(prompt.value).length.toLocaleString()} / ${max.toLocaleString()} characters`,
     );
     const issue = validityMessage();
-    submit.disabled = submitting || !!issue;
+    submit.disabled = submitting || discovering || !!issue;
     if (!submitting)
       setText(
         formStatus,
@@ -272,8 +280,15 @@
   }
 
   function renderRuns() {
+    for (const control of [search, filter, clearFilters])
+      if (control) control.disabled = !runs.length;
+    const filters = search?.closest(".task-run-filters");
+    if (filters) filters.hidden = !runs.length;
     const wanted = new Set();
     const nodes = [];
+    const query = (search?.value || "").trim().toLowerCase();
+    const status = filter?.value || "all";
+    let matches = 0;
     list.querySelector(".task-run-empty")?.remove();
     for (const run of runs) {
       const id = String(run.id);
@@ -292,6 +307,17 @@
         runNodes.set(id, node);
       }
       updateRunNode(node, run);
+      node.hidden =
+        (status !== "all" && run.status !== status) ||
+        ![run.workspace_name, run.workspace_id, run.runtime, run.prompt].some(
+          (value) =>
+            String(value || "")
+              .toLowerCase()
+              .includes(query),
+        );
+      if (!node.hidden) matches++;
+      else if (document.activeElement === node)
+        search?.focus({ preventScroll: true });
       nodes.push(node);
     }
     for (const [id, node] of runNodes) {
@@ -305,12 +331,15 @@
       if (node === cursor) cursor = cursor.nextSibling;
       else list.insertBefore(node, cursor);
     }
-    if (!runs.length) {
+    setText(results, `${matches} of ${runs.length} runs`);
+    if (!matches) {
       let empty = list.querySelector(".task-run-empty");
       if (!empty) {
         empty = document.createElement("p");
         empty.className = "h task-run-empty";
-        empty.textContent = "No local runs in this server session.";
+        empty.textContent = runs.length
+          ? "No runs match these filters. Clear filters to see all runs."
+          : "No local runs in this server session.";
         list.append(empty);
       }
     }
@@ -319,6 +348,7 @@
       selectedId = null;
       selectedRun = null;
       selectedOutput = "";
+      selectedOutputReady = false;
       detailSequence++;
       detailPromise = null;
       detailRequestId = null;
@@ -328,10 +358,15 @@
     syncForm();
   }
 
-  function renderDetail(run, nextOutput = selectedOutput) {
+  function renderDetail(
+    run,
+    nextOutput = selectedOutput,
+    outputReady = selectedOutputReady,
+  ) {
     if (!run || String(run.id) !== selectedId) return;
     selectedRun = run;
     selectedOutput = stripTerminalControls(nextOutput);
+    selectedOutputReady = outputReady;
     detail.hidden = false;
     setText(
       detailTitle,
@@ -346,6 +381,7 @@
     cancel.disabled = cancelling;
     copy.disabled = !selectedOutput;
     reuse.disabled = typeof run.prompt !== "string";
+    if (download) download.disabled = !selectedOutputReady;
     for (const [id, node] of runNodes)
       node.setAttribute("aria-pressed", String(id === selectedId));
   }
@@ -358,7 +394,7 @@
     detailPromise = request(`task-runs/${encodeURIComponent(id)}`)
       .then((body) => {
         if (sequence !== detailSequence || selectedId !== String(id)) return;
-        renderDetail(body?.run, body?.run?.output || "");
+        renderDetail(body?.run, body?.run?.output || "", true);
       })
       .catch((error) => {
         if (sequence === detailSequence)
@@ -377,6 +413,8 @@
     selectionVersion++;
     selectedId = String(id);
     const summary = runs.find((run) => String(run.id) === selectedId);
+    selectedOutputReady =
+      selectedRun?.id === summary?.id && selectedOutputReady;
     selectedOutput = selectedRun?.id === summary?.id ? selectedOutput : "";
     renderDetail(summary, selectedOutput);
     setText(detailStatus, "");
@@ -384,6 +422,11 @@
   }
 
   function syncCapability() {
+    if (refreshClis) {
+      refreshClis.disabled = preview || !connected || !capability?.enabled;
+      refreshClis.setAttribute("aria-disabled", String(discovering));
+      setText(refreshClis, discovering ? "Checking CLIs…" : "Refresh CLIs");
+    }
     enableHelp.hidden = preview || !!capability?.enabled;
     if (preview)
       setText(
@@ -421,6 +464,7 @@
   }
 
   async function refresh() {
+    if (discovering) return;
     if (preview) {
       connected = false;
       syncCapability();
@@ -461,6 +505,48 @@
         refreshPromise = null;
       });
     return refreshPromise;
+  }
+
+  async function rediscover() {
+    if (
+      discovering ||
+      preview ||
+      !connected ||
+      !capability?.enabled ||
+      submitting
+    )
+      return;
+    discovering = true;
+    const sequence = ++refreshSequence;
+    syncCapability();
+    try {
+      const body = await request("task-runs/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Agent-Office-Token": capability.token,
+        },
+        body: "{}",
+      });
+      if (sequence !== refreshSequence) return;
+      if (
+        !body?.enabled ||
+        !Array.isArray(body.runtimes) ||
+        !Array.isArray(body.workspaces) ||
+        !Array.isArray(body.runs)
+      )
+        throw new Error("Server returned an invalid capability response");
+      capability = body;
+      runs = body.runs;
+      renderRuns();
+      formFeedback = "CLI availability checked. Your prompt is unchanged.";
+    } catch (error) {
+      if (sequence === refreshSequence)
+        formFeedback = `Could not check CLIs: ${error.message}. Your prompt is unchanged.`;
+    } finally {
+      discovering = false;
+      syncCapability();
+    }
   }
 
   function setActive(value) {
@@ -517,8 +603,12 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const issue = validityMessage();
-    if (issue || submitting) {
-      formFeedback = issue || "A run request is already being submitted.";
+    if (issue || submitting || discovering) {
+      formFeedback =
+        issue ||
+        (discovering
+          ? "Checking CLI availability. Try Run task when it finishes."
+          : "A run request is already being submitted.");
       setText(formStatus, formFeedback);
       return;
     }
@@ -555,6 +645,8 @@
       );
       if (index >= 0) runs[index] = run;
       else runs = [run, ...runs];
+      if (search) search.value = "";
+      if (filter) filter.value = "all";
       renderRuns();
       selectRun(run.id);
       formFeedback =
@@ -683,6 +775,52 @@
     }
   });
   reuse.addEventListener("click", () => prefill(selectedRun?.prompt || ""));
+  refreshClis?.addEventListener("click", rediscover);
+  search?.addEventListener("input", renderRuns);
+  filter?.addEventListener("change", renderRuns);
+  clearFilters?.addEventListener("click", () => {
+    if (search) search.value = "";
+    if (filter) filter.value = "all";
+    renderRuns();
+    search?.focus({ preventScroll: true });
+  });
+  download?.addEventListener("click", () => {
+    if (!selectedRun || !selectedId || !selectedOutputReady) return;
+    const run = selectedRun;
+    const text = [
+      "Agent Office local run",
+      `Run: ${selectedId}`,
+      `Project: ${run.workspace_name || run.workspace_id || "Project"}`,
+      `CLI: ${run.runtime} · ${run.mode}`,
+      `Process: ${statusLabel(run.status)} · exit ${run.exit_code ?? "pending"}`,
+      ...(run.error ? [`Error: ${run.error}`] : []),
+      timeLabel(run),
+      `Captured: ${new Date().toISOString()}`,
+      run.output_truncated
+        ? "Captured output truncated by server."
+        : "Captured output snapshot.",
+      "A process exit does not verify task completion. Review output and project changes.",
+      "",
+      "--- Exact prompt ---",
+      run.prompt || "",
+      "",
+      "--- Output ---",
+      selectedOutput,
+      "",
+    ].join("\n");
+    const url = URL.createObjectURL(
+      new Blob([text], { type: "text/plain;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `agent-office-run-${selectedId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64)}.txt`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setText(
+      detailStatus,
+      "Run downloaded with its prompt and captured output.",
+    );
+  });
   document.addEventListener("visibilitychange", () => {
     clearTimeout(pollTimer);
     if (!document.hidden) refresh().finally(schedulePoll);

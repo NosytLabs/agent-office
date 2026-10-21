@@ -39,6 +39,8 @@
   "studio/source/prop-life.png": "027b6815f24b2e5c96ca1a81d9a3aceb7e09dd653cdf0be2383599cf19e73a54",
   "studio/source/prop-seeds.png": "6bcb5a8a75a85c5b5b151395e1ffbc48e38caddf0732627a34919464b24d34fe",
   "studio/source/room-surfaces.png": "e044253d771894e36269fc4fcc7c96a150e6f25960e3d778c556dad43e86cec0",
+  "studio/source/workplace-life.png": "0a746313986e47e984bccd6bf18c41714edaa0ac505243876cf6a894f75367ac",
+  "studio/source/workplace-seeds.png": "3a0d0a643653a94a8f1f7358e57e12e9ac43340f42bb6c70c70e7a9798cd46d5",
   "studio/studio-0.png": "1ec81d40c0303ff8b89d9c4c24f2f92ad8a1f9ff31c5efe63afecc811071503f",
   "studio/studio-1.png": "e8f91b7c8f5a3cfe27e96b53bda44bfa6cfbe3f237382c41373c267f1d93867c",
   "studio/studio-2.png": "cf39a0ef1714063e570ca50565de998bdcaa9ccd3fc9cf8dcb1cbbc8abdf94d3",
@@ -46,5 +48,6 @@
   "studio/studio-4.png": "9df2fa2db195c64c8562c3a29efa19eb20776e0f3372480e09997a24c2190bcc",
   "studio/studio-5.png": "72f8e8d78cd9e65d3411c9df7ed92ceac7cfb00ea66a24a9386164864f4f6893",
   "studio/studio-6.png": "7a01b809cc987c6ed7e8a44ebaa7455a185273f3adc33be5c06e563b3475ceae",
-  "studio/studio-7.png": "657415b142199be3079fa0fabdf43098568b5cd37b7ef02b925ade249210175b"
+  "studio/studio-7.png": "657415b142199be3079fa0fabdf43098568b5cd37b7ef02b925ade249210175b",
+  "studio/workplace-life.png": "a5a351e520c1d85cba58098eca780c1d93e099167a1bb8be82b6e2fc2693edff"
 }

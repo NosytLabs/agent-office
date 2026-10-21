@@ -37,7 +37,7 @@ elif prompt == 'huge':
 else:
     print(json.dumps({{'argv': sys.argv[1:], 'cwd': os.getcwd(), 'stdin': prompt}}))
 """
-    for name in ("codex", "claude"):
+    for name in ("codex", "claude", "opencode"):
         path = binaries / name
         path.write_text(source)
         path.chmod(0o755)
@@ -111,6 +111,38 @@ def test_runtime_specific_modes_and_claude_noninteractive_permission_command(run
     edited, _ = runner.create(_payload(mode="edit", prompt="edit"))
     edit_record = json.loads(_finished(runner, edited["run"]["id"])["output"])
     assert edit_record["argv"] == ["exec", "--sandbox", "workspace-write", "-"]
+
+
+def test_opencode_starts_a_private_fresh_process_with_literal_stdin(runner):
+    payload = _payload(runtime="opencode", mode="default", prompt="\n exact $(touch nope) & `uname`\n🪴\n")
+    created, _ = runner.create(payload)
+    run = _finished(runner, created["run"]["id"])
+    assert run["status"] == "succeeded"
+    assert json.loads(run["output"]) == {
+        "argv": ["run", "--standalone"],
+        "cwd": runner.capabilities()["workspaces"][0]["path"],
+        "stdin": payload["prompt"],
+    }
+    with pytest.raises(TaskRunnerError, match="unsupported mode"):
+        runner.create(_payload(runtime="opencode", mode="edit"))
+
+
+def test_refresh_detects_installed_and_removed_clis_without_changing_active_run(runner):
+    created, _ = runner.create(_payload(prompt="sleep"))
+    run_id = created["run"]["id"]
+    pinned_executable = runner._runs[run_id]["executable"]
+    binary = Path(runner._executables["claude"])
+    source = binary.read_bytes()
+    binary.unlink()
+    assert next(r for r in runner.refresh_runtimes()["runtimes"] if r["id"] == "claude")["available"] is False
+    binary.write_bytes(source)
+    binary.chmod(0o755)
+    refreshed = runner.refresh_runtimes()
+    assert next(r for r in refreshed["runtimes"] if r["id"] == "claude")["available"] is True
+    assert runner._runs[run_id]["executable"] == pinned_executable
+    assert runner.detail(run_id)["run"]["status"] == "running"
+    runner.cancel(run_id)
+    assert _finished(runner, run_id)["status"] == "cancelled"
 
 
 def test_failure_launch_error_and_bounded_output(runner):
@@ -419,7 +451,7 @@ def test_runtime_availability_only_reflects_path_discovery(tmp_path, monkeypatch
     monkeypatch.setenv("PATH", "")
     manager = TaskRunner([project])
     try:
-        assert [item["available"] for item in manager.capabilities()["runtimes"]] == [False, False]
+        assert [item["available"] for item in manager.capabilities()["runtimes"]] == [False, False, False]
         with pytest.raises(TaskRunnerError, match="CLI is not available") as unavailable:
             manager.create(_payload())
         assert unavailable.value.status == 409

@@ -770,7 +770,7 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
 
         def do_POST(self) -> None:
             route = self.path.split("?")[0]
-            if route == "/task-runs" or (route.startswith("/task-runs/") and route.endswith("/cancel")):
+            if route in ("/task-runs", "/task-runs/refresh") or (route.startswith("/task-runs/") and route.endswith("/cancel")):
                 if not self._authorize_task_request(mutation=True):
                     return
                 payload = self._read_task_json()
@@ -780,7 +780,12 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
                     self.respond(404, {"error": "task runner is disabled"})
                     return
                 try:
-                    if route == "/task-runs":
+                    if route == "/task-runs/refresh":
+                        if payload != {}:
+                            self.respond(400, {"error": "refresh requires an empty JSON object"})
+                            return
+                        self.respond(200, task_runner.refresh_runtimes())
+                    elif route == "/task-runs":
                         result, _created = task_runner.create(payload)
                         self.respond(201, result)
                     else:

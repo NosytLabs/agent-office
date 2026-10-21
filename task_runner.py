@@ -68,6 +68,7 @@ class TaskRunner:
         self._executables = {
             "codex": shutil.which("codex"),
             "claude": shutil.which("claude"),
+            "opencode": shutil.which("opencode"),
         }
         self._lock = threading.RLock()
         self._runs: Dict[str, Dict[str, Any]] = {}
@@ -103,11 +104,25 @@ class TaskRunner:
                         "modes": [{"id": "default", "name": "CLI permissions"}],
                         "minimum_version": "2.1.259",
                     },
+                    {
+                        "id": "opencode",
+                        "name": "OpenCode",
+                        "available": bool(self._executables["opencode"]),
+                        "modes": [{"id": "default", "name": "CLI permissions"}],
+                        "minimum_version": "2.0.29",
+                    },
                 ],
                 "runs": [self._summary(self._runs[run_id]) for run_id in reversed(self._order)],
                 "max_prompt_chars": MAX_PROMPT_CHARS,
                 "max_running": MAX_RUNNING,
             }
+
+    def refresh_runtimes(self) -> Dict[str, Any]:
+        """Rediscover fixed executable names; already-admitted runs keep theirs."""
+        executables = {name: shutil.which(name) for name in ("codex", "claude", "opencode")}
+        with self._lock:
+            self._executables = executables
+            return self.capabilities()
 
     def detail(self, run_id: str) -> Dict[str, Any]:
         with self._lock:
@@ -243,7 +258,7 @@ class TaskRunner:
         if any(0xD800 <= ord(char) <= 0xDFFF for char in prompt):
             raise TaskRunnerError(400, "prompt contains invalid Unicode")
         mode = payload["mode"]
-        modes = {"codex": {"read", "edit"}, "claude": {"default"}}[runtime]
+        modes = {"codex": {"read", "edit"}, "claude": {"default"}, "opencode": {"default"}}[runtime]
         if mode not in modes:
             raise TaskRunnerError(400, "unsupported mode for runtime")
         clean = {key: payload[key] for key in expected}
@@ -254,6 +269,8 @@ class TaskRunner:
         if run["runtime"] == "codex":
             sandbox = "read-only" if run["mode"] == "read" else "workspace-write"
             return [run["executable"], "exec", "--sandbox", sandbox, "-"]
+        if run["runtime"] == "opencode":
+            return [run["executable"], "run", "--standalone"]
         return [
             run["executable"], "-p", "--output-format", "text",
             "--permission-mode", "default", "--permission-prompts", "none",

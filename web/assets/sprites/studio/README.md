@@ -84,3 +84,18 @@ scale per object, seed-palette fitting, crisp alpha, locked idle frames and hash
 The arcade runs at two frames per second. The printer animates an interaction
 that opens Activity; it does not create a print job or observer event. Pause and
 reduced motion use the idle frame. Runtime and gallery use the same native pixels.
+
+## Coffee and server loops
+
+`workplace-life.png` / `workplace-life.json` add eight native frames: four
+20×32 server-rack frames and four 20×26 coffee-cart frames. The unchanged
+1536×1024 built-in imagegen source, full prompt, and extracted idle seeds are
+preserved in `source/workplace-life.*` and `source/workplace-seeds.png`.
+The existing environment compiler fits generated lights/steam to each seed's
+palette and bounds, locks cabinet geometry outside the declared animation
+regions, preserves the exact idle frame, and records source and pixel hashes.
+Server lights loop cosmetically; coffee reacts to its existing interaction.
+Pause/reduced motion freeze both. Missing supplements retain the existing
+procedural fallback and recover independently with Retry artwork. Sprites and
+native animation strips are available in the gallery. They never report work,
+change CLI status, or award usage/XP.
