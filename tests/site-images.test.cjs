@@ -202,3 +202,39 @@ test("mobile pages choose smaller lossless images and high-density screens keep 
       }
     }
 });
+
+test("tour screenshots keep enough source pixels across desktop, tablet and dense phones", async () => {
+  for (const viewport of [
+    { width: 1440, height: 1000, density: 1 },
+    { width: 1200, height: 1000, density: 1 },
+    { width: 768, height: 1024, density: 1 },
+    { width: 390, height: 844, density: 2 },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+      deviceScaleFactor: viewport.density,
+      reducedMotion: "reduce",
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(url, { waitUntil: "networkidle" });
+      for (const name of ["floor", "usage", "room", "aquarium"]) {
+        await page.locator("#tour-tab-" + name).click();
+        const image = page.locator("#tour-" + name + " img");
+        await image.evaluate((i) => i.decode());
+        const pixels = await image.evaluate((i) => ({
+          source: Number(i.currentSrc.match(/-(\d+)\.webp$/)[1]),
+          required: Math.ceil(
+            i.getBoundingClientRect().width * devicePixelRatio,
+          ),
+        }));
+        assert.ok(
+          pixels.source >= Math.min(1440, pixels.required),
+          JSON.stringify({ viewport, name, pixels }),
+        );
+      }
+    } finally {
+      await context.close();
+    }
+  }
+});

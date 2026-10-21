@@ -29,3 +29,9 @@ The 720px size keeps enough pixels for the product page’s tested 2× phone dis
 without downloading a 1440px image. Depending on the screenshot, it transfers
 33–58% fewer bytes than the full-size derivative. Large or denser displays can
 still select the full-size source.
+
+The hero and tour have different `sizes` hints. Keep the tour hints aligned with
+its one-column and 1.5/1.9-column CSS breakpoints, including image padding. A
+700px hint underestimates the widest tour image (about 788px), causing an
+unnecessarily soft 720px selection. Browser checks compare the actual rendered
+size and display density with the selected source width.
