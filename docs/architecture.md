@@ -300,7 +300,9 @@ Character renderers publish their actual painted bounds each frame. Pointer
 selection follows paint order: screen-space labels, frontmost characters, then
 stations. Classic and Studio use their respective sprite dimensions. Hover
 identification uses the same selection resolver and refreshes as characters or
-the camera move; resize, drag, editing and pointer exit clear stale hints.
+the camera move; resize, drag, editing and pointer exit clear stale hints. The
+controls hint truncates long names on one line so hovering cannot resize the
+canvas; the canvas tooltip retains the full name.
 
 Compact sprites and Studio manifests/base images allow 15 seconds for a valid
 cold transfer; supplemental atlases allow 30 seconds. A five-second cutoff could

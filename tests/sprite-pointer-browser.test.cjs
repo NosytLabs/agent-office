@@ -188,3 +188,54 @@ test("a walking agent leaving the pointer clears the inspection hint without ano
     },
   );
 });
+
+test("a full-length agent name keeps its hover hint without resizing the canvas", async () => {
+  const name = "W".repeat(48);
+  await observerFixture(
+    {
+      events: [
+        { event: "session_start", session_id: "long-name", platform: "codex" },
+      ],
+      settings: { agent_names: { "long-name": name } },
+    },
+    async ({ page }) => {
+      await artwork(page, "studio");
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForFunction(
+        () =>
+          officeScene.chars.has("long-name") &&
+          !officeScene.chars.get("long-name").moving,
+      );
+      const target = await page.evaluate(() => {
+        const label = officeScene.labelBoxes.find((h) => h.id === "long-name"),
+          canvas = officeScene.canvas.getBoundingClientRect();
+        return {
+          x: canvas.x + label.x + label.w / 2,
+          y: canvas.y + label.y + label.h / 2,
+          height: canvas.height,
+        };
+      });
+      await page.mouse.move(target.x, target.y);
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      assert.equal(
+        await page.locator("#c").getAttribute("title"),
+        `Inspect ${name} · Idle`,
+      );
+      assert.equal(
+        await page.locator("#c").evaluate((c) => c.getBoundingClientRect().height),
+        target.height,
+      );
+      assert.equal(
+        await page.locator("#c").evaluate((c) => c.style.cursor),
+        "pointer",
+      );
+      await page.mouse.click(target.x, target.y);
+      assert.equal(await page.evaluate(() => focusedId), "long-name");
+    },
+  );
+});

@@ -325,6 +325,13 @@ code {
   font-size: 14px;
   font-weight: 500;
 }
+.scene-controls .hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .scene-controls .btn {
   min-height: 40px;
   padding: 3px 10px;
