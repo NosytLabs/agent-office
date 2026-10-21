@@ -215,7 +215,7 @@ function finishFurniture() {
   resetSelection();
   $("edit-hint").hidden = true;
   syncEmptyState();
-  scene.onHover?.("");
+  scene.hoverAt(null);
   scene.draw(0);
 }
 $("finish-furniture").onclick = () => {

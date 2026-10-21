@@ -772,6 +772,22 @@ function queueViewSave() {
   viewSaveTimer = setTimeout(persistView, 200);
 }
 let roomView = false;
+const landscapeRoom = matchMedia(
+  "(min-width: 500px) and (max-height: 480px) and (orientation: landscape)",
+);
+function positionRoomSummary() {
+  const compact = roomView && landscapeRoom.matches,
+    summary = $("summary"),
+    parent = compact ? $("toolbar") : document.querySelector(".scene-heading"),
+    active = document.activeElement;
+  document.body.classList.toggle("room-landscape", compact);
+  if (summary.parentElement !== parent) {
+    const focused = summary.contains(active);
+    parent.append(summary);
+    if (focused) active.focus({ preventScroll: true });
+  }
+}
+landscapeRoom.addEventListener("change", positionRoomSummary);
 function setRoomView(value) {
   roomView = value === true;
   scene.roomView = roomView;
@@ -782,6 +798,7 @@ function setRoomView(value) {
   $("room-view-choice").checked = roomView;
   $("room-view-toggle").textContent = roomView ? "Exit room view" : "Room view";
   $("room-view-toggle").setAttribute("aria-pressed", String(roomView));
+  positionRoomSummary();
   scene.draw(0);
   positionNoticeSlot();
 }

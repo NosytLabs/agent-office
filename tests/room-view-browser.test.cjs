@@ -15,6 +15,101 @@ const events = [
   },
 ];
 const folder = process.env.OFFICE_ROOMVIEW_SCREENSHOTS || "reports/room-view";
+for (const width of [568, 667])
+  test(`short landscape room view preserves a useful floor and one HUD row at ${width}px`, async () => {
+    await observerFixture(
+      { viewport: { width, height: 320 }, events },
+      async ({ page }) => {
+        await page.click("#room-view-toggle");
+        const geometry = await page.evaluate(() => {
+          const ids = [
+            "floorbtn",
+            "tasksbtn",
+            "eventsbtn",
+            "settingsbtn",
+            "filterbtn",
+            "waiting-count",
+            "quick-nav-open",
+          ];
+          return {
+            stage: document.getElementById("stage").getBoundingClientRect()
+              .height,
+            controls: ids.map((id) => {
+              const r = document.getElementById(id).getBoundingClientRect();
+              return {
+                id,
+                top: r.top,
+                left: r.left,
+                right: r.right,
+                bottom: r.bottom,
+              };
+            }),
+          };
+        });
+        fs.mkdirSync(folder, { recursive: true });
+        await page.screenshot({
+          path: path.join(folder, `landscape-hud-${width}.png`),
+        });
+        assert.ok(geometry.stage >= 180, JSON.stringify(geometry));
+        assert.ok(
+          Math.max(...geometry.controls.map((r) => r.top)) -
+            Math.min(...geometry.controls.map((r) => r.top)) <=
+            8,
+          JSON.stringify(geometry),
+        );
+        await page.focus("#waiting-count");
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForFunction(
+          () => !document.body.classList.contains("room-landscape"),
+        );
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          "waiting-count",
+        );
+        await page.keyboard.press("Enter");
+        assert.equal(await page.evaluate(() => opened), "sheet-inspector");
+        await page.locator("#sheet-inspector .close").click();
+        await page.focus("#quick-nav-open");
+        await page.setViewportSize({ width, height: 320 });
+        await page.waitForFunction(() =>
+          document.body.classList.contains("room-landscape"),
+        );
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          "quick-nav-open",
+        );
+        await page.keyboard.press("Enter");
+        await page.locator(".quick-nav-dialog").waitFor({ state: "visible" });
+        await page.keyboard.press("Escape");
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          "quick-nav-open",
+        );
+        await page.click("#settingsbtn");
+        await page.fill("#room-name-input", "Keep this landscape draft");
+        await page.uncheck("#room-view-choice");
+        assert.equal(
+          await page.inputValue("#room-name-input"),
+          "Keep this landscape draft",
+        );
+        await page.check("#room-view-choice");
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Escape");
+        assert.equal(
+          await page.locator("#room-view-toggle").getAttribute("aria-pressed"),
+          "false",
+        );
+        assert.equal(
+          await page
+            .locator("#summary")
+            .evaluate((s) =>
+              s.parentElement.classList.contains("scene-heading"),
+            ),
+          true,
+        );
+      },
+    );
+  });
 for (const viewport of [
   { width: 1440, height: 1000 },
   { width: 390, height: 844 },

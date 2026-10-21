@@ -645,6 +645,13 @@
     if (this.cosmetics.includes("crown"))
       image("icon-crown", left + 9, top - 2, 14, 12);
     g.restore();
+    this.actorHits?.push({
+      id: a.id,
+      x: left,
+      y: top - (this.cosmetics.includes("crown") ? 2 : 0),
+      w: 32,
+      h: 36 + (this.cosmetics.includes("crown") ? 2 : 0),
+    });
   };
   scene.desk = function (s) {
     const result = original.desk.call(this, s),

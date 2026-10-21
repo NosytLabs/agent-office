@@ -31,6 +31,7 @@ class OfficeScene {
     this.bindInput();
     this.resize = new ResizeObserver(() => {
       this.pan = { x: 0, y: 0 };
+      this.hoverAt(null);
       this.draw(0);
     });
     this.resize.observe(canvas);
@@ -1235,6 +1236,13 @@ class OfficeScene {
       this.rect(x + 11, crownY + 2, 2, 2, "#dfbb68");
     }
     g.restore();
+    this.actorHits?.push({
+      id: a.id,
+      x: Math.round(x),
+      y: Math.round(y),
+      w: 16,
+      h: 32,
+    });
   }
   draw(dt = 0) {
     const cv = this.canvas,
@@ -1301,6 +1309,7 @@ class OfficeScene {
       ]);
     this.dt = dt;
     this.hitBoxes = [];
+    this.actorHits = [];
     this.petHits = [];
     this.propHits = [];
     this.walking = [];
@@ -1402,6 +1411,49 @@ class OfficeScene {
           h: height,
         });
       }
+    if (this.hoverScreen) this.hoverAt(this.hoverScreen);
+  }
+  agentAt(point, screen) {
+    const inside = (h, p) =>
+      p && p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h;
+    // Labels are painted last; moving characters are painted over the desks.
+    return (
+      this.labelBoxes?.findLast((h) => inside(h, screen)) ||
+      this.actorHits?.findLast((h) => inside(h, point)) ||
+      this.hitBoxes.findLast((h) => inside(h, point))
+    );
+  }
+  hoverAt(screen) {
+    this.hoverScreen = !this.edit && !this.drag ? screen : null;
+    let text = "";
+    if (this.hoverScreen && this.transform) {
+      const t = this.transform,
+        point = {
+          x: (screen.x - t.ox) / t.scale,
+          y: (screen.y - t.oy) / t.scale,
+        },
+        hit = this.agentAt(point, screen),
+        agent = hit && this.agents.find((a) => a.id === hit.id),
+        prop =
+          !hit &&
+          this.propHits.findLast(
+            (h) =>
+              point.x >= h.x &&
+              point.x <= h.x + h.w &&
+              point.y >= h.y &&
+              point.y <= h.y + h.h,
+          );
+      if (agent)
+        text =
+          "Inspect " +
+          String(agent.label || agent.id).replace(/[_-]+/g, " ") +
+          " · " +
+          (STATUS_NAMES[agent.status] || agent.status);
+      else if (prop) text = PROP_HINTS[prop.kind] || "";
+    }
+    this.canvas.style.cursor = text ? "pointer" : "default";
+    if (this.canvas.title !== text) this.canvas.title = text;
+    this.onHover?.(text);
   }
   point(event) {
     const b = this.canvas.getBoundingClientRect(),
@@ -1455,6 +1507,7 @@ class OfficeScene {
     const cv = this.canvas;
     cv.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || !e.isPrimary) return;
+      this.hoverAt(null);
       const point = this.point(e),
         at = this.edit === "move" ? this.propAt(point) : -1;
       const newlyPicked = at >= 0 && this.movingIndex !== at;
@@ -1477,16 +1530,8 @@ class OfficeScene {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.pointer = this.point(e);
       if (!this.edit && !this.drag && this.pointer) {
-        const p = this.pointer,
-          prop = this.propHits.findLast(
-            (hit) =>
-              p.x >= hit.x &&
-              p.x <= hit.x + hit.w &&
-              p.y >= hit.y &&
-              p.y <= hit.y + hit.h,
-          );
-        cv.style.cursor = prop ? "pointer" : "default";
-        this.onHover?.(prop ? PROP_HINTS[prop.kind] : "");
+        const bounds = cv.getBoundingClientRect();
+        this.hoverAt({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
       }
       if (!this.drag || this.drag.id !== e.pointerId) return;
       const dx = e.clientX - this.drag.x,
@@ -1522,20 +1567,8 @@ class OfficeScene {
         screen = {
           x: e.clientX - canvasBounds.left,
           y: e.clientY - canvasBounds.top,
-        },
-        label = (this.labelBoxes || []).find(
-          (h) =>
-            screen.x >= h.x &&
-            screen.x <= h.x + h.w &&
-            screen.y >= h.y &&
-            screen.y <= h.y + h.h,
-        );
-      const hit =
-        label ||
-        this.hitBoxes.find(
-          (h) =>
-            p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
-        );
+        };
+      const hit = this.agentAt(p, screen);
       if (hit) {
         this.onSelect(hit.id);
         return;
@@ -1560,8 +1593,7 @@ class OfficeScene {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
       this.drag = null;
       this.pointer = null;
-      cv.style.cursor = "default";
-      this.onHover?.("");
+      this.hoverAt(null);
     });
     cv.addEventListener("lostpointercapture", (e) => {
       if (this.drag?.id === e.pointerId) this.drag = null;
@@ -1569,8 +1601,7 @@ class OfficeScene {
     cv.addEventListener("pointerleave", (e) => {
       if (!e.isPrimary || this.drag) return;
       this.pointer = null;
-      cv.style.cursor = "default";
-      this.onHover?.("");
+      this.hoverAt(null);
     });
     cv.addEventListener("keydown", (e) => {
       if (
