@@ -72,6 +72,7 @@
   let draftRestored = false;
   let formEdited = false;
   let reviewRequired = false;
+  let selectedWorkspacePath = "";
   const runNodes = new Map();
 
   function formPayload() {
@@ -145,6 +146,7 @@
       return;
     }
     prompt.value = retained.prompt;
+    selectedWorkspacePath = retained.workspace_path;
     workspace.value =
       capability.workspaces.find(
         (item) => item.path === retained.workspace_path,
@@ -176,7 +178,9 @@
   }
 
   if (remember) {
-    remember.disabled = preview;
+    // Project paths are needed for retention; do not offer a save that cannot
+    // succeed while the first capability response is still pending.
+    remember.disabled = true;
     try {
       const raw = !preview && sessionStorage.getItem(draftKey);
       if (raw) {
@@ -398,21 +402,28 @@
     if (signature === optionSignature) return;
     optionSignature = signature;
     const previousWorkspace = workspace.value;
+    const previousPath =
+      workspace.selectedOptions[0]?.dataset.path || selectedWorkspacePath;
+    const hadWorkspaces = !!previousPath || workspace.options.length > 0;
+    if (previousPath) selectedWorkspacePath = previousPath;
     const previousRuntime = runtime.value;
     workspace.replaceChildren();
     for (const item of capability?.workspaces || []) {
       const option = document.createElement("option");
       option.value = item.id;
+      option.dataset.path = item.path || "";
       option.textContent = item.name;
       option.title = item.path || item.name;
       workspace.append(option);
     }
-    if (
-      [...workspace.options].some(
-        (option) => option.value === previousWorkspace,
-      )
-    )
-      workspace.value = previousWorkspace;
+    if (hadWorkspaces)
+      workspace.value = previousPath
+        ? [...workspace.options].find(
+            (option) => option.dataset.path === previousPath,
+          )?.value || ""
+        : [...workspace.options].find(
+            (option) => option.value === previousWorkspace,
+          )?.value || "";
     runtime.replaceChildren();
     for (const item of capability?.runtimes || []) {
       const option = document.createElement("option");
@@ -611,6 +622,8 @@
   }
 
   function syncCapability() {
+    if (remember)
+      remember.disabled = preview || !connected || !capability?.enabled;
     if (
       pendingRequest?.instance_id &&
       capability?.instance_id !== pendingRequest.instance_id
@@ -933,6 +946,9 @@
   });
   for (const control of [workspace, mode])
     control.addEventListener("change", () => {
+      if (control === workspace)
+        selectedWorkspacePath =
+          workspace.selectedOptions[0]?.dataset.path || "";
       formEdited = true;
       pendingRequest = null;
       formFeedback = "";

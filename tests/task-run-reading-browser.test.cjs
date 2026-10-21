@@ -55,6 +55,72 @@ async function reopen(page) {
   await page.evaluate(() => officeTaskRunner.open());
 }
 
+test("a live capability refresh retains the selected project path and refuses a removed path", () =>
+  observerFixture({}, async ({ page }) => {
+    const cap = makeCapability();
+    await setup(page, cap);
+    await page.selectOption("#task-run-workspace", "two");
+    await page.fill("#task-run-prompt", exact);
+    cap.instance_id = "6cbe86c8-0e9d-4c25-8d8a-cb8eaa92bc92";
+    cap.workspaces = [
+      { ...cap.workspaces[1], id: "one" },
+      { ...cap.workspaces[0], id: "two" },
+    ];
+    await page.evaluate(() => officeTaskRunner.refresh());
+    assert.equal(await page.inputValue("#task-run-workspace"), "one");
+    assert.equal(await page.inputValue("#task-run-prompt"), exact);
+    const projects = cap.workspaces;
+    cap.enabled = false;
+    cap.workspaces = [];
+    await page.evaluate(() => officeTaskRunner.refresh());
+    cap.enabled = true;
+    cap.workspaces = projects.toReversed();
+    await page.evaluate(() => officeTaskRunner.refresh());
+    assert.equal(await page.inputValue("#task-run-workspace"), "one");
+    cap.workspaces = cap.workspaces.filter(
+      (item) => item.path !== "/projects/second",
+    );
+    await page.evaluate(() => officeTaskRunner.refresh());
+    assert.equal(await page.inputValue("#task-run-workspace"), "");
+    assert.equal(await page.isDisabled("#task-run-submit"), true);
+  }));
+
+test("retention is gated until initial projects arrive, then stores the already typed prompt", () =>
+  observerFixture({}, async ({ page }) => {
+    let release, seen;
+    const received = new Promise((resolve) => {
+      seen = resolve;
+    });
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/task-runs", async (route) => {
+      seen();
+      await held;
+      await route.fulfill({ json: makeCapability() });
+    });
+    try {
+      await page.reload();
+      await received;
+      await page.evaluate(() => officeTaskRunner.open());
+      await page.fill("#task-run-prompt", exact);
+      assert.equal(await page.isDisabled("#task-run-remember"), true);
+      release();
+      await page.waitForFunction(() => officeTaskRunner.status.enabled);
+      await page.check("#task-run-remember");
+      assert.equal(
+        JSON.parse(
+          await page.evaluate((key) => sessionStorage.getItem(key), draftKey),
+        ).prompt,
+        exact,
+      );
+      await reopen(page);
+      assert.equal(await page.inputValue("#task-run-prompt"), exact);
+    } finally {
+      release();
+    }
+  }));
+
 test("draft retention is opt-in and restores exact text and project by path without running", () =>
   observerFixture({}, async ({ page }) => {
     const cap = makeCapability();
