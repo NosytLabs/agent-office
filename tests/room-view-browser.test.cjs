@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { observerFixture } = require("./observer-fixture.cjs");
+const { fetchSettings } = require("./settings-helper.cjs");
 const events = [
   { event: "session_start", session_id: "room-view-agent", platform: "codex" },
   {
@@ -223,10 +224,11 @@ async function holdLayout(page) {
 for (const scenario of [
   "newer file",
   "new room save",
+  "save adopted from another view",
   "closed and reopened panel",
 ])
   test(`a delayed layout import cannot replace a ${scenario}`, async () => {
-    await observerFixture({ events }, async ({ page, state }) => {
+    await observerFixture({ events }, async ({ page, state, base }) => {
       const before = await state();
       await page.click("#settingsbtn");
       await holdLayout(page);
@@ -250,6 +252,17 @@ for (const scenario of [
         await page.waitForFunction(
           () => pendingSaves === 0 && settings.room_name === "Newer saved name",
         );
+      } else if (scenario === "save adopted from another view") {
+        const changed = await fetchSettings(base + "/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ room_name: "Newer external save" }),
+        });
+        assert.equal(changed.status, 200);
+        await page.evaluate(() => poll());
+        await page.waitForFunction(
+          () => settings.room_name === "Newer external save",
+        );
       } else {
         await page.locator("#sheet-settings .close").click();
         await page.click("#settingsbtn");
@@ -261,7 +274,10 @@ for (const scenario of [
       assert.deepEqual(after.settings, current.settings);
       for (const k of ["events", "usage", "progress"])
         assert.deepEqual(after[k], before[k]);
-      if (scenario === "new room save")
+      if (
+        scenario === "new room save" ||
+        scenario === "save adopted from another view"
+      )
         assert.match(
           await page.textContent("#toast"),
           /settings changed while reading/i,

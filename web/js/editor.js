@@ -318,6 +318,7 @@ $("import-settings").onchange = async (e) => {
   const generation = ++layoutImportGeneration,
     panelCurrent = capturePanelInteraction(),
     revision = settingsRevision,
+    confirmedRevision = confirmedSettingsRevision,
     current = () => generation === layoutImportGeneration && panelCurrent();
   if (!settingsReady) {
     toast("Loading office settings. Wait before importing a layout.");
@@ -331,7 +332,11 @@ $("import-settings").onchange = async (e) => {
       throw new Error("Layout must be smaller than 64 KB.");
     const contents = await file.text();
     if (!current()) return;
-    if (!settingsReady || revision !== settingsRevision) {
+    if (
+      !settingsReady ||
+      revision !== settingsRevision ||
+      confirmedRevision !== confirmedSettingsRevision
+    ) {
       toast(
         "Room settings changed while reading this file. Choose the layout again.",
       );

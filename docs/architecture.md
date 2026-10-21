@@ -282,9 +282,10 @@ The scene keeps automatic desk homes for the lifetime of the open view. Moving o
 
 `view-state.js` stores bounded viewing preferences in browser storage: zoom, pause, Room view, runtime and panel filters, the selected Tasks subview, search text, and reading positions. Only reading panels reopen automatically. Observer and public-demo views use separate namespaces. Saved views never restore music playback, furniture editing, camera pan, or a follow target, and the browser's reduced-motion preference overrides a saved moving scene. Storage failures leave the controls usable. Room view retains the real connection indicator in its compact footer; a blocked save reports that the mode applies only to the visit. Panel updates preserve existing event rows and selection when the underlying record has not changed.
 
-Layout-file reads retain their selection generation, panel visit and settings
-revision. A late read cannot replace a newer file, a later settings save, or work
-after leaving Customize. Invalid top-level JSON receives a layout-specific error.
+Layout-file reads retain their selection generation, panel visit, local settings
+revision and confirmed server revision. A late read cannot replace a newer file,
+a later settings save (including one adopted from another view), or work after
+leaving Customize. Invalid top-level JSON receives a layout-specific error.
 
 **Follow on floor** is an explicit inspector action. It brings the selected character into view at a minimum zoom of 1.75 while preserving a higher zoom, and bounds pan to the room edges. Switching panels preserves the target. Manual pan, Fit, filtering it out, furniture editing, or removal from the live roster cancels follow. A terminal sprite can remain followed during its existing exit interval; following does not prolong that interval or change accounting. The [three native browser flows](../tests/follow-camera.test.cjs) exercise controls and actual observer lifecycle events, including the 20-second ended-session fade under reduced motion.
 
