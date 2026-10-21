@@ -287,8 +287,9 @@ revision and confirmed server revision. A late read cannot replace a newer file,
 a later settings save (including one adopted from another view), or work after
 leaving Customize. Invalid top-level JSON receives a layout-specific error.
 
-Room view uses the canvas aspect ratio to allow desktop-width desk rows on short
-landscape screens. Reflow preserves logical seat identities and normalized prop
+Room view uses the viewport aspect ratio to allow desktop-width desk rows on short
+landscape screens. The ratio is independent of furniture warnings that change
+canvas height, preventing layout feedback loops. Reflow preserves logical seat identities and normalized prop
 positions; leaving Room view restores the regular narrow-screen layout.
 
 **Follow on floor** is an explicit inspector action. It brings the selected character into view at a minimum zoom of 1.75 while preserving a higher zoom, and bounds pan to the room edges. Switching panels preserves the target. Manual pan, Fit, filtering it out, furniture editing, or removal from the live roster cancels follow. A terminal sprite can remain followed during its existing exit interval; following does not prolong that interval or change accounting. The [three native browser flows](../tests/follow-camera.test.cjs) exercise controls and actual observer lifecycle events, including the 20-second ended-session fade under reduced motion.

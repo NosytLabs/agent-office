@@ -508,8 +508,8 @@ class OfficeScene {
       patch: { agent_preferences: Object.fromEntries(entries) },
     };
   }
-  layout(width, height) {
-    const narrow = width < 600 && !(this.roomView && width > height * 1.5),
+  layout(width, viewportAspect = 0) {
+    const narrow = width < 600 && !(this.roomView && viewportAspect > 1.5),
       assigned = this.assignedSeats(),
       max = narrow ? 2 : this.settings.max_chars;
     const capacity = Math.max(
@@ -1253,7 +1253,9 @@ class OfficeScene {
     g.clearRect(0, 0, W, H);
     g.fillStyle = "#111720";
     g.fillRect(0, 0, W, H);
-    const room = this.layout(W, H);
+    // Furniture warnings can change canvas height. Use the viewport shape so
+    // displaying a warning cannot repeatedly flip the desk layout.
+    const room = this.layout(W, this.roomView ? innerWidth / innerHeight : 0);
     const geometry = room.w + ":" + room.h + ":" + room.columns;
     this.relayout = !!this.geometry && this.geometry !== geometry;
     this.geometry = geometry;

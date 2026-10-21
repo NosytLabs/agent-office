@@ -236,6 +236,48 @@ test("a null layout export gives a readable error without changing settings", as
   });
 });
 
+test("furniture warnings cannot repeatedly flip the room view desk layout", async () => {
+  await observerFixture(
+    {
+      viewport: { width: 568, height: 554 },
+      settings: {
+        max_chars: 6,
+        decorations: false,
+        show_pets: false,
+        furniture: [{ kind: "petbed", x: 0.3, y: 0.7 }],
+      },
+      events: Array.from({ length: 5 }, (_, i) => ({
+        event: "session_start",
+        session_id: "warning-agent-" + i,
+        platform: "codex",
+      })),
+    },
+    async ({ page, state }) => {
+      const before = await state();
+      const columns = await page.evaluate(async () => {
+        const layout = officeScene.layout;
+        const seen = [];
+        officeScene.layout = function (...args) {
+          const room = layout.apply(this, args);
+          seen.push(room.columns);
+          return room;
+        };
+        try {
+          document.getElementById("room-view-toggle").click();
+          await new Promise((resolve) => setTimeout(resolve, 750));
+          return [...new Set(seen)];
+        } finally {
+          officeScene.layout = layout;
+        }
+      });
+      assert.deepEqual(columns, [2], "warning reflow keeps one desk layout");
+      const after = await state();
+      for (const k of ["settings", "events", "usage", "progress"])
+        assert.deepEqual(after[k], before[k]);
+    },
+  );
+});
+
 async function holdLayout(page) {
   await page.evaluate(() => {
     const read = File.prototype.text;
