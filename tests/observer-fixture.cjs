@@ -40,6 +40,8 @@ async function observerFixture(options, run) {
   let server,
     browser,
     output = "";
+  const errors = [],
+    failedRequests = [];
   try {
     publish(options.events || []);
     const probe = net.createServer();
@@ -90,8 +92,13 @@ async function observerFixture(options, run) {
       reducedMotion: options.reducedMotion || "no-preference",
     });
     page.setDefaultTimeout(10000);
-    const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("requestfailed", (request) =>
+      failedRequests.push({
+        path: new URL(request.url()).pathname,
+        error: request.failure()?.errorText,
+      }),
+    );
     await page.goto(base);
     await page.waitForFunction(
       () => initialized && settingsReady && officeScene.sprites.petbed,
@@ -104,6 +111,15 @@ async function observerFixture(options, run) {
       state: async () => (await fetch(base + "/state")).json(),
     });
     assert.deepEqual(errors, [], "No uncaught browser errors");
+  } catch (error) {
+    error.message +=
+      "\nObserver fixture diagnostics: " +
+      JSON.stringify({
+        browserErrors: errors,
+        failedRequests,
+        serverOutput: output,
+      });
+    throw error;
   } finally {
     await browser?.close();
     if (server && server.exitCode === null) {

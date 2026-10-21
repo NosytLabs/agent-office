@@ -85,6 +85,83 @@ test("a live capability refresh retains the selected project path and refuses a 
     assert.equal(await page.isDisabled("#task-run-submit"), true);
   }));
 
+test("an empty disabled response preserves CLI and mode, then retains edits made while disconnected", () =>
+  observerFixture({}, async ({ page }) => {
+    const cap = makeCapability();
+    cap.runtimes.push({
+      id: "claude",
+      name: "Claude Code",
+      available: true,
+      modes: [{ id: "default", name: "CLI permissions" }],
+    });
+    await setup(page, cap);
+    await page.check("#task-run-remember");
+    await page.selectOption("#task-run-runtime", "claude");
+    await page.fill("#task-run-prompt", exact);
+    const connected = structuredClone(cap);
+    Object.assign(cap, {
+      enabled: false,
+      token: null,
+      runtimes: [],
+      workspaces: [],
+    });
+    await page.evaluate(() => officeTaskRunner.refresh());
+    const edited = exact + "After reconnect";
+    await page.fill("#task-run-prompt", edited);
+    Object.assign(cap, connected);
+    await page.evaluate(() => officeTaskRunner.refresh());
+    assert.equal(await page.inputValue("#task-run-runtime"), "claude");
+    assert.equal(await page.inputValue("#task-run-mode"), "default");
+    assert.equal(
+      JSON.parse(
+        await page.evaluate((key) => sessionStorage.getItem(key), draftKey),
+      ).prompt,
+      edited,
+    );
+  }));
+
+test("typing during reload keeps the retained project choice while preserving the newer prompt", () =>
+  observerFixture({}, async ({ page }) => {
+    const cap = makeCapability();
+    await setup(page, cap);
+    await page.check("#task-run-remember");
+    await page.selectOption("#task-run-workspace", "two");
+    await page.fill("#task-run-prompt", exact);
+    let release, seen;
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const received = new Promise((resolve) => {
+      seen = resolve;
+    });
+    await page.route("**/task-runs", async (route) => {
+      seen();
+      await held;
+      await route.fulfill({ json: cap });
+    });
+    try {
+      await page.reload();
+      await received;
+      await page.evaluate(() => officeTaskRunner.open());
+      await page.fill("#task-run-prompt", "Newer local edits");
+      release();
+      await page.waitForFunction(() => officeTaskRunner.status.enabled);
+      assert.equal(await page.inputValue("#task-run-workspace"), "two");
+      assert.equal(
+        await page.inputValue("#task-run-prompt"),
+        "Newer local edits",
+      );
+      assert.equal(
+        JSON.parse(
+          await page.evaluate((key) => sessionStorage.getItem(key), draftKey),
+        ).prompt,
+        "Newer local edits",
+      );
+    } finally {
+      release();
+    }
+  }));
+
 test("retention is gated until initial projects arrive, then stores the already typed prompt", () =>
   observerFixture({}, async ({ page }) => {
     let release, seen;

@@ -73,6 +73,9 @@
   let formEdited = false;
   let reviewRequired = false;
   let selectedWorkspacePath = "";
+  let selectedRuntimeId = "";
+  let selectedModeId = "";
+  let draftSaveDeferred = false;
   const runNodes = new Map();
 
   function formPayload() {
@@ -88,6 +91,7 @@
     if (!remember || preview) return;
     try {
       if (!remember.checked) {
+        draftSaveDeferred = false;
         sessionStorage.removeItem(draftKey);
         savedDraft = null;
         setText(
@@ -99,7 +103,14 @@
       const project = capability?.workspaces?.find(
         (item) => item.id === workspace.value,
       );
-      if (!project?.path || !capability?.enabled) return;
+      if (!project?.path || !capability?.enabled) {
+        draftSaveDeferred = true;
+        setText(
+          draftStatus,
+          "Waiting for the selected project connection. Current edits have not been retained yet.",
+        );
+        return;
+      }
       if (Array.from(prompt.value).length > 8192) {
         setText(
           draftStatus,
@@ -123,6 +134,7 @@
         review_required: reviewRequired,
       };
       sessionStorage.setItem(draftKey, JSON.stringify(savedDraft));
+      draftSaveDeferred = false;
       setText(
         draftStatus,
         "Draft retained in this tab until cleared. Reloading never starts a run.",
@@ -141,23 +153,23 @@
     if (!savedDraft) return;
     const retained = savedDraft;
     savedDraft = null;
-    if (formEdited) {
-      persistDraft();
-      return;
-    }
-    prompt.value = retained.prompt;
+    const editedBeforeRestore = formEdited;
+    if (!editedBeforeRestore) prompt.value = retained.prompt;
     selectedWorkspacePath = retained.workspace_path;
     workspace.value =
       capability.workspaces.find(
         (item) => item.path === retained.workspace_path,
       )?.id || "";
     runtime.value = retained.runtime;
+    selectedRuntimeId = retained.runtime;
+    selectedModeId = retained.mode;
     fillModes();
     mode.value = retained.mode;
     reviewRequired =
       retained.review_required ||
       (!!retained.pending_id &&
-        (!uuid.test(capability.instance_id || "") ||
+        (editedBeforeRestore ||
+          !uuid.test(capability.instance_id || "") ||
           capability.instance_id !== retained.instance_id ||
           workspace.value !== retained.workspace_id));
     if (retained.pending_id && !reviewRequired)
@@ -175,6 +187,7 @@
     setText(draftStatus, "Draft restored from this tab. No run was started.");
     // Retire the initial restoration record. Later polls must never replace edits.
     formEdited = true;
+    if (editedBeforeRestore) persistDraft();
   }
 
   if (remember) {
@@ -378,9 +391,8 @@
     if (draftRun) draftRun.disabled = !draft?.value.trim();
   }
 
-  function fillModes() {
+  function fillModes(previous = mode.value, preserve = false) {
     const selected = selectedRuntime();
-    const previous = mode.value;
     mode.replaceChildren();
     for (const item of selected?.modes || []) {
       const option = document.createElement("option");
@@ -390,6 +402,7 @@
     }
     if ([...mode.options].some((option) => option.value === previous))
       mode.value = previous;
+    else if (preserve && previous) mode.value = "";
     mode.disabled = !selected?.available || !mode.options.length;
     syncForm();
   }
@@ -406,7 +419,10 @@
       workspace.selectedOptions[0]?.dataset.path || selectedWorkspacePath;
     const hadWorkspaces = !!previousPath || workspace.options.length > 0;
     if (previousPath) selectedWorkspacePath = previousPath;
-    const previousRuntime = runtime.value;
+    const previousRuntime = runtime.value || selectedRuntimeId;
+    const previousMode = mode.value || selectedModeId;
+    if (previousRuntime) selectedRuntimeId = previousRuntime;
+    if (previousMode) selectedModeId = previousMode;
     workspace.replaceChildren();
     for (const item of capability?.workspaces || []) {
       const option = document.createElement("option");
@@ -431,8 +447,12 @@
       option.textContent = `${item.name} — ${item.available ? "Available" : "Not found on PATH"}${item.minimum_version ? ` · minimum ${item.minimum_version}` : ""}`;
       runtime.append(option);
     }
-    if ([...runtime.options].some((option) => option.value === previousRuntime))
-      runtime.value = previousRuntime;
+    if (previousRuntime)
+      runtime.value = [...runtime.options].some(
+        (option) => option.value === previousRuntime,
+      )
+        ? previousRuntime
+        : "";
     else {
       const firstAvailable = capability?.runtimes?.find(
         (item) => item.available,
@@ -441,7 +461,7 @@
     }
     workspace.disabled = !capability?.enabled || !workspace.options.length;
     runtime.disabled = !capability?.enabled || !runtime.options.length;
-    fillModes();
+    fillModes(previousMode, true);
   }
 
   const statusLabel = (status) =>
@@ -662,6 +682,7 @@
       );
     fillOptions();
     restoreDraft();
+    if (draftSaveDeferred) persistDraft();
     syncForm();
     emitStatus();
   }
@@ -942,6 +963,8 @@
     pendingRequest = null;
     formFeedback = "";
     fillModes();
+    selectedRuntimeId = runtime.value;
+    selectedModeId = mode.value;
     persistDraft();
   });
   for (const control of [workspace, mode])
@@ -949,6 +972,7 @@
       if (control === workspace)
         selectedWorkspacePath =
           workspace.selectedOptions[0]?.dataset.path || "";
+      if (control === mode) selectedModeId = mode.value;
       formEdited = true;
       pendingRequest = null;
       formFeedback = "";
