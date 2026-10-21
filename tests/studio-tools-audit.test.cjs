@@ -377,7 +377,8 @@ test("missing prop artwork keeps static fallback and retry preserves drafts and 
     assert.equal(await page.evaluate(() => officeStudio.propLife.size), 0);
     assert.equal(
       await page.evaluate(() => officeScene.propUsesSpriteDetails("arcade")),
-      false,
+      true,
+      "The static Studio cabinet retains its own screen details",
     );
     await page.fill("#studio-sprite-search", "printer anim");
     assert.equal(await page.locator("#studio-sprite-choice option").count(), 0);
