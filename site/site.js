@@ -8,6 +8,7 @@ function invalidateCopy() {
   if (status) status.textContent = "";
 }
 
+const tabDestinations = [];
 for (const group of document.querySelectorAll("[data-tab-group]")) {
   const list = group.querySelector("[data-tab-list]");
   const tabs = [...group.querySelectorAll("[data-tab-button]")];
@@ -52,12 +53,69 @@ for (const group of document.querySelectorAll("[data-tab-group]")) {
     });
   });
   activate(0);
+  tabDestinations.push((target) => {
+    const index = panels.findIndex(
+      (panel) => panel === target || panel.contains(target),
+    );
+    if (index < 0) return false;
+    const focusWillHide = panels.some(
+      (panel, i) => i !== index && panel.contains(document.activeElement),
+    );
+    activate(index);
+    if (focusWillHide) tabs[index].focus({ preventScroll: true });
+    return true;
+  });
 }
+
+let fragmentScroll = 0;
+function revealFragment(hash = location.hash) {
+  cancelAnimationFrame(fragmentScroll);
+  let target;
+  try {
+    target = document.getElementById(decodeURIComponent(hash.slice(1)));
+  } catch {
+    return;
+  }
+  if (!target) return;
+  if (tabDestinations.some((reveal) => reveal(target))) {
+    const destination = target.hasAttribute("data-tab-panel")
+      ? target.closest("[data-tab-group]")
+      : target;
+    // Run after native fragment scrolling and keep the tab controls in view.
+    fragmentScroll = requestAnimationFrame(() =>
+      destination.scrollIntoView({ block: "start" }),
+    );
+  }
+}
+window.addEventListener("hashchange", () => revealFragment());
+document.addEventListener("click", (event) => {
+  if (
+    event.button ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return;
+  const link = event.target.closest('a[href^="#"]');
+  // The fragment can already match after someone selects a different tab.
+  if (link) revealFragment(link.hash);
+});
 
 const menu = document.querySelector(".menu-toggle");
 const nav = document.getElementById("site-nav");
 if (menu && nav) {
   let focusedNavigation = null;
+  function restoreHiddenNavigationFocus() {
+    const focused = focusedNavigation || document.activeElement;
+    if (nav.contains(focused) && !focused.getClientRects().length) {
+      const links = [...nav.querySelectorAll("a[href]")],
+        next = links
+          .slice(links.indexOf(focused.closest("a")) + 1)
+          .find((link) => link.getClientRects().length);
+      next?.focus({ preventScroll: true });
+    }
+  }
   function closeMenu(restoreFocus = false) {
     nav.classList.remove("open");
     menu.setAttribute("aria-expanded", "false");
@@ -119,7 +177,11 @@ if (menu && nav) {
       closeMenu(restoreFocus);
       if (focusDesktopLink)
         nav.querySelector("a[href]")?.focus({ preventScroll: true });
+      restoreHiddenNavigationFocus();
     });
+  window
+    .matchMedia("(min-width: 901px)")
+    .addEventListener("change", restoreHiddenNavigationFocus);
 }
 
 const copyingButtons = new WeakSet();
@@ -176,3 +238,4 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pagehide", invalidateCopy);
 document.documentElement.classList.add("js");
+revealFragment();

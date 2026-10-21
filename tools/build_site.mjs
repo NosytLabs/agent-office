@@ -83,7 +83,7 @@ function readInput(relative) {
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex"),
   images = JSON.parse(readInput("site/screenshots/manifest.json")),
   expectedImages = new Map();
-if (images.version !== 1 || JSON.stringify(images.widths) !== "[480,1440]")
+if (images.version !== 1 || JSON.stringify(images.widths) !== "[480,720,1440]")
   throw new Error("Invalid responsive screenshot manifest");
 for (const shot of ["appearance", "usage", "settings", "aquarium"]) {
   const record = images.images?.[shot];
@@ -91,7 +91,7 @@ for (const shot of ["appearance", "usage", "settings", "aquarium"]) {
     record?.sourceSha256 !== digest(readInput(`docs/screenshots/${shot}.png`))
   )
     throw new Error(`Stale responsive screenshot source: ${shot}`);
-  for (const width of [480, 1440]) {
+  for (const width of images.widths) {
     const relative = `site/screenshots/${shot}-${width}.webp`;
     inputs.set(`assets/screenshots/${shot}-${width}.webp`, relative);
     expectedImages.set(relative, record.variants?.[width]);
