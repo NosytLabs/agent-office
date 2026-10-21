@@ -11,6 +11,7 @@
   ],
   "widths": [
     480,
+    720,
     1440
   ],
   "images": {
@@ -22,6 +23,10 @@
         "480": {
           "sha256": "fdc7970b204a451a3d456bfaa4f7d0d385fc878a3856dcdf81182fbca2b4f624",
           "bytes": 28194
+        },
+        "720": {
+          "sha256": "8b6fe3c8a5da9ed47aeed5ffcf05e19aa81c498d111da8f3bffdf913ac4a9246",
+          "bytes": 46192
         },
         "1440": {
           "sha256": "e26f44bbdffe0509c6eab4c1037b43f61e13b21d7951473a074c7f72a8b33b68",
@@ -38,6 +43,10 @@
           "sha256": "0f0c0c28d9536b638c444c98b0cee70ceaf4116bf34249bc6e3deeb3bddfc290",
           "bytes": 34296
         },
+        "720": {
+          "sha256": "ba7fa4da524ccf337d7a7b2304f963c4c3dc4c9cb56b93c18f4a5835fd95aac8",
+          "bytes": 57008
+        },
         "1440": {
           "sha256": "5db73bc9993d0d37341eeb426bdba08567942cf2ec78505f4ced4264ace35e79",
           "bytes": 135816
@@ -53,6 +62,10 @@
           "sha256": "dc235449387717ae7a896d306198b1e51ed221930d8854bd86b8f32abcc5d5e8",
           "bytes": 38208
         },
+        "720": {
+          "sha256": "f571297039e475c99c0b97915c1445861c9724f1e8b209ed07d4ebb70227282b",
+          "bytes": 67724
+        },
         "1440": {
           "sha256": "c80b6888137595bbb1098910b3c523628475e7a94c1dc70c8d59c420891f6a45",
           "bytes": 149986
@@ -67,6 +80,10 @@
         "480": {
           "sha256": "e5f909d34b25d0713f5cb0cb14ce24b24d37e792a4961644a2af320c4093739f",
           "bytes": 36724
+        },
+        "720": {
+          "sha256": "36f6ea4aec94469c8a0ce68d7faa887e2a05ef0cc52ffb6b52a9f5ee9a9e2a42",
+          "bytes": 59876
         },
         "1440": {
           "sha256": "a2fc29812ac26b124716f8874db4914b20be0bfa336d126f7eb3d7be965f6814",

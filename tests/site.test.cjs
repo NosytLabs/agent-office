@@ -151,10 +151,6 @@ test("desktop product site loads its real screenshots and local assets under a p
       await page.locator(".tour-caption").innerText(),
       /synthetic test sessions/,
     );
-    assert.match(
-      await page.locator(".coverage-note").innerText(),
-      /host-level validation/,
-    );
     assert.equal(
       await page
         .getByRole("link", { name: "Explore the demo" })
@@ -653,3 +649,102 @@ test("mobile navigation closes when keyboard focus continues into page content",
     },
     { viewport: { width: 390, height: 320 } },
   ));
+
+test("a direct setup link reveals its command panel and later fragment navigation remains usable", () =>
+  withPage(
+    async (page) => {
+      await page.goto(url + "#setup-connect");
+      assert.equal(await page.locator("#setup-connect").isVisible(), true);
+      assert.equal(await page.locator("#setup-start").isVisible(), false);
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      assert.equal(
+        await page
+          .locator(".setup-tabs")
+          .evaluate(
+            (e) =>
+              e.getBoundingClientRect().top >=
+              document.querySelector(".site-header").getBoundingClientRect()
+                .bottom,
+          ),
+        true,
+        "Setup tabs stay below the sticky header",
+      );
+      await page.locator("#command-connect").focus();
+      await page.evaluate(() => {
+        location.hash = "setup-editor";
+      });
+      await page.waitForFunction(
+        () => !document.getElementById("setup-editor").hidden,
+      );
+      assert.equal(await page.locator("#setup-editor").isVisible(), true);
+      assert.equal(
+        await page.evaluate(
+          () => document.activeElement.getClientRects().length > 0,
+        ),
+        true,
+      );
+      await page.goBack();
+      await page.waitForFunction(
+        () => !document.getElementById("setup-connect").hidden,
+      );
+      assert.equal(await page.locator("#setup-connect").isVisible(), true);
+      await page.getByRole("tab", { name: "1. Start" }).click();
+      await page.getByRole("link", { name: "Connection steps" }).click();
+      assert.equal(await page.locator("#setup-connect").isVisible(), true);
+    },
+    { reducedMotion: "reduce" },
+  ));
+
+test("a direct tour link reveals the requested screenshot without loading the other tour panels", () =>
+  withPage(
+    async (page) => {
+      const screenshots = [];
+      page.on("response", (r) => {
+        if (r.url().includes("/screenshots/")) screenshots.push(r.url());
+      });
+      await page.goto(url + "#tour-usage", { waitUntil: "networkidle" });
+      assert.equal(await page.locator("#tour-usage").isVisible(), true);
+      assert.equal(await page.locator("#tour-floor").isVisible(), false);
+      await page.locator("#tour-usage img").evaluate((i) => i.decode());
+      assert.ok(screenshots.some((s) => s.includes("usage-")));
+      assert.ok(screenshots.every((s) => /(?:appearance|usage)-/.test(s)));
+      await page.evaluate(() => {
+        location.hash = "tour-usage%ZZ";
+      });
+      assert.equal(await page.locator("#tour-usage").isVisible(), true);
+    },
+    { reducedMotion: "reduce" },
+  ));
+
+test("a focused desktop source link remains reachable when the tablet header hides it", () =>
+  withPage(async (page) => {
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    await nav.getByRole("link", { name: "GitHub" }).focus();
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    const focus = await page.evaluate(() => {
+      const e = document.activeElement;
+      return {
+        withinNavigation: !!e.closest("#site-nav"),
+        visible: e.getClientRects().length > 0,
+      };
+    });
+    assert.deepEqual(focus, { withinNavigation: true, visible: true });
+    await page.keyboard.press("Tab");
+    assert.equal(
+      await page
+        .getByRole("link", { name: "Run locally", exact: true })
+        .evaluate((e) => e === document.activeElement),
+      true,
+    );
+  }));

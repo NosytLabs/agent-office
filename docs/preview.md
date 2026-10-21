@@ -13,6 +13,12 @@ no analytics, model, or observer requests and writes no browser storage.
 Copy buttons and keyboard tabs enhance content that also works without
 JavaScript.
 
+Links such as `#setup-connect` and `#tour-usage` open the requested tab, including
+when following an in-page link or using Back. The tab controls stay below the
+sticky header. Responsive screenshots offer 480px, 720px and 1440px versions;
+the full-size copies retain the original capture pixels. See the
+[image manifest and reproduction steps](../site/screenshots/README.md).
+
 ## Product website and GitHub Pages
 
 ![Product website with a real app screenshot using synthetic sessions](screenshots/product-site.png)
@@ -61,7 +67,7 @@ Focused checks:
 
 ```sh
 python -m pytest -q tests/test_site_build.py
-CHROMIUM_PATH=/absolute/path/to/chrome node --test tests/site.test.cjs
+CHROMIUM_PATH=/absolute/path/to/chrome node --test tests/site.test.cjs tests/site-images.test.cjs
 ```
 
 The browser suite serves the website under `/agent-office/` on port 18125.
@@ -95,11 +101,6 @@ integration limits. A READY static deployment is not a Python, browser-test,
 or installed-runtime verification result. Hosted checks cover the public
 synthetic application; local Chromium tests additionally verify exact copied
 command bytes and controlled error paths that the public demo cannot create.
-
-GitHub Pages was disabled at review. Its separate publishing workflow can
-successfully build the site while skipping Pages upload and deployment. The
-working website address above is the Vercel deployment. Hosted CI and Pages
-status are reported separately from local tests and Vercel builds.
 
 ![Aquarium on the deployed public-art demo](screenshots/preview.jpg)
 
