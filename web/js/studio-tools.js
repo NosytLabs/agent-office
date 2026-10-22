@@ -715,10 +715,6 @@
       scene.draw(0);
     };
     refreshUI();
-    const css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = "css/studio-tools.css";
-    document.head.append(css);
     scene.draw(0);
     document.dispatchEvent(new Event("agent-office:studio-tools-ready"));
   }
