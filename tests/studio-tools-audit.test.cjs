@@ -144,8 +144,11 @@ test("optional manifests finish before large image downloads compete for connect
       await route.continue();
       manifestReleased = true;
     });
-    await page.route("**/studio/*.png", (route) => {
-      if (!/\/studio-\d\.png$/.test(route.request().url()) && !manifestReleased)
+    await page.route("**/studio/*.png*", (route) => {
+      if (
+        !/\/studio-\d\.png$/.test(new URL(route.request().url()).pathname) &&
+        !manifestReleased
+      )
         early.push(route.request().url());
       return route.continue();
     });
@@ -369,7 +372,7 @@ test("missing prop artwork keeps static fallback and retry preserves drafts and 
     await gallery(page);
     const before = await state();
     await page.fill("#room-name-input", "Keep this prop draft");
-    await page.route("**/studio/prop-life.png", (r) =>
+    await page.route("**/studio/prop-life.png*", (r) =>
       r.fulfill({ status: 404, body: "missing" }),
     );
     await page.evaluate(() => officeStudio.reload());
@@ -386,7 +389,7 @@ test("missing prop artwork keeps static fallback and retry preserves drafts and 
       await page.locator("#studio-strip-download").isDisabled(),
       true,
     );
-    await page.unroute("**/studio/prop-life.png");
+    await page.unroute("**/studio/prop-life.png*");
     await page.click("#studio-art-retry");
     await page.waitForFunction(
       () => !officeStudio.loading && officeStudio.propLife.size === 8,
@@ -931,7 +934,7 @@ test("character life families export native strips and leave no stale choices af
       true,
     );
     await page.fill("#room-name-input", "Unsaved character gallery draft");
-    await page.route("**/studio/character-life.png", (route) =>
+    await page.route("**/studio/character-life.png*", (route) =>
       route.fulfill({ status: 404, body: "missing" }),
     );
     await page.evaluate(() => officeStudio.reload());
@@ -945,7 +948,7 @@ test("character life families export native strips and leave no stale choices af
       await page.locator("#studio-sprite-choice option").count(),
       total - lifeCount,
     );
-    await page.unroute("**/studio/character-life.png");
+    await page.unroute("**/studio/character-life.png*");
     await page.click("#studio-art-retry");
     await page.waitForFunction(
       () => officeStudio.ready && !officeStudio.loading,

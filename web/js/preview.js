@@ -18,7 +18,13 @@
   let storageAvailable = true;
   let storageError = "";
   let legacySnapshot = null;
-  let saved = readStored() || emptySaved();
+  let saved = emptySaved();
+  let databasePromise = null;
+  let changes = null;
+  try {
+    if (typeof BroadcastChannel === "function")
+      changes = new BroadcastChannel(storageKey);
+  } catch {}
   const demoSettings = {};
   syncSettings();
 
@@ -35,16 +41,7 @@
       byte.toString(16).padStart(2, "0"),
     ).join("");
   }
-  function readStored() {
-    if (!storageAvailable) return null;
-    let raw;
-    try {
-      raw = localStorage.getItem(storageKey);
-    } catch {
-      storageAvailable = false;
-      storageNotice();
-      return null;
-    }
+  function readStored(raw) {
     if (raw === null) {
       legacySnapshot = null;
       storageError = "";
@@ -98,41 +95,131 @@
       saved.settings,
     );
   }
-  function refreshStored() {
-    const latest = readStored();
-    if (latest) saved = latest;
-    syncSettings();
+  function database() {
+    if (!databasePromise)
+      databasePromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(storageKey, 1);
+        request.onupgradeneeded = () =>
+          request.result.createObjectStore("preferences");
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => {
+          request.onsuccess = () => request.result.close();
+          reject(new Error("Demo storage is blocked"));
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          db.onversionchange = () => {
+            db.close();
+            databasePromise = null;
+          };
+          resolve(db);
+        };
+      });
+    return databasePromise;
   }
-  function persist() {
-    if (!storageAvailable) return;
+  async function accessSaved(change, write, signal) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const fromMemory = () => {
+      syncSettings();
+      return storageError ? unavailableSettings() : change();
+    };
+    if (!storageAvailable) return fromMemory();
+    let result,
+      applied = false,
+      migrated = false,
+      committed = false;
     try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ version: 1, ...saved }),
-      );
-    } catch {
-      // A quota/write failure may still permit reads of the old value. Stay
-      // in memory for this visit so those reads cannot undo a completed edit.
+      const db = await database();
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      if (!storageAvailable) return fromMemory();
+      await new Promise((resolve, reject) => {
+        // The revision check and replacement share one transaction. Web Locks
+        // alone cannot make another renderer's cached localStorage current.
+        const transaction = db.transaction("preferences", "readwrite"),
+          store = transaction.objectStore("preferences"),
+          request = store.get("saved");
+        const abort = () => transaction.abort();
+        signal?.addEventListener("abort", abort, { once: true });
+        transaction.oncomplete = () => {
+          signal?.removeEventListener("abort", abort);
+          committed = true;
+          resolve();
+        };
+        transaction.onabort = transaction.onerror = () => {
+          signal?.removeEventListener("abort", abort);
+          reject(
+            transaction.error || new DOMException("Aborted", "AbortError"),
+          );
+        };
+        request.onsuccess = () => {
+          try {
+            // A queued transaction may outlive a failed write's switch to
+            // visit-only memory. Drain it without replacing that edit with
+            // the older persistent record; the catch applies its change once.
+            if (!storageAvailable) {
+              transaction.abort();
+              return;
+            }
+            const missing = request.result === undefined;
+            // Import the old key once; after a successful migration the single
+            // IndexedDB record is authoritative, including across renderers.
+            let raw = request.result;
+            if (missing) {
+              try {
+                raw = localStorage.getItem(storageKey);
+              } catch {
+                transaction.abort();
+                return;
+              }
+            }
+            const latest = readStored(
+              !missing && typeof raw !== "string" ? "invalid" : raw,
+            );
+            if (!latest) {
+              syncSettings();
+              result = write ? unavailableSettings() : change();
+              return;
+            }
+            saved = latest;
+            syncSettings();
+            result = change();
+            applied = true;
+            if (result instanceof Response && !result.ok) return;
+            if (write || missing) {
+              syncSettings();
+              store.put(JSON.stringify({ version: 1, ...saved }), "saved");
+              migrated = missing;
+            }
+          } catch {
+            transaction.abort();
+          }
+        };
+      });
+    } catch (error) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       storageAvailable = false;
       storageNotice();
+      // A denied or failed transaction becomes an explicit visit-only demo.
+      // Keep the attempted edit in memory; a later read must not undo it.
+      if (!applied) result = fromMemory();
     }
+    if (committed && migrated) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {}
+    }
+    if (committed && write && !(result instanceof Response && !result.ok)) {
+      try {
+        changes?.postMessage("saved");
+      } catch {}
+    }
+    return result;
   }
-  async function changeSaved(change) {
-    const commit = () => {
-      refreshStored();
-      if (storageError) return unavailableSettings();
-      const result = change();
-      if (result instanceof Response && !result.ok) return result;
-      syncSettings();
-      persist();
-      return result;
-    };
-    // Serialize cooperating tabs when Web Locks is available. The fallback
-    // still reads and merges the latest stored value without awaiting between
-    // that read and its write.
+  async function changeSaved(change, signal) {
+    const commit = () => accessSaved(change, true, signal);
     const locks = globalThis.navigator?.locks;
     return storageAvailable && locks?.request
-      ? locks.request(storageKey, commit)
+      ? locks.request(storageKey, { signal }, commit)
       : commit();
   }
   function rebase(value) {
@@ -158,13 +245,11 @@
     return value;
   }
   function history() {
-    refreshStored();
     return saved.reset || saved.historyCleared
       ? []
       : rebase(clone(fixture.history));
   }
   function state() {
-    refreshStored();
     const now = Date.now() / 1000;
     const result = rebase(
       clone(saved.reset ? fixture.empty_state : fixture.state),
@@ -281,7 +366,6 @@
       const read = () => {
         if (route === "/state") return response(state());
         if (route === "/settings") {
-          refreshStored();
           if (storageError) return unavailableSettings();
           return response(clone(demoSettings), 200, saved.settingsRevision);
         }
@@ -297,9 +381,9 @@
         ? locks.request(
             storageKey,
             { mode: "shared", signal: request.signal },
-            read,
+            () => accessSaved(read, false, request.signal),
           )
-        : read();
+        : accessSaved(read, false, request.signal);
     }
     if (request.method === "POST" && route === "/settings") {
       if (
@@ -340,8 +424,9 @@
           saved.settingsRevision = newSettingsRevision();
           syncSettings();
           return response(clone(demoSettings), 200, saved.settingsRevision);
-        });
-      } catch {
+        }, request.signal);
+      } catch (error) {
+        if (request.signal.aborted) throw error;
         return response({ error: "expected a JSON object" }, 400);
       }
     }
@@ -351,7 +436,7 @@
           saved.reset || saved.historyCleared ? 0 : fixture.history.length;
         saved.historyCleared = true;
         return count;
-      });
+      }, request.signal);
       if (removed instanceof Response) return removed;
       return response({ ok: true, removed_events: removed, synthetic: true });
     }
@@ -359,7 +444,7 @@
       const result = await changeSaved(() => {
         saved.reset = true;
         saved.historyCleared = true;
-      });
+      }, request.signal);
       if (result instanceof Response) return result;
       return response({
         ok: true,
@@ -388,16 +473,22 @@
       closeSheets();
       applyState(state());
     }
-    window.addEventListener("storage", (event) => {
-      if (event.key !== storageKey && event.key !== null) return;
-      refreshStored();
-      // A state read may already have observed the new flags before this
-      // notification. Invalidate the separate history view unconditionally.
+    async function refreshOtherView() {
+      const response = await fetch("state");
+      if (!response.ok) return;
       clearHistoryCache();
-      // Preserve open panels, local drafts, and the application's pending
-      // setting patches while showing another tab's confirmed changes.
-      applyState(state());
+      // The committed transaction is authoritative; the notification merely
+      // triggers a read and can arrive before or after another save.
+      applyState(await response.json());
+    }
+    window.addEventListener("storage", (event) => {
+      if (event.key === storageKey || event.key === null)
+        refreshOtherView().catch(() => {});
     });
+    changes?.addEventListener("message", () => {
+      refreshOtherView().catch(() => {});
+    });
+    window.addEventListener("pagehide", () => changes?.close());
     document.getElementById("preview-restore").onclick = async () => {
       const result = await changeSaved(() => {
         saved.reset = false;

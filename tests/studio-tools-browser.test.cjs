@@ -60,7 +60,7 @@ test("mirrored characters keep crowns above the same head and animation variants
         }),
       ),
     }));
-    assert.equal(frames.count, 49);
+    assert.equal(frames.count, 53);
     for (const group of frames.groups) {
       assert.ok(group.every(Boolean));
       assert.equal(new Set(group.map((f) => f.w + ":" + f.h)).size, 1);
@@ -73,7 +73,7 @@ test("failed artwork offers an in-place recovery without clearing saved view cho
     await ready(page);
     await page.click("#settingsbtn");
     await page.selectOption("#studio-pet-0", "4");
-    await page.route("**/studio-3.png", (r) =>
+    await page.route("**/studio-3.png*", (r) =>
       r.fulfill({ status: 404, body: "missing" }),
     );
     await page.reload();
@@ -86,7 +86,7 @@ test("failed artwork offers an in-place recovery without clearing saved view cho
     const retry = page.locator("#studio-art-retry");
     assert.equal(await retry.isVisible(), true);
     const before = await state();
-    await page.unroute("**/studio-3.png");
+    await page.unroute("**/studio-3.png*");
     await page.evaluate(() => {
       window.__recoveryDocument = true;
     });

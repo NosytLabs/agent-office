@@ -9,6 +9,54 @@ vm.runInContext(
   fs.readFileSync("web/js/scene.js", "utf8") + ";globalThis.Scene=OfficeScene;",
   model,
 );
+test("vacant workstations remain physical scenery and never become observed agents", () => {
+  const scene = Object.create(model.Scene.prototype);
+  scene.chars = new Map();
+  const settings = { max_chars: 4 };
+  scene.update([], settings, null, null, "every");
+  const empty = scene.layout(1100);
+  assert.equal(empty.seats.length, 0);
+  assert.equal(empty.workstations.length, 4);
+  assert.equal(empty.columns, 4);
+  assert.equal(scene.chars.size, 0);
+  const agents = [{ id: "alpha", platform: "codex" }];
+  scene.update(agents, settings, null, null, "every");
+  const first = scene.layout(1100).seats[0];
+  scene.update(
+    [...agents, { id: "beta", platform: "opencode" }],
+    settings,
+    null,
+    null,
+    "every",
+  );
+  const next = scene.layout(1100);
+  assert.equal(
+    next.seats[0].x,
+    first.x,
+    "arrivals do not move an established desk",
+  );
+  assert.equal(next.seats[0].y, first.y);
+  scene.filter = "claude";
+  const filtered = scene.layout(1100);
+  assert.equal(filtered.seats.length, 0);
+  assert.equal(
+    filtered.workstations.length,
+    4,
+    "filters keep the physical desks",
+  );
+  assert.equal(scene.layout(390).workstations.length, 2);
+});
+test("wall signs fit measured width and keep Unicode characters intact", () => {
+  const scene = Object.create(model.Scene.prototype),
+    drawn = [];
+  scene.ctx = {
+    measureText: (value) => ({ width: Array.from(value).length * 2 }),
+    fillText: (value) => drawn.push(value),
+  };
+  scene.text("A🌱BCDEFG", 0, 0, "#fff", 4, "center", 10);
+  scene.text("Office", 0, 0, "#fff", 4, "center", 36);
+  assert.deepEqual(drawn, ["A🌱BC…", "Office"]);
+});
 test("following is explicit, validates the visible actor, and stops without resetting the view", () => {
   const changes = [];
   const scene = Object.create(model.Scene.prototype);

@@ -251,7 +251,7 @@
       marker.style.top = `${(aim.y / 720) * canvas.offsetHeight}px`;
     }
     canvas?.addEventListener("keydown", (event) => {
-      if (paused) return;
+      if (paused || event.altKey || event.ctrlKey || event.metaKey) return;
       if (
         ![
           "ArrowLeft",
@@ -347,6 +347,9 @@
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      // A held key repeats keydown without a new player decision. Consume it
+      // so upstream cannot toggle its own pause, but keep our first action.
+      if (event.repeat) return;
       if (paused) {
         resume();
         post("resumed");

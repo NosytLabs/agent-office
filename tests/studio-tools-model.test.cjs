@@ -47,7 +47,7 @@ test("reaction frames require a reaction and music frames require playback", () 
     "recordplayer-anim-1",
   );
   assert.equal(frameKey("lamp", { lights: false }), "lamp-off");
-  assert.equal(frameKey("lamp", { lights: true }), "lamp");
+  assert.equal(frameKey("lamp", { lights: true }), "lamp-anim-0");
 });
 
 test("plant frames only animate cosmetic watering reactions", () => {

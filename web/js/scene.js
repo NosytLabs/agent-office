@@ -514,12 +514,14 @@ class OfficeScene {
   layout(width, viewportAspect = 0) {
     const narrow = width < 600 && !(this.roomView && viewportAspect > 1.5),
       assigned = this.assignedSeats(),
-      max = narrow ? 2 : this.settings.max_chars;
+      max = narrow ? 2 : this.settings.max_chars || DEFAULT_SETTINGS.max_chars;
     const capacity = Math.max(
       this.agents.length,
       (assigned.at(-1)?.slot ?? -1) + 1,
     );
-    const columns = Math.max(1, Math.min(max, Math.max(2, this.agents.length)));
+    // Columns describe the physical floor, not the current session count.
+    // A new arrival occupies an existing desk without recentering its peers.
+    const columns = Math.max(1, max);
     const rows = Math.max(1, Math.ceil(capacity / columns));
     const w = Math.max(narrow ? 210 : 320, columns * 68 + 72),
       // Keep a single desktop row close to its lounge. Narrow floors already
@@ -534,7 +536,17 @@ class OfficeScene {
         x: start + (slot % columns) * 68,
         y: 60 + Math.floor(slot / columns) * 76,
       }));
-    return { w, h, seats, columns, rows };
+    const visible = new Map(seats.map((seat) => [seat.slot, seat]));
+    const workstations = Array.from(
+      { length: rows * columns },
+      (_, slot) =>
+        visible.get(slot) || {
+          slot,
+          x: start + (slot % columns) * 68,
+          y: 60 + Math.floor(slot / columns) * 76,
+        },
+    );
+    return { w, h, seats, workstations, columns, rows };
   }
   tick(t) {
     const dt = Math.min(0.05, (t - (this.last || t)) / 1000);
@@ -555,11 +567,18 @@ class OfficeScene {
     g.fillStyle = color;
     g.fillRect(Math.round(x), Math.round(y), w, h);
   }
-  text(text, x, y, color, size = 4, align = "left") {
+  text(text, x, y, color, size = 4, align = "left", maxWidth = Infinity) {
     const g = this.ctx;
     g.fillStyle = color;
     g.font = size + "px ui-monospace,monospace";
     g.textAlign = align;
+    if (Number.isFinite(maxWidth)) {
+      const letters = Array.from(String(text));
+      while (letters.length && g.measureText(text).width > maxWidth) {
+        letters.pop();
+        text = letters.join("") + "…";
+      }
+    }
     g.fillText(text, x, y);
   }
   image(key, x, y, w, h) {
@@ -877,12 +896,13 @@ class OfficeScene {
     }
     r(w / 2 - 20, 7, 40, 14, "#26313a");
     this.text(
-      (this.settings.room_name || "AGENT OFFICE").slice(0, 18),
+      this.settings.room_name || "AGENT OFFICE",
       w / 2,
       16,
       "#e9d4a4",
       4,
       "center",
+      36,
     );
     r(4, h - 8, w - 8, 4, t.trim);
     r(4, 28, 2, h - 36, t.trim);
@@ -1039,91 +1059,94 @@ class OfficeScene {
     r(x + 9, y - 3, 14, 13, "#303a43");
     r(x + 11, y - 5, 10, 3, "#596570");
     r(x + 10, y + 10, 12, 3, "#26313a");
-    const target = { x: x + 8, y: y - 17 };
-    let c = this.chars.get(a.id);
-    if (!c) {
-      const seated = this.initialIds?.delete(a.id);
-      c = {
-        x: seated ? target.x : 24,
-        y: seated ? target.y : 0,
-        distance: 0,
-        path: [],
-      };
-      this.chars.set(a.id, c);
-    }
-    const routeKey = this.navigationKey + ":" + target.x + ":" + target.y;
-    if (c.routeKey !== routeKey) {
-      c.routeKey = routeKey;
-      if (
-        this.paused ||
-        this.relayout ||
-        this.grid.seats.length > 16 ||
-        !this.routeBudget ||
-        (c.x === target.x && c.y === target.y)
-      ) {
-        c.path = [];
-        c.x = target.x;
-        c.y = target.y;
-      } else {
-        this.routeBudget--;
-        const occupied = [
-          ...this.grid.seats
-            .filter((s) => s.a.id !== a.id)
-            .map((s) => ({ x: s.x - 3, y: s.y - 6, w: 46, h: 27 })),
-          ...this.navigationProps,
-        ];
-        const route = officePath(
-          { x: c.x + 8, y: c.y + 30 },
-          { x: target.x + 8, y: target.y + 30 },
-          this.grid,
-          occupied,
-        );
-        c.path = route?.map((p) => ({ x: p.x - 8, y: p.y - 30 })) || [];
-        if (!route) {
+    let c;
+    if (a) {
+      const target = { x: x + 8, y: y - 17 };
+      c = this.chars.get(a.id);
+      if (!c) {
+        const seated = this.initialIds?.delete(a.id);
+        c = {
+          x: seated ? target.x : 24,
+          y: seated ? target.y : 0,
+          distance: 0,
+          path: [],
+        };
+        this.chars.set(a.id, c);
+      }
+      const routeKey = this.navigationKey + ":" + target.x + ":" + target.y;
+      if (c.routeKey !== routeKey) {
+        c.routeKey = routeKey;
+        if (
+          this.paused ||
+          this.relayout ||
+          this.grid.seats.length > 16 ||
+          !this.routeBudget ||
+          (c.x === target.x && c.y === target.y)
+        ) {
+          c.path = [];
           c.x = target.x;
           c.y = target.y;
+        } else {
+          this.routeBudget--;
+          const occupied = [
+            ...this.grid.workstations
+              .filter((s) => s.a?.id !== a.id)
+              .map((s) => ({ x: s.x - 3, y: s.y - 6, w: 46, h: 27 })),
+            ...this.navigationProps,
+          ];
+          const route = officePath(
+            { x: c.x + 8, y: c.y + 30 },
+            { x: target.x + 8, y: target.y + 30 },
+            this.grid,
+            occupied,
+          );
+          c.path = route?.map((p) => ({ x: p.x - 8, y: p.y - 30 })) || [];
+          if (!route) {
+            c.x = target.x;
+            c.y = target.y;
+          }
         }
       }
-    }
-    if (this.paused || this.relayout) {
-      c.x = target.x;
-      c.y = target.y;
-      c.path = [];
-      c.moving = false;
-    }
-    const waypoint = c.path?.[0];
-    if (waypoint) {
-      const dx = waypoint.x - c.x,
-        dy = waypoint.y - c.y,
-        d = Math.hypot(dx, dy);
-      if (d < 1) {
-        c.x = waypoint.x;
-        c.y = waypoint.y;
-        c.path.shift();
-        c.moving = c.path.length > 0;
-      } else {
-        const step = Math.min(d, 70 * this.dt);
-        c.x += (dx / d) * step;
-        c.y += (dy / d) * step;
-        c.distance += step;
-        c.moving = true;
-        c.dir =
-          Math.abs(dx) > Math.abs(dy)
-            ? dx < 0
-              ? "left"
-              : "right"
-            : dy < 0
-              ? "up"
-              : "down";
+      if (this.paused || this.relayout) {
+        c.x = target.x;
+        c.y = target.y;
+        c.path = [];
+        c.moving = false;
       }
-    } else {
-      c.x = target.x;
-      c.y = target.y;
-      c.moving = false;
+      const waypoint = c.path?.[0];
+      if (waypoint) {
+        const dx = waypoint.x - c.x,
+          dy = waypoint.y - c.y,
+          d = Math.hypot(dx, dy);
+        if (d < 1) {
+          c.x = waypoint.x;
+          c.y = waypoint.y;
+          c.path.shift();
+          c.moving = c.path.length > 0;
+        } else {
+          const step = Math.min(d, 70 * this.dt);
+          c.x += (dx / d) * step;
+          c.y += (dy / d) * step;
+          c.distance += step;
+          c.moving = true;
+          c.dir =
+            Math.abs(dx) > Math.abs(dy)
+              ? dx < 0
+                ? "left"
+                : "right"
+              : dy < 0
+                ? "up"
+                : "down";
+        }
+      } else {
+        c.x = target.x;
+        c.y = target.y;
+        c.moving = false;
+      }
+      // Stationary characters use their observed activity frames. Moving sprites
+      // advance the four-frame walk cycle by distance travelled.
+      if (!c.moving) this.character(a, c.x, c.y, c);
     }
-    // Stationary characters use their observed activity frames. Moving sprites
-    // advance the four-frame walk cycle by distance travelled.
-    if (!c.moving) this.character(a, c.x, c.y, c);
     const desktop = this.sprites["desk-" + deskStyle];
     if (desktop) g.drawImage(desktop, x, y + 7, 40, 14);
     else {
@@ -1138,8 +1161,8 @@ class OfficeScene {
     r(x + 25, y - 6, 13, 13, "#23313c");
     r(x + 26, y - 5, 11, 10, "#19292e");
     r(x + 29, y + 7, 5, 2, "#34414a");
-    const col = STATUS_COLORS[a.status] || STATUS_COLORS.idle;
-    const active = a.status === "working";
+    const col = a ? STATUS_COLORS[a.status] || STATUS_COLORS.idle : "#687d83";
+    const active = a?.status === "working";
     r(x + 27, y - 3, 7, 1, col);
     r(x + 27, y, 5, 1, active ? "#9dcab7" : "#506566");
     r(
@@ -1160,12 +1183,12 @@ class OfficeScene {
       r(x + 2, y, 3, 5, "#829966");
       r(x, y + 1, 7, 2, "#95aa75");
     }
-    if (a.status === "waiting") {
+    if (a?.status === "waiting") {
       r(x + 11, y - 28, 10, 9, "#f0b19d");
       r(x + 15, y - 19, 2, 2, "#f0b19d");
       this.text("!", x + 16, y - 21, "#382d33", 7, "center");
     }
-    if (a.status === "done") {
+    if (a?.status === "done") {
       const failed = String(a.detail || "").startsWith("⚠ ");
       this.text(
         failed ? "!" : "✓",
@@ -1176,13 +1199,13 @@ class OfficeScene {
         "center",
       );
     }
-    if (this.focus === a.id) {
+    if (a && this.focus === a.id) {
       g.strokeStyle = "#edd1a0";
       g.lineWidth = 1;
       g.strokeRect(x - 3, y - 24, 46, 47);
     }
-    this.hitBoxes.push({ id: a.id, x: x - 4, y: y - 25, w: 48, h: 56 });
-    if (c.moving) this.walking.push({ a, c });
+    if (a) this.hitBoxes.push({ id: a.id, x: x - 4, y: y - 25, w: 48, h: 56 });
+    if (c?.moving) this.walking.push({ a, c });
   }
   characterOpacity(
     a,
@@ -1274,7 +1297,7 @@ class OfficeScene {
         ? defaultDecor(room, this.cosmetics)
         : [],
       furniture = this.settings.furniture || [],
-      desks = room.seats.map((s) => ({
+      desks = room.workstations.map((s) => ({
         // Reserve the full native-resolution label footprint as well as the desk.
         x: s.x - 12,
         y: s.y - 25,
@@ -1304,7 +1327,7 @@ class OfficeScene {
     this.navigationKey =
       geometry +
       JSON.stringify([
-        room.seats.map((s) => [s.a.id, s.x, s.y]),
+        room.workstations.map((s) => [s.a?.id || null, s.x, s.y]),
         this.navigationProps,
       ]);
     this.dt = dt;
@@ -1327,7 +1350,7 @@ class OfficeScene {
     // Per-row rugs establish workstation groups without covering footpaths.
     const theme = THEMES.find((t) => t.id === this.settings.theme) || THEMES[0];
     for (let row = 0; row < room.rows; row++) {
-      const seats = room.seats.filter(
+      const seats = room.workstations.filter(
         (seat) => Math.floor(seat.slot / room.columns) === row,
       );
       if (!seats.length) continue;
@@ -1348,7 +1371,7 @@ class OfficeScene {
         theme.accent,
       );
     }
-    for (const s of room.seats) this.desk(s);
+    for (const s of room.workstations) this.desk(s);
     for (const { a, c } of this.walking.sort((a, b) => a.c.y - b.c.y))
       this.character(a, c.x, c.y, c);
     if (this.settings.room_lights === false)

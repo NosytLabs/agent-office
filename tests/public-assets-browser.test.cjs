@@ -10,6 +10,43 @@ const { chromium } = require("playwright");
 const root = path.resolve(__dirname, "..");
 const prefix = "/";
 let temporary, output, server, browser, origin;
+let loungeCacheScenario = null;
+
+test("a warm browser image cache cannot mix a previous atlas with the current manifest", async () => {
+  loungeCacheScenario = { old: true, unversionedRequests: 0 };
+  try {
+    await withPage(async (page) => {
+      await page.waitForFunction(
+        () => officeStudio.ready && !officeStudio.loading,
+      );
+      // Retain a previous valid PNG at the stable URL under a real HTTP cache.
+      // Route interception is deliberately absent because it disables caching.
+      await page.evaluate(async () => {
+        const image = new Image();
+        image.src = "assets/sprites/studio/lounge-life.png";
+        await image.decode();
+      });
+      assert.equal(loungeCacheScenario.unversionedRequests, 1);
+      loungeCacheScenario.old = false;
+      await page.evaluate(() => officeStudio.reload());
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 8);
+      assert.equal(
+        await page.evaluate(() => officeStudio.environmentError),
+        "",
+      );
+      // The old stable URL is still cached. Recovery came from selecting the
+      // atlas belonging to this manifest rather than weakening integrity checks.
+      await page.evaluate(async () => {
+        const image = new Image();
+        image.src = "assets/sprites/studio/lounge-life.png";
+        await image.decode();
+      });
+      assert.equal(loungeCacheScenario.unversionedRequests, 1);
+    });
+  } finally {
+    loungeCacheScenario = null;
+  }
+});
 
 before(async () => {
   temporary = fs.mkdtempSync(path.join(os.tmpdir(), "office-public-package-"));
@@ -31,7 +68,26 @@ before(async () => {
     ".mp3": "audio/mpeg",
   };
   server = http.createServer((req, res) => {
-    const pathname = new URL(req.url, "http://localhost").pathname;
+    const url = new URL(req.url, "http://localhost"),
+      pathname = url.pathname;
+    if (
+      loungeCacheScenario &&
+      pathname === "/assets/sprites/studio/lounge-life.png"
+    ) {
+      const unversioned = !url.searchParams.has("v");
+      if (unversioned) loungeCacheScenario.unversionedRequests++;
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=31536000",
+      });
+      const file =
+        unversioned && loungeCacheScenario.old
+          ? "prop-life.png"
+          : "lounge-life.png";
+      return res.end(
+        fs.readFileSync(path.join(output, "assets/sprites/studio", file)),
+      );
+    }
     if (!pathname.startsWith(prefix)) return res.writeHead(404).end();
     const file = path.resolve(
       output,
@@ -246,7 +302,7 @@ test("valid slow artwork transfers keep the compact and Studio packs without sou
           closed = true;
         });
         for (const pathname of delayed)
-          await context.route("**" + pathname, async (route) => {
+          await context.route("**" + pathname + "*", async (route) => {
             reached.add(pathname);
             const response = await route.fetch();
             await new Promise((resolve) => setTimeout(resolve, 6000));
@@ -274,7 +330,7 @@ for (const fault of ["manifest", "image", "integrity"])
     const pathname =
         prefix +
         `assets/sprites/studio/character-life.${fault === "image" ? "png" : "json"}`,
-      routePattern = "**" + pathname;
+      routePattern = "**" + pathname + "*";
     let attempts = 0;
     await withPage(
       async (page, requests, context) => {

@@ -90,14 +90,14 @@ test("native coffee and server loops keep fixed footprints, pause, export, and r
     ]);
     assert.match(download.suggestedFilename(), /coffee/);
     await page.fill("#room-name-input", "Keep this draft");
-    await page.route("**/studio/workplace-life.png", (r) =>
+    await page.route("**/studio/workplace-life.png*", (r) =>
       r.fulfill({ status: 404, body: "missing" }),
     );
     await page.evaluate(() => officeStudio.reload());
     assert.equal(await page.evaluate(() => officeStudio.workplaceLife.size), 0);
     assert.equal(await page.evaluate(() => officeStudio.propLife.size), 8);
     assert.equal(await page.evaluate(() => officeStudio.ready), true);
-    await page.unroute("**/studio/workplace-life.png");
+    await page.unroute("**/studio/workplace-life.png*");
     await page.click("#studio-art-retry");
     await page.waitForFunction(
       () => !officeStudio.loading && officeStudio.workplaceLife.size === 8,

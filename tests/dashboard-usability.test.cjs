@@ -306,7 +306,7 @@ test("the storage HUD alert reveals and focuses diagnostics below the sticky hea
   });
 });
 
-test("the empty-room welcome card keeps its instructions reachable inside a short floor", async () => {
+test("the empty-room connection card leaves the floor unobscured and setup reachable", async () => {
   await observerFixture(
     {
       settings: { room_name: "BuildReview".repeat(4) + "Room" },
@@ -316,26 +316,21 @@ test("the empty-room welcome card keeps its instructions reachable inside a shor
       await page.evaluate(() => document.fonts.ready);
       const bounds = await page.locator("#empty-state").evaluate((card) => ({
         card: card.getBoundingClientRect().toJSON(),
-        stage: card.closest("#stage").getBoundingClientRect().toJSON(),
+        stage: document
+          .getElementById("stage")
+          .getBoundingClientRect()
+          .toJSON(),
       }));
       assert.ok(
-        bounds.card.top >= bounds.stage.top &&
-          bounds.card.bottom <= bounds.stage.bottom,
-        "Welcome content must be contained by the visible floor: " +
+        bounds.card.top >= bounds.stage.bottom,
+        "Connection guidance must not obscure furniture: " +
           JSON.stringify(bounds),
       );
-      await page.locator("#empty-demo").scrollIntoViewIfNeeded();
-      const bottom = await page.locator("#empty-demo").evaluate((node) => ({
-        text: node.getBoundingClientRect().bottom,
-        stage: node.closest("#stage").getBoundingClientRect().bottom,
-      }));
-      assert.ok(bottom.text <= bottom.stage, JSON.stringify(bottom));
       await page.click("#empty-connect");
       assert.equal(await page.locator("#sheet-setup").isVisible(), true);
     },
   );
 });
-
 test("a landscape panel keeps its body usable when Back and several notices are present", async () => {
   await observerFixture(
     { viewport: { width: 667, height: 320 }, reducedMotion: "reduce" },
