@@ -8,6 +8,13 @@ the hosted demo and local observer. They do not alter another browser's settings
 
 ## Artwork and behavior
 
+Workstations are physical scenery, including in an empty or filtered office.
+**Desks per row** sets the desktop column count; narrow floors use two. New
+sessions fill those stations without recentering established desks. Empty desks
+have no agent, status label, selectable session, activity, or XP. Both vacant and
+occupied desks reserve space for furniture placement and walking routes. The
+connection card sits below the canvas so room objects remain reachable.
+
 The 512 by 323 native atlas has 168 source entries: 54 character poses, 56 companion
 poses, 29 props, 13 icons and 16 effect frames. Two human palette variants add 18
 canvases. Eleven additional native prop/state entries are drawn once at load time
@@ -35,6 +42,16 @@ Typing hands are drawn over the existing desktop, rather than
 adding a second baked-in desk. Four cat looks, three dogs and a pocket robot use
 the existing two companion slots; the second slot keeps its original unlock.
 Coffee, watering and sparkle effects remain cosmetic.
+The optional eight-frame lounge pack adds a warm lampshade pulse and terrarium
+leaf/glass variations. Frame zero is the original seed; all frames keep its exact
+alpha silhouette and native anchor. Lights off uses the existing dim lamp and
+Pause/reduced motion holds frame zero. Terrarium motion keeps its existing
+interaction/unlock rules. The new frames appear in the searchable gallery and
+strip export; Retry artwork restores this pack independently of other artwork.
+Artwork manifests are reread on load/retry. Image URLs include the manifest's
+pixel digest so an updated atlas cannot be paired with a previously cached PNG.
+Integrity checks remain enabled. Loading errors are available in the status
+tooltip for reporting a failed pack.
 Studio's animated prop families and task-terminal states own their detail layer
 and do not receive the Original renderer's extra eyes, lights or reaction pixels.
 Room-light overlays and the beacon's observed-input signal remain available.

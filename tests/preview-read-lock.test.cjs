@@ -27,6 +27,36 @@ function preview() {
     localStorage: {
       getItem: (k) => memory.get(k) ?? null,
       setItem: (k, v) => memory.set(k, v),
+      removeItem: (k) => memory.delete(k),
+    },
+    indexedDB: {
+      open() {
+        const request = {};
+        queueMicrotask(() => {
+          request.result = {
+            close() {},
+            transaction() {
+              const transaction = {
+                objectStore: () => ({
+                  get() {
+                    const read = {};
+                    queueMicrotask(() => {
+                      read.result = memory.get("canonical");
+                      read.onsuccess();
+                      queueMicrotask(() => transaction.oncomplete());
+                    });
+                    return read;
+                  },
+                  put: (value) => memory.set("canonical", value),
+                }),
+              };
+              return transaction;
+            },
+          };
+          request.onsuccess();
+        });
+        return request;
+      },
     },
     fetch: () => {
       throw new Error("Unexpected external fetch");
@@ -72,7 +102,7 @@ function preview() {
     },
     clear() {
       memory.set(
-        key,
+        "canonical",
         JSON.stringify({
           version: 1,
           settings: {},

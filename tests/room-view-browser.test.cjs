@@ -291,14 +291,14 @@ test("landscape room view uses a wide desk row while retaining seat identities a
       const assigned = await seats();
       assert.equal(await page.evaluate(() => officeScene.grid.columns), 2);
       await page.click("#room-view-toggle");
-      await page.waitForFunction(() => officeScene.grid.columns === 5);
+      await page.waitForFunction(() => officeScene.grid.columns === 6);
       assert.equal(await page.evaluate(() => officeScene.grid.rows), 1);
       assert.deepEqual(await seats(), assigned);
       await page.setViewportSize({ width: 320, height: 568 });
       await page.waitForFunction(() => officeScene.grid.columns === 2);
       assert.deepEqual(await seats(), assigned);
       await page.setViewportSize({ width: 568, height: 320 });
-      await page.waitForFunction(() => officeScene.grid.columns === 5);
+      await page.waitForFunction(() => officeScene.grid.columns === 6);
       await page.keyboard.press("Escape");
       await page.waitForFunction(() => officeScene.grid.columns === 2);
       assert.deepEqual(await seats(), assigned);

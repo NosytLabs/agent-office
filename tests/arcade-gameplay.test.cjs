@@ -256,3 +256,65 @@ test("Duck Hunt Pause stays paused when iframe blur arrives before mouse release
     assert.equal((await snapshot(page)).paused, false);
   });
 });
+
+test("Duck Hunt holding Escape keeps the first pause action", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await openGame(page, "duck-hunt");
+    await page.locator("#arcade-duck-start").click();
+    await page.waitForFunction(() => officeArcade.snapshot().duck.ready);
+    const child = page
+      .frames()
+      .find((frame) => frame.url().includes("/arcade/duck-hunt/"));
+    const playfield = child.locator("#canvas");
+    await playfield.press("Enter");
+    await playfield.focus();
+    await page.keyboard.down("Escape");
+    await page.waitForFunction(() => officeArcade.snapshot().duck.paused);
+    await page.keyboard.down("Escape");
+    await page.keyboard.down("Escape");
+    await page.keyboard.down("Escape");
+    await page.keyboard.up("Escape");
+    await page.waitForTimeout(100);
+    assert.equal(
+      (await snapshot(page)).duck.paused,
+      true,
+      "Escape repeats cannot resume the game",
+    );
+    await playfield.press("Escape");
+    await page.waitForFunction(() => !officeArcade.snapshot().duck.paused);
+  });
+});
+
+test("Duck Hunt leaves modified keyboard shortcuts to the browser", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await openGame(page, "duck-hunt");
+    await page.locator("#arcade-duck-start").click();
+    await page.waitForFunction(() => officeArcade.snapshot().duck.ready);
+    const child = page
+      .frames()
+      .find((frame) => frame.url().includes("/arcade/duck-hunt/"));
+    const results = await child.evaluate(() => {
+      const canvas = document.getElementById("canvas");
+      return ["altKey", "ctrlKey", "metaKey"].flatMap((modifier) =>
+        ["t", "Enter", "ArrowLeft", " "].map((key) => ({
+          key,
+          modifier,
+          allowed: canvas.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key,
+              [modifier]: true,
+              bubbles: true,
+              cancelable: true,
+            }),
+          ),
+        })),
+      );
+    });
+    assert.deepEqual(
+      results.filter((result) => !result.allowed),
+      [],
+      "modified shortcuts must not be consumed as game input",
+    );
+    assert.equal(await child.locator("#keyboard-aim").isVisible(), false);
+  });
+});

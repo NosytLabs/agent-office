@@ -62,6 +62,48 @@ after(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
   if (temporary) fs.rmSync(temporary, { recursive: true, force: true });
 });
+// Inspect the actual canonical record without going through the demo API.
+async function previewStore(operation, value) {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open("agent-office:static-preview:v1", 1);
+    request.onupgradeneeded = () =>
+      request.result.createObjectStore("preferences");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = db.transaction("preferences", "readwrite"),
+        store = transaction.objectStore("preferences");
+      const request =
+        operation === "write"
+          ? store.put(value, "saved")
+          : operation === "clear"
+            ? store.clear()
+            : store.get("saved");
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onabort = transaction.onerror = () =>
+        reject(transaction.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+async function savedRecord(page) {
+  return JSON.parse(await page.evaluate(previewStore, "read"));
+}
+async function legacyRecord(page, value) {
+  await page.evaluate(previewStore, "clear");
+  await page.evaluate(
+    (record) =>
+      localStorage.setItem(
+        "agent-office:static-preview:v1",
+        JSON.stringify(record),
+      ),
+    value,
+  );
+}
+
 async function withPage(run, options = {}) {
   const {
     insecureOrigin,
@@ -95,6 +137,9 @@ async function withPage(run, options = {}) {
           });
         },
       );
+    await context.addInitScript(
+      `window.previewTestStore = ${previewStore.toString()}`,
+    );
     const p = await context.newPage();
     if (clockStart !== undefined)
       await p.addInitScript((now) => {
@@ -106,10 +151,13 @@ async function withPage(run, options = {}) {
         Storage.prototype.getItem = Storage.prototype.setItem = () => {
           throw new DOMException("Storage disabled", "SecurityError");
         };
+        indexedDB.open = () => {
+          throw new DOMException("Storage disabled", "SecurityError");
+        };
       });
     else if (storageWriteBlocked)
       await p.addInitScript(() => {
-        Storage.prototype.setItem = () => {
+        IDBObjectStore.prototype.put = () => {
           throw new DOMException("Storage full", "QuotaExceededError");
         };
       });
@@ -179,18 +227,13 @@ test("insecure HTTP preview saves preferences and still rejects a stale revision
 test("insecure HTTP preview reads legacy preferences and migrates them on a conditional save", () =>
   withPage(
     async (page) => {
-      await page.evaluate(() =>
-        localStorage.setItem(
-          "agent-office:static-preview:v1",
-          JSON.stringify({
-            version: 1,
-            settings: {
-              room_name: "Existing HTTP office",
-              pet_names: { cat1: "Maple", cat2: "Mochi" },
-            },
-          }),
-        ),
-      );
+      await legacyRecord(page, {
+        version: 1,
+        settings: {
+          room_name: "Existing HTTP office",
+          pet_names: { cat1: "Maple", cat2: "Mochi" },
+        },
+      });
       await page.reload();
       await page.waitForFunction(() => initialized);
       const read = await page.evaluate(async () => {
@@ -217,9 +260,7 @@ test("insecure HTTP preview reads legacy preferences and migrates them on a cond
         return {
           status: response.status,
           etag: response.headers.get("etag"),
-          stored: JSON.parse(
-            localStorage.getItem("agent-office:static-preview:v1"),
-          ),
+          stored: JSON.parse(await previewTestStore("read")),
         };
       }, read.etag);
       assert.equal(saved.status, 200);
@@ -234,7 +275,7 @@ test("insecure HTTP preview reads legacy preferences and migrates them on a cond
     { insecureOrigin: true },
   ));
 
-test("legacy demo revisions detect changed bytes from another tab and preserve names on retry", () =>
+test("migrated demo revisions reject an external replacement and preserve names on retry", () =>
   withPage(async (page) => {
     const other = await page.context().newPage();
     try {
@@ -242,14 +283,7 @@ test("legacy demo revisions detect changed bytes from another tab and preserve n
         version: 1,
         settings: { agent_names: { alpha: "First name", beta: "Old sibling" } },
       };
-      await page.evaluate(
-        (value) =>
-          localStorage.setItem(
-            "agent-office:static-preview:v1",
-            JSON.stringify(value),
-          ),
-        legacy,
-      );
+      await legacyRecord(page, legacy);
       await other.goto(baseURL);
       await other.waitForFunction(() => initialized && settingsReady);
       const firstTag = await page.evaluate(async () =>
@@ -262,24 +296,12 @@ test("legacy demo revisions detect changed bytes from another tab and preserve n
         firstTag,
         "Repeated reads of identical bytes keep this view's revision",
       );
-      await other.evaluate((value) => {
-        value.settings.agent_names.beta = "New sibling";
-        // Simulate a still-open pre-CAS preview, which writes no revision.
-        localStorage.setItem(
-          "agent-office:static-preview:v1",
-          JSON.stringify(value),
-        );
-      }, legacy);
-      // The legacy writer deliberately bypasses Web Locks. Its remote
-      // evaluation finishing is not a cross-renderer storage-delivery fence.
-      // Establish the changed-byte precondition before exercising stale CAS;
-      // keep both the 409 and preservation/retry assertions below unchanged.
-      await page.waitForFunction(
-        () =>
-          JSON.parse(
-            localStorage.getItem("agent-office:static-preview:v1") || "{}",
-          ).settings?.agent_names?.beta === "New sibling",
-      );
+      await other.evaluate(async () => {
+        const record = JSON.parse(await previewTestStore("read"));
+        record.settings.agent_names.beta = "New sibling";
+        record.settingsRevision = "external-reviewed-revision";
+        await previewTestStore("write", JSON.stringify(record));
+      });
       const result = await page.evaluate(async (etag) => {
         const save = await fetch("/settings", {
           method: "POST",
@@ -308,9 +330,7 @@ test("legacy demo revisions detect changed bytes from another tab and preserve n
         return {
           status: save.status,
           body: await save.json(),
-          stored: JSON.parse(
-            localStorage.getItem("agent-office:static-preview:v1"),
-          ),
+          stored: JSON.parse(await previewTestStore("read")),
         };
       });
       assert.equal(retry.status, 200);
@@ -329,15 +349,10 @@ test("legacy demo revisions detect changed bytes from another tab and preserve n
 
 test("two views can read one legacy demo record and the second save conflicts after the first persists", () =>
   withPage(async (page) => {
-    await page.evaluate(() =>
-      localStorage.setItem(
-        "agent-office:static-preview:v1",
-        JSON.stringify({
-          version: 1,
-          settings: { pet_names: { cat1: "Original pet" } },
-        }),
-      ),
-    );
+    await legacyRecord(page, {
+      version: 1,
+      settings: { pet_names: { cat1: "Original pet" } },
+    });
     const other = await page.context().newPage();
     try {
       await other.goto(baseURL);
@@ -456,9 +471,7 @@ test("demo preferences persist separately and update the same UI", () =>
       await p.evaluate(() => localStorage.getItem("unrelated-sentinel")),
       "keep",
     );
-    const stored = await p.evaluate(() =>
-      JSON.parse(localStorage.getItem("agent-office:static-preview:v1")),
-    );
+    const stored = await savedRecord(p);
     assert.equal(stored.settings.room_name, "My sample studio");
     assert.equal(stored.settings.theme, "midnight");
     assert.equal(Object.hasOwn(stored, "agents"), false);
@@ -566,6 +579,207 @@ for (const [label, options] of [
     }, options),
   );
 
+test("a failed demo transaction keeps the persisted record intact and reload recovers", () =>
+  withPage(async (page) => {
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Persisted before failure");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    const persisted = await savedRecord(page);
+    await page.evaluate(() => {
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args) {
+        const request = put.apply(this, args);
+        request.addEventListener("success", () => this.transaction.abort(), {
+          once: true,
+        });
+        return request;
+      };
+    });
+    await page.fill("#room-name-input", "In memory after aborted commit");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      await page.textContent("#room-name"),
+      "In memory after aborted commit",
+    );
+    assert.deepEqual(await savedRecord(page), persisted);
+    assert.match(
+      await page.textContent("#preview-notice"),
+      /storage is unavailable/,
+    );
+    await page.reload();
+    await page.waitForFunction(() => initialized && settingsReady);
+    assert.equal(
+      await page.textContent("#room-name"),
+      "Persisted before failure",
+    );
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Recovered persistent save");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      (await savedRecord(page)).settings.room_name,
+      "Recovered persistent save",
+    );
+  }));
+
+test("a queued demo read cannot replace a visit-only edit after a failed transaction", () =>
+  withPage(async (page) => {
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Before the aborted transaction");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    const persisted = await savedRecord(page);
+    await page.evaluate(async () => {
+      pollStopped = true;
+      clearTimeout(pollTimer);
+      await pollInFlight;
+      Object.defineProperty(navigator, "locks", { value: undefined });
+      window.transactionRaceEvents = [];
+      const transaction = IDBDatabase.prototype.transaction;
+      IDBDatabase.prototype.transaction = function (...args) {
+        transactionRaceEvents.push("transaction created");
+        return transaction.apply(this, args);
+      };
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args) {
+        const request = put.apply(this, args);
+        request.addEventListener(
+          "success",
+          () => {
+            transactionRaceEvents.push("write staged");
+            window.queuedDemoRead = fetch("settings").then((response) =>
+              response.json(),
+            );
+            // The read creates its transaction in the preceding microtask. Its
+            // request must wait for this transaction to abort before proceeding.
+            queueMicrotask(() => {
+              transactionRaceEvents.push("write aborted");
+              this.transaction.abort();
+            });
+          },
+          { once: true },
+        );
+        return request;
+      };
+    });
+    await page.fill("#room-name-input", "Acknowledged visit-only edit");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    const raced = await page.evaluate(async () => ({
+      events: [...transactionRaceEvents],
+      queued: await queuedDemoRead,
+      later: await (await fetch("settings")).json(),
+    }));
+    assert.deepEqual(raced.events, [
+      "transaction created",
+      "write staged",
+      "transaction created",
+      "write aborted",
+    ]);
+    assert.equal(raced.queued.room_name, "Acknowledged visit-only edit");
+    assert.equal(raced.later.room_name, "Acknowledged visit-only edit");
+    await page.evaluate(async () =>
+      applyState(await (await fetch("state")).json()),
+    );
+    assert.equal(
+      await page.textContent("#room-name"),
+      "Acknowledged visit-only edit",
+    );
+    assert.deepEqual(await savedRecord(page), persisted);
+    assert.match(
+      await page.textContent("#preview-notice"),
+      /storage is unavailable/,
+    );
+  }));
+
+test("invalid legacy preferences stay untouched until repaired and migrate exactly once", () =>
+  withPage(async (page) => {
+    await page.evaluate(previewStore, "clear");
+    const broken = '{"version":1,"settings":';
+    await page.evaluate(
+      (raw) => localStorage.setItem("agent-office:static-preview:v1", raw),
+      broken,
+    );
+    await page.reload();
+    await page.waitForFunction(() => initialized);
+    assert.equal(await page.evaluate(() => settingsReady), false);
+    assert.equal(await page.evaluate(previewStore, "read"), undefined);
+    assert.equal(
+      await page.evaluate(() =>
+        localStorage.getItem("agent-office:static-preview:v1"),
+      ),
+      broken,
+    );
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "agent-office:static-preview:v1",
+        JSON.stringify({
+          version: 1,
+          settings: {
+            room_name: "Repaired legacy room",
+            pet_names: { cat1: "Maple" },
+          },
+        }),
+      ),
+    );
+    await page.evaluate(async () =>
+      applyState(await (await fetch("state")).json()),
+    );
+    assert.equal(await page.evaluate(() => settingsReady), true);
+    assert.equal(await page.textContent("#room-name"), "Repaired legacy room");
+    assert.equal(
+      await page.evaluate(() =>
+        localStorage.getItem("agent-office:static-preview:v1"),
+      ),
+      null,
+    );
+    const migrated = await savedRecord(page);
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "agent-office:static-preview:v1",
+        JSON.stringify({
+          version: 1,
+          settings: { room_name: "Stale legacy cache" },
+        }),
+      ),
+    );
+    await page.reload();
+    await page.waitForFunction(() => initialized && settingsReady);
+    assert.deepEqual(await savedRecord(page), migrated);
+    assert.equal(await page.textContent("#room-name"), "Repaired legacy room");
+  }));
+
+test("clearing the site's browser data starts a fresh persistent demo", () =>
+  withPage(async (page) => {
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Before clearing browser data");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    const session = await page.context().newCDPSession(page);
+    await session.send("Storage.clearDataForOrigin", {
+      origin: baseURL,
+      storageTypes: "indexeddb,local_storage",
+    });
+    await session.detach();
+    await page.reload();
+    await page.waitForFunction(() => initialized && settingsReady);
+    assert.equal((await savedRecord(page)).settings.room_name, undefined);
+    assert.notEqual(
+      await page.textContent("#room-name"),
+      "Before clearing browser data",
+    );
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Saved after clearing browser data");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    assert.equal(
+      (await savedRecord(page)).settings.room_name,
+      "Saved after clearing browser data",
+    );
+  }));
+
 test("two preview tabs keep conditional preferences and preserve reset/history changes", () =>
   withPage(async (p) => {
     const other = await p.context().newPage();
@@ -587,10 +801,7 @@ test("two preview tabs keep conditional preferences and preserve reset/history c
         if (!response.ok) throw new Error("Demo preference write failed");
         return response.json();
       }, patch);
-    const stored = () =>
-      p.evaluate(() =>
-        JSON.parse(localStorage.getItem("agent-office:static-preview:v1")),
-      );
+    const stored = () => savedRecord(p);
 
     await update(p, { room_name: "Shared sample room" });
     await update(other, { sound: true });
@@ -636,97 +847,167 @@ test("two preview tabs keep conditional preferences and preserve reset/history c
     assert.deepEqual(errors, []);
   }));
 
-test("two native demo views serialize conditional map saves and keep a rejected draft", () =>
-  withPage(async (p) => {
-    const other = await p.context().newPage();
-    await other.goto(baseURL);
-    await other.waitForFunction(() => initialized && settingsReady);
-    for (const page of [p, other]) await page.click("#settingsbtn");
-    await p.fill("#pet-cat1-name", "Orange from first tab");
-    await other.fill("#pet-cat2-name", "Black from second tab");
-    // Hold the actual Web Lock until both native form submissions are waiting.
-    // Each view has the same acknowledged revision and a different full map.
-    await p.evaluate(() => {
-      window.demoLockHeld = false;
-      navigator.locks.request(
-        "agent-office:static-preview:v1",
-        () =>
-          new Promise((resolve) => {
-            window.releaseDemoLock = resolve;
-            window.demoLockHeld = true;
-          }),
-      );
-    });
-    await p.waitForFunction(() => window.demoLockHeld);
-    try {
-      await p.locator("#pet-name-form button").click();
-      await other.locator("#pet-name-form button").click();
-      for (const page of [p, other])
-        await page.waitForFunction(() => pendingSaves === 1);
-      await p.evaluate(() => window.releaseDemoLock());
-      for (const page of [p, other])
-        await page.waitForFunction(() => pendingSaves === 0);
-      const names = await p.evaluate(
-        async () => (await (await fetch("settings")).json()).pet_names,
-      );
-      assert.equal(
-        Object.keys(names).length,
-        1,
-        "one revision wins, so one stale map is rejected",
-      );
-      const rejected = Object.hasOwn(names, "cat1") ? other : p;
-      await rejected.bringToFront();
-      await rejected
-        .waitForFunction(() => {
-          const notice = document.getElementById("settings-save-notice");
-          return (
-            !notice.hidden && /changed in another view/.test(notice.textContent)
+for (const delayedStorage of [false, true])
+  test(
+    "two native demo views serialize conditional map saves and keep a rejected draft" +
+      (delayedStorage
+        ? " while a renderer's localStorage snapshot is delayed"
+        : ""),
+    () =>
+      withPage(async (p) => {
+        const other = await p.context().newPage();
+        if (delayedStorage)
+          await other.addInitScript(() => {
+            const original = Storage.prototype.getItem,
+              snapshot = original.call(
+                localStorage,
+                "agent-office:static-preview:v1",
+              );
+            Storage.prototype.getItem = function (key) {
+              return key === "agent-office:static-preview:v1"
+                ? snapshot
+                : original.call(this, key);
+            };
+            addEventListener(
+              "storage",
+              (event) => {
+                if (event.key === "agent-office:static-preview:v1")
+                  event.stopImmediatePropagation();
+              },
+              true,
+            );
+            // The stored transaction must enforce CAS without notification delivery.
+            window.BroadcastChannel = undefined;
+          });
+        await other.goto(baseURL);
+        await other.waitForFunction(() => initialized && settingsReady);
+        for (const page of [p, other]) {
+          await page.click("#settingsbtn");
+          await page.evaluate(() => {
+            window.settingsReceipts = [];
+            const original = fetch;
+            window.fetch = async (input, options) => {
+              const response = await original(input, options);
+              if (options?.method === "POST" && input === "settings")
+                settingsReceipts.push({
+                  condition: options.headers["If-Match"],
+                  status: response.status,
+                });
+              return response;
+            };
+          });
+        }
+        await p.fill("#pet-cat1-name", "Orange from first tab");
+        await other.fill("#pet-cat2-name", "Black from second tab");
+        // Hold the actual Web Lock until both native form submissions are waiting.
+        // Each view has the same acknowledged revision and a different full map.
+        await p.evaluate(() => {
+          window.demoLockHeld = false;
+          navigator.locks.request(
+            "agent-office:static-preview:v1",
+            () =>
+              new Promise((resolve) => {
+                window.releaseDemoLock = resolve;
+                window.demoLockHeld = true;
+              }),
           );
-        })
-        .catch(async (error) => {
-          console.error(
-            "Map conflict diagnostics",
-            await Promise.all(
-              [p, other].map((page) =>
-                page.evaluate(() => ({
-                  names: settings.pet_names,
-                  confirmed: confirmedSettings.pet_names,
-                  message: settingsSaveMessage,
-                  unavailable: settingsUnavailable,
-                  notice: document.getElementById("settings-save-notice")
-                    .outerHTML,
-                  pending: pendingSaves,
-                  drafts: [...settingsDrafts],
-                  fields: [
-                    document.getElementById("pet-cat1-name").value,
-                    document.getElementById("pet-cat2-name").value,
-                  ],
-                })),
-              ),
-            ),
-          );
-          throw error;
         });
-      assert.equal(await rejected.isVisible("#settings-save-notice"), true);
-      assert.match(
-        await rejected.textContent("#settings-save-notice"),
-        /changed in another view/,
-      );
-      await rejected.locator("#pet-name-form button").click();
-      await rejected.waitForFunction(() => pendingSaves === 0);
-      assert.deepEqual(
-        await p.evaluate(
-          async () => (await (await fetch("settings")).json()).pet_names,
-        ),
-        {
-          cat1: "Orange from first tab",
-          cat2: "Black from second tab",
-        },
-      );
-    } finally {
-      await p.evaluate(() => window.releaseDemoLock?.());
-    }
-  }));
+        await p.waitForFunction(() => window.demoLockHeld);
+        try {
+          await p.locator("#pet-name-form button").click();
+          await p.waitForFunction(
+            async () =>
+              (await navigator.locks.query()).pending.filter(
+                (lock) =>
+                  lock.name === "agent-office:static-preview:v1" &&
+                  lock.mode === "exclusive",
+              ).length === 1,
+          );
+          await other.locator("#pet-name-form button").click();
+          await p.waitForFunction(
+            async () =>
+              (await navigator.locks.query()).pending.filter(
+                (lock) =>
+                  lock.name === "agent-office:static-preview:v1" &&
+                  lock.mode === "exclusive",
+              ).length === 2,
+          );
+          for (const page of [p, other])
+            await page.waitForFunction(() => pendingSaves === 1);
+          await p.evaluate(() => window.releaseDemoLock());
+          for (const page of [p, other])
+            await page.waitForFunction(() => pendingSaves === 0);
+          const receipts = await Promise.all(
+            [p, other].map((page) => page.evaluate(() => settingsReceipts[0])),
+          );
+          assert.equal(receipts[0].condition, receipts[1].condition);
+          assert.deepEqual(
+            receipts.map((receipt) => receipt.status),
+            [200, 409],
+          );
+          const names = await p.evaluate(
+            async () => (await (await fetch("settings")).json()).pet_names,
+          );
+          assert.equal(
+            Object.keys(names).length,
+            1,
+            "one revision wins, so one stale map is rejected",
+          );
+          const rejected = Object.hasOwn(names, "cat1") ? other : p;
+          await rejected.bringToFront();
+          await rejected
+            .waitForFunction(() => {
+              const notice = document.getElementById("settings-save-notice");
+              return (
+                !notice.hidden &&
+                /changed in another view/.test(notice.textContent)
+              );
+            })
+            .catch(async (error) => {
+              console.error(
+                "Map conflict diagnostics",
+                await Promise.all(
+                  [p, other].map((page) =>
+                    page.evaluate(() => ({
+                      names: settings.pet_names,
+                      confirmed: confirmedSettings.pet_names,
+                      message: settingsSaveMessage,
+                      unavailable: settingsUnavailable,
+                      notice: document.getElementById("settings-save-notice")
+                        .outerHTML,
+                      pending: pendingSaves,
+                      drafts: [...settingsDrafts],
+                      fields: [
+                        document.getElementById("pet-cat1-name").value,
+                        document.getElementById("pet-cat2-name").value,
+                      ],
+                    })),
+                  ),
+                ),
+              );
+              throw error;
+            });
+          assert.equal(await rejected.isVisible("#settings-save-notice"), true);
+          assert.match(
+            await rejected.textContent("#settings-save-notice"),
+            /changed in another view/,
+          );
+          await rejected.locator("#pet-name-form button").click();
+          await rejected.waitForFunction(() => pendingSaves === 0);
+          assert.deepEqual(
+            await p.evaluate(
+              async () => (await (await fetch("settings")).json()).pet_names,
+            ),
+            {
+              cat1: "Orange from first tab",
+              cat2: "Black from second tab",
+            },
+          );
+        } finally {
+          await p.evaluate(() => window.releaseDemoLock?.());
+        }
+      }),
+  );
 
 test("static settings expose revisions and reject missing or stale write conditions", () =>
   withPage(async (p) => {
@@ -775,18 +1056,15 @@ test("malformed stored demo preferences stay intact and block edits until repair
     await p.fill("#room-name-input", "Preserved demo preferences");
     await p.click("#room-name-save");
     await p.waitForFunction(() => pendingSaves === 0);
-    const original = await p.evaluate(() =>
-      localStorage.getItem("agent-office:static-preview:v1"),
-    );
+    const original = await p.evaluate(previewStore, "read");
     for (const corrupt of [
       '{"version":1,"settings":',
       JSON.stringify({ version: 1, settings: null }),
       "x".repeat(65537),
     ]) {
       const result = await p.evaluate(async (raw) => {
-        const key = "agent-office:static-preview:v1";
         const etag = (await fetch("settings")).headers.get("ETag");
-        localStorage.setItem(key, raw);
+        await previewTestStore("write", raw);
         const snapshot = await (await fetch("state")).json();
         applyState(snapshot);
         const read = await fetch("settings");
@@ -804,7 +1082,7 @@ test("malformed stored demo preferences stay intact and block edits until repair
           write: write.status,
           clear: clear.status,
           reset: reset.status,
-          stored: localStorage.getItem(key),
+          stored: await previewTestStore("read"),
         };
       }, corrupt);
       assert.equal(result.snapshot.settings_status.available, false);
@@ -828,9 +1106,7 @@ test("malformed stored demo preferences stay intact and block edits until repair
       await p.keyboard.press("Escape");
       await p.click("#preview-restore");
       assert.equal(
-        await p.evaluate(() =>
-          localStorage.getItem("agent-office:static-preview:v1"),
-        ),
+        await p.evaluate(previewStore, "read"),
         corrupt,
         "restoring the sample must not overwrite unreadable preferences",
       );
@@ -839,7 +1115,7 @@ test("malformed stored demo preferences stay intact and block edits until repair
       assert.equal(await p.evaluate(() => settingsReady), false);
       assert.ok(await p.evaluate(() => agents.length > 0));
       await p.evaluate(async (raw) => {
-        localStorage.setItem("agent-office:static-preview:v1", raw);
+        await previewTestStore("write", raw);
         applyState(await (await fetch("state")).json());
       }, original);
       await p.waitForFunction(() => settingsReady);

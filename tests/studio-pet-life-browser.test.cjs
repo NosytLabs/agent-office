@@ -199,7 +199,7 @@ test("a missing life pack leaves walking usable and retries without losing draft
   await observerFixture({}, async ({ page, state }) => {
     await ready(page);
     const before = accounting(await state());
-    await page.route("**/studio/pet-life.png", (route) =>
+    await page.route("**/studio/pet-life.png*", (route) =>
       route.fulfill({ status: 404, body: "missing" }),
     );
     await page.reload();
@@ -217,7 +217,7 @@ test("a missing life pack leaves walking usable and retries without losing draft
     );
     await page.click("#settingsbtn");
     await page.fill("#room-name-input", "Life pack unsaved draft");
-    await page.unroute("**/studio/pet-life.png");
+    await page.unroute("**/studio/pet-life.png*");
     await page.click("#studio-art-retry");
     await ready(page);
     assert.equal(

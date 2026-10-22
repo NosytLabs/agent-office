@@ -70,7 +70,7 @@ test("reaction loops are native, grounded, distinct and remain independently rec
     await page.click("#settingsbtn");
     await page.locator("#studio-gallery summary").click();
     await page.fill("#room-name-input", "Keep this reaction draft");
-    await page.route("**/studio/character-reactions.png", (route) =>
+    await page.route("**/studio/character-reactions.png*", (route) =>
       route.fulfill({ status: 404, body: "missing" }),
     );
     await page.evaluate(() => officeStudio.reload());
@@ -90,7 +90,7 @@ test("reaction loops are native, grounded, distinct and remain independently rec
       await page.locator("#studio-strip-download").isDisabled(),
       true,
     );
-    await page.unroute("**/studio/character-reactions.png");
+    await page.unroute("**/studio/character-reactions.png*");
     await page.click("#studio-art-retry");
     await page.waitForFunction(
       () =>

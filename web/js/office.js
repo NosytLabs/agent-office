@@ -988,10 +988,9 @@ function syncEmptyState() {
     : "The office is ready.";
   $("empty-state").querySelector("p").textContent = filtered
     ? "Your other agents are still on the floor."
-    : "Connect a runtime, then start a session to bring the room to life.";
+    : "Workstations are ready. Connect a runtime to see your real sessions here.";
   $("empty-connect").hidden = filtered;
   $("empty-show-all").hidden = !filtered;
-  $("empty-demo").hidden = filtered;
 }
 $("empty-show-all").onclick = () => {
   $("filterbtn").value = platFilter = "every";
@@ -2989,7 +2988,7 @@ function fillSettings() {
     const row = document.createElement("label");
     row.className = "row";
     row.innerHTML =
-      '<span class="setting-label">Maximum desks per row</span><input class="txt" type="number" id="mc" min="2" max="8" aria-label="Maximum desks per row">';
+      '<span class="setting-label">Desks per row</span><input class="txt" type="number" id="mc" min="2" max="8" aria-label="Desks per row">';
     row.querySelector("input").value = settings.max_chars;
     row.querySelector("input").onchange = (e) =>
       updateSetting(

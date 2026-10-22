@@ -348,7 +348,7 @@ test("the companion gallery exports the selected four-frame native strip", async
 test("missing room and companion artwork keeps the base set and retries without losing drafts", async () => {
   await observerFixture({}, async ({ page, state }) => {
     await ready(page);
-    const routes = ["**/studio/room-surfaces.png", "**/studio/pet-walk.png"];
+    const routes = ["**/studio/room-surfaces.png*", "**/studio/pet-walk.png*"];
     for (const route of routes)
       await page.route(route, (request) =>
         request.fulfill({ status: 404, body: "missing optional artwork" }),

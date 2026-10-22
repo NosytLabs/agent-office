@@ -203,7 +203,7 @@ test("directional frames export a real native strip and remain usable on mobile"
 test("missing directional artwork keeps the base set and retries without losing a draft", async () => {
   await observerFixture({}, async ({ page, state }) => {
     await ready(page);
-    await page.route("**/studio/directional.png", (route) =>
+    await page.route("**/studio/directional.png*", (route) =>
       route.fulfill({ status: 404, body: "missing" }),
     );
     await page.reload();
@@ -221,7 +221,7 @@ test("missing directional artwork keeps the base set and retries without losing 
     await page.evaluate(() => {
       window.__directionalDocument = true;
     });
-    await page.unroute("**/studio/directional.png");
+    await page.unroute("**/studio/directional.png*");
     await page.click("#studio-art-retry");
     await ready(page);
     assert.equal(await page.evaluate(() => window.__directionalDocument), true);

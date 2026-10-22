@@ -392,13 +392,13 @@ test("the shared appearance resolver and crown use the loaded fallback frame", (
   assert.equal(rectangles[0][1], 24);
 });
 
-test("unset preferences preserve the existing workstation order and geometry", () => {
+test("unset preferences preserve session order on the configured physical floor", () => {
   const scene = sceneWith([agent("gamma"), agent("alpha"), agent("beta")]);
   const room = scene.layout(1100);
   assert.deepEqual(plain(room.seats.map(({ a, x, y }) => [a.id, x, y])), [
-    ["gamma", 72, 60],
-    ["alpha", 140, 60],
-    ["beta", 208, 60],
+    ["gamma", 50, 60],
+    ["alpha", 118, 60],
+    ["beta", 186, 60],
   ]);
   assert.deepEqual(slots(room), { gamma: 0, alpha: 1, beta: 2 });
 });

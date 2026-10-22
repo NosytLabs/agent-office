@@ -190,18 +190,24 @@ labels track those same lifecycle changes; pending tasks remain pending.
 The fixed example does not invent new runtime work while the page is open.
 Restore sample starts the fictional scene again with fresh relative times.
 
-Room preferences use the `agent-office:static-preview:v1` localStorage key;
-validated browser view preferences use a separate demo-specific key. Neither
+Room preferences use one record in the `agent-office:static-preview:v1`
+IndexedDB database. Existing preferences in the former localStorage key of the
+same name migrate once, and that key is removed after the migration commits.
+Validated browser view preferences use a separate demo-specific key. Neither
 alters a real office. Clear demo history
 removes the displayed history while preserving sample agents, XP, and usage.
 Reset demo progress clears the sample agents, achievements, usage, and history
 while preserving room preferences. Restore sample reinstates the original
 fictional state while keeping those preferences. Settings writes use revisions
-and Web Locks to detect conflicts between tabs. A stale edit keeps its draft
+and an IndexedDB transaction to detect conflicts between tabs. Web Locks also
+order cooperating reads and writes; their ordering alone does not refresh a
+renderer’s cached localStorage snapshot. A stale edit keeps its draft
 and asks the user to review the current settings before retrying. Malformed or
 oversized saved demo data remains untouched, with editing and destructive demo
 actions disabled until it is repaired. If browser storage itself is blocked,
 changes last for the current visit and the notice explains that separate limit.
+Clearing this site's browser storage removes the saved demo preferences;
+resetting demo progress keeps them, as the confirmation explains.
 Theme changes and furniture editing customize the example; they do not generate
 observer events or increase its fixed sample activity totals.
 

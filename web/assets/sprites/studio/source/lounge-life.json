@@ -1,0 +1,9 @@
+{
+  "tool": "image_gen.imagegen",
+  "prompt": "Create a transparent pixel-art animation sprite sheet by editing the attached exact native sprite seeds. Output exactly 1536x1024 pixels, 4 equal columns and 2 equal rows (each cell 384x512). No text, labels, grid lines, border, ground, background, shadows outside the sprites. Row 1: the exact warm standing floor lamp from the upper seed, 4 animation frames left to right. Keep its cream shade, dark brown upright stem and small base absolutely anchored and identical in outline, size, orientation and placement in every frame. Only the lit cream/gold shade interior softly pulses warm gold across frames; no physical sway. Row 2: the exact small glass terrarium from the lower seed, 4 frames left to right, pale teal glass geometric round jar, brown wooden base and lush moss green leaves. Keep the glass outer outline and wooden base anchored and identical; only the leaves inside gently shift by one or two logical pixels and a tiny existing glass glint changes. Frame 1 of each row must match its exact supplied seed. Camera is fixed front three-quarter pixel office prop camera as in seeds. Enlarge seeds with nearest-neighbor crisp square logical pixels, no smooth edges, antialiasing, gradients, extra detail or redesign. Every frame is centered within its 384x512 cell with generous transparent padding. All frames in each row use exactly one shared scale and bottom-center anchor. This is game production art, usable as a subtle four-frame looping animation; preserve character of the approved sprites. True alpha transparency.",
+  "reference": "lounge-seeds.png",
+  "transparent_background": true,
+  "sourcePreservedUnmodified": true,
+  "generatedImage": "exec-884a0aa5-839e-4fde-8725-0e0c70ce4b0b.png",
+  "purpose": "Four-frame warm lamp pulse and terrarium leaf/glint loops; exact seed frame zero and fixed native physical footprint."
+}

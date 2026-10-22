@@ -121,7 +121,8 @@
       pets = name === "pet-walk" || name === "pet-life",
       characters = name === "character-life" || name === "character-reactions",
       workplace = name === "workplace-life",
-      props = name === "prop-life" || workplace;
+      lounge = name === "lounge-life",
+      props = name === "prop-life" || workplace || lounge;
     if (
       (!surfaces && !pets && !characters && !props) ||
       !m ||
@@ -148,18 +149,36 @@
       return false;
     const expected = [];
     if (props)
-      (workplace ? ["server", "coffee"] : ["arcade", "printer"]).forEach(
-        (kind, row) => {
-          const width = workplace ? 20 : 24,
-            height = workplace ? (row ? 26 : 32) : row ? 24 : 34;
-          for (let frame = 0; frame < 4; frame++)
-            expected.push([
-              `${kind}-anim-${frame}`,
-              [frame * width, row ? (workplace ? 32 : 34) : 0, width, height],
-              [width / 2, height - 1],
-            ]);
-        },
-      );
+      (lounge
+        ? ["lamp", "terrarium"]
+        : workplace
+          ? ["server", "coffee"]
+          : ["arcade", "printer"]
+      ).forEach((kind, row) => {
+        const width = lounge && !row ? 12 : workplace ? 20 : 24,
+          height = lounge
+            ? row
+              ? 28
+              : 30
+            : workplace
+              ? row
+                ? 26
+                : 32
+              : row
+                ? 24
+                : 34;
+        for (let frame = 0; frame < 4; frame++)
+          expected.push([
+            `${kind}-anim-${frame}`,
+            [
+              frame * width,
+              row ? (lounge ? 30 : workplace ? 32 : 34) : 0,
+              width,
+              height,
+            ],
+            [width / 2, height - 1],
+          ]);
+      });
     else if (surfaces)
       ["oak-floor", "slate-floor", "oak-wall", "slate-wall"].forEach((key, i) =>
         expected.push([
@@ -560,6 +579,7 @@
     characterReactions: new Map(),
     propLife: new Map(),
     workplaceLife: new Map(),
+    loungeLife: new Map(),
     environmentError: "",
     error: "",
     prefs,
@@ -668,8 +688,9 @@
     });
   };
   scene.desk = function (s) {
-    const result = original.desk.call(this, s),
-      c = this.chars.get(s.a.id);
+    const result = original.desk.call(this, s);
+    if (!s.a) return result;
+    const c = this.chars.get(s.a.id);
     if (
       enabled() &&
       c &&
@@ -1033,7 +1054,7 @@
       }, 4500),
     );
   });
-  function loadImage(index) {
+  function loadImage(index, revision) {
     return new Promise((resolve, reject) => {
       const im = new Image(),
         timer = setTimeout(
@@ -1055,7 +1076,8 @@
         finish(new Error("Studio image unavailable: " + index));
       im.src =
         "assets/sprites/studio/" +
-        (typeof index === "number" ? `studio-${index}.png` : index);
+        (typeof index === "number" ? `studio-${index}.png` : index) +
+        (revision ? "?v=" + revision : "");
     });
   }
   function paletteVariant(source, finish) {
@@ -1082,6 +1104,7 @@
   async function loadManifest(name) {
     const response = await fetch(`assets/sprites/studio/${name}.json`, {
       signal: AbortSignal.timeout(15000),
+      cache: "no-store",
     });
     if (!response.ok) throw new Error(`${name} manifest unavailable`);
     return response.json();
@@ -1089,7 +1112,7 @@
   async function loadDirectional(manifest) {
     if (!validDirectionalManifest(manifest))
       throw new Error("Invalid directional atlas");
-    const image = await loadImage("directional.png");
+    const image = await loadImage("directional.png", manifest.rgbaSha256);
     if (image.naturalWidth !== 384 || image.naturalHeight !== 216)
       throw new Error("Directional image dimensions differ");
     const atlas = document.createElement("canvas");
@@ -1135,7 +1158,7 @@
   async function loadEnvironment(name, manifest) {
     if (!validEnvironmentManifest(manifest, name))
       throw new Error(`Invalid ${name} atlas`);
-    const image = await loadImage(name + ".png");
+    const image = await loadImage(name + ".png", manifest.rgbaSha256);
     if (
       image.naturalWidth !== manifest.width ||
       image.naturalHeight !== manifest.height
@@ -1192,6 +1215,7 @@
     try {
       const response = await fetch("assets/sprites/studio/studio.json", {
         signal: AbortSignal.timeout(15000),
+        cache: "no-store",
       });
       if (!response.ok) throw new Error("Studio manifest unavailable");
       const manifest = await response.json();
@@ -1202,7 +1226,9 @@
       )
         throw new Error("Invalid studio atlas");
       const pages = await Promise.all(
-          Array.from({ length: 8 }, (_, i) => loadImage(i)),
+          Array.from({ length: 8 }, (_, i) =>
+            loadImage(i, manifest.rgbaSha256),
+          ),
         ),
         atlas = document.createElement("canvas");
       atlas.width = 512;
@@ -1260,6 +1286,7 @@
           "character-reactions",
           "prop-life",
           "workplace-life",
+          "lounge-life",
         ],
         manifests = await Promise.allSettled(names.map(loadManifest)),
         extras = await Promise.allSettled(
@@ -1285,6 +1312,7 @@
         "characterReactions",
         "propLife",
         "workplaceLife",
+        "loungeLife",
       ].forEach((property, index) => {
         const result = extras[index];
         art[property] =
@@ -1303,6 +1331,9 @@
         art.directionalReady && !art.environmentError
           ? "Studio sprites, character activity, room finishes and directional walking ready. Viewing choices stay on this browser."
           : "Studio sprites ready. Some optional artwork is unavailable; use Retry artwork to restore it.";
+      status.title = [art.directionalError, art.environmentError]
+        .filter(Boolean)
+        .join(" ");
       redraw();
     } catch (error) {
       art.ready = false;
@@ -1316,10 +1347,12 @@
       art.characterReactions.clear();
       art.propLife.clear();
       art.workplaceLife.clear();
+      art.loungeLife.clear();
       art.source = "fallback";
       art.error = error.message;
       status.textContent =
         "Using original artwork. Studio sprites could not load.";
+      status.title = art.error;
       redraw();
     }
     scene.studioArtSource = art.source;

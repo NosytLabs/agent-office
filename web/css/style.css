@@ -282,27 +282,23 @@ h2 {
   touch-action: pan-y;
 }
 #empty-state {
-  position: absolute;
-  left: 50%;
-  top: 55%;
-  transform: translate(-50%, -50%);
-  width: min(90%, 380px);
-  max-height: calc(90% - 24px);
-  overflow: auto;
-  overscroll-behavior: contain;
-  text-align: center;
+  flex-shrink: 0;
+  margin-top: 10px;
   background: var(--panel);
-  padding: 18px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 20px var(--shadow);
 }
 #empty-state h3 {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
+  font-size: 15px;
 }
 #empty-state p {
+  margin: 0 0 8px;
+  color: var(--dim);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.4;
 }
 code {
   font-family: ui-monospace, monospace;
@@ -422,6 +418,14 @@ footer {
   min-height: 80px;
   height: auto;
   flex: 1;
+}
+.room-focus #empty-state {
+  margin-top: 4px;
+  padding: 4px 8px;
+}
+.room-focus #empty-state h3,
+.room-focus #empty-state p {
+  display: none;
 }
 .room-focus .scene-controls {
   justify-content: center;

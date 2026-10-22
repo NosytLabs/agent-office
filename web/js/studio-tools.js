@@ -102,7 +102,7 @@
   }
   function frameKey(key, state = {}) {
     if (key === "lamp" && state.lights === false) return "lamp-off";
-    if (key === "arcade" || key === "printer") {
+    if (key === "arcade" || key === "printer" || key === "lamp") {
       const time = Number.isFinite(state.time) ? Math.max(0, state.time) : 0;
       return (
         key +
@@ -689,6 +689,7 @@
         for (const [key, value] of art.propLife || []) frames.set(key, value);
         for (const [key, value] of art.workplaceLife || [])
           frames.set(key, value);
+        for (const [key, value] of art.loungeLife || []) frames.set(key, value);
         for (const [key, value] of [
           ...art.sprites,
           ...art.directional,

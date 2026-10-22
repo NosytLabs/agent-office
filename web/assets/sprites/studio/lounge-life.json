@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "image": "lounge-life.png",
+  "width": 96,
+  "height": 58,
+  "rgbaSha256": "04cfed7f017d898de37108985586d5a706433bc71d5b553cbfea27907dcb4c15",
+  "source": "source/lounge-life.png",
+  "sourceSha256": "e74b90a19e2dd4cfff821531eb8c15a3767d6f9788d95a840bdbba804e22c29f",
+  "sourceDimensions": [
+    1536,
+    1024
+  ],
+  "sourcePreservedUnmodified": true,
+  "sourceBounds": [
+    [
+      [
+        121,
+        134,
+        143,
+        323
+      ],
+      [
+        505,
+        134,
+        143,
+        323
+      ],
+      [
+        889,
+        134,
+        143,
+        323
+      ],
+      [
+        1273,
+        134,
+        143,
+        323
+      ]
+    ],
+    [
+      [
+        84,
+        678,
+        217,
+        207
+      ],
+      [
+        468,
+        678,
+        217,
+        207
+      ],
+      [
+        852,
+        678,
+        217,
+        207
+      ],
+      [
+        1236,
+        678,
+        217,
+        207
+      ]
+    ]
+  ],
+  "rowScales": [
+    0.07692307692307693,
+    0.10628019323671498
+  ],
+  "entries": {
+    "lamp-anim-0": {
+      "rect": [
+        0,
+        0,
+        12,
+        30
+      ],
+      "anchor": [
+        6,
+        29
+      ]
+    },
+    "lamp-anim-1": {
+      "rect": [
+        12,
+        0,
+        12,
+        30
+      ],
+      "anchor": [
+        6,
+        29
+      ]
+    },
+    "lamp-anim-2": {
+      "rect": [
+        24,
+        0,
+        12,
+        30
+      ],
+      "anchor": [
+        6,
+        29
+      ]
+    },
+    "lamp-anim-3": {
+      "rect": [
+        36,
+        0,
+        12,
+        30
+      ],
+      "anchor": [
+        6,
+        29
+      ]
+    },
+    "terrarium-anim-0": {
+      "rect": [
+        0,
+        30,
+        24,
+        28
+      ],
+      "anchor": [
+        12,
+        27
+      ]
+    },
+    "terrarium-anim-1": {
+      "rect": [
+        24,
+        30,
+        24,
+        28
+      ],
+      "anchor": [
+        12,
+        27
+      ]
+    },
+    "terrarium-anim-2": {
+      "rect": [
+        48,
+        30,
+        24,
+        28
+      ],
+      "anchor": [
+        12,
+        27
+      ]
+    },
+    "terrarium-anim-3": {
+      "rect": [
+        72,
+        30,
+        24,
+        28
+      ],
+      "anchor": [
+        12,
+        27
+      ]
+    }
+  },
+  "seed": "source/lounge-seeds.png",
+  "seedSha256": "4bc7a0f8ab4e82aff75951fb3edf8b99bf0057d2edbf0429cf55a8c3f8b91aaf",
+  "lockedFirstFrames": true,
+  "alphaThreshold": 224,
+  "palette": "nearest seed RGB",
+  "animatedRegions": {
+    "lamp": [
+      [
+        3,
+        2,
+        6,
+        6
+      ]
+    ],
+    "terrarium": [
+      [
+        4,
+        4,
+        16,
+        17
+      ]
+    ]
+  }
+}
