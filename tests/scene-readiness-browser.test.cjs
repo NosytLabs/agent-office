@@ -3,6 +3,139 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const { observerFixture } = require("./observer-fixture.cjs");
 
+test("phone floors fit their rows without blank vertical bands and room view still fills the screen", async () => {
+  await observerFixture({}, async ({ page, publish, state }) => {
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
+    const before = await state();
+    for (const [width, height] of [
+      [390, 844],
+      [320, 568],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForFunction(() => officeScene.canvas.clientWidth < 600);
+      const fit = await page.evaluate(() => {
+        officeScene.draw(0);
+        return {
+          stage: document.getElementById("stage").clientHeight,
+          floor: officeScene.grid.h * officeScene.transform.scale,
+          card: document
+            .getElementById("empty-state")
+            .getBoundingClientRect()
+            .toJSON(),
+          bottom: document.getElementById("stage").getBoundingClientRect()
+            .bottom,
+        };
+      });
+      assert.ok(
+        fit.stage - fit.floor <= 40,
+        "A small floor keeps only its drawing gutters",
+      );
+      assert.ok(fit.stage >= 240 && fit.stage <= 500);
+      assert.ok(fit.card.top >= fit.bottom);
+    }
+    publish(
+      Array.from({ length: 12 }, (_, i) => ({
+        event: "session_start",
+        session_id: "layout-" + i,
+        platform: "codex",
+      })),
+    );
+    await page.evaluate(() => poll());
+    await page.waitForFunction(() => officeScene.grid.rows === 6);
+    assert.ok(
+      await page.locator("#stage").evaluate((el) => el.clientHeight <= 500),
+    );
+    await page.setViewportSize({ width: 568, height: 320 });
+    await page.click("#room-view-toggle");
+    await page.waitForFunction(() => officeScene.roomView);
+    const roomView = await page.evaluate(() => ({
+      stage: document.getElementById("stage").getBoundingClientRect().toJSON(),
+      footer: document.querySelector("footer").getBoundingClientRect().toJSON(),
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    }));
+    assert.ok(roomView.stage.height >= 80);
+    assert.ok(roomView.footer.bottom <= 320);
+    assert.equal(roomView.overflow, false);
+    await page.keyboard.press("Escape");
+    const after = await state();
+    assert.deepEqual(after.settings, before.settings);
+    assert.deepEqual(after.usage, before.usage);
+  });
+});
+
+test("furniture thumbnails share crisp scale and one grounded pass in both artwork modes", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await page.waitForFunction(
+      () => officeStudio.ready && !officeStudio.loading,
+    );
+    const modes = await page.evaluate(() => {
+      const out = [],
+        mode = officeStudio.prefs.art;
+      try {
+        for (const art of ["classic", "studio"]) {
+          officeStudio.prefs.art = art;
+          const samples = [];
+          const restores = [];
+          for (const button of document.querySelectorAll(
+            "#furniture-tools [data-kind]",
+          )) {
+            const c = button.querySelector("canvas"),
+              g = c.getContext("2d"),
+              draw = g.drawImage;
+            const sample = {
+              kind: button.dataset.kind,
+              width: c.width,
+              height: c.height,
+              images: [],
+            };
+            samples.push(sample);
+            g.drawImage = (im, ...args) =>
+              sample.images.push({ source: [im.width, im.height], args });
+            restores.push(() => (g.drawImage = draw));
+          }
+          try {
+            renderFurniturePreviews();
+          } finally {
+            restores.forEach((fn) => fn());
+          }
+          out.push({ art, samples });
+        }
+      } finally {
+        officeStudio.prefs.art = mode;
+        renderFurniturePreviews();
+      }
+      return out;
+    });
+    for (const { art, samples } of modes) {
+      assert.equal(samples.length, 26);
+      for (const sample of samples) {
+        assert.equal(
+          sample.images.length,
+          1,
+          `${art} ${sample.kind} paints once`,
+        );
+        const {
+          source: [w, h],
+          args: [x, y, width, height],
+        } = sample.images[0];
+        assert.equal(width / w, height / h, "Native proportions stay uniform");
+        assert.ok(
+          Number.isInteger(width / w),
+          "Pixel art uses a whole-number scale",
+        );
+        assert.ok(Math.abs(x + width / 2 - sample.width / 2) <= 0.5);
+        assert.equal(
+          y + height,
+          sample.height - 8,
+          "Every prop shares the same foot anchor",
+        );
+      }
+    }
+  });
+});
+
 test("vacant desks and connection guidance keep desktop, phone and short floors usable", async () => {
   await observerFixture(
     { settings: { max_chars: 4 } },

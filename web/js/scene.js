@@ -587,6 +587,9 @@ class OfficeScene {
     this.ctx.drawImage(im, Math.round(x), Math.round(y), w, h);
     return true;
   }
+  previewSprite(key) {
+    return this.sprites[key];
+  }
   setTaskRunnerState(detail) {
     this.taskRunner =
       detail && detail.enabled === true
@@ -1270,12 +1273,21 @@ class OfficeScene {
   draw(dt = 0) {
     const cv = this.canvas,
       g = this.ctx,
-      W = cv.clientWidth,
-      H = cv.clientHeight;
+      W = cv.clientWidth;
     // At Fit, a swipe should reach controls below the mobile floor. Reserve
     // gestures for the canvas only when panning or arranging furniture.
     cv.style.touchAction = this.zoom > 1 || this.edit ? "none" : "pan-y";
-    if (!W || !H) return;
+    if (!W) return;
+    // Geometry depends on width and viewport shape, never the fitted height.
+    // Updating only when rows change avoids a resize loop or per-frame styles.
+    const room = this.layout(W, this.roomView ? innerWidth / innerHeight : 0),
+      aspect = room.w + " / " + room.h;
+    if (this.roomAspect !== aspect) {
+      this.roomAspect = aspect;
+      cv.parentElement?.style.setProperty("--office-room-aspect", aspect);
+    }
+    const H = cv.clientHeight;
+    if (!H) return;
     const dpr = Math.min(devicePixelRatio || 1, 2);
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
       cv.width = Math.round(W * dpr);
@@ -1288,7 +1300,6 @@ class OfficeScene {
     g.fillRect(0, 0, W, H);
     // Furniture warnings can change canvas height. Use the viewport shape so
     // displaying a warning cannot repeatedly flip the desk layout.
-    const room = this.layout(W, this.roomView ? innerWidth / innerHeight : 0);
     const geometry = room.w + ":" + room.h + ":" + room.columns;
     this.relayout = !!this.geometry && this.geometry !== geometry;
     this.geometry = geometry;

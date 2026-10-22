@@ -91,7 +91,8 @@ reduced motion use still poses; these loops do not alter pet movement or rewards
 The earned sofa sleeper uses the same chosen look. Four 128 × 128 room
 surfaces provide oak/slate floors and matching plaster walls. A cached repeat
 pattern preserves geometry, room lighting and object interactions. Original theme
-remains selectable. The searchable gallery contains 730 entries in total.
+remains selectable. See the [gallery inventory](studio-tools.md) for the current
+combined sprite count and export controls.
 An eight-frame prop supplement adds a quiet arcade attract loop and a printer
 paper-feed reaction. The printer opens latest Activity by pointer or the
 keyboard-accessible room action. These animations create no work events. Both
@@ -100,9 +101,10 @@ reduced motion. Their optional pack falls back and retries independently.
 
 ## Compatibility
 
-The original compact atlas, source sheets, geometry, pathfinding and editor rules
-remain intact. Missing or invalid studio resources fall back to the original
-artwork as a complete set. No new runtime dependency or frontend build is required.
+The Classic compact atlas and source sheets remain available. A missing or invalid
+base Studio atlas falls back to Original artwork as a complete set; optional
+supplements recover independently. No new runtime dependency or frontend build
+is required.
 The supplementary walking sheet was created with the built-in image-generation
 tool using the existing Studio strips as style and identity references. Its
 unmodified source, full prompt, source checksum and reviewed crop bounds are in
@@ -111,9 +113,10 @@ identity with one shared scale and nearest-neighbor sampling. Run
 `node tools/build_studio_directional.mjs --check` to reproduce all 72 native frames;
 this is also part of `npm run check:sprites`. The environment compiler
 `node tools/build_studio_environment.mjs --check` also reproduces all 192 companion
-walking/life frames, 72 character activity frames, 72 character reaction frames
-eight prop frames and four seamless surface tiles from their preserved source and full
-prompts. The surface compiler reflects reviewed tiles to match opposite edges.
+walking/life frames, 72 character activity frames, 72 character reaction frames,
+24 native prop frames and four seamless surface tiles from their preserved sources
+and full prompts. The surface compiler reflects reviewed tiles to match opposite
+edges.
 
 If any supplementary sheet is unavailable or fails validation, the base artwork
 remains usable and **Retry artwork** restores optional artwork in place without

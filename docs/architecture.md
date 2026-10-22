@@ -315,7 +315,12 @@ six-second transfers through each loading stage.
 
 `pets.js` owns a deterministic, bounded movement controller for the existing cats. It reuses the office pathfinder within a local search window, checks furniture clearance while moving, and updates canvas hit targets from actual drawn positions. Cats wander, approach nearby idle agents, rest or sleep, and move away from active work. For a scheduled nap, a cat can reserve an unoccupied placed pet bed and follow bounded path segments to it. Overlapping cats or reservations exclude that target; moving or removing the bed cancels the stale reservation. If bounded routing cannot reach a candidate, the cat keeps a safe local nap instead of teleporting or searching the whole room. Bed footprints are walkable for pets while surrounding furniture and desks remain obstacles.
 
-Hiding pets, disabling roaming, pausing the scene, hiding the page, or requesting reduced motion stops the relevant animation. The verified front-idle art is translated and mirrored; native cat walk frames have not been verified. The earned sofa sleeper remains a separate decoration. Pet behavior makes no model calls and never changes observer events, XP, or usage.
+Hiding pets, disabling roaming, pausing the scene, hiding the page, or requesting
+reduced motion stops the relevant animation. Original artwork translates and
+mirrors the verified front-idle art; walking frames in the original cat sheets
+remain unverified. Studio uses its [supplemental walking frames](studio-art.md).
+The earned sofa sleeper remains a separate decoration. Pet behavior makes no
+model calls and never changes observer events, XP, or usage.
 
 Retired unlock/recent records are removed without subtracting XP or changing statistics. The warm lamp now belongs to `coffee_break`, earned after 50 observed tool calls. Removing a saved `weather_storm` unlock preserves its appearance as `legacy_cosmetics: ["storm_lamp"]`; this field admits only that existing cosmetic and is normalized on JSON import and authoritative SQLite reads. It does not grant the replacement badge, invent activity, or add XP. History clearing preserves it, and Reset progress clears it with the rest of the progress record.
 

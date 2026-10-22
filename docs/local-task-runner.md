@@ -62,10 +62,10 @@ change trust records, add automatic approval rules, or pass permission-bypass
 flags. A configured project is a launch location, not an independent filesystem
 sandbox: the runtime's own sandbox and permission policy govern tool access.
 
-The initial adapters use the official
+The adapters use the official
 [Codex exec interface](https://github.com/openai/codex/blob/main/codex-rs/exec/src/cli.rs)
 and [Claude CLI reference](https://code.claude.com/docs/en/cli-reference).
-The application does not install or upgrade either runtime.
+Agent Office does not install or upgrade these CLIs.
 
 OpenCode uses its [documented noninteractive run interface](https://opencode.ai/docs/cli/)
 and V2 private-server flag, checked with installed `opencode --version` and
@@ -195,4 +195,4 @@ on a native Windows host for this update.
 Full interactive terminals, attaching to existing sessions, responding to
 their questions, cross-CLI conversation transfer, persistent task scheduling,
 and automatic orchestration are separate capabilities and are not provided
-by this initial local runner.
+by the local runner.
