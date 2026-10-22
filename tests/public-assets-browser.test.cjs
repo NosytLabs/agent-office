@@ -302,7 +302,7 @@ test("valid slow artwork transfers keep the compact and Studio packs without sou
           closed = true;
         });
         for (const pathname of delayed)
-          await context.route("**" + pathname, async (route) => {
+          await context.route("**" + pathname + "*", async (route) => {
             reached.add(pathname);
             const response = await route.fetch();
             await new Promise((resolve) => setTimeout(resolve, 6000));

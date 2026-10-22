@@ -46,6 +46,17 @@ test("vacant workstations remain physical scenery and never become observed agen
   );
   assert.equal(scene.layout(390).workstations.length, 2);
 });
+test("wall signs fit measured width and keep Unicode characters intact", () => {
+  const scene = Object.create(model.Scene.prototype),
+    drawn = [];
+  scene.ctx = {
+    measureText: (value) => ({ width: Array.from(value).length * 2 }),
+    fillText: (value) => drawn.push(value),
+  };
+  scene.text("A🌱BCDEFG", 0, 0, "#fff", 4, "center", 10);
+  scene.text("Office", 0, 0, "#fff", 4, "center", 36);
+  assert.deepEqual(drawn, ["A🌱BC…", "Office"]);
+});
 test("following is explicit, validates the visible actor, and stops without resetting the view", () => {
   const changes = [];
   const scene = Object.create(model.Scene.prototype);

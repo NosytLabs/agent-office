@@ -119,7 +119,7 @@ test("studio sprites, palettes, pet looks and wall art persist without changing 
 test("a missing studio tile falls back atomically to the original atlas", async () => {
   await observerFixture({ events }, async ({ page }) => {
     await ready(page);
-    await page.route("**/studio-3.png", (route) =>
+    await page.route("**/studio-3.png*", (route) =>
       route.fulfill({ status: 404, body: "missing" }),
     );
     await page.reload();

@@ -407,7 +407,7 @@ test("missing room and companion artwork keeps the base set and retries without 
     );
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      730,
+      734,
     );
     await page.locator("#sheet-settings .close").click();
     await page.click("#tasksbtn");

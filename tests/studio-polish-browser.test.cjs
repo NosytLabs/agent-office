@@ -58,7 +58,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
       await page.evaluate(() => typeof officeStudio.reload),
       "function",
     );
-    await page.route("**/studio-3.png", (r) =>
+    await page.route("**/studio-3.png*", (r) =>
       r.fulfill({ status: 404, body: "missing" }),
     );
     await page.evaluate(() => officeStudio.reload());
@@ -70,7 +70,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
       window.__sameDocument = true;
     });
     const before = ledger(await state());
-    await page.unroute("**/studio-3.png");
+    await page.unroute("**/studio-3.png*");
     await page.click("#studio-art-retry");
     await ready(page);
     assert.equal(await page.evaluate(() => window.__sameDocument), true);
@@ -81,7 +81,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
     assert.equal(await page.evaluate(() => opened), "sheet-settings");
     assert.equal(await page.locator(".studio-controls").count(), 1);
     assert.equal(await page.locator("#studio-gallery").count(), 1);
-    assert.equal(await page.evaluate(() => officeStudioTools.frames.size), 49);
+    assert.equal(await page.evaluate(() => officeStudioTools.frames.size), 53);
     assert.equal(
       await page.evaluate(() => document.activeElement.id),
       "studio-art-status",
@@ -96,7 +96,7 @@ test("in-place recovery keeps drafts, panel, focus and one wrapper set", async (
     assert.equal(shared, true, "Concurrent retries share one request set");
     assert.equal(
       await page.locator("#studio-sprite-choice option").count(),
-      730,
+      734,
     );
     assert.deepEqual(ledger(await state()), before);
   });

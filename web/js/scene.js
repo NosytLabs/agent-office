@@ -567,11 +567,18 @@ class OfficeScene {
     g.fillStyle = color;
     g.fillRect(Math.round(x), Math.round(y), w, h);
   }
-  text(text, x, y, color, size = 4, align = "left") {
+  text(text, x, y, color, size = 4, align = "left", maxWidth = Infinity) {
     const g = this.ctx;
     g.fillStyle = color;
     g.font = size + "px ui-monospace,monospace";
     g.textAlign = align;
+    if (Number.isFinite(maxWidth)) {
+      const letters = Array.from(String(text));
+      while (letters.length && g.measureText(text).width > maxWidth) {
+        letters.pop();
+        text = letters.join("") + "…";
+      }
+    }
     g.fillText(text, x, y);
   }
   image(key, x, y, w, h) {
@@ -889,12 +896,13 @@ class OfficeScene {
     }
     r(w / 2 - 20, 7, 40, 14, "#26313a");
     this.text(
-      (this.settings.room_name || "AGENT OFFICE").slice(0, 18),
+      this.settings.room_name || "AGENT OFFICE",
       w / 2,
       16,
       "#e9d4a4",
       4,
       "center",
+      36,
     );
     r(4, h - 8, w - 8, 4, t.trim);
     r(4, 28, 2, h - 36, t.trim);

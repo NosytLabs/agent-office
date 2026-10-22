@@ -145,7 +145,10 @@ test("optional manifests finish before large image downloads compete for connect
       manifestReleased = true;
     });
     await page.route("**/studio/*.png*", (route) => {
-      if (!/\/studio-\d\.png$/.test(route.request().url()) && !manifestReleased)
+      if (
+        !/\/studio-\d\.png$/.test(new URL(route.request().url()).pathname) &&
+        !manifestReleased
+      )
         early.push(route.request().url());
       return route.continue();
     });
