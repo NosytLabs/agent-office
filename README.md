@@ -144,10 +144,12 @@ show **Available now** to hide locked rewards. In the room editor, **Props** ret
 to the catalog; the **Custom prop** picker selects saved props for moving or removal,
 including props that cannot fit on the current floor. Undo and Redo retain up to
 20 edits in this session. Select an agent to change its local name, preferred desk,
-and appearance. Use **Jump to → History &
-storage** to set retention limits.
+and appearance. Use **Jump to → History & storage** to set retention limits.
 Motion can be paused, and reduced-motion preferences are respected. Animation
 reflects reported activity; it does not prove that an agent completed useful work.
+On phones, the floor fits its desk rows up to a 500-pixel canvas instead of
+leaving large blank bands around a small room. Room view fills the available
+screen; furniture and desk assignments stay the same.
 
 The room also includes a [Duck Hunt, Breakout, and Snake arcade](docs/arcade.md),
 [an interactive aquarium](docs/aquarium-assets.md), and a local music jukebox.

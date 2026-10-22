@@ -14,7 +14,7 @@ checksums, and license notices stay in the repository. Do not delete or recompre
 those originals to make the runtime download smaller.
 
 A missing, malformed, incorrectly sized, or stalled native atlas falls back to
-the original source loader. Fetch and image loading each have a five-second
+the original source loader. Fetch and image loading each have a 15-second
 limit. The loader publishes the complete native set only after validation; it
 does not expose a partially populated replacement set. Browser diagnostics are
 available at `officeScene.spriteAssetSource` (`loading`, `native`, or `source`).
@@ -102,6 +102,11 @@ and limits generated changes to declared steam/light regions. Its source, full
 prompt, and extracted seeds remain in `studio/source/`; public builds contain the
 compiled image/manifest and source-hash provenance. The optional pack has an
 independent fallback/retry path and gallery strip export.
+
+`studio/lounge-life.png` adds eight native lamp/terrarium frames through the same
+compiler and publication path. Its idle frames match the seeds; every frame keeps
+the exact seed alpha silhouette, dimensions and anchor. Generated sources, prompts
+and seeds remain in `studio/source/`, outside the public package.
 
 A same-input comparison on 15 October 2026, including the character activity
 supplement, omitted 25 authoring files. The packaged build shrank from 146 files

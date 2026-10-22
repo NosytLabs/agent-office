@@ -596,7 +596,7 @@
     update: scene.update,
     onPet: scene.onPet,
     agentCard,
-    renderFurniturePreviews,
+    previewSprite: scene.previewSprite,
   };
   const portraits = new WeakMap(),
     petDistances = new Map(),
@@ -650,6 +650,9 @@
     return (
       image(selected, x, y, w, h) || original.image.call(this, key, x, y, w, h)
     );
+  };
+  scene.previewSprite = function (key) {
+    return sprite(key) || original.previewSprite.call(this, key);
   };
   scene.character = function (a, x, y, c) {
     const state = pose(a, c, this.time, this.paused),
@@ -896,26 +899,6 @@
     const card = original.agentCard(a, existing);
     paintPortrait(a, card);
     return card;
-  };
-  renderFurniturePreviews = function () {
-    original.renderFurniturePreviews();
-    if (!enabled()) return;
-    for (const b of document.querySelectorAll("#furniture-tools [data-kind]")) {
-      const im = sprite(b.dataset.kind);
-      if (!im) continue;
-      const c = b.querySelector("canvas"),
-        g = c.getContext("2d"),
-        k = Math.max(1, Math.floor(Math.min(104 / im.width, 88 / im.height)));
-      g.clearRect(0, 0, c.width, c.height);
-      g.imageSmoothingEnabled = false;
-      g.drawImage(
-        im,
-        Math.round((120 - im.width * k) / 2),
-        Math.round((104 - im.height * k) / 2),
-        im.width * k,
-        im.height * k,
-      );
-    }
   };
   function redraw() {
     document.documentElement.dataset.officeArt = enabled()

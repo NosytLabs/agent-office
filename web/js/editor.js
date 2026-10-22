@@ -43,17 +43,25 @@ for (const kind of Object.keys(PROP_SIZES)) {
 }
 function renderFurniturePreviews() {
   for (const b of $("furniture-tools").children) {
-    const sprite = scene.sprites[b.dataset.kind];
+    const sprite = scene.previewSprite(b.dataset.kind);
     if (!sprite) continue;
     const c = b.querySelector("canvas"),
       g = c.getContext("2d");
     g.clearRect(0, 0, c.width, c.height);
     g.imageSmoothingEnabled = false;
-    const scale = Math.min(104 / sprite.width, 88 / sprite.height);
+    const scale = Math.max(
+      1,
+      Math.floor(
+        Math.min(
+          (c.width - 16) / sprite.width,
+          (c.height - 16) / sprite.height,
+        ),
+      ),
+    );
     g.drawImage(
       sprite,
-      (120 - sprite.width * scale) / 2,
-      (104 - sprite.height * scale) / 2,
+      Math.round((c.width - sprite.width * scale) / 2),
+      c.height - 8 - sprite.height * scale,
       sprite.width * scale,
       sprite.height * scale,
     );
