@@ -191,12 +191,8 @@
   window.officeRoom = { sync };
   sync();
 
-  // Load the optional presentation after the existing scene and UI are ready.
-  // Missing studio resources never stop the native office from working.
-  const style = document.createElement("link");
-  style.rel = "stylesheet";
-  style.href = "css/studio.css";
-  document.head.append(style);
+  // Styles load with the document, before late artwork can publish controls.
+  // Missing optional scripts never stop the native office from working.
   const studio = document.createElement("script");
   studio.src = "js/studio.js";
   studio.onload = () => {

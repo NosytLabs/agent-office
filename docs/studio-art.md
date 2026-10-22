@@ -52,6 +52,9 @@ Artwork manifests are reread on load/retry. Image URLs include the manifest's
 pixel digest so an updated atlas cannot be paired with a previously cached PNG.
 Integrity checks remain enabled. Loading errors are available in the status
 tooltip for reporting a failed pack.
+Studio and gallery styles load with the initial document, before artwork can
+publish interactive controls. Delayed art cannot expose an unstyled preview or
+change the short-screen layout after playback has scrolled into view.
 Studio's animated prop families and task-terminal states own their detail layer
 and do not receive the Original renderer's extra eyes, lights or reaction pixels.
 Room-light overlays and the beacon's observed-input signal remain available.

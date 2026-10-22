@@ -12,6 +12,82 @@ const prefix = "/";
 let temporary, output, server, browser, origin;
 let loungeCacheScenario = null;
 
+test("delayed gallery styles are ready before artwork recovery publishes interactive controls", async () => {
+  let releaseArtwork;
+  const held = new Promise((resolve) => {
+    releaseArtwork = resolve;
+  });
+  try {
+    await withPage(
+      async (page) => {
+        // Release the optional manifest after the document load event. This
+        // reproduces the post-load install used by a cold hosted art request.
+        releaseArtwork();
+        await page.waitForFunction(
+          () =>
+            officeStudio.ready &&
+            !officeStudio.loading &&
+            document.getElementById("studio-gallery"),
+        );
+        await page.setViewportSize({ width: 568, height: 320 });
+        await page.click("#settingsbtn");
+        await page.locator("#studio-gallery summary").click();
+        const styles = await page.evaluate(() => ({
+          background: getComputedStyle(
+            document.getElementById("studio-sprite-preview"),
+          ).backgroundImage,
+          layout: getComputedStyle(
+            document.querySelector(".studio-preview-stage"),
+          ).display,
+        }));
+        assert.match(
+          styles.background,
+          /conic-gradient/,
+          "Transparency styling is ready at first interaction",
+        );
+        assert.equal(
+          styles.layout,
+          "grid",
+          "Short-screen controls use their final layout before scrolling",
+        );
+        await page.fill("#studio-sprite-search", "lamp anim");
+        await page.click("#studio-preview-play");
+        const bounds = await page.evaluate(() => {
+          const panel = document.getElementById("sheet-settings"),
+            rect = (element) => element.getBoundingClientRect().toJSON();
+          return {
+            header: rect(panel.querySelector(".sheet-header")),
+            panel: rect(panel),
+            preview: rect(document.getElementById("studio-sprite-preview")),
+            stop: rect(document.getElementById("studio-preview-play")),
+          };
+        });
+        assert.ok(bounds.preview.top >= bounds.header.bottom);
+        assert.ok(
+          bounds.stop.top >= bounds.header.bottom &&
+            bounds.stop.bottom <= bounds.panel.bottom,
+          "Stop remains fully visible when playback starts",
+        );
+      },
+      {
+        beforeNavigate: async (context) => {
+          await context.route("**/studio/prop-life.json", async (route) => {
+            await held;
+            await route.continue();
+          });
+          await context.route("**/css/studio-tools.css", async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await route.fulfill({ response });
+          });
+        },
+      },
+    );
+  } finally {
+    releaseArtwork();
+  }
+});
+
 test("a warm browser image cache cannot mix a previous atlas with the current manifest", async () => {
   loungeCacheScenario = { old: true, unversionedRequests: 0 };
   try {
