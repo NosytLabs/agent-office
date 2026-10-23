@@ -7,10 +7,12 @@ const path = require("node:path");
 function host() {
   const nodes = [],
     frames = new Map(),
+    timers = new Map(),
     listeners = new Map(),
     storage = new Map(),
     labels = [];
   let nextFrame = 0,
+    nextTimer = 0,
     blockedStorage = false;
   const context = Object.fromEntries(
     ["fillRect", "beginPath", "roundRect", "fill", "arc"].map((key) => [
@@ -28,6 +30,13 @@ function host() {
       this.attrs = {};
       this.events = {};
       this.hidden = false;
+      this.removed = false;
+      if (tag === "iframe") {
+        this.messages = [];
+        this.contentWindow = {
+          postMessage: (message) => this.messages.push(message),
+        };
+      }
       nodes.push(this);
     }
     setAttribute(k, v) {
@@ -35,6 +44,16 @@ function host() {
     }
     getAttribute(k) {
       return this.attrs[k];
+    }
+    removeAttribute(key) {
+      delete this.attrs[key];
+    }
+    remove() {
+      this.removed = true;
+    }
+    replaceChildren(...children) {
+      this.children.forEach((child) => child.remove());
+      this.children = children;
     }
     append(...children) {
       this.children.push(...children);
@@ -89,7 +108,7 @@ function host() {
     "close",
   ])
     new Element().className = name;
-  const get = (id) => nodes.find((n) => n.id === id);
+  const get = (id) => nodes.find((n) => n.id === id && !n.removed);
   get("arcade-game-breakout").dataset.arcadeGame = "breakout";
   get("arcade-game-duck-hunt").dataset.arcadeGame = "duck-hunt";
   get("sheet-arcade").hidden = true;
@@ -124,7 +143,11 @@ function host() {
     },
     cancelAnimationFrame: (id) => frames.delete(id),
     addEventListener: (key, fn) => listeners.set(key, fn),
-    setTimeout,
+    setTimeout: (fn) => {
+      timers.set(++nextTimer, fn);
+      return nextTimer;
+    },
+    clearTimeout: (id) => timers.delete(id),
     localStorage: {
       getItem: (key) => {
         if (blockedStorage) throw new Error("blocked");
@@ -152,6 +175,23 @@ function host() {
     labels,
     storage,
     snapshot,
+    timers,
+    emit: (type, event = {}) => listeners.get(type)?.(event),
+    childMessage(type, overrides = {}) {
+      const frame = get("arcade-duck-frame");
+      listeners.get("message")({
+        source: frame.contentWindow,
+        origin: "null",
+        data: {
+          channel: "agent-office-arcade",
+          nonce: new URL(frame.src, "http://office.test/").searchParams.get(
+            "nonce",
+          ),
+          type,
+        },
+        ...overrides,
+      });
+    },
     blockStorage: () => {
       blockedStorage = true;
     },
@@ -268,4 +308,84 @@ test("Snake accepts uppercase WASD without leaking the key to the page", () => {
   for (let time = 1000; time <= 1500; time += 50) h.tick(time);
   assert.equal(prevented, true);
   assert.deepEqual(h.snapshot().snake.body[0], { x: 12, y: 8 });
+});
+
+for (const type of ["paused", "resumed"])
+  test(`Duck Hunt ignores ${type} reports before required artwork is ready`, () => {
+    const h = host();
+    h.open();
+    h.click("arcade-game-duck-hunt");
+    h.click("arcade-duck-start");
+    const status = h.get("arcade-status").textContent;
+    h.childMessage(type);
+    assert.equal(
+      h.get("arcade-status").textContent,
+      status,
+      "loading feedback must remain truthful",
+    );
+    assert.equal(h.snapshot().duck.ready, false);
+    assert.equal(h.snapshot().duck.paused, true);
+    assert.equal(
+      h.timers.size,
+      1,
+      "early input must not cancel the readiness deadline",
+    );
+    h.childMessage("ready");
+    assert.equal(h.snapshot().duck.ready, true);
+    assert.equal(
+      h.snapshot().duck.paused,
+      false,
+      "the original explicit start is retained",
+    );
+    assert.equal(h.timers.size, 0);
+  });
+
+for (const stoppedBy of ["panel", "tab"])
+  test(`a delayed Duck Hunt resume cannot undo a ${stoppedBy} lifecycle stop`, () => {
+    const h = host();
+    h.open();
+    h.click("arcade-game-duck-hunt");
+    h.click("arcade-duck-start");
+    h.childMessage("ready");
+    if (stoppedBy === "panel") {
+      h.get("sheet-arcade").hidden = true;
+      h.sandbox.officeArcade.sync();
+    } else {
+      h.document.hidden = true;
+      h.emit("visibilitychange");
+    }
+    const status = h.get("arcade-status").textContent;
+    h.childMessage("resumed");
+    assert.equal(h.snapshot().paused, true);
+    assert.equal(h.snapshot().duck.paused, true);
+    assert.equal(h.get("arcade-status").textContent, status);
+    assert.equal(h.get("arcade-duck-frame").messages.at(-1).action, "pause");
+    h.document.hidden = false;
+    h.open();
+    assert.equal(
+      h.snapshot().paused,
+      true,
+      "returning to the game must not autoplay",
+    );
+    h.click("arcade-pause");
+    assert.equal(
+      h.snapshot().duck.paused,
+      false,
+      "explicit Resume still works",
+    );
+  });
+
+test("ready Duck Hunt accepts active child controls and rejects another frame or origin", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-duck-hunt");
+  h.click("arcade-duck-start");
+  h.childMessage("ready");
+  h.childMessage("paused", { source: {} });
+  h.childMessage("paused", { origin: "https://untrusted.example" });
+  assert.equal(h.snapshot().paused, false);
+  h.childMessage("paused");
+  assert.equal(h.snapshot().paused, true);
+  h.childMessage("resumed");
+  assert.equal(h.snapshot().paused, false);
 });

@@ -932,6 +932,16 @@
     )
       return;
     if (duckFailed) return;
+    // Child input can arrive before artwork is ready or after the host has
+    // stopped a hidden game. Do not replace loading/stop feedback or revive
+    // host playback state; reassert the stop if the child reports a resume.
+    if (
+      ["paused", "resumed"].includes(data.type) &&
+      (!duckReady || lifecycleBlocked())
+    ) {
+      if (data.type === "resumed") pauseDuck();
+      return;
+    }
     if (data.type === "ready") {
       cancelDuckLoad();
       duckReady = true;
