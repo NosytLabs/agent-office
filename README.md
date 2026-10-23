@@ -216,9 +216,9 @@ Preserve your local edits if Git refuses to pull; do not force-reset the checkou
 Project code is [MIT licensed](LICENSE). Artwork, fonts, runtime marks, and
 upstream games retain their [individual notices](web/assets/ATTRIBUTION.md) and
 [sprite provenance](web/assets/sprites/ATTRIBUTION.md). Optional licensed Smallburg
-art is not distributed here. The dated [7–8 October comparison](docs/reference-review-2026-10-07.md)
-and [15 October reference review](docs/reference-review-2026-10-15.md) record source
-research and reuse decisions; they are not the current feature backlog.
+art is not distributed here. The [source and reuse guide](docs/references.md)
+links the maintained notices and historical research without duplicating a
+second feature backlog.
 
 Agent Office is maintained by **NosytLabs** and is independent of the runtimes
 and reference projects it supports.

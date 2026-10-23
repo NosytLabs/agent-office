@@ -39,7 +39,7 @@ class Links(HTMLParser):
             target = attrs[name]
             if not urlsplit(target).scheme:
                 self.local.append(target)
-            if tag in {"script", "link", "img", "iframe"}:
+            if tag in {"script", "link", "img", "iframe"} and attrs.get("rel") != "canonical":
                 self.resources.append(target)
 
 
@@ -225,3 +225,78 @@ def test_product_links_target_existing_repository_documents_and_headings():
             headings = re.findall(r"^#{1,6} +(.+)$", document.read_text(), re.M)
             anchors = {re.sub(r"[^\w -]", "", title.lower()).replace(" ", "-") for title in headings}
             assert unquote(target.fragment) in anchors, href
+
+
+class SearchMetadata(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.canonical = []
+        self.meta = {}
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "link" and attrs.get("rel") == "canonical":
+            self.canonical.append(attrs.get("href"))
+        if tag == "meta":
+            self.meta.setdefault(attrs.get("name") or attrs.get("property"), []).append(attrs.get("content"))
+
+
+@pytest.mark.parametrize("base", [
+    "https://agent-office-preview-seven.vercel.app/about/",
+    "https://docs.example.test/office",
+    "https://docs.example.test/a&b/",
+])
+def test_search_metadata_matches_canonical_sitemap_and_real_social_image(tmp_path, base):
+    from xml.etree import ElementTree
+    output = tmp_path / "site"
+    build(output, env={**os.environ, "AGENT_OFFICE_SITE_URL": base})
+    base = base.rstrip("/") + "/"
+    urls = []
+    for page in ["index.html", "credits.html"]:
+        metadata = SearchMetadata()
+        metadata.feed((output / page).read_text())
+        canonical = base + ("" if page == "index.html" else page)
+        urls.append(canonical)
+        assert metadata.canonical == [canonical], "each page needs exactly one deployment-correct canonical"
+        assert metadata.meta["og:url"] == [canonical]
+        assert metadata.meta["og:image"] == [base + "assets/social-preview.png"]
+        assert metadata.meta["twitter:image"] == metadata.meta["og:image"]
+        assert metadata.meta["twitter:card"] == ["summary_large_image"]
+        assert metadata.meta["og:image:width"] == ["1440"]
+        assert metadata.meta["og:image:height"] == ["1000"]
+        assert "synthetic" in metadata.meta["og:image:alt"][0]
+        assert len(metadata.meta["description"]) == 1
+        assert "noindex" not in metadata.meta.get("robots", [""])[0]
+    sitemap = ElementTree.fromstring((output / "sitemap.xml").read_text())
+    assert [node.text for node in sitemap.findall("{*}url/{*}loc")] == urls
+    assert not sitemap.findall("{*}url/{*}lastmod"), "do not invent modification dates at build time"
+    assert (output / "robots.txt").read_text() == f"User-agent: *\nAllow: /\nSitemap: {base}sitemap.xml\n"
+    assert (output / "assets/social-preview.png").read_bytes() == (ROOT / "docs/screenshots/appearance.png").read_bytes()
+
+
+@pytest.mark.parametrize("base", [
+    "http://example.test/office/", "https://user:password@example.test/office/",
+    "https://example.test/?preview=1", "https://example.test/#office",
+    "https://example.test/?", "https://example.test/#",
+    "javascript:alert(1)", "not a url", "https://example.test/\nother/",
+])
+def test_invalid_search_base_preserves_the_previous_generated_site(tmp_path, base):
+    output = tmp_path / "site"
+    build(output)
+    sentinel = output / "previous-build.txt"
+    sentinel.write_text("preserve this build")
+    result = build(output, env={**os.environ, "AGENT_OFFICE_SITE_URL": base}, check=False)
+    assert result.returncode != 0
+    assert "AGENT_OFFICE_SITE_URL" in result.stderr
+    assert sentinel.read_text() == "preserve this build"
+
+
+def test_product_onboarding_explains_optional_runs_without_enabling_every_adapter():
+    page = (ROOT / "site/index.html").read_text()
+    assert 'id="setup-run"' in page
+    assert 'data-tab-button="setup-run"' in page
+    assert 'id="command-run"' in page
+    assert "python3 run.py --enable-task-runner --workspace /absolute/path/to/project" in page
+    assert "python3 install.py --dry-run\npython3 install.py --only codex" in page
+    assert "CLI uses its own account" in page
+    assert "Stop the existing office server" in page

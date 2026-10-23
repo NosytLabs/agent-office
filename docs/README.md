@@ -30,9 +30,7 @@ browser storage and disposable build/test output.
 [The asset pipeline](asset-pipeline.md) explains compact sprites, source artwork,
 and pixel-equivalence checks.
 
-[Validation and limitations](audit/README.md) records commit-specific evidence.
-[Historical reports](audit/history.md), the [7–8 October comparison](reference-review-2026-10-07.md)
-and the [15 October reference review](reference-review-2026-10-15.md) are background
-records, not a current feature backlog. Test totals always belong
-to the named commit and environment. A successful deployment is not a substitute
-for passing the tests.
+[Validation and limitations](audit/README.md) explains reproducible release gates
+and what tests do not establish. [Sources and reuse boundaries](references.md)
+links retained notices and commit-pinned historical research. Test results belong
+to a named commit and environment; successful deployment is not a test pass.

@@ -55,7 +55,7 @@ def test_build_contains_only_public_web_and_synthetic_seed(tmp_path):
     assert files
     for file in files:
         relative = file.relative_to(output)
-        assert relative.parts[0] in {"assets", "css", "js", "arcade", "index.html", "preview-build.json"}
+        assert relative.parts[0] in {"assets", "css", "js", "arcade", "index.html", "preview-build.json", "robots.txt"}
         assert file.suffix not in {".py", ".sqlite3", ".jsonl"}
         assert b"PRIVATE_" not in file.read_bytes()
     for name in ("office.js", "scene.js", "editor.js", "aquarium.js", "data.js", "room.js", "arcade.js"):
@@ -73,7 +73,7 @@ def test_build_contains_only_public_web_and_synthetic_seed(tmp_path):
     assert "Synthetic demo usage" in page and "All agents, activity, XP and usage here are fictional" in page
     assert 'content="Explore Agent Office with fictional agents' in page
     assert 'property="og:title" content="Agent Office — Interactive demo"' in page
-    assert 'agent-office#start-locally' in page
+    assert 'https://agent-office-preview-seven.vercel.app/about/#get-started' in page
     assert "data-agent-office-preview" not in (ROOT / "web/template.html").read_text()
     assert (private_home / "events.jsonl").read_text() == "PRIVATE_EVENT_SENTINEL"
 
@@ -188,3 +188,26 @@ def test_macos_alias_cannot_bypass_preview_source_boundary():
         assert result.returncode != 0
         assert "outside the source checkout" in result.stderr
         assert not (project / "private").exists()
+
+
+def test_preview_keeps_synthetic_activity_out_of_search_and_links_product_setup(tmp_path):
+    from html.parser import HTMLParser
+
+    class Metadata(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.robots = []
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "meta" and attrs.get("name") == "robots":
+                self.robots.append(attrs.get("content"))
+
+    output = tmp_path / "demo"
+    base = "https://example.test/product/"
+    build(output, env={**os.environ, "AGENT_OFFICE_SITE_URL": base})
+    demo = Metadata()
+    demo.feed((output / "index.html").read_text())
+    assert demo.robots == ["noindex, follow"]
+    assert f'href="{base}#get-started"' in (output / "index.html").read_text()
+    assert (output / "robots.txt").read_text() == f"User-agent: *\nAllow: /\nSitemap: {base}sitemap.xml\n"
+    assert not (output / "sitemap.xml").exists(), "synthetic sessions are not product pages"
