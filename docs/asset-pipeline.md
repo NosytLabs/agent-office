@@ -19,6 +19,14 @@ limit. The loader publishes the complete native set only after validation; it
 does not expose a partially populated replacement set. Browser diagnostics are
 available at `officeScene.spriteAssetSource` (`loading`, `native`, or `source`).
 
+The Studio base atlas is one atomic group of eight image tiles. If a required
+page fails or reaches its existing deadline, the loader cancels every unfinished
+sibling request and releases its handlers and timers before allowing Retry.
+Concurrent retry calls share one attempt; late callbacks from a failed attempt
+cannot affect its replacement. Completed tiles are not published on their own.
+Optional animation and room supplements keep independent fallback behavior:
+one missing supplement does not cancel the other packs or discard the base atlas.
+
 ## Regenerate and verify
 
 From the repository root:
