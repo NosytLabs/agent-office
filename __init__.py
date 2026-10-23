@@ -850,22 +850,54 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
         # Browsers open many asset connections together on a cold load. The
         # small stdlib default drops queued connections on macOS.
         request_queue_size = 128
-        next_maintenance = 0.0
-        next_failure_log = 0.0
+        def __init__(self, *args, **kwargs):
+            # Initialize before binding: TCPServer may call server_close if
+            # construction fails, before there is a maintenance worker.
+            self._maintenance_stop = threading.Event()
+            self._maintenance_thread = None
+            super().__init__(*args, **kwargs)
 
         def service_actions(self):
-            # Consume even with no browser connected. Only unacknowledged
-            # offline activity remains in the inbox between server runs.
-            now = time.monotonic()
-            if now >= self.next_maintenance:
-                self.next_maintenance = now + 1.0
+            # This callback runs on the accept loop, not a request thread.
+            # Ingestion can wait on SQLite/filesystem/state locks; never make
+            # loading bootstrap assets or stopping the listener wait for it.
+            if self._maintenance_thread is None and not self._maintenance_stop.is_set():
+                self._maintenance_thread = threading.Thread(
+                    target=self._maintain, name="agent-office-maintenance", daemon=True,
+                )
+                self._maintenance_thread.start()
+
+        def _maintain(self):
+            # One worker consumes offline activity even with no browser open.
+            # A slow pass never queues more workers or overlapping passes.
+            next_failure_log = 0.0
+            while not self._maintenance_stop.is_set():
                 try:
                     build_state()
-                    self.next_failure_log = 0.0
-                except Exception:
-                    if now >= self.next_failure_log:
-                        self.next_failure_log = now + 60.0
-                        logger.warning("pixel-office background ingestion failed; inputs retained", exc_info=True)
+                    next_failure_log = 0.0
+                except Exception as exc:
+                    now = time.monotonic()
+                    if now >= next_failure_log:
+                        next_failure_log = now + 60.0
+                        try:
+                            logger.warning(
+                                "pixel-office background ingestion failed (%s); inputs retained",
+                                type(exc).__name__,
+                            )
+                        except Exception:
+                            # A broken log destination must not stop ingestion.
+                            pass
+                if self._maintenance_stop.wait(1.0):
+                    break
+
+        def server_close(self):
+            self._maintenance_stop.set()
+            super().server_close()
+            worker = self._maintenance_thread
+            if worker is not None and worker is not threading.current_thread():
+                # Python cannot cancel a blocked filesystem read. The daemon
+                # exits after its current pass; shutdown must remain bounded.
+                worker.join(timeout=1.0)
 
     try:
         srv = OfficeServer(("127.0.0.1", _port), Handler)
