@@ -1,0 +1,96 @@
+name: Prepare verified maintenance hardening
+on:
+  push:
+    branches: [fix/maintenance-startup-recovery]
+    paths: [.github/workflows/prepare-maintenance-once.yml]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    if: github.actor == 'NosytLabs' && github.repository == 'NosytLabs/agent-office'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked development tools
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          npm ci --ignore-scripts --no-audit --no-fund
+          echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          echo "OFFICE_SCREENSHOTS=$RUNNER_TEMP/maintenance-review/screenshots" >> "$GITHUB_ENV"
+      - name: Reproduce the new failures then apply the exact repair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 37d4932344a00ea3a108cfb2352e2a4122b718ac
+          mkdir -p "$RUNNER_TEMP/maintenance-review"
+          gh api repos/NosytLabs/agent-office/git/blobs/cf99e9671624814c729956b4229c63dfe7a078de --jq .content | base64 --decode | gzip -d > "$RUNNER_TEMP/maintenance-review/repair.patch"
+          echo "b005c3ab100ef2a70006206c1f1889ca3308b3767df12aa1ca23a69ba24cae25  $RUNNER_TEMP/maintenance-review/repair.patch" | sha256sum -c -
+          git apply --check "$RUNNER_TEMP/maintenance-review/repair.patch"
+          git apply --include=tests/test_observer_responsiveness.py "$RUNNER_TEMP/maintenance-review/repair.patch"
+          if python -m pytest -o addopts='' -q tests/test_observer_responsiveness.py -k 'startup_failure or persistent_worker' --junitxml="$RUNNER_TEMP/maintenance-review/red.xml"; then
+            echo 'Expected startup regressions did not fail; stop for review.'
+            exit 1
+          fi
+          python - <<'PY'
+          import os, pathlib, xml.etree.ElementTree as E
+          cases = E.parse(pathlib.Path(os.environ['RUNNER_TEMP'])/'maintenance-review/red.xml').findall('.//testcase')
+          assert len(cases) == 3
+          assert all(case.find('failure') is not None for case in cases)
+          assert not any(case.find('error') is not None for case in cases)
+          PY
+          git apply --include=__init__.py "$RUNNER_TEMP/maintenance-review/repair.patch"
+          git rm .github/workflows/prepare-maintenance-once.yml
+          git add __init__.py tests/test_observer_responsiveness.py
+          test "$(git write-tree)" = 4966673f6aefe7a172a20f52e76eb7cb7462f6eb
+      - name: Verify Python and repository integrity
+        run: |
+          python -m pytest -o addopts='' -q --junitxml="$RUNNER_TEMP/maintenance-review/green.xml"
+          python tools/check_repository.py
+          git diff --cached --check
+      - name: Capture actual office and task user flows
+        run: node --test --test-concurrency=2 tests/studio-browser.test.cjs tests/scene-readiness-browser.test.cjs tests/task-runner.test.cjs
+      - name: Store only verified Git objects without moving a branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, json, os, pathlib, subprocess, urllib.request
+          root = 'https://api.github.com/repos/NosytLabs/agent-office/git/'
+          def api(path, body):
+              req = urllib.request.Request(root+path, data=json.dumps(body).encode(), headers={'Authorization': 'Bearer '+os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}, method='POST')
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+          entries = []
+          for name in ('__init__.py', 'tests/test_observer_responsiveness.py'):
+              blob = api('blobs', {'content': base64.b64encode(pathlib.Path(name).read_bytes()).decode(), 'encoding': 'base64'})['sha']
+              assert blob == subprocess.check_output(['git', 'hash-object', name], text=True).strip()
+              entries.append({'path': name, 'mode': '100644', 'type': 'blob', 'sha': blob})
+          entries.append({'path': '.github/workflows/prepare-maintenance-once.yml', 'mode': '100644', 'type': 'blob', 'sha': None})
+          base = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip()
+          tree = api('trees', {'base_tree': base, 'tree': entries})['sha']
+          assert tree == '4966673f6aefe7a172a20f52e76eb7cb7462f6eb'
+          result = {'tree': tree, 'parent': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), 'branch_updated': False}
+          (pathlib.Path(os.environ['RUNNER_TEMP'])/'maintenance-review/prepared.json').write_text(json.dumps(result, indent=2)+'\n')
+          print('VERIFIED_GIT_TREE='+tree)
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: maintenance-review-evidence
+          path: ${{ runner.temp }}/maintenance-review
+          retention-days: 3
+          if-no-files-found: error
