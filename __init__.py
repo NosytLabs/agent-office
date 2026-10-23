@@ -70,7 +70,8 @@ except ImportError:
 DEFAULT_PORT = 8113
 _lock = threading.RLock()
 _event_cache: Optional[tuple[tuple, List[Dict[str, Any]]]] = None
-_server_started = False
+_server_start_lock = threading.Lock()
+_server_thread: Optional[threading.Thread] = None
 # Warning counters must not wait behind state ingestion or settings writes.
 _publish_warning_lock = threading.Lock()
 _publish_warning_at: Optional[float] = None
@@ -287,11 +288,6 @@ def _publish(event: Dict[str, Any]) -> None:
             from event_inbox import publish
         publish(_office_dir(), event)
         _ensure_server()
-        # If the serve thread exited without binding (port raced with a dying
-        # predecessor), clear the flag so a later event retries the bind.
-        if not _server_bound():
-            global _server_started
-            _server_started = False
     except Exception as exc:  # observers must never break the loop
         _warn_publish_failure(exc)
 
@@ -419,20 +415,35 @@ def _resolve_port() -> int:
     return DEFAULT_PORT
 
 
+def _reset_server_startup_after_fork() -> None:
+    # A child cannot own its parent's thread or inherit a lock held by a
+    # vanished thread. Its next publication makes a fresh listener attempt.
+    global _server_start_lock, _server_thread
+    _server_start_lock = threading.Lock()
+    _server_thread = None
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_server_startup_after_fork)
+
+
 def _ensure_server() -> None:
-    global _server_started
-    if _server_started:
-        return
-    with _lock:
-        if _server_started:
-            return
-        _server_started = True
-    t = threading.Thread(target=_serve, name="pixel-office-http", daemon=True)
-    t.start()
+    global _server_thread
+    # Listener ownership must not wait behind state ingestion. A pending bind
+    # is still an active attempt, not a reason for every hook to start another.
+    with _server_start_lock:
+        if _server_thread is not None:
+            if _server_thread.is_alive() or _server_bound():
+                return
+        worker = threading.Thread(target=_serve, name="pixel-office-http", daemon=True)
+        worker.start()
+        # Retain only a successfully started worker. Allocation/start failures
+        # propagate to the existing redacted diagnostic and remain retryable.
+        _server_thread = worker
 
 
 def _server_bound() -> bool:
-    """True if a pixel-office HTTP server is actually listening on _port."""
+    """True if a TCP listener remains on _port after a completed bind attempt."""
     try:
         with socket.create_connection(("127.0.0.1", _port), timeout=1):
             return True
@@ -941,8 +952,8 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
             )
         elif verdict.startswith("dead/"):
             # Port looked bound but nothing answers — a predecessor's socket
-            # raced us. Log it and fall through so a later _ensure_server()
-            # retry (flag cleared by _publish) can bind once it's truly free.
+            # raced us. Leave this worker finished so a later event can start
+            # a replacement once the listener is truly gone.
             logger.warning(
                 "pixel-office: bind on %s failed (%s) and probe says %s — "
                 "will retry on next event",

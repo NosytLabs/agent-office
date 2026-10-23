@@ -222,3 +222,174 @@ def test_persistent_worker_start_failure_is_bounded_even_with_broken_logger(monk
         assert worker.is_alive()
         assert get(server, '/task-runs')[0] == 200
     assert not worker.is_alive(), 'shutdown must not join a never-started thread'
+
+
+@pytest.fixture
+def publishing_server(tmp_path, monkeypatch):
+    """Real inbox publication with a controlled, not-yet-bound server worker."""
+    workers = []
+    probes = []
+    release = threading.Event()
+    bound = [False]
+    original_thread = threading.Thread
+
+    class TrackedThread(original_thread):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if self.name == 'pixel-office-http':
+                workers.append(self)
+
+    monkeypatch.setattr(office, '_office_dir', lambda: tmp_path)
+    monkeypatch.setattr(office, '_server_thread', None, raising=False)
+    monkeypatch.setattr(office, '_serve', lambda: release.wait())
+    monkeypatch.setattr(office, '_server_bound', lambda: probes.append(1) or bound[0])
+    monkeypatch.setattr(threading, 'Thread', TrackedThread)
+    try:
+        yield workers, release, bound, probes, tmp_path
+    finally:
+        release.set()
+        for worker in workers:
+            if worker.ident is not None:
+                worker.join(3)
+                assert not worker.is_alive(), 'controlled listener stopped'
+
+
+def test_pending_listener_start_is_shared_without_connecting_on_every_event(publishing_server):
+    workers, _, _, probes, directory = publishing_server
+    for index in range(12):
+        office._publish({'event': 'tool_start', 'call_id': str(index)})
+    assert len(list((directory / 'inbox').glob('*.json'))) == 12
+    assert len(workers) == 1, 'a worker awaiting bind still owns listener startup'
+    assert workers[0].is_alive()
+    assert probes == [], 'own live worker needs no extra accepted socket per event'
+
+
+def test_concurrent_publishers_share_one_pending_listener(publishing_server):
+    workers, _, _, probes, directory = publishing_server
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for batch in range(3):
+            list(pool.map(lambda index: office._publish({
+                'event': 'tool_start', 'call_id': str(batch * 4 + index),
+            }), range(4)))
+    assert len(list((directory / 'inbox').glob('*.json'))) == 12
+    assert len(workers) == 1
+    assert probes == []
+
+
+@pytest.mark.parametrize('failure_stage', ['construct', 'start'])
+def test_listener_worker_failure_preserves_events_and_retries_next_event(
+    publishing_server, monkeypatch, caplog, failure_stage,
+):
+    workers, _, _, _, directory = publishing_server
+    original_thread = threading.Thread
+    attempts = []
+
+    class FailingOnceThread(original_thread):
+        def __init__(self, *args, **kwargs):
+            attempts.append(1)
+            if failure_stage == 'construct' and len(attempts) == 1:
+                raise RuntimeError('private/path secret-token')
+            super().__init__(*args, **kwargs)
+
+        def start(self):
+            if failure_stage == 'start' and len(attempts) == 1:
+                raise RuntimeError('private/path secret-token')
+            return super().start()
+
+    monkeypatch.setattr(threading, 'Thread', FailingOnceThread)
+    monkeypatch.setattr(office, '_publish_warning_at', None)
+    monkeypatch.setattr(office, '_publish_warnings_suppressed', 0)
+    caplog.set_level(logging.WARNING, logger=office.logger.name)
+    office._publish({'event': 'session_start', 'session_id': 'first'})
+    office._publish({'event': 'tool_start', 'session_id': 'first'})
+    assert len(list((directory / 'inbox').glob('*.json'))) == 2
+    assert len(attempts) == 2, 'the next event must retry without a stale started flag'
+    assert sum(worker.is_alive() for worker in workers) == 1
+    assert 'RuntimeError' in caplog.text
+    assert 'private/path' not in caplog.text and 'secret-token' not in caplog.text
+
+
+def test_successful_publication_and_startup_do_not_wait_for_ingestion_lock(publishing_server):
+    workers, _, _, _, directory = publishing_server
+    entered, returned = threading.Event(), threading.Event()
+
+    def publish():
+        entered.set()
+        office._publish({'event': 'session_start', 'session_id': 'not-blocked'})
+        returned.set()
+
+    publisher = threading.Thread(target=publish, daemon=True)
+    try:
+        with office._lock:
+            publisher.start()
+            assert entered.wait(2)
+            completed_while_locked = returned.wait(0.5)
+    finally:
+        publisher.join(3)
+    assert not publisher.is_alive()
+    assert len(list((directory / 'inbox').glob('*.json'))) == 1
+    assert completed_while_locked, 'listener coordination must not wait behind state ingestion'
+    assert len(workers) == 1
+
+
+def test_completed_listener_attempt_respects_existing_server_then_retries_when_gone(publishing_server):
+    workers, release, bound, probes, directory = publishing_server
+    office._publish({'event': 'session_start', 'session_id': 'first'})
+    release.set()
+    workers[0].join(3)
+    assert not workers[0].is_alive()
+    bound[0] = True
+    for _ in range(3):
+        office._publish({'event': 'tool_start'})
+    assert len(workers) == 1, 'an existing listener keeps this process feed-only'
+    assert len(probes) == 3
+    bound[0] = False
+    office._publish({'event': 'tool_end'})
+    assert len(workers) == 2, 'a dead attempt must not permanently prevent replacement'
+    assert len(list((directory / 'inbox').glob('*.json'))) == 5
+
+
+@pytest.mark.skipif(not hasattr(office.os, 'fork'), reason='POSIX fork lifecycle')
+def test_forked_publisher_does_not_inherit_listener_ownership_or_locked_startup(publishing_server, monkeypatch):
+    import os
+    import select
+    import signal
+    import warnings
+
+    workers, _, _, _, directory = publishing_server
+    office._publish({'event': 'session_start', 'session_id': 'parent'})
+    parent_worker = workers[0]
+    monkeypatch.setattr(office, '_serve', lambda: None)
+    reader, writer = os.pipe()
+    response = b''
+    try:
+        # Fork deliberately while another thread's coordination state would
+        # otherwise be inherited forever. No child runs an HTTP server here.
+        with office._server_start_lock:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', DeprecationWarning)
+                child = os.fork()
+            if child == 0:
+                try:
+                    os.close(reader)
+                    office._publish({'event': 'session_start', 'session_id': 'child'})
+                    os.write(writer, b'1' if office._server_thread is not parent_worker else b'0')
+                finally:
+                    os._exit(0)
+            os.close(writer)
+            writer = None
+            try:
+                readable, _, _ = select.select([reader], [], [], 2)
+                if readable:
+                    response = os.read(reader, 1)
+            finally:
+                if not response:
+                    os.kill(child, signal.SIGKILL)
+                os.waitpid(child, 0)
+        assert response == b'1', 'child publication must not wait on a parent-owned startup lock'
+        assert office._server_thread is parent_worker and parent_worker.is_alive()
+        assert len(list((directory / 'inbox').glob('*.json'))) == 2
+    finally:
+        os.close(reader)
+        if writer is not None:
+            os.close(writer)

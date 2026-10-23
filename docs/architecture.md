@@ -53,6 +53,18 @@ execution disabled. See [the runner contract](local-task-runner.md).
 
 Each bundled publisher writes one complete envelope to a temporary file, then atomically renames it into `inbox/`. The envelope carries its protocol version, reset epoch, and normalized event. A unique filename supplies a receipt identity and deterministic publication order, independent of the event's source timestamp. Two intentional publications with identical payloads remain two observations. Publishers must not reuse receipt filenames.
 
+Hermes event publication coordinates listener startup with a separate lock,
+not the state-ingestion lock. One successfully started HTTP worker owns its
+pending bind and serving lifecycle; later events neither start duplicate workers
+nor open extra probe connections while it is alive. Forked children reset this
+listener ownership and its coordination lock before their next publication.
+If the worker has exited,
+a remaining listener keeps this process feed-only; if the listener is gone, the
+next event starts a replacement. Worker allocation/start failures leave all
+already-published inbox events intact and permit the next event to retry through
+the existing redacted diagnostics. This is not a background restart service or
+a guarantee that stalled state reads complete immediately.
+
 The server drains at most 2,048 available records per batch. A single background worker runs ingestion even with no browser connected, waiting one second between completed passes; HTTP state/history reads also ingest available observations. The worker is separate from the HTTP accept loop, so a slow filesystem read or state lock does not stop bootstrap assets or disabled-runner capabilities from being served. Existing state locks and SQLite transactions still serialize ingestion. Oversized or malformed records are counted and acknowledged without applying their contents. The current record limit is 256 KiB.
 
 Listener shutdown signals the maintenance worker to stop and waits at most one second for it. A blocked filesystem operation cannot be forcibly cancelled; the daemon worker exits after its current pass rather than starting another. This does not promise immediate state responses when the data store itself is stalled. Maintenance failures retain inputs for retry and log only their exception type, at most once per minute during consecutive failures. Raw exception messages and tracebacks are omitted; a logging-handler failure does not disable subsequent ingestion.
