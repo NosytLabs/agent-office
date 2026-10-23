@@ -21,8 +21,6 @@ the full-size copies retain the original capture pixels. See the
 
 ## Product website and GitHub Pages
 
-![Product website with a real app screenshot using synthetic sessions](screenshots/product-site.png)
-
 Build the standalone website with:
 
 ```sh
@@ -52,11 +50,8 @@ the site but skips artifact upload and deployment, with a configuration note
 in its run summary. It does not repeatedly attempt an unconfigured deployment.
 
 Before the first Pages deployment, an owner must select **Settings → Pages →
-Build and deployment → Source: GitHub Actions**. GitHub repository metadata
-reported `has_pages: false` during this review. The connected repository tools
-do not expose Pages administration, so that setting could not be changed here.
-The workflow intentionally does not auto-enable Pages or
-change access settings. Use **Actions → Product website → Run workflow** after
+Build and deployment → Source: GitHub Actions**. The workflow intentionally does
+not auto-enable Pages or change access settings. Use **Actions → Product website → Run workflow** after
 configuration if needed. A generated Pages URL is not considered live until
 its deployment succeeds and the URL is checked.
 
@@ -96,13 +91,10 @@ iframe's isolation remain intact.
 
 Use the [merged release pull requests](https://github.com/NosytLabs/agent-office/pulls?q=is%3Apr+is%3Amerged)
 for each reviewed commit's exact deployment and hosted checks. The current
-[audit record](audit/README.md) covers local regression results and remaining
-integration limits. A READY static deployment is not a Python, browser-test,
+[validation guide](audit/README.md) covers reproducible gates and integration limits. A READY static deployment is not a Python, browser-test,
 or installed-runtime verification result. Hosted checks cover the public
 synthetic application; local Chromium tests additionally verify exact copied
 command bytes and controlled error paths that the public demo cannot create.
-
-![Aquarium on the deployed public-art demo](screenshots/preview.jpg)
 
 ## Build and inspect locally
 
@@ -227,3 +219,35 @@ fetches to local or remote observers. The aquarium uses only the publicly
 redistributable fallback. The builder rejects asset symlinks, private/development
 asset directories, Smallburg filenames, and the exact known owner-only sheet
 hashes rather than packaging them accidentally.
+
+
+## Product-page search metadata
+
+`npm run build:preview` publishes the synthetic demo at `/` and the product site
+at `/about/`. The product builder adds canonical links, Open Graph/Twitter image
+metadata, a real screenshot preview, and a sitemap for the overview and credits.
+The default canonical product address is
+`https://agent-office-preview-seven.vercel.app/about/`.
+
+For your own production domain, set the same explicit base for both builders:
+
+```sh
+AGENT_OFFICE_SITE_URL=https://example.com/about/ npm run build:preview
+# A standalone product site can use the root or a project subpath:
+AGENT_OFFICE_SITE_URL=https://example.com/ npm run build:site
+```
+
+Only absolute HTTPS directory URLs without credentials, whitespace, query or
+fragment are accepted. Invalid configuration fails before replacing an existing
+build. Do not use a temporary branch-preview URL as the canonical address.
+Resources remain relative so project-subpath hosting still works.
+
+The root demo `robots.txt` points to the product sitemap; the product-only builder
+also writes a `robots.txt` for root-hosted sites. Crawlers use only the domain-root
+robots file, so on shared project-subpath hosts submit the generated sitemap
+through that site's search tooling instead. A sitemap is a discovery hint, not a
+guarantee of indexing or rankings. See [Google's sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
+
+The demo uses `noindex, follow`; the local observer remains loopback-only.
+Robots directives are not access control. Keep the observer bound to loopback;
+never publish local data or rely on robots directives to hide private sessions.

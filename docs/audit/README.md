@@ -1,98 +1,80 @@
 # Validation and integration limits
 
-[Documentation](../README.md) · [Development checks](../../CONTRIBUTING.md#checks) · [Historical evidence](history.md)
+[Documentation](../README.md) · [Development checks](../../CONTRIBUTING.md#checks)
 
-Tests use synthetic activity and isolated data folders. Their results establish
-the exercised contracts, not paid-provider work or the owner's live sessions.
+## Verify a revision, not a headline count
 
-## Verified application snapshot — 18 October 2026
+A green deployment only proves the static build deployed. For a release, inspect
+the exact commit's [CI run](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml),
+[hygiene run](https://github.com/NosytLabs/agent-office/actions/workflows/hygiene.yml),
+and deployed commit separately. A PR's tested merge tree must match the source
+actually merged. Test totals belong in that PR or CI run, not in a stale table here.
 
-These results belong to commit
-[`2fbd6fc`](https://github.com/NosytLabs/agent-office/commit/2fbd6fcc0c8730522523a7634724710927bfee08).
-[PR #39](https://github.com/NosytLabs/agent-office/pull/39) fixed crowded HUDs,
-landscape panels, diagnostics focus and stale Copy feedback.
-[PR #40](https://github.com/NosytLabs/agent-office/pull/40) allowed slow optional
-artwork downloads to finish. [PR #41](https://github.com/NosytLabs/agent-office/pull/41)
-corrected timing-dependent browser assertions without changing the application.
+Follow [development setup](../../CONTRIBUTING.md#development-setup), then run:
 
-| Check | Recorded result |
-| --- | --- |
-| [Final PR CI](https://github.com/NosytLabs/agent-office/actions/runs/39148888553) and [merged main CI](https://github.com/NosytLabs/agent-office/actions/runs/39149806699) | Passed on their exact commits |
-| Python on Ubuntu 24.04 / Python 3.13 | **686 passed**, 8 optional/platform-specific skips |
-| Node 22 models, controllers and bridges | **182 passed** |
-| Complete browser command | **383 passed**, 1 optional private-art skip; Original 273 + Studio 110 |
-| Syntax, formatting, sprite reproduction, public builds and repository hygiene | Passed |
-| Production smoke | 1440, 768, 601, 390 and 320px flows, plus a 667 × 320px landscape panel; no page errors or failed resources |
-| Published output | 30 checked files matched the tested application; 3 authoring paths returned 404 |
+```sh
+python3 tools/check_repository.py
+python -m pytest -q
+npm test
+npm run check
+npm run format:check
+npm run check:sprites
+npm run build:preview
+npm run test:browser
+```
 
-The five fresh-browser production flows loaded every supplemental artwork pack
-without Retry. They exercised actual command copying, delayed setup-copy
-feedback, settings persistence, draft retention, Back/Escape and unchanged
-synthetic activity/accounting. The last merge changed only two tests; the
-published application was checked against the same verified source.
+Stage intended new source files before hygiene checks. The checker reads tracked
+working files and the Git index; it does not delete user data, validate external
+websites, or scan arbitrary contents for secrets. Both browser suites are required;
+a passing focused case is not a replacement for the full release gate.
 
-Counts describe this snapshot, not every later commit. Check a newer revision's
-actual [CI run](https://github.com/NosytLabs/agent-office/actions/workflows/ci.yml)
-and deployment separately. A successful deployment does not establish a test pass.
+CI uses isolated data and the runner's maintained Chrome. It retains reports for
+three days after failed or manually dispatched runs. For a local visual review:
 
-## Reproduce the checks
+```sh
+OFFICE_SCREENSHOTS=reports/screenshots npm run test:browser
+```
 
-Follow [the development setup and complete checks](../../CONTRIBUTING.md#development-setup).
-The full browser gate is `npm run test:browser`, which runs both compatibility
-and Studio flows. Focused passes do not replace that complete release check.
-
-Stage intended new source files before running `python3 tools/check_repository.py`.
-It reads tracked working files and the Git index, checks local Markdown links and
-anchors, rejects generated/local-only artifacts and conflict markers, and rejects
-unsafe symlinks before reading their targets. It does not delete data, validate
-external websites or scan arbitrary file contents for secrets.
-
-Both [CI](../../.github/workflows/ci.yml) and
-[repository hygiene](../../.github/workflows/hygiene.yml) run for every PR and push
-to main, including documentation-only changes. Full CI uses the runner's maintained
-Chrome, allows 20 minutes, and retains browser artifacts for three days after
-failed or manual runs. Keep raw logs and temporary reports outside Git; see
-[logs and maintenance](../maintenance.md#keep-development-output-out-of-git).
+Inspect representative desktop, narrow-phone, landscape, keyboard-focus, failure
+and recovery captures. Generated screenshots are not automatically a visual review.
+Never commit live account data; keep reports outside Git. See
+[logs and cleanup](../maintenance.md#keep-development-output-out-of-git).
 
 <a id="automated-coverage"></a>
 
 ## Integration limits
 
-| Area | Coverage and practical limit |
+| Area | What the checks establish |
 | --- | --- |
-| Observation, persistence and accounting | Event inbox/store, reset/replay, retention, usage and task-model tests use isolated local data. Reported usage is an estimate; missing counters remain unknown. See [runtime contracts](../runtime-observers.md). |
-| UI and artwork | Real HTTP/browser flows cover panels, focus, drafts, settings conflicts, room controls, sprite fallback/retry, exports, arcade and aquarium. See the browser commands in [package.json](../../package.json). Physical mobile devices and Safari/iOS were not independently exercised. |
-| Runtime adapters | Fixture-tested here. The optional native Gemini fixture targets a specific installed version and synthetic loopback provider; it does not prove paid-provider success. Authenticated Hermes, Claude Code, Codex and OpenCode sessions were not verified by this snapshot. |
-| Local task runner | Temporary Codex/Claude-shaped executables exercise admission, prompts, output, cancellation and retry contracts. They do not prove credentials, model access or useful task completion. Native Windows cleanup remains best-effort/unverified. See [runner limits](../local-task-runner.md). |
-| VS Code | Packaging, simulated APIs and real HTTP checks are separate from actual extension-host installation, activation and remote-forwarding verification. See [the extension guide](../../vscode/README.md). |
-| Clipboard | Browser checks cover successful copies, denied/delayed responses and preserved selection/focus. Real operating-system permission prompts were not exercised. |
-| Logs and cleanup | Publication failures, bounded warnings, redaction and broken log handlers are covered by `test_observer_logging.py`. The repository checker has isolated Git-index tests in `test_repository_hygiene.py`. See [maintenance](../maintenance.md) for storage and log boundaries. |
+| Observation and accounting | Synthetic inbox/store, reset/replay, retention, usage and task identities in isolated data. Unknown counters remain unknown. [Runtime coverage](../runtime-observers.md). |
+| Office and artwork | HTTP/browser flows cover panels, drafts, focus, settings conflicts, room controls, sprites, recovery, gallery exports, games and aquarium. Chromium is not independent Safari/iOS or physical-device verification. |
+| Local CLI runs | Temporary executables and process doubles cover admission, literal prompts, output, cancellation and in-memory retries. They do not establish installed versions, credentials, provider access or useful task completion. Native Windows cleanup remains best-effort. [Runner contract](../local-task-runner.md). |
+| Runtime integrations | Hook fixtures establish only the named contract. Optional native Gemini tests use a selected CLI and synthetic loopback provider, not a paid account. Label any installed-runtime/provider smoke test separately. |
+| VS Code | Simulated APIs, packaging and HTTP checks are not actual extension-host activation or remote forwarding. [Extension guide](../../vscode/README.md). |
+| Product website | Static build tests cover public-only assets, canonical/social metadata, sitemap, configured URLs and link targets. Browser flows cover no-JavaScript content, setup, copy, tabs and responsive layouts. Metadata is not proof of indexing or ranking. |
 
-Existing-session OpenCode handoff and durable delivery receipts remain deferred in
-[issue #18](https://github.com/NosytLabs/agent-office/issues/18). Fresh local tasks,
-observed task lists and saved briefs do not implement that adapter. Dated
-[reference reviews](history.md#source-reviews) preserve research and reuse decisions;
-they are not proof that upstream software ran here or that a proposed feature shipped.
+## Open investigations
 
-## Interface evidence
+- [Issue #56](https://github.com/NosytLabs/agent-office/issues/56): remaining historical
+  restart-readiness and observer delays. Reproduce the failing boundary and keep
+  diagnostic evidence; do not close it just because an isolated rerun passed.
+- [Issue #18](https://github.com/NosytLabs/agent-office/issues/18): existing-session
+  OpenCode handoff and durable delivery receipts. Fresh CLI runs, saved briefs and
+  downloaded output snapshots do not implement this capability.
 
-The maintained captures use synthetic data. They illustrate the interface;
-the commit-specific checks above establish the recorded verification.
+## Documentation images and source records
 
-| View | Capture |
-| --- | --- |
-| Office and characters | [Studio office](../screenshots/studio-office.png), [appearance](../screenshots/appearance.png), [personalization](../screenshots/personalization.png) |
-| Activity and usage | [Usage](../screenshots/usage.png), [Gemini fixture inspector](../screenshots/gemini-mobile.png) |
-| Settings and narrow layouts | [Settings](../screenshots/settings.png), [keyboard focus](../screenshots/keyboard-settings.png), [long mobile title](../screenshots/long-office-name-mobile.png) |
-| Props and lighting | [Task signals](../screenshots/signals.png), [mobile signals](../screenshots/signals-mobile.png), [pet bed](../screenshots/pet-bed.png), [room toys](../screenshots/office-toys.png), [lights](../screenshots/room-lights.png) |
-| Arcade and aquarium | [Duck Hunt](../screenshots/arcade-duck-hunt.png), [Breakout](../screenshots/arcade-breakout.png), [Snake desktop](../screenshots/arcade-snake-desktop.png), [Snake mobile](../screenshots/arcade-snake-mobile.png), [fish](../screenshots/aquarium.png), [tank controls](../screenshots/aquarium-interactions.png) |
-| Local run fixtures | [Form](../screenshots/local-runs-desktop.png), [output](../screenshots/local-runs-output.png), [mobile output](../screenshots/local-runs-mobile.png), [console](../screenshots/task-console-running.png) |
-| Product website | [Product introduction](../screenshots/product-site.png) |
+The [Studio overview](../screenshots/studio-office.png) and product-site screenshots
+are synthetic examples, not today's production state. Four original captures
+(appearance, usage, settings and aquarium) remain inputs to the checked responsive
+image pipeline. Source-art/provenance captures also remain where generation records
+reference them. One-off historical UI screenshots are available in Git rather
+than carried as current documentation.
 
-## Source and asset review
+Keep the [asset notices](../../web/assets/ATTRIBUTION.md),
+[sprite provenance](../../web/assets/sprites/ATTRIBUTION.md),
+[asset pipeline](../asset-pipeline.md), and [source/reuse guide](../references.md).
 
-Project code, runtime marks, fonts, games and artwork have separate source notices.
-Keep [asset notices](../../web/assets/ATTRIBUTION.md),
-[sprite provenance](../../web/assets/sprites/ATTRIBUTION.md) and
-[arcade provenance](../arcade.md) with their assets. The optional licensed
-[Smallburg aquarium pack](../aquarium-assets.md) is not distributed in Git.
+Historical validation records and removed captures remain available in the
+[pre-cleanup audit directory](https://github.com/NosytLabs/agent-office/blob/7266c771e173cb53495c08157047d682b38ccb56/docs/audit/README.md) and
+[its history index](https://github.com/NosytLabs/agent-office/blob/7266c771e173cb53495c08157047d682b38ccb56/docs/audit/history.md).

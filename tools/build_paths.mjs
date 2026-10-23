@@ -1,4 +1,4 @@
-/* Shared filesystem boundary for the two public static builders. */
+/* Shared filesystem and public-URL boundaries for the static builders. */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -34,4 +34,38 @@ export function rejectSymlinks(file, kind) {
     if (entry.isSymbolicLink())
       throw new Error(`Refusing symlinked ${kind} input/output: ${current}`);
   }
+}
+
+// A configured production address, never an inferred branch-preview hostname.
+export function publicSiteBase() {
+  const raw =
+    process.env.AGENT_OFFICE_SITE_URL ??
+    "https://agent-office-preview-seven.vercel.app/about/";
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(
+      "AGENT_OFFICE_SITE_URL must be an absolute HTTPS directory URL.",
+    );
+  }
+  if (
+    /[\s?#]/.test(raw) ||
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      "AGENT_OFFICE_SITE_URL must use HTTPS without credentials, whitespace, query or fragment.",
+    );
+  }
+  url.pathname = url.pathname.replace(/\/+$/, "") + "/";
+  return url.href;
+}
+
+export function publicRobots(siteBase) {
+  // Allow crawling so crawlers can see the demo's noindex meta directive.
+  return `User-agent: *\nAllow: /\nSitemap: ${siteBase}sitemap.xml\n`;
 }

@@ -178,14 +178,15 @@ explain what each cleanup operation actually changes.
 
 Keep user instructions in the guide linked from [the documentation index](docs/README.md).
 Update that guide when behavior changes. Put reproducible checks here and keep
-release-specific counts, source commits and verification limits in the existing
-[validation record](docs/audit/README.md). Historical source reviews are dated
-background, not another feature backlog.
+release-specific counts and source commits in the relevant PR and CI run.
+The [validation guide](docs/audit/README.md) holds reproducible gates and integration
+limits; [source/reuse notes](docs/references.md) hold retained research boundaries.
 
 Keep raw logs and temporary reports under ignored `reports/` or outside the
 checkout. Link the relevant CI run for hosted evidence; a local pass is not a
-hosted result. When replacing an old audit narrative, preserve a commit-pinned
-Git link in [the history index](docs/audit/history.md). Screenshots committed as
+hosted result. Superseded audit narratives and one-off screenshots belong in Git
+history, not another archive folder. Preserve source/license records and captures
+used by the public image pipeline. Screenshots committed as
 documentation must use synthetic data and follow the
 [screenshot maintenance guide](site/screenshots/README.md).
 

@@ -4,10 +4,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { canonicalSystemPath, rejectSymlinks } from "./build_paths.mjs";
+import {
+  canonicalSystemPath,
+  rejectSymlinks,
+  publicSiteBase,
+  publicRobots,
+} from "./build_paths.mjs";
 const root = canonicalSystemPath(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
 );
+const siteBase = publicSiteBase();
 const marker = "site-build.json";
 const format = "agent-office-product-site-v1";
 const args = process.argv.slice(2);
@@ -56,6 +62,7 @@ const inputs = new Map([
   ["credits.html", "site/credits.html"],
   ["LICENSE.txt", "LICENSE"],
   ["assets/office.svg", "web/assets/office.svg"],
+  ["assets/social-preview.png", "docs/screenshots/appearance.png"],
   [
     "assets/fonts/geist-latin-variable.woff2",
     "web/assets/fonts/geist-latin-variable.woff2",
@@ -111,6 +118,82 @@ for (const [destination, relative] of inputs) {
   }
   copies.set(destination, bytes);
 }
+// Only product documents belong in search, not fictional sessions in the demo.
+const escape = (value) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+const canonicalPages = [];
+for (const page of ["index.html", "credits.html"]) {
+  let html = copies.get(page).toString("utf8");
+  const canonical = new URL(page === "index.html" ? "" : page, siteBase).href;
+  const image = new URL("assets/social-preview.png", siteBase).href;
+  const title = html
+    .match(/<title>([^<]+)<\/title>/)?.[1]
+    ?.replaceAll("&amp;", "&");
+  const description = html.match(/name="description"\s+content="([^"]+)"/)?.[1];
+  if (
+    !title ||
+    !description ||
+    html.split("</head>").length !== 2 ||
+    /rel="canonical"|property="og:url"/.test(html)
+  ) {
+    throw new Error(`Expected one unambiguous metadata template: ${page}`);
+  }
+  const metadata = [
+    ["property", "og:url", canonical],
+    ["property", "og:site_name", "Agent Office"],
+    ["property", "og:image", image],
+    ["property", "og:image:type", "image/png"],
+    ["property", "og:image:width", "1440"],
+    ["property", "og:image:height", "1000"],
+    [
+      "property",
+      "og:image:alt",
+      "Agent Office dashboard with synthetic example sessions",
+    ],
+    ["name", "twitter:card", "summary_large_image"],
+    ["name", "twitter:title", title],
+    ["name", "twitter:description", description],
+    ["name", "twitter:image", image],
+    [
+      "name",
+      "twitter:image:alt",
+      "Agent Office dashboard with synthetic example sessions",
+    ],
+  ];
+  if (page === "credits.html")
+    metadata.push(
+      ["property", "og:title", title],
+      ["property", "og:description", description],
+      ["property", "og:type", "website"],
+    );
+  const tags = metadata
+    .map(
+      ([attribute, key, value]) =>
+        `    <meta ${attribute}="${key}" content="${escape(value)}" />`,
+    )
+    .join("\n");
+  html = html.replace(
+    "</head>",
+    `<link rel="canonical" href="${escape(canonical)}" />\n${tags}\n  </head>`,
+  );
+  copies.set(page, Buffer.from(html));
+  canonicalPages.push(canonical);
+}
+copies.set(
+  "sitemap.xml",
+  Buffer.from(
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      canonicalPages
+        .map((url) => `  <url><loc>${escape(url)}</loc></url>`)
+        .join("\n") +
+      "\n</urlset>\n",
+  ),
+);
+copies.set("robots.txt", Buffer.from(publicRobots(siteBase)));
 copies.set(".nojekyll", Buffer.from(""));
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(output, { recursive: true });

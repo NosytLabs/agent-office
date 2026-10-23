@@ -4,11 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { canonicalSystemPath, rejectSymlinks } from "./build_paths.mjs";
+import {
+  canonicalSystemPath,
+  rejectSymlinks,
+  publicSiteBase,
+  publicRobots,
+} from "./build_paths.mjs";
 
 const root = canonicalSystemPath(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
 );
+const siteBase = publicSiteBase();
 const marker = "preview-build.json";
 const format = "agent-office-static-preview-v1";
 const args = process.argv.slice(2);
@@ -183,6 +189,10 @@ previewMeta(
   "description",
   "Explore Agent Office with fictional agents, sample activity and synthetic token usage. Run the local observer to monitor your own sessions.",
 );
+replaceOnce(
+  "</head>",
+  '  <meta name="robots" content="noindex, follow" />\n  </head>',
+);
 previewMeta("property", "og:title", "Agent Office — Interactive demo");
 previewMeta(
   "property",
@@ -200,7 +210,7 @@ replaceOnce(
   `<div id="wrap">
       <aside id="preview-notice" aria-label="Demo information">
         <div><strong>Interactive demo</strong><p>All agents, activity, XP and usage here are fictional. Preferences stay in this browser. Run Agent Office locally to observe your own sessions.</p></div>
-        <div class="preview-actions"><button class="btn" id="preview-restore">Restore sample</button><a class="btn" href="https://github.com/NosytLabs/agent-office#start-locally" target="_blank" rel="noopener noreferrer">Run locally ↗</a></div>
+        <div class="preview-actions"><button class="btn" id="preview-restore">Restore sample</button><a class="btn" href="${siteBase.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}#get-started" target="_blank" rel="noopener noreferrer">Run locally ↗</a></div>
       </aside>`,
 );
 replaceOnce(
@@ -220,6 +230,7 @@ replaceOnce(
     </style>\n  </head>`,
 );
 copies.set("index.html", Buffer.from(html));
+copies.set("robots.txt", Buffer.from(publicRobots(siteBase)));
 
 // Collect and validate everything before replacing a previous generated build.
 fs.rmSync(output, { recursive: true, force: true });

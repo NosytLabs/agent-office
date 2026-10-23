@@ -468,7 +468,7 @@ h1 span {
 .ledger-card {
   background: #e4ebe3;
 }
-.room-card {
+.run-card {
   background: #f1eada;
   border-color: #e0d8c4;
 }
@@ -514,39 +514,6 @@ h1 span {
   border: 1px solid #b8c9b9;
   border-radius: 5px;
   background: #f4f7ef;
-}
-.swatch-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: auto;
-  min-height: 54px;
-}
-.swatch {
-  width: 25px;
-  height: 25px;
-  border: 3px solid #faf9f0;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px #d4ccba;
-  flex-shrink: 0;
-}
-.swatch-green {
-  background: #607c62;
-}
-.swatch-gold {
-  background: #e0b765;
-}
-.swatch-clay {
-  background: #b66e4f;
-}
-.swatch-night {
-  background: #22333d;
-}
-.swatch-row small {
-  font-size: 10px;
-  line-height: 1.4;
-  margin-left: 4px;
-  color: #6c6048;
 }
 .tour-section {
   padding-block: 88px 76px;
@@ -868,10 +835,11 @@ h1 span {
   border-radius: 50%;
 }
 .setup-tabs {
+  flex-wrap: wrap;
   border-bottom: 1px solid #41604c;
 }
 .setup-tabs button {
-  flex: 1;
+  flex: 1 1 110px;
   min-height: 48px;
   border: 0;
   border-right: 1px solid #41604c;
@@ -1555,9 +1523,6 @@ h1 span {
     font-size: 10px;
   }
   .detail-list span {
-    font-size: 12px;
-  }
-  .swatch-row small {
     font-size: 12px;
   }
   .tour-section {

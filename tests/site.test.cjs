@@ -235,7 +235,7 @@ test("install commands copy exact multiline text to the browser clipboard", () =
     await page.getByRole("button", { name: "Copy connection command" }).click();
     assert.equal(
       await page.evaluate(() => navigator.clipboard.readText()),
-      "python3 install.py",
+      "python3 install.py --dry-run\npython3 install.py --only codex",
     );
     await page.getByRole("tab", { name: "3. Editor" }).click();
     await page.getByRole("button", { name: "Copy VS Code command" }).click();
@@ -489,7 +489,8 @@ test("320px and tablet layouts retain usable controls with no horizontal page ov
 test("content, installation steps, credits, and native FAQs work without JavaScript", () =>
   withPage(
     async (page) => {
-      assert.equal(await page.locator("[data-tab-panel]:visible").count(), 7);
+      assert.equal(await page.locator("[data-tab-panel]:visible").count(), 8);
+      assert.equal(await page.locator("#setup-run").isVisible(), true);
       assert.equal(
         await page
           .getByRole("button", { name: "Copy start commands" })
@@ -780,3 +781,74 @@ test("a focused mobile source link moves to visible navigation after expanding t
     },
     { viewport: { width: 390, height: 844 } },
   ));
+
+for (const width of [1440, 320]) {
+  test(`optional CLI setup is reachable by keyboard and keeps commands explicit at ${width}px`, () =>
+    withPage(
+      async (page, context) => {
+        await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+          origin,
+        });
+        await page.getByRole("link", { name: "Enable local runs" }).click();
+        const panel = page.locator("#setup-run");
+        await panel.waitFor({ state: "visible" });
+        const tabs = page
+          .getByRole("tablist", { name: "Installation steps" })
+          .getByRole("tab");
+        assert.equal(await tabs.count(), 4);
+        const runTab = page.getByRole("tab", { name: "Optional runs" });
+        assert.equal(await runTab.getAttribute("aria-selected"), "true");
+        assert.match(
+          await panel.innerText(),
+          /Stop the existing office server/,
+        );
+        assert.match(
+          await panel.innerText(),
+          /own account, permissions and billing/,
+        );
+        assert.match(
+          await panel.innerText(),
+          /not a message to an existing session/,
+        );
+        await page
+          .getByRole("button", { name: "Copy local runner command" })
+          .click();
+        assert.equal(
+          await page.evaluate(() => navigator.clipboard.readText()),
+          "python3 run.py --enable-task-runner --workspace /absolute/path/to/project",
+        );
+        await runTab.focus();
+        await page.keyboard.press("Home");
+        await page.keyboard.press("Enter");
+        assert.equal(await page.locator("#setup-start").isVisible(), true);
+        await page.keyboard.press("End");
+        await page.keyboard.press("Enter");
+        assert.equal(await panel.isVisible(), true);
+        assert.equal(
+          await page
+            .locator('[data-tab-group="setup"] [role="tabpanel"]:visible')
+            .count(),
+          1,
+        );
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth > innerWidth,
+          ),
+          false,
+        );
+        for (const tab of await tabs.all()) {
+          const box = await tab.boundingBox();
+          assert.ok(
+            box &&
+              box.width >= 44 &&
+              box.height >= 44 &&
+              box.x >= 0 &&
+              box.x + box.width <= width,
+            "each setup tab stays visible and touch sized",
+          );
+        }
+        await capture(page, `local-run-setup-${width}`, false);
+      },
+      { viewport: { width, height: width === 320 ? 800 : 1000 } },
+    ));
+}

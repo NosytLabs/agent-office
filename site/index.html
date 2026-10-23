@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A local pixel office for your coding agents. See who needs input, inspect sessions and subagents, and understand reported token usage. Free, open source, and yours to customize."
+      content="Monitor coding agents locally: session activity, input requests, reported token usage, and optional Codex, Claude Code or OpenCode task runs. Free, open-source code."
     />
     <meta name="theme-color" content="#163b30" />
     <meta
       property="og:title"
-      content="Agent Office — A clearer view of your coding agents"
+      content="Agent Office — Local dashboard for coding agents"
     />
     <meta
       property="og:description"
-      content="A useful little office for the work happening in your terminals. Local activity, reported usage, and a room that grows with you."
+      content="A local dashboard for coding agents: observed sessions, reported usage, saved briefs and explicitly launched CLI tasks. The public demo uses fictional activity."
     />
     <meta property="og:type" content="website" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Agent Office — A clearer view of your coding agents</title>
+    <title>Agent Office — Local dashboard for coding agents</title>
     <link rel="icon" type="image/svg+xml" href="assets/office.svg" />
     <link
       rel="preload"
@@ -71,14 +71,13 @@
             your coding agents
           </p>
           <h1 id="hero-title">
-            Know what<br class="desktop-break" />
-            your agents<br class="desktop-break" />
-            <span>are up to.</span>
+            Your agents.<br class="desktop-break" />
+            <span>One local office.</span>
           </h1>
           <p class="hero-description">
-            Your terminals are busy. Get a clearer view. See who’s working, who
-            needs your input, and what your runtimes report spending—all in a
-            little office you can make your own.
+            See which coding agents are working or need your input. Inspect
+            reported usage, keep reusable task briefs, and explicitly start new
+            local CLI tasks. Your sessions and permissions stay with your tools.
           </p>
           <div class="hero-actions">
             <a class="button" href="#get-started"
@@ -197,24 +196,21 @@
               ><span>Reported usage</span>
             </div>
           </article>
-          <article class="benefit-card room-card">
+          <article class="benefit-card run-card">
             <div class="card-kicker">
-              <span class="mini-icon" aria-hidden="true">⌑</span
-              ><span>03 / Your space</span>
+              <span class="mini-icon" aria-hidden="true">&gt;_</span>
+              <span>03 / Local tasks</span>
             </div>
-            <h3>A room that feels<br />like your room.</h3>
+            <h3>Review a brief.<br />Start a task.</h3>
             <p>
-              Name your agents, choose their characters, assign desks, and
-              arrange furniture. Earn useful room additions through observed
-              activity.
+              Choose a configured project and a supported CLI, review the exact
+              prompt, then press Run. Read output, cancel a process, or reuse
+              the brief. Nothing starts from a furniture click or an observed
+              event.
             </p>
-            <div class="swatch-row" aria-label="A selection of room colors">
-              <span class="swatch swatch-green"></span
-              ><span class="swatch swatch-gold"></span
-              ><span class="swatch swatch-clay"></span
-              ><span class="swatch swatch-night"></span
-              ><small>Make space for your style.</small>
-            </div>
+            <a class="text-link" href="#setup-run"
+              >Enable local runs <span aria-hidden="true">↗</span></a
+            >
           </article>
         </div>
       </section>
@@ -587,7 +583,9 @@
               <span aria-hidden="true">⌂</span>
               <p>
                 The server binds to <code>127.0.0.1</code>. The office serves
-                local assets and makes no analytics or model-provider requests.
+                local assets with no analytics. Observation makes no
+                model-provider requests; an explicitly launched CLI uses its own
+                account and billing.
               </p>
             </div>
           </div>
@@ -619,6 +617,13 @@
                 data-tab-button="setup-editor"
               >
                 3. Editor
+              </button>
+              <button
+                type="button"
+                id="setup-tab-run"
+                data-tab-button="setup-run"
+              >
+                Optional runs
               </button>
             </div>
             <div id="setup-start" class="setup-panel" data-tab-panel>
@@ -653,7 +658,8 @@ python3 run.py</code></pre>
                 <pre
                   id="command-connect"
                   tabindex="0"
-                ><code>python3 install.py</code></pre>
+                ><code>python3 install.py --dry-run
+python3 install.py --only codex</code></pre>
                 <button
                   type="button"
                   class="copy-button enhanced-only"
@@ -664,13 +670,12 @@ python3 run.py</code></pre>
                 </button>
               </div>
               <p>
-                This connects all detected integrations and preserves unrelated
-                configuration. To choose individual tools, first preview with
-                <code>python3 install.py --dry-run</code>, then select them with
-                <code>python3 install.py --only codex</code>, for example.
-                Options include hermes, opencode, claude, codex, gemini, and
-                vscode. Restart the selected runtimes after installation. The
-                installer does not install those runtimes.
+                The first command previews detected integrations without
+                changing configuration. The second connects only Codex. Replace
+                <code>codex</code> with the tools you use: hermes, opencode,
+                claude, codex, gemini, or vscode. Unrelated configuration is
+                preserved. Restart the selected runtimes afterward. The
+                installer does not install the CLIs themselves.
               </p>
               <p>
                 For Codex, review and trust the hook through
@@ -704,6 +709,41 @@ python3 run.py</code></pre>
                 <a
                   href="https://github.com/NosytLabs/agent-office/blob/main/vscode/README.md"
                   >extension connection guide</a
+                >.
+              </p>
+            </div>
+            <div id="setup-run" class="setup-panel" data-tab-panel>
+              <h3>Start a new local CLI task</h3>
+              <p>
+                Optional: install and sign in to Codex, Claude Code, or OpenCode
+                first. Stop the existing office server, then restart it with
+                your project’s absolute path in place of the example:
+              </p>
+              <div class="code-block">
+                <pre
+                  id="command-run"
+                  tabindex="0"
+                ><code>python3 run.py --enable-task-runner --workspace /absolute/path/to/project</code></pre>
+                <button
+                  type="button"
+                  class="copy-button enhanced-only"
+                  data-copy-target="command-run"
+                  aria-label="Copy local runner command"
+                >
+                  Copy
+                </button>
+              </div>
+              <p>
+                Open <strong>Tasks → Local runs</strong>, choose the project and
+                CLI, review the prompt, then press <strong>Run task</strong>.
+                This starts a new process, not a message to an existing session.
+                The CLI uses its own account, permissions and billing. The
+                hosted demo cannot run commands on your computer.
+              </p>
+              <p>
+                <a
+                  href="https://github.com/NosytLabs/agent-office/blob/main/docs/local-task-runner.md"
+                  >Runtime requirements, cancellation and delivery limits</a
                 >.
               </p>
             </div>
