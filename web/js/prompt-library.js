@@ -17,6 +17,7 @@
   const storageKey = (preview = false) =>
     "agent-office:prompt-library:v1:" + (preview ? "preview" : "observer");
   const copy = (items) => items.map((item) => ({ ...item }));
+  const textLength = (value) => Array.from(value).length;
   const nameKey = (name) => name.toLowerCase();
   function validName(value) {
     return (
@@ -29,7 +30,9 @@
   }
   function validText(value) {
     return (
-      typeof value === "string" && value.length <= MAX_TEXT && !!value.trim()
+      typeof value === "string" &&
+      textLength(value) <= MAX_TEXT &&
+      !!value.trim()
     );
   }
   function validBrief(item) {
@@ -128,7 +131,6 @@
       !validBrief(item) ||
       !current ||
       typeof current.text !== "string" ||
-      current.text.length > MAX_TEXT ||
       !runtimes.has(current.runtime)
     )
       throw new Error("Invalid brief or draft. Your open draft is unchanged.");
@@ -145,7 +147,7 @@
             runtime: current.runtime,
           }
         : { text: item.text, runtime: item.runtime };
-    if (next.text.length > MAX_TEXT)
+    if (textLength(next.text) > MAX_TEXT)
       throw new Error(
         "There is not enough space to append this brief. The draft limit is 8,192 characters; your draft is unchanged.",
       );
@@ -451,7 +453,7 @@
         row.querySelector(".prompt-library-detail").textContent =
           runtimeLabel(item.runtime) +
           " · " +
-          item.text.length.toLocaleString() +
+          textLength(item.text).toLocaleString() +
           " characters";
         row.hidden = !visible.has(item.id);
         for (const control of row.querySelectorAll("button")) {
@@ -568,7 +570,7 @@
       if (summary)
         summary.textContent =
           "Current draft: " +
-          text.value.length.toLocaleString() +
+          textLength(text.value).toLocaleString() +
           " characters for " +
           runtimeLabel(runtime.value) +
           ". Replace uses the saved destination; Append keeps your current destination.";
@@ -609,7 +611,7 @@
           "Saved destination: " +
           runtimeLabel(item.runtime) +
           " · " +
-          item.text.length.toLocaleString() +
+          textLength(item.text).toLocaleString() +
           " characters";
         preview.id = "prompt-library-preview";
         preview.textContent = item.text;
@@ -752,7 +754,7 @@
           " · " +
           runtimeLabel(item.runtime) +
           " · " +
-          item.text.length.toLocaleString() +
+          textLength(item.text).toLocaleString() +
           " characters";
         preview.textContent = item.text;
         preview.tabIndex = 0;

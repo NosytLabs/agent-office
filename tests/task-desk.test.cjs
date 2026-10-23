@@ -365,3 +365,103 @@ test("clipboard denial keeps a selectable draft and narrow layout stays within t
     }
   });
 });
+
+for (const viewport of [
+  { width: 1440, height: 1000 },
+  { width: 390, height: 844 },
+])
+  test(`Unicode briefs survive native paste, saved-library loading and local-run handoff at ${viewport.width}px`, async () => {
+    await observerFixture({ viewport }, async ({ page, state }) => {
+      const before = await state(),
+        writes = [];
+      page.on("request", (request) => {
+        if (request.method() !== "GET") writes.push(request.url());
+      });
+      await openDraft(page);
+      const text = "🚀".repeat(8190) + "\n末";
+      const draft = page.locator("#task-draft-text");
+      assert.equal(await draft.getAttribute("maxlength"), null);
+      await draft.focus();
+      // Native text insertion exercises maxlength; setting .value would miss truncation.
+      await page.keyboard.insertText(text);
+      assert.equal(await draft.inputValue(), text);
+      assert.equal(
+        await page.textContent("#task-draft-count"),
+        "8,192 / 8,192 characters",
+      );
+      await page.check("#task-draft-remember");
+      await page.reload();
+      await page.waitForFunction(() => initialized && settingsReady);
+      await page.click('[data-task-view="draft"]');
+      assert.equal(await draft.inputValue(), text);
+      await page.fill("#prompt-library-name", "Unicode handoff");
+      await page.click("#prompt-library-save");
+      await page.waitForFunction(() =>
+        /Saved/.test(
+          document.getElementById("prompt-library-status").textContent,
+        ),
+      );
+      const row = page
+        .locator(".prompt-library-item")
+        .filter({ hasText: "Unicode handoff" });
+      assert.match(await row.innerText(), /8,192 characters/);
+      await draft.fill("");
+      await row.getByRole("button", { name: "Load", exact: true }).click();
+      assert.equal(await draft.inputValue(), text);
+      await page.click("#task-draft-run");
+      assert.equal(await page.inputValue("#task-run-prompt"), text);
+      assert.match(await page.textContent("#task-run-count"), /8,192 \/ 8,192/);
+      assert.equal(await page.locator("#task-run-submit").isDisabled(), true);
+      const after = await state();
+      assert.deepEqual(after.progress, before.progress);
+      assert.deepEqual(after.usage, before.usage);
+      assert.deepEqual(after.tasks, before.tasks);
+      assert.deepEqual(writes, [], "editing and handoff never dispatch work");
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+      );
+    });
+  });
+
+test("oversized native draft edits preserve the saved text and recover after correction", async () => {
+  await observerFixture({}, async ({ page }) => {
+    await openDraft(page);
+    await page.fill("#task-draft-text", "Previously saved 🧪");
+    await page.check("#task-draft-remember");
+    const key = "agent-office:task-draft:v1:observer";
+    const previous = await page.evaluate(
+      (key) => sessionStorage.getItem(key),
+      key,
+    );
+    const text = "🚀".repeat(8193);
+    await page.fill("#task-draft-text", text);
+    assert.equal(await page.inputValue("#task-draft-text"), text);
+    assert.equal(
+      await page.getAttribute("#task-draft-text", "aria-invalid"),
+      "true",
+    );
+    assert.equal(await page.locator("#task-draft-copy").isDisabled(), true);
+    assert.equal(await page.locator("#task-draft-export").isDisabled(), true);
+    assert.equal(
+      await page.evaluate((key) => sessionStorage.getItem(key), key),
+      previous,
+    );
+    assert.match(
+      await page.textContent("#task-draft-status"),
+      /previously saved draft is unchanged/i,
+    );
+    await page.fill("#task-draft-text", "Corrected 🧪");
+    assert.equal(
+      await page.getAttribute("#task-draft-text", "aria-invalid"),
+      "false",
+    );
+    assert.equal(await page.locator("#task-draft-copy").isEnabled(), true);
+    await page.reload();
+    await page.waitForFunction(() => initialized && settingsReady);
+    await page.click('[data-task-view="draft"]');
+    assert.equal(await page.inputValue("#task-draft-text"), "Corrected 🧪");
+  });
+});

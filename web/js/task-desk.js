@@ -9,6 +9,13 @@
   const copy = byId("task-draft-copy");
   const exportButton = byId("task-draft-export");
   const template = byId("task-draft-template");
+  const maxText = 8192;
+  const textLength = (value) => Array.from(value).length;
+  const validDraft = () =>
+    !!text.value.trim() && textLength(text.value) <= maxText;
+  // Native maxlength counts UTF-16 units and can cut valid emoji prompts short.
+  // Match Local runs instead, leaving oversized edits visible for correction.
+  text.removeAttribute("maxlength");
   const key =
     "agent-office:task-draft:v1:" +
     (document.body.dataset.agentOfficePreview === "1" ? "preview" : "observer");
@@ -23,10 +30,26 @@
   let copyVersion = 0;
 
   function announce(message = "") {
-    status.textContent = [message, storageWarning].filter(Boolean).join(" ");
+    status.textContent = [
+      message,
+      textLength(text.value) > maxText
+        ? "Draft exceeds the 8,192-character limit. Shorten it before copying, exporting or saving."
+        : "",
+      storageWarning,
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
 
   function save() {
+    if (wantsRetention && textLength(text.value) > maxText) {
+      storageWarning = retained
+        ? "The previously saved draft is unchanged."
+        : "Your open text has not been saved.";
+      wantsRetention = retained;
+      remember.checked = retained;
+      return false;
+    }
     try {
       if (wantsRetention)
         sessionStorage.setItem(
@@ -59,8 +82,14 @@
     }
   }
   function update() {
-    const empty = !text.value.trim();
-    copy.disabled = exportButton.disabled = empty;
+    const empty = !text.value.trim(),
+      length = textLength(text.value),
+      tooLong = length > maxText;
+    copy.disabled = exportButton.disabled = empty || tooLong;
+    text.setCustomValidity(
+      tooLong ? "The draft limit is 8,192 characters." : "",
+    );
+    text.setAttribute("aria-invalid", String(tooLong));
     const name = runtime.selectedOptions[0].textContent;
     copy.textContent = "Copy for " + name;
     byId("task-draft-destination").textContent =
@@ -68,10 +97,10 @@
       name +
       " and review the project, session and permissions there. Choosing a destination does not install or connect it.";
     byId("task-draft-count").textContent =
-      text.value.length.toLocaleString() + " / 8,192 characters";
+      length.toLocaleString() + " / 8,192 characters";
     window.dispatchEvent(
       new CustomEvent("agent-office:task-draft-change", {
-        detail: { hasText: !empty, length: text.value.length },
+        detail: { hasText: !empty, length },
       }),
     );
   }
@@ -81,7 +110,7 @@
       draft?.version === 1 &&
       destinations.has(draft.runtime) &&
       typeof draft.text === "string" &&
-      draft.text.length <= 8192
+      textLength(draft.text) <= maxText
     ) {
       text.value = draft.text;
       runtime.value = draft.runtime;
@@ -116,7 +145,7 @@
   });
   template.addEventListener("click", () => {
     const next = text.value ? text.value + "\n\n" + outline : outline;
-    if (next.length > 8192) {
+    if (textLength(next) > maxText) {
       announce(
         "There is not enough space to append the template. Your draft is unchanged.",
       );
@@ -132,6 +161,11 @@
     );
   });
   copy.addEventListener("click", async () => {
+    if (!validDraft()) {
+      update();
+      announce();
+      return;
+    }
     const draft = text.value,
       destination = runtime.value,
       name = runtime.selectedOptions[0].textContent,
@@ -165,6 +199,11 @@
     }
   });
   exportButton.addEventListener("click", () => {
+    if (!validDraft()) {
+      update();
+      announce();
+      return;
+    }
     copyVersion++;
     const url = URL.createObjectURL(
       new Blob([text.value], { type: "text/plain;charset=utf-8" }),
