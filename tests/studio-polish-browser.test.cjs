@@ -237,3 +237,97 @@ test("the fern's disconnected edge fragment is absent from static art and every 
     assert.ok(alpha.every((frame) => frame.every((value) => value === 0)));
   });
 });
+
+for (const width of [1440, 390]) {
+  test(`failed Studio retries release unfinished image requests and preserve drafts at ${width}px`, async () => {
+    await observerFixture(
+      { viewport: { width, height: 900 } },
+      async ({ page, state }) => {
+        await ready(page);
+        await page.click("#settingsbtn");
+        await page.fill("#room-name-input", "Keep my unsaved artwork draft");
+        const before = ledger(await state());
+        await page.evaluate(() => {
+          window.__studioNativeImage = window.Image;
+          window.__studioAttemptImages = [];
+          window.Image = class extends window.__studioNativeImage {
+            constructor(...args) {
+              super(...args);
+              window.__studioAttemptImages.push(this);
+            }
+          };
+        });
+        const pendingRoutes = [];
+        const pattern = /\/studio-[0-7]\.png(?:\?|$)/;
+        const intercept = (route) => {
+          if (new URL(route.request().url()).pathname.endsWith("studio-3.png"))
+            return route.fulfill({
+              status: 404,
+              body: "synthetic missing tile",
+            });
+          pendingRoutes.push(route);
+        };
+        await page.route(pattern, intercept);
+        try {
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            const result = await page.evaluate(async () => {
+              const first = officeStudio.reload();
+              const shared = first === officeStudio.reload();
+              await first;
+              return {
+                shared,
+                source: officeStudio.source,
+                loading: officeStudio.loading,
+                images: window.__studioAttemptImages.map((image) => ({
+                  src: image.getAttribute("src"),
+                  handlersCleared:
+                    image.onload === null && image.onerror === null,
+                })),
+              };
+            });
+            assert.equal(result.shared, true);
+            assert.equal(result.source, "fallback");
+            assert.equal(result.loading, false);
+            assert.equal(result.images.length, attempt * 8);
+            assert.ok(
+              result.images.every(
+                (image) => image.src === null && image.handlersCleared,
+              ),
+              "failed attempts have no images still waiting for a response",
+            );
+          }
+        } finally {
+          await page.unroute(pattern, intercept);
+          await Promise.all(
+            pendingRoutes.map((route) => route.abort().catch(() => {})),
+          );
+        }
+        await page.evaluate(() => officeStudio.reload());
+        await ready(page);
+        assert.equal(
+          await page.inputValue("#room-name-input"),
+          "Keep my unsaved artwork draft",
+        );
+        assert.equal(await page.evaluate(() => opened), "sheet-settings");
+        assert.equal(
+          await page.evaluate(() => document.activeElement.id),
+          "room-name-input",
+        );
+        assert.equal(await page.locator(".studio-controls").count(), 1);
+        assert.equal(await page.locator("#studio-gallery").count(), 1);
+        assert.deepEqual(ledger(await state()), before);
+        await page.evaluate(() => {
+          window.Image = window.__studioNativeImage;
+          delete window.__studioNativeImage;
+          delete window.__studioAttemptImages;
+        });
+        const out = process.env.OFFICE_SCREENSHOTS || "reports/studio-polish";
+        fs.mkdirSync(out, { recursive: true });
+        await page.screenshot({
+          path: path.join(out, `studio-retry-cleanup-${width}.png`),
+          fullPage: true,
+        });
+      },
+    );
+  });
+}

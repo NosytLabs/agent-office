@@ -1037,8 +1037,9 @@
       }, 4500),
     );
   });
-  function loadImage(index, revision) {
+  function loadImage(index, revision, signal) {
     return new Promise((resolve, reject) => {
+      let settled = false;
       const im = new Image(),
         timer = setTimeout(
           () => finish(new Error("Studio image timed out: " + index)),
@@ -1046,8 +1047,12 @@
           // cold transfers to finish before replacing them with fallback art.
           typeof index === "number" ? 15000 : 30000,
         );
+      const abort = () => finish(new Error("Studio image cancelled: " + index));
       function finish(error) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener("abort", abort);
         im.onload = im.onerror = null;
         if (error) {
           im.removeAttribute("src");
@@ -1057,6 +1062,11 @@
       im.onload = () => finish();
       im.onerror = () =>
         finish(new Error("Studio image unavailable: " + index));
+      signal?.addEventListener("abort", abort, { once: true });
+      if (signal?.aborted) {
+        abort();
+        return;
+      }
       im.src =
         "assets/sprites/studio/" +
         (typeof index === "number" ? `studio-${index}.png` : index) +
@@ -1208,11 +1218,17 @@
         manifest.height !== 323
       )
         throw new Error("Invalid studio atlas");
-      const pages = await Promise.all(
+      const pageGroup = new AbortController(),
+        pages = await Promise.all(
           Array.from({ length: 8 }, (_, i) =>
-            loadImage(i, manifest.rgbaSha256),
+            loadImage(i, manifest.rgbaSha256, pageGroup.signal),
           ),
-        ),
+        ).catch((error) => {
+          // Promise.all rejects early but does not cancel its siblings. Release
+          // failed-attempt image requests before Retry can start another group.
+          pageGroup.abort();
+          throw error;
+        }),
         atlas = document.createElement("canvas");
       atlas.width = 512;
       atlas.height = 323;
