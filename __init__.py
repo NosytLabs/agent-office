@@ -850,43 +850,62 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
         # Browsers open many asset connections together on a cold load. The
         # small stdlib default drops queued connections on macOS.
         request_queue_size = 128
+
         def __init__(self, *args, **kwargs):
             # Initialize before binding: TCPServer may call server_close if
             # construction fails, before there is a maintenance worker.
             self._maintenance_stop = threading.Event()
             self._maintenance_thread = None
+            self._next_maintenance_start = 0.0
+            self._next_maintenance_warning = 0.0
             super().__init__(*args, **kwargs)
 
         def service_actions(self):
             # This callback runs on the accept loop, not a request thread.
             # Ingestion can wait on SQLite/filesystem/state locks; never make
             # loading bootstrap assets or stopping the listener wait for it.
-            if self._maintenance_thread is None and not self._maintenance_stop.is_set():
-                self._maintenance_thread = threading.Thread(
+            if self._maintenance_thread is not None or self._maintenance_stop.is_set():
+                return
+            now = time.monotonic()
+            if now < self._next_maintenance_start:
+                return
+            self._next_maintenance_start = now + 1.0
+            try:
+                worker = threading.Thread(
                     target=self._maintain, name="agent-office-maintenance", daemon=True,
                 )
-                self._maintenance_thread.start()
+                worker.start()
+            except Exception as exc:
+                # Resource exhaustion must not close the HTTP listener. Retry
+                # on a later loop, without retaining an unstarted thread that
+                # server_close would be unable to join.
+                self._warn_maintenance_failure(exc)
+                return
+            self._maintenance_thread = worker
+
+        def _warn_maintenance_failure(self, exc):
+            now = time.monotonic()
+            if now < self._next_maintenance_warning:
+                return
+            self._next_maintenance_warning = now + 60.0
+            try:
+                logger.warning(
+                    "pixel-office background maintenance failed (%s); inputs retained",
+                    type(exc).__name__,
+                )
+            except Exception:
+                # A broken log destination must not stop ingestion or retries.
+                pass
 
         def _maintain(self):
             # One worker consumes offline activity even with no browser open.
             # A slow pass never queues more workers or overlapping passes.
-            next_failure_log = 0.0
             while not self._maintenance_stop.is_set():
                 try:
                     build_state()
-                    next_failure_log = 0.0
+                    self._next_maintenance_warning = 0.0
                 except Exception as exc:
-                    now = time.monotonic()
-                    if now >= next_failure_log:
-                        next_failure_log = now + 60.0
-                        try:
-                            logger.warning(
-                                "pixel-office background ingestion failed (%s); inputs retained",
-                                type(exc).__name__,
-                            )
-                        except Exception:
-                            # A broken log destination must not stop ingestion.
-                            pass
+                    self._warn_maintenance_failure(exc)
                 if self._maintenance_stop.wait(1.0):
                     break
 

@@ -6,6 +6,8 @@ import http.server
 import logging
 import threading
 
+import pytest
+
 import __init__ as office
 
 
@@ -147,3 +149,76 @@ def test_broken_logging_destination_does_not_end_maintenance(monkeypatch):
     with running_observer(monkeypatch, release) as (server, _):
         assert recovered.wait(4), 'logging failure must not disable future ingestion'
         assert get(server, '/js/office.js')[0] == 200
+
+
+# These failures happen before the worker body, so ingestion's own exception
+# handler cannot keep the listener alive. Exercise the real server lifecycle.
+
+
+@pytest.mark.parametrize('failure_stage', ['construct', 'start'])
+def test_maintenance_startup_failure_keeps_listener_alive_and_recovers(monkeypatch, caplog, failure_stage):
+    release, failed, recovered = threading.Event(), threading.Event(), threading.Event()
+    original_thread = threading.Thread
+    attempts = []
+
+    class FailingOnceThread(original_thread):
+        def __init__(self, *args, **kwargs):
+            maintenance = kwargs.get('name') == 'agent-office-maintenance'
+            if maintenance:
+                attempts.append(1)
+                if failure_stage == 'construct' and len(attempts) == 1:
+                    failed.set()
+                    raise RuntimeError('private-project secret-token')
+            super().__init__(*args, **kwargs)
+
+        def start(self):
+            if self.name == 'agent-office-maintenance' and failure_stage == 'start' and len(attempts) == 1:
+                failed.set()
+                raise RuntimeError('private-project secret-token')
+            return super().start()
+
+    monkeypatch.setattr(office.threading, 'Thread', FailingOnceThread)
+    monkeypatch.setattr(office, 'build_state', lambda: recovered.set() or {})
+    caplog.set_level(logging.WARNING, logger=office.logger.name)
+    with running_observer(monkeypatch, release) as (server, _):
+        assert failed.wait(3), 'injected maintenance startup failure occurred'
+        assert get(server, '/js/office.js')[0] == 200, 'startup failure must not close HTTP'
+        assert recovered.wait(4), 'a later pass retries maintenance startup'
+        assert len(attempts) == 2, 'only one replacement worker starts'
+        assert get(server, '/task-runs')[0] == 200
+    assert 'RuntimeError' in caplog.text
+    assert 'private-project' not in caplog.text and 'secret-token' not in caplog.text
+
+
+def test_persistent_worker_start_failure_is_bounded_even_with_broken_logger(monkeypatch):
+    release, failed = threading.Event(), threading.Event()
+    original_start = threading.Thread.start
+    attempts = []
+
+    def fail_maintenance_start(thread):
+        if thread.name == 'agent-office-maintenance':
+            attempts.append(1)
+            failed.set()
+            raise RuntimeError('synthetic thread exhaustion')
+        return original_start(thread)
+
+    def broken_logger(*args, **kwargs):
+        raise OSError('synthetic logging failure')
+
+    monkeypatch.setattr(threading.Thread, 'start', fail_maintenance_start)
+    monkeypatch.setattr(office.logger, 'warning', broken_logger)
+    with running_observer(monkeypatch, release) as (server, worker):
+        assert failed.wait(3)
+        assert get(server, '/js/office.js')[0] == 200
+        # Use a fixed monotonic instant: request traffic must not bypass the
+        # retry deadline or create a burst of failed worker allocations.
+        now = office.time.monotonic()
+        with monkeypatch.context() as clock:
+            clock.setattr(office.time, 'monotonic', lambda: now)
+            before = len(attempts)
+            for _ in range(100):
+                server.service_actions()
+            assert len(attempts) <= before + 1
+        assert worker.is_alive()
+        assert get(server, '/task-runs')[0] == 200
+    assert not worker.is_alive(), 'shutdown must not join a never-started thread'
