@@ -528,3 +528,129 @@ def test_finished_history_is_bounded_and_newest_first(runner):
         runner.detail(ids[0])
     assert removed.value.status == 404
 
+
+
+@pytest.mark.parametrize('runtime,mode', [('codex', 'read'), ('claude', 'default'), ('opencode', 'default')])
+@pytest.mark.parametrize('stop', ['cancel', 'shutdown'])
+def test_stopped_before_worker_execution_never_launches_cli(runner, monkeypatch, runtime, mode, stop):
+    entered, release = threading.Event(), threading.Event()
+    execute = runner._execute
+    launches = []
+
+    def delayed_execute(run_id):
+        entered.set()
+        assert release.wait(3), 'test must release the delayed worker'
+        execute(run_id)
+
+    def rejected_launch(*args, **kwargs):
+        launches.append(args)
+        raise OSError('a stopped request must not reach process creation')
+
+    payload = _payload(runtime=runtime, mode=mode)
+    with monkeypatch.context() as patch:
+        patch.setattr(runner, '_execute', delayed_execute)
+        patch.setattr(subprocess, 'Popen', rejected_launch)
+        created, is_new = runner.create(payload)
+        run_id = created['run']['id']
+        worker = next(iter(runner._threads))
+        try:
+            assert is_new and entered.wait(3)
+            if stop == 'cancel':
+                runner.cancel(run_id)
+                runner.cancel(run_id)
+            else:
+                runner.shutdown(timeout=0)
+            repeated, is_new = runner.create(payload)
+            assert not is_new and repeated['run']['id'] == run_id
+        finally:
+            release.set()
+            worker.join(3)
+        assert not worker.is_alive()
+        assert launches == [], 'cancellation/shutdown recorded before execution must prevent Popen'
+        result = runner.detail(run_id)['run']
+        assert result['status'] == ('cancelled' if stop == 'cancel' else 'interrupted')
+        assert result['exit_code'] is None and result['error'] is None
+        assert result['finished_at'] is not None and result['output'] == ''
+        assert not result['output_truncated']
+        assert not runner._threads and not runner._active_workspaces
+        assert runner._runs[run_id]['holds_slot'] is False
+        assert runner._runs[run_id]['process'] is None
+        repeated, is_new = runner.create(payload)
+        assert not is_new and repeated['run'] == runner.capabilities()['runs'][0]
+    if stop == 'cancel':
+        created, is_new = runner.create(_payload(runtime=runtime, mode=mode, prompt='explicit next run'))
+        assert is_new
+        assert _finished(runner, created['run']['id'])['status'] == 'succeeded'
+    else:
+        with pytest.raises(TaskRunnerError) as error:
+            runner.create(_payload())
+        assert error.value.status == 503
+
+
+@pytest.mark.parametrize('stop', ['cancel', 'shutdown'])
+def test_stop_racing_with_process_creation_still_reaps_the_child(runner, monkeypatch, stop):
+    entered, release = threading.Event(), threading.Event()
+    popen = subprocess.Popen
+    children = []
+
+    def delayed_popen(*args, **kwargs):
+        entered.set()
+        assert release.wait(3), 'test must release process creation'
+        child = popen(*args, **kwargs)
+        children.append(child)
+        return child
+
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, 'Popen', delayed_popen)
+        created, _ = runner.create(_payload(prompt='sleep'))
+        run_id = created['run']['id']
+        worker = next(iter(runner._threads))
+        try:
+            assert entered.wait(3), 'worker passed pre-launch check'
+            assert runner._runs[run_id]['process'] is None
+            if stop == 'cancel':
+                runner.cancel(run_id)
+            else:
+                runner.shutdown(timeout=0)
+        finally:
+            release.set()
+            worker.join(5)
+        assert not worker.is_alive()
+        assert len(children) == 1 and children[0].poll() is not None
+        result = runner.detail(run_id)['run']
+        assert result['status'] == ('cancelled' if stop == 'cancel' else 'interrupted')
+        assert result['exit_code'] is not None
+        assert not runner._active_workspaces and not runner._threads
+
+
+def test_shutdown_prevents_both_delayed_workspaces_from_launching(runner, monkeypatch):
+    entered, release = [threading.Event(), threading.Event()], threading.Event()
+    execute = runner._execute
+    launches = []
+
+    def delayed_execute(run_id):
+        workspace = runner._runs[run_id]['workspace_id']
+        entered[int(workspace[1:]) - 1].set()
+        assert release.wait(3), 'test must release both workers'
+        execute(run_id)
+
+    def rejected_launch(*args, **kwargs):
+        launches.append(args)
+        raise OSError('a stopped request must not reach process creation')
+
+    monkeypatch.setattr(runner, '_execute', delayed_execute)
+    monkeypatch.setattr(subprocess, 'Popen', rejected_launch)
+    ids = [runner.create(_payload(workspace_id=w))[0]['run']['id'] for w in ['w1', 'w2']]
+    workers = list(runner._threads)
+    try:
+        assert all(event.wait(3) for event in entered)
+        runner.cancel(ids[0])
+        runner.shutdown(timeout=0)
+    finally:
+        release.set()
+        for worker in workers:
+            worker.join(3)
+    assert all(not worker.is_alive() for worker in workers)
+    assert launches == []
+    assert [runner.detail(run_id)['run']['status'] for run_id in ids] == ['interrupted', 'interrupted']
+    assert not runner._active_workspaces and not runner._threads
