@@ -145,3 +145,131 @@ test("a delayed child resume after closing Duck Hunt cannot autoplay on reopen",
     );
   });
 });
+
+for (const viewport of [
+  { width: 1440, height: 1000 },
+  { width: 390, height: 844 },
+])
+  test(`old Duck Hunt reports cannot replace newer controls after reopening at ${viewport.width}px`, async () => {
+    await observerFixture({ viewport }, async ({ page }) => {
+      // Observe delivery before pressing Escape; host readiness alone does
+      // not establish that its initial Resume reached the child already.
+      await page.addInitScript(() => {
+        window.lastHostControl = 0;
+        addEventListener("message", (event) => {
+          if (
+            event.source === parent &&
+            event.data?.channel === "agent-office-arcade" &&
+            ["pause", "resume"].includes(event.data.action)
+          )
+            window.lastHostControl = event.data.controlRevision;
+        });
+      });
+      await page.evaluate(() => {
+        window.controlReports = [];
+        addEventListener("message", (event) => {
+          if (event.data?.channel === "agent-office-arcade")
+            controlReports.push(event.data);
+        });
+        officeArcade.open();
+      });
+      await page.locator("#arcade-game-duck-hunt").click();
+      await page.locator("#arcade-duck-start").click();
+      await page.waitForFunction(() => officeArcade.snapshot().duck.ready);
+      const child = page
+        .frames()
+        .find((item) => item.url().includes("/arcade/duck-hunt/"));
+      const canvas = child.locator("#canvas");
+      await child.waitForFunction(() => lastHostControl > 0);
+      await canvas.press("Escape");
+      await page.waitForFunction(() => officeArcade.snapshot().paused);
+      await canvas.press("Escape");
+      await page.waitForFunction(() => !officeArcade.snapshot().paused);
+      const oldResume = await page.evaluate(() =>
+        controlReports.findLast((report) => report.type === "resumed"),
+      );
+      assert.ok(Number.isSafeInteger(oldResume.controlRevision));
+      const accounting = await page.evaluate(() =>
+        JSON.stringify([_state.progress, _state.usage]),
+      );
+      await page.locator("#sheet-arcade .close").click();
+      await page.evaluate(() => officeArcade.open());
+      await child.waitForFunction(
+        (revision) => lastHostControl > revision,
+        oldResume.controlRevision,
+      );
+      const stoppedRevision = await child.evaluate(() => lastHostControl);
+      const stoppedStatus = await page.locator("#arcade-status").textContent();
+      const beforeReplay = await page.evaluate(() => controlReports.length);
+      // Replay an actual keyboard report from the same iframe, now delivered
+      // after Close and reopen. Source/origin/nonce are all genuinely valid.
+      await child.evaluate(
+        (report) => parent.postMessage(report, "*"),
+        oldResume,
+      );
+      await page.waitForFunction(
+        (count) => controlReports.length > count,
+        beforeReplay,
+      );
+      assert.equal(
+        (await page.evaluate(() => officeArcade.snapshot())).paused,
+        true,
+      );
+      assert.equal(
+        await page.locator("#arcade-status").textContent(),
+        stoppedStatus,
+      );
+      await child.waitForFunction(
+        (revision) => lastHostControl > revision,
+        stoppedRevision,
+      );
+      await canvas.press("Escape");
+      await page.waitForFunction(() => !officeArcade.snapshot().paused);
+      await canvas.press("Escape");
+      await page.waitForFunction(() => officeArcade.snapshot().paused);
+      const oldPause = await page.evaluate(() =>
+        controlReports.findLast((report) => report.type === "paused"),
+      );
+      await page.locator("#arcade-pause").click();
+      await child.waitForFunction(
+        (revision) => lastHostControl > revision,
+        oldPause.controlRevision,
+      );
+      const playingStatus = await page.locator("#arcade-status").textContent();
+      const beforePauseReplay = await page.evaluate(
+        () => controlReports.length,
+      );
+      await child.evaluate(
+        (report) => parent.postMessage(report, "*"),
+        oldPause,
+      );
+      await page.waitForFunction(
+        (count) => controlReports.length > count,
+        beforePauseReplay,
+      );
+      assert.equal(
+        (await page.evaluate(() => officeArcade.snapshot())).paused,
+        false,
+      );
+      assert.equal(
+        await page.locator("#arcade-status").textContent(),
+        playingStatus,
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          JSON.stringify([_state.progress, _state.usage]),
+        ),
+        accounting,
+      );
+      await canvas.press("Escape");
+      await page.waitForFunction(() => officeArcade.snapshot().paused);
+      const fs = require("node:fs"),
+        path = require("node:path");
+      const directory = path.join(__dirname, "../reports/arcade");
+      fs.mkdirSync(directory, { recursive: true });
+      await page.screenshot({
+        path: path.join(directory, `control-reopen-${viewport.width}.png`),
+        fullPage: true,
+      });
+    });
+  });

@@ -9,6 +9,7 @@
     scheduled = new Map();
   let nextFrame = 1,
     paused = true,
+    controlRevision = 0,
     muted = true,
     virtualTime = 0,
     lastNativeTime = null,
@@ -235,7 +236,13 @@
   }
   function post(type, detail = {}) {
     parent.postMessage(
-      { channel: "agent-office-arcade", nonce, type, ...detail },
+      {
+        channel: "agent-office-arcade",
+        nonce,
+        type,
+        ...detail,
+        controlRevision,
+      },
       "*",
     );
   }
@@ -365,9 +372,18 @@
     const data = event.data;
     if (!data || data.channel !== "agent-office-arcade" || data.nonce !== nonce)
       return;
-    if (data.action === "pause") pause();
-    else if (data.action === "resume") resume();
-    else if (data.action === "mute") setMuted(data.muted);
+    if (data.action === "pause" || data.action === "resume") {
+      // Keep each report tied to the latest accepted host decision. A delayed
+      // command cannot roll the child back after a newer pause or resume.
+      if (
+        !Number.isSafeInteger(data.controlRevision) ||
+        data.controlRevision <= controlRevision
+      )
+        return;
+      controlRevision = data.controlRevision;
+      if (data.action === "pause") pause();
+      else resume();
+    } else if (data.action === "mute") setMuted(data.muted);
     else if (data.action === "focus")
       document.getElementById("canvas")?.focus();
   });

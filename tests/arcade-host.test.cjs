@@ -188,6 +188,10 @@ function host() {
             "nonce",
           ),
           type,
+          controlRevision:
+            frame.messages.findLast((message) =>
+              ["pause", "resume"].includes(message.action),
+            )?.controlRevision ?? 0,
         },
         ...overrides,
       });
@@ -388,4 +392,283 @@ test("ready Duck Hunt accepts active child controls and rejects another frame or
   assert.equal(h.snapshot().paused, true);
   h.childMessage("resumed");
   assert.equal(h.snapshot().paused, false);
+});
+
+function capturedReport(h, type) {
+  const frame = h.get("arcade-duck-frame");
+  return {
+    channel: "agent-office-arcade",
+    nonce: new URL(frame.src, "http://office.test/").searchParams.get("nonce"),
+    controlRevision:
+      frame.messages.findLast((message) =>
+        ["pause", "resume"].includes(message.action),
+      )?.controlRevision ?? 0,
+    type,
+  };
+}
+
+for (const stop of ["panel", "tab", "button"])
+  test(`an old Duck Hunt resume stays rejected after returning from a ${stop} stop`, () => {
+    const h = host();
+    h.open();
+    h.click("arcade-game-duck-hunt");
+    h.click("arcade-duck-start");
+    h.childMessage("ready");
+    const old = capturedReport(h, "resumed");
+    if (stop === "panel") {
+      h.get("sheet-arcade").hidden = true;
+      h.sandbox.officeArcade.sync();
+      h.open();
+    } else if (stop === "tab") {
+      h.document.hidden = true;
+      h.emit("visibilitychange");
+      h.document.hidden = false;
+    } else h.click("arcade-pause");
+    const status = h.get("arcade-status").textContent;
+    h.childMessage("resumed", { data: old });
+    assert.equal(
+      h.snapshot().paused,
+      true,
+      "the user's stop remains authoritative",
+    );
+    assert.equal(h.snapshot().duck.paused, true);
+    assert.equal(h.get("arcade-status").textContent, status);
+    assert.equal(h.get("arcade-duck-frame").messages.at(-1).action, "pause");
+    h.childMessage("resumed");
+    assert.equal(
+      h.snapshot().paused,
+      false,
+      "current child Escape still resumes",
+    );
+  });
+
+test("an old Duck Hunt pause cannot undo a newer explicit host Resume", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-duck-hunt");
+  h.click("arcade-duck-start");
+  h.childMessage("ready");
+  const old = capturedReport(h, "paused");
+  h.click("arcade-pause");
+  h.click("arcade-pause");
+  const status = h.get("arcade-status").textContent;
+  h.childMessage("paused", { data: old });
+  assert.equal(
+    h.snapshot().paused,
+    false,
+    "a stale pause cannot replace the newer Resume",
+  );
+  assert.equal(h.get("arcade-status").textContent, status);
+  h.childMessage("paused");
+  assert.equal(h.snapshot().paused, true, "current child Escape still pauses");
+});
+
+for (const revision of [undefined, -1, "1", 1.5, Number.MAX_SAFE_INTEGER])
+  test(`Duck Hunt rejects an unknown control revision: ${String(revision)}`, () => {
+    const h = host();
+    h.open();
+    h.click("arcade-game-duck-hunt");
+    h.click("arcade-duck-start");
+    h.childMessage("ready");
+    const report = capturedReport(h, "paused");
+    report.controlRevision = revision;
+    h.childMessage("paused", { data: report });
+    assert.equal(h.snapshot().paused, false);
+  });
+
+function embeddedLifecycle(nonce = "control-test") {
+  const messages = [],
+    frames = new Map(),
+    windowEvents = new Map(),
+    documentEvents = new Map();
+  let nextFrame = 0;
+  class Media {
+    addEventListener() {}
+    play() {
+      return Promise.resolve();
+    }
+  }
+  class Canvas {
+    addEventListener() {}
+  }
+  class Context {
+    drawImage() {}
+    fillText() {}
+  }
+  const parent = { postMessage: (data) => messages.push(data) };
+  const sandbox = {
+    location: { search: `?nonce=${encodeURIComponent(nonce)}` },
+    URLSearchParams,
+    document: {
+      createElement: () => ({}),
+      addEventListener: (type, listener) => documentEvents.set(type, listener),
+      querySelectorAll: () => [],
+      getElementById: () => null,
+    },
+    parent,
+    screen: {},
+    HTMLMediaElement: Media,
+    HTMLCanvasElement: Canvas,
+    CanvasRenderingContext2D: Context,
+    requestAnimationFrame: (callback) => {
+      frames.set(++nextFrame, callback);
+      return nextFrame;
+    },
+    cancelAnimationFrame: (id) => frames.delete(id),
+    setTimeout: () => 1,
+    clearTimeout() {},
+    addEventListener: (type, listener) => windowEvents.set(type, listener),
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(
+    fs.readFileSync(
+      path.join(__dirname, "../web/arcade/duck-hunt/lifecycle.js"),
+      "utf8",
+    ),
+    sandbox,
+  );
+  return {
+    frames,
+    messages,
+    sandbox,
+    command(action, controlRevision, overrides = {}) {
+      windowEvents.get("message")({
+        source: parent,
+        data: {
+          channel: "agent-office-arcade",
+          nonce,
+          action,
+          controlRevision,
+        },
+        ...overrides,
+      });
+    },
+    escape() {
+      documentEvents.get("keydown")({
+        key: "Escape",
+        preventDefault() {},
+        stopImmediatePropagation() {},
+      });
+    },
+  };
+}
+
+test("the embedded lifecycle echoes the latest host control revision on real Escape reports", () => {
+  const c = embeddedLifecycle();
+  c.sandbox.requestAnimationFrame(() => {});
+  assert.equal(c.frames.size, 0, "initially paused");
+  c.command("resume", 1);
+  assert.equal(c.frames.size, 1);
+  c.escape();
+  assert.equal(c.frames.size, 0);
+  assert.equal(c.messages.at(-1).type, "paused");
+  assert.equal(c.messages.at(-1).controlRevision, 1);
+  c.command("pause", 2);
+  c.escape();
+  assert.equal(c.frames.size, 1);
+  assert.equal(c.messages.at(-1).type, "resumed");
+  assert.equal(c.messages.at(-1).controlRevision, 2);
+});
+
+test("the embedded lifecycle ignores stale and repeated host commands without changing its loop", () => {
+  const c = embeddedLifecycle();
+  c.sandbox.requestAnimationFrame(() => {});
+  c.command("resume", 3);
+  c.command("pause", 2);
+  c.command("pause", 3);
+  assert.equal(
+    c.frames.size,
+    1,
+    "older or repeated control IDs cannot stop the newer command",
+  );
+  c.command("pause", 4);
+  c.command("resume", 3);
+  assert.equal(c.frames.size, 0, "an old resume cannot restart a stopped loop");
+  c.command("resume", 5, { source: {} });
+  c.command("resume", 5, {
+    data: {
+      channel: "agent-office-arcade",
+      nonce: "wrong",
+      action: "resume",
+      controlRevision: 5,
+    },
+  });
+  assert.equal(c.frames.size, 0, "source and nonce checks are retained");
+  c.command("resume", 5);
+  assert.equal(c.frames.size, 1);
+});
+
+for (const revision of [undefined, 0, -1, "1", 1.5, Infinity])
+  test(`the embedded lifecycle refuses invalid command revision ${String(revision)}`, () => {
+    const c = embeddedLifecycle();
+    c.sandbox.requestAnimationFrame(() => {});
+    c.command("resume", revision);
+    assert.equal(c.frames.size, 0);
+  });
+
+test("a restarted Duck Hunt keeps the fresh frame identity and accepts its new control sequence", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-duck-hunt");
+  h.click("arcade-duck-start");
+  h.childMessage("ready");
+  const oldFrame = h.get("arcade-duck-frame"),
+    oldReport = capturedReport(h, "ready");
+  h.click("arcade-restart");
+  h.childMessage("ready", { source: oldFrame.contentWindow, data: oldReport });
+  assert.equal(h.snapshot().duck.ready, false);
+  h.childMessage("ready");
+  assert.equal(h.snapshot().paused, false);
+  h.childMessage("paused");
+  assert.equal(h.snapshot().paused, true);
+  h.childMessage("resumed");
+  assert.equal(h.snapshot().paused, false);
+});
+
+test("real host and child controllers keep the newest decision across delayed messages in both directions", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-duck-hunt");
+  h.click("arcade-duck-start");
+  const iframe = h.get("arcade-duck-frame");
+  const c = embeddedLifecycle(
+    new URL(iframe.src, "http://office.test/").searchParams.get("nonce"),
+  );
+  let delivered = 0;
+  const deliverCommands = () => {
+    while (delivered < iframe.messages.length) {
+      const message = iframe.messages[delivered++];
+      c.command(message.action, message.controlRevision);
+    }
+  };
+  const deliverReport = (report) =>
+    h.childMessage(report.type, { data: report });
+  c.sandbox.requestAnimationFrame(() => {});
+  h.childMessage("ready");
+  deliverCommands();
+  assert.equal(c.frames.size, 1);
+  c.escape();
+  deliverReport(c.messages.at(-1));
+  c.escape();
+  const delayedResume = c.messages.at(-1);
+  h.get("sheet-arcade").hidden = true;
+  h.sandbox.officeArcade.sync();
+  h.open();
+  deliverCommands();
+  deliverReport(delayedResume);
+  deliverCommands();
+  assert.equal(h.snapshot().paused, true);
+  assert.equal(c.frames.size, 0);
+  c.escape();
+  deliverReport(c.messages.at(-1));
+  assert.equal(h.snapshot().paused, false);
+  assert.equal(c.frames.size, 1);
+  c.escape();
+  const delayedPause = c.messages.at(-1);
+  h.click("arcade-pause");
+  h.click("arcade-pause");
+  deliverCommands();
+  deliverReport(delayedPause);
+  assert.equal(h.snapshot().paused, false);
+  assert.equal(c.frames.size, 1);
 });

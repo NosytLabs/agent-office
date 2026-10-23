@@ -362,6 +362,7 @@
     duckFailed = false,
     duckPaused = true,
     duckNonce = "",
+    duckControlRevision = 0,
     duckFrame = null,
     duckLoadTimer = null,
     status = "Choose a game. Nothing starts automatically.";
@@ -411,8 +412,15 @@
   }
   function sendDuck(action, detail = {}) {
     if (!duckFrame?.contentWindow || !duckNonce) return;
+    if (action === "pause" || action === "resume") duckControlRevision++;
     duckFrame.contentWindow.postMessage(
-      { channel: "agent-office-arcade", nonce: duckNonce, action, ...detail },
+      {
+        channel: "agent-office-arcade",
+        nonce: duckNonce,
+        action,
+        ...detail,
+        controlRevision: duckControlRevision,
+      },
       "*",
     );
   }
@@ -464,6 +472,7 @@
     duckReady = false;
     duckFailed = false;
     duckNonce = "";
+    duckControlRevision = 0;
   }
   function loadDuck() {
     unloadDuck();
@@ -932,14 +941,19 @@
     )
       return;
     if (duckFailed) return;
-    // Child input can arrive before artwork is ready or after the host has
-    // stopped a hidden game. Do not replace loading/stop feedback or revive
-    // host playback state; reassert the stop if the child reports a resume.
+    // A report belongs to the host command the child had received. Visibility
+    // alone cannot reject an old report after a stopped panel/tab reopens.
     if (
       ["paused", "resumed"].includes(data.type) &&
-      (!duckReady || lifecycleBlocked())
+      (data.controlRevision !== duckControlRevision ||
+        !duckReady ||
+        lifecycleBlocked())
     ) {
-      if (data.type === "resumed") pauseDuck();
+      if (
+        data.type === "resumed" &&
+        (userPaused || !duckReady || lifecycleBlocked())
+      )
+        pauseDuck();
       return;
     }
     if (data.type === "ready") {

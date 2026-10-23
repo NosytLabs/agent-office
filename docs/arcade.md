@@ -94,6 +94,14 @@ resumes automatically after a hidden-tab pause. Selecting another game unloads
 the iframe. Audio elements begin muted and follow the existing Agent Office
 sound preference.
 
+Pause and Resume commands carry an increasing control revision within each
+iframe's nonce. The child applies only newer commands and echoes the accepted
+revision in its pause/resume reports. The host ignores reports from older
+controls even after a panel or tab reopens, so delayed messages cannot undo the
+user's latest decision. Current Escape input remains usable. This ordering is
+separate from the existing source/origin/nonce checks and loading deadlines; it
+does not establish the cause of historical Restart-readiness timeouts.
+
 ## Controls and persistence
 
 - **Breakout:** drag on the canvas or focus it and hold Left/Right. Start,
