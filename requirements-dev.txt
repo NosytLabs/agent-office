@@ -1,1 +1,2 @@
-pytest>=8,<9
+# pytest 9.0.3 fixes CVE-2025-71176; keep the next major opt-in.
+pytest>=9.0.3,<10

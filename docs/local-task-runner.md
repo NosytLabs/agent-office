@@ -25,6 +25,15 @@ runtime, and execution mode, write a brief, and select **Run task**. You can
 also prepare text under **Draft prompt** and transfer it into the run form.
 Copying, exporting, or transferring a brief does not start a run.
 
+Draft prompt, saved brief text, and Local runs use the same 8,192 Unicode
+code-point limit. A single emoji outside the basic Unicode plane counts once;
+joined emoji and combining marks can contain multiple code points. Counters,
+Append, tab restoration, and saved-brief backups use that same measure. Editing
+does not silently cut pasted text: an oversized draft remains visible for
+correction, cannot be copied/exported or saved as a brief, and does not replace
+an already-retained tab draft. Turning retention off still removes the saved
+draft. Existing saved-library backups keep their version-one format and byte cap.
+
 **Keep this draft in this tab** is an optional browser setting. It retains the
 exact prompt, project path, CLI and mode in session storage across reloads.
 It is off initially. Turning it off removes the retained copy while keeping
