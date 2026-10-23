@@ -110,8 +110,19 @@ on the launched CLI process. Windows
 [process termination does not terminate child processes](https://learn.microsoft.com/en-us/windows/win32/procthread/terminating-a-process),
 so this does not guarantee descendant cleanup.
 
-After cancellation, a run remains **Running** until its process is reaped and
-the captured output reaches end-of-file, then becomes **Cancelled**; this keeps
+If cancellation or server shutdown is already recorded when the worker reaches
+its pre-launch check, no CLI process is started. The retained run becomes
+**Cancelled** or **Interrupted**, respectively, with no exit code or output,
+and its project slot is released. Repeating the same request ID still returns
+that run; it does not launch a replacement.
+
+Cancellation can also arrive after process creation has begun. In that case,
+the existing process-cleanup path applies; stopping a run is not an atomic
+promise that no process or provider request ever started.
+
+After cancellation of a launched process, a run remains **Running** until its
+process is reaped and the captured output reaches end-of-file, then becomes
+**Cancelled**; this keeps
 the project slot occupied while cleanup is still in progress. A surviving
 Windows descendant can keep that run and slot active by retaining a write
 handle to the captured output pipe; the pipe cannot reach end-of-file until

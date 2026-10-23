@@ -297,6 +297,11 @@ class TaskRunner:
         exit_code = None
         execution_error = None
         try:
+            # A stop can arrive after admission but before this worker runs.
+            # Finalize through the same cleanup path without launching a CLI.
+            with self._lock:
+                if run["cancel_requested"] or run["interrupt_requested"]:
+                    return
             process = subprocess.Popen(
                 command,
                 cwd=cwd,
