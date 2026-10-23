@@ -35,7 +35,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 37d4932344a00ea3a108cfb2352e2a4122b718ac
+          test "$(git rev-parse HEAD:__init__.py)" = 0ac9d94d767314ba85039dd9df9bb99a26c4c33d
+          test "$(git rev-parse HEAD:tests/test_observer_responsiveness.py)" = 5ad2a6f558a144c3959842d682021662deef9aef
           mkdir -p "$RUNNER_TEMP/maintenance-review"
           gh api repos/NosytLabs/agent-office/git/blobs/cf99e9671624814c729956b4229c63dfe7a078de --jq .content | base64 --decode | gzip -d > "$RUNNER_TEMP/maintenance-review/repair.patch"
           echo "b005c3ab100ef2a70006206c1f1889ca3308b3767df12aa1ca23a69ba24cae25  $RUNNER_TEMP/maintenance-review/repair.patch" | sha256sum -c -
