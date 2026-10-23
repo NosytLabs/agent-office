@@ -12,7 +12,7 @@ import uuid
 
 import pytest
 
-from task_runner import MAX_OUTPUT_BYTES, TaskRunner, TaskRunnerError
+from task_runner import MAX_HISTORY, MAX_OUTPUT_BYTES, TaskRunner, TaskRunnerError
 
 
 @pytest.fixture
@@ -178,16 +178,35 @@ def test_failure_launch_error_and_bounded_output(runner):
     assert launch["error"].startswith("could not start codex CLI:")
 
 
-def test_worker_start_failure_is_terminal_idempotent_and_releases_admission(runner, monkeypatch):
-    original_start = threading.Thread.start
+@pytest.mark.parametrize("failure_stage", ["construct", "start"])
+@pytest.mark.parametrize("failure_type", [OSError, RuntimeError])
+def test_worker_startup_failure_is_terminal_idempotent_and_releases_admission(
+    runner, monkeypatch, failure_stage, failure_type
+):
+    original_thread = threading.Thread
+    original_start = original_thread.start
     failed_threads = []
     children = []
     original_popen = subprocess.Popen
 
+    def allocate(*args, **kwargs):
+        if (
+            failure_stage == "construct"
+            and kwargs.get("name", "").startswith("task-run-")
+            and not failed_threads
+        ):
+            failed_threads.append(None)
+            raise failure_type("worker thread unavailable")
+        return original_thread(*args, **kwargs)
+
     def start(thread):
-        if thread.name.startswith("task-run-") and not failed_threads:
+        if (
+            failure_stage == "start"
+            and thread.name.startswith("task-run-")
+            and not failed_threads
+        ):
             failed_threads.append(thread)
-            raise RuntimeError("worker thread unavailable")
+            raise failure_type("worker thread unavailable")
         return original_start(thread)
 
     def popen(*args, **kwargs):
@@ -195,7 +214,8 @@ def test_worker_start_failure_is_terminal_idempotent_and_releases_admission(runn
         children.append(process)
         return process
 
-    monkeypatch.setattr(threading.Thread, "start", start)
+    monkeypatch.setattr(threading, "Thread", allocate)
+    monkeypatch.setattr(original_thread, "start", start)
     monkeypatch.setattr(subprocess, "Popen", popen)
     payload = _payload(prompt="worker cannot start")
     try:
@@ -208,7 +228,7 @@ def test_worker_start_failure_is_terminal_idempotent_and_releases_admission(runn
         assert failed["error"] == "could not start task worker: worker thread unavailable"
         assert children == []
         assert runner._threads == set()
-        assert failed_threads[0].ident is None
+        assert failed_threads[0] is None or failed_threads[0].ident is None
 
         repeated, is_new = runner.create(dict(payload))
         assert is_new is False
@@ -226,8 +246,30 @@ def test_worker_start_failure_is_terminal_idempotent_and_releases_admission(runn
     finally:
         # A regression must not make fixture teardown join an unstarted thread.
         for thread in failed_threads:
-            if thread.ident is None:
+            if thread is not None and thread.ident is None:
                 runner._threads.discard(thread)
+
+
+def test_repeated_worker_allocation_failures_keep_history_bounded(runner, monkeypatch):
+    original_thread = threading.Thread
+
+    def allocate(*args, **kwargs):
+        if kwargs.get("name", "").startswith("task-run-"):
+            raise RuntimeError("worker allocation unavailable")
+        return original_thread(*args, **kwargs)
+
+    with monkeypatch.context() as failure:
+        failure.setattr(threading, "Thread", allocate)
+        for _ in range(MAX_HISTORY + 3):
+            created, is_new = runner.create(_payload(prompt="not launched"))
+            assert is_new is True and created["run"]["status"] == "failed"
+        assert len(runner.capabilities()["runs"]) == MAX_HISTORY
+        assert len(runner._request_ids) == MAX_HISTORY
+        assert runner._active_workspaces == set()
+        assert runner._threads == set()
+
+    recovered, _ = runner.create(_payload(prompt="explicit recovery"))
+    assert _finished(runner, recovered["run"]["id"])["status"] == "succeeded"
 
 
 def test_stdin_start_failure_terminates_and_reaps_child_before_releasing_workspace(runner, monkeypatch):

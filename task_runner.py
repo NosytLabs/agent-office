@@ -193,14 +193,18 @@ class TaskRunner:
             self._request_ids[clean["request_id"]] = run_id
             self._order.append(run_id)
             self._active_workspaces.add(workspace_key)
-            thread = threading.Thread(
-                target=self._execute, args=(run_id,), name=f"task-run-{run_id[:8]}", daemon=True
-            )
-            self._threads.add(thread)
+            thread = None
             try:
+                # Allocation can fail before start(), after admission was reserved.
+                # Both failures must retain a terminal receipt and release its slot.
+                thread = threading.Thread(
+                    target=self._execute, args=(run_id,), name=f"task-run-{run_id[:8]}", daemon=True
+                )
+                self._threads.add(thread)
                 thread.start()
             except (OSError, RuntimeError) as exc:
-                self._threads.discard(thread)
+                if thread is not None:
+                    self._threads.discard(thread)
                 run["error"] = f"could not start task worker: {exc}"
                 self._mark_stopped(run, "failed")
                 self._prune_locked()
@@ -455,4 +459,3 @@ class TaskRunner:
     @staticmethod
     def _output_text(run: Dict[str, Any]) -> str:
         return bytes(run["output"]).decode("utf-8", errors="replace")
-
