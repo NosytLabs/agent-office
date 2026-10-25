@@ -38,22 +38,22 @@ their fixed `/private` locations; source and output symlinks below those locatio
 remain rejected, including dangling output links. A failed input check preserves
 the previous generated output.
 
-The [Product website workflow](../.github/workflows/pages.yml) builds on relevant
-pushes to `main`, uploads only `site-dist/`, and deploys using the `github-pages`
-environment. It pins checked GitHub action revisions and retains the artifact
-for one day. The separate [CI verification gate](../.github/workflows/ci.yml)
-checks the public builds alongside application tests on every pull request and
-push to `main`.
+The [Product website workflow](../.github/workflows/pages.yml) is now **manual-only**.
+The repository currently has GitHub Pages disabled and serves its production
+website from Vercel, so automatically rebuilding an unused Pages artifact on
+site changes wasted GitHub Actions minutes. The separate
+[CI verification gate](../.github/workflows/ci.yml) still builds the site and
+checks application tests on every pull request and `main` push.
 
-When repository metadata reports that Pages is disabled, the workflow builds
-the site but skips artifact upload and deployment, with a configuration note
-in its run summary. It does not repeatedly attempt an unconfigured deployment.
-
-Before the first Pages deployment, an owner must select **Settings → Pages →
-Build and deployment → Source: GitHub Actions**. The workflow intentionally does
-not auto-enable Pages or change access settings. Use **Actions → Product website → Run workflow** after
-configuration if needed. A generated Pages URL is not considered live until
-its deployment succeeds and the URL is checked.
+If you choose GitHub Pages as a second host, select **Settings → Pages → Build
+and deployment → Source: GitHub Actions**, then **Actions → Product website →
+Run workflow**. That explicit run builds `site-dist/`, publishes it to the
+`github-pages` environment, and retains its build artifact for one day. If
+Pages is still disabled, the workflow reports the configuration issue and
+skips upload/deployment. It does not change repository access settings. To
+make Pages automatically publish on subsequent site changes, reintroduce a
+narrow `push` trigger only after enabling Pages; Vercel's Git deployment is
+unaffected. Do not treat the GitHub Pages URL as live until verified.
 
 Sources: [GitHub custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 and [configure-pages enablement requirements](https://github.com/actions/configure-pages/blob/45bfe0192ca1faeb007ade9deae92b16b8254a0d/action.yml).
