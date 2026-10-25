@@ -230,7 +230,12 @@ replaceOnce(
   `<style>
       #preview-notice{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;border:1px solid #786745;border-radius:14px;background:#302b25;padding:12px 16px;margin:0 0 18px;color:#f6e6c8}
       #preview-info{min-width:0}#preview-info summary{font-size:14px;font-weight:700;cursor:pointer;min-height:44px;display:list-item;padding:7px 2px;line-height:1.4}#preview-info summary:focus-visible{outline:2px solid #f6e6c8;outline-offset:2px}
+      body[data-agent-office-preview]:not(.offline) #connection-dot{background:var(--gold)}
       #preview-info p{font-size:13px;line-height:1.5;margin:4px 0 10px;max-width:760px}#preview-restore{margin-bottom:4px}#preview-run-locally{white-space:nowrap;text-decoration:none;align-self:start} .preview-usage-note{font-size:13px;color:#e6c58b;line-height:1.5}
+      /* Native details puts its non-summary content in an anonymous wrapper.
+         Flex/grid on details cannot lay out p and button as separate grid items.
+         Keep the description and Restore control inline at desktop widths. */
+      @media(min-width:681px){#preview-notice{padding:8px 12px;align-items:center}#preview-info[open]{display:block}#preview-info[open] summary{min-height:28px;padding:1px 2px;margin-bottom:3px}#preview-info[open] p{display:inline;margin:0;max-width:none;line-height:1.3}#preview-info[open] #preview-restore{display:inline-flex;margin:0 0 0 12px;padding:6px 10px;min-height:34px}}
       @media(max-width:680px){#preview-notice{gap:6px;padding:7px 10px;margin-bottom:10px}#preview-info summary{font-size:12px;min-height:44px;padding:7px 1px}#preview-run-locally{font-size:12px;padding:7px 9px;min-height:44px}#preview-info p{font-size:12px}}
     </style>\n  </head>`,
 );
