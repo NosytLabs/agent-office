@@ -1,15 +1,7 @@
 name: Product website
+# Vercel deploys the public site. Pages is an optional, currently disabled
+# secondary host; leave publishing explicit to avoid redundant Actions runs.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "site/**"
-      - "tools/build_site.mjs"
-      - "tools/build_paths.mjs"
-      - "docs/screenshots/**"
-      - "web/assets/**"
-      - "LICENSE"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 permissions:
   contents: read
