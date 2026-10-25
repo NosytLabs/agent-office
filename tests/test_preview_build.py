@@ -78,6 +78,20 @@ def test_build_contains_only_public_web_and_synthetic_seed(tmp_path):
     assert (private_home / "events.jsonl").read_text() == "PRIVATE_EVENT_SENTINEL"
 
 
+def test_synthetic_notice_uses_accessible_compact_mobile_disclosure(tmp_path):
+    output = tmp_path / "public-preview"
+    build(output)
+    html = (output / "index.html").read_text()
+    # Disclosure is always labelled as fictional, including when closed.
+    assert '<details id="preview-info">' in html
+    assert '<summary>Interactive demo · Fictional data</summary>' in html
+    assert 'id="preview-restore"' in html
+    assert 'id="preview-run-locally"' in html
+    # The disclosure is closed on phones while remaining open on desktops.
+    js = (output / "js/preview.js").read_text()
+    assert 'previewInfo.open = window.matchMedia("(min-width: 681px)").matches' in js
+
+
 def test_existing_generated_build_can_be_rebuilt_but_unrelated_directory_is_preserved(tmp_path):
     output = tmp_path / "site"
     output.mkdir()

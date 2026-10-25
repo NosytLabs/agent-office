@@ -523,6 +523,26 @@ test("clear history, reset, and restore remain coherent demo-only actions", () =
     );
   }));
 
+test("storage failure expands the mobile demo disclosure so warning remains visible", () =>
+  withPage(
+    async (p) => {
+      await p.click("#settingsbtn");
+      await p.fill("#room-name-input", "This visit only");
+      await p.click("#room-name-save");
+      await p.waitForFunction(() => pendingSaves === 0);
+      assert.equal(
+        await p.locator("#preview-info").evaluate((e) => e.open),
+        true,
+      );
+      assert.match(
+        await p.locator("#preview-notice p").innerText(),
+        /storage is unavailable/,
+      );
+      assert.equal(await p.isVisible("#preview-restore"), true);
+    },
+    { viewport: { width: 390, height: 844 }, storageBlocked: true },
+  ));
+
 test("mobile preview remains usable and its public aquarium needs no private pack", () =>
   withPage(
     async (p) => {
@@ -532,6 +552,33 @@ test("mobile preview remains usable and its public aquarium needs no private pac
         ),
         true,
       );
+      const notice = p.locator("#preview-notice");
+      const noticeBounds = await notice.boundingBox();
+      assert.ok(
+        noticeBounds.height <= 90,
+        "mobile demo notice should leave room visible above the fold",
+      );
+      assert.equal(
+        await p.locator("#preview-info").evaluate((e) => e.open),
+        false,
+      );
+      assert.match(
+        await p.locator("#preview-info summary").innerText(),
+        /Fictional data/,
+      );
+      assert.equal(await p.isVisible("#preview-restore"), false);
+      assert.equal(await p.isVisible("#preview-run-locally"), true);
+      for (const selector of [
+        "#preview-info summary",
+        "#preview-run-locally",
+      ]) {
+        const target = await p.locator(selector).boundingBox();
+        assert.ok(
+          target.height >= 44,
+          `${selector} is a usable mobile touch target`,
+        );
+      }
+      await p.locator("#preview-info summary").click();
       assert.equal(await p.isVisible("#preview-restore"), true);
       await capture(p, "mobile-demo");
       await p.evaluate(() => openAquarium());

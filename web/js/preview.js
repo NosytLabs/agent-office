@@ -4,6 +4,11 @@
   const fixture = window.__AGENT_OFFICE_PREVIEW_SEED__;
   if (!fixture?.synthetic || fixture.version !== 1)
     throw new Error("The static preview requires its synthetic fixture.");
+  // Keep the short but unmistakable fictional-data label visible on phones;
+  // full provenance and Restore sample remain one native disclosure away.
+  const previewInfo = document.querySelector("#preview-info");
+  if (previewInfo)
+    previewInfo.open = window.matchMedia("(min-width: 681px)").matches;
   const storageKey = "agent-office:static-preview:v1";
   const nativeFetch = window.fetch.bind(window);
   const startedAt = Date.now() / 1000;
@@ -30,9 +35,11 @@
 
   function storageNotice() {
     const note = document.querySelector("#preview-notice p");
-    if (note)
+    if (note) {
       note.textContent =
         "All agents, activity, XP and usage are fictional. Browser storage is unavailable; changes last for this visit only. Run locally to observe your own sessions.";
+      if (previewInfo) previewInfo.open = true;
+    }
   }
   function newSettingsRevision() {
     // getRandomValues also works on ordinary HTTP origins, where randomUUID
