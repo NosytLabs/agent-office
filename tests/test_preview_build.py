@@ -92,6 +92,27 @@ def test_synthetic_notice_uses_accessible_compact_mobile_disclosure(tmp_path):
     assert 'previewInfo.open = window.matchMedia("(min-width: 681px)").matches' in js
 
 
+def test_desktop_demo_details_share_row_with_restore_instead_of_tall_stack(tmp_path):
+    output = tmp_path / "public-preview"
+    build(output)
+    html = (output / "index.html").read_text()
+    # Native details content is internally wrapped by the browser; CSS Grid on
+    # the details element does not position the description and button as siblings.
+    assert "#preview-info[open]{display:block" in html
+    assert "#preview-info[open] p{display:inline" in html
+    assert "#preview-info[open] #preview-restore{display:inline-flex" in html
+
+
+def test_preview_connection_status_describes_fictional_data(tmp_path):
+    output = tmp_path / "public-preview"
+    build(output)
+    office = (output / "js/office.js").read_text()
+    html = (output / "index.html").read_text()
+    assert '"Sample data"' in office
+    assert 'dataset.agentOfficePreview' in office
+    assert 'body[data-agent-office-preview]:not(.offline) #connection-dot' in html
+
+
 def test_existing_generated_build_can_be_rebuilt_but_unrelated_directory_is_preserved(tmp_path):
     output = tmp_path / "site"
     output.mkdir()

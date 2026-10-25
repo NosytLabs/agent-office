@@ -396,6 +396,24 @@ test("two views can read one legacy demo record and the second save conflicts af
     }
   }));
 
+test("desktop demo disclosure starts expanded without crowding the office", () =>
+  withPage(async (p) => {
+    assert.equal(
+      await p.locator("#preview-info").evaluate((e) => e.open),
+      true,
+    );
+    assert.equal(await p.isVisible("#preview-restore"), true);
+    const bounds = await p.locator("#preview-notice").boundingBox();
+    assert.ok(bounds.height <= 110, "desktop demo notice must remain compact");
+    await p.setViewportSize({ width: 1024, height: 768 });
+    const narrower = await p.locator("#preview-notice").boundingBox();
+    assert.ok(narrower.height <= 110, "laptop banner must remain compact");
+    assert.equal(
+      await p.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+  }));
+
 test("static preview has fresh synthetic state, honest usage, and no local observer connection", () =>
   withPage(async (p) => {
     assert.match(
@@ -403,6 +421,7 @@ test("static preview has fresh synthetic state, honest usage, and no local obser
       /All agents, activity, XP and usage here are fictional/,
     );
     assert.equal(await p.isVisible("#mode"), true);
+    assert.equal(await p.locator("#connection").innerText(), "Sample data");
     const snapshot = await p.evaluate(() => window._state);
     assert.equal(snapshot.agents.length, 5);
     assert.deepEqual(

@@ -2315,7 +2315,12 @@ function applyState(state, pollRevision = settingsRevision) {
   }
   if (typeof reconcileFurniture === "function") reconcileFurniture();
   document.body.classList.remove("offline");
-  $("connection").textContent = "Connected";
+  // The public synthetic preview fetches its own fixtures; that is not a
+  // connection to the user's local observer or installed CLI runtimes.
+  $("connection").textContent =
+    document.body.dataset.agentOfficePreview === "1"
+      ? "Sample data"
+      : "Connected";
   $("mode").hidden = state.mode !== "demo";
   $("agent-total").textContent = agents.length;
   const n = agents.length;
