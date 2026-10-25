@@ -209,8 +209,12 @@ replaceOnce(
   '<div id="wrap">',
   `<div id="wrap">
       <aside id="preview-notice" aria-label="Demo information">
-        <div><strong>Interactive demo</strong><p>All agents, activity, XP and usage here are fictional. Preferences stay in this browser. Run Agent Office locally to observe your own sessions.</p></div>
-        <div class="preview-actions"><button class="btn" id="preview-restore">Restore sample</button><a class="btn" href="${siteBase.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}#get-started" target="_blank" rel="noopener noreferrer">Run locally ↗</a></div>
+        <details id="preview-info">
+          <summary>Interactive demo · Fictional data</summary>
+          <p>All agents, activity, XP and usage here are fictional. Preferences stay in this browser. Run Agent Office locally to observe your own sessions.</p>
+          <button class="btn" id="preview-restore" type="button">Restore sample</button>
+        </details>
+        <a class="btn" id="preview-run-locally" href="${siteBase.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}#get-started" target="_blank" rel="noopener noreferrer">Run locally ↗</a>
       </aside>`,
 );
 replaceOnce(
@@ -224,9 +228,10 @@ replaceOnce(
 replaceOnce(
   "</head>",
   `<style>
-      #preview-notice{display:flex;align-items:center;gap:16px;justify-content:space-between;border:1px solid #786745;border-radius:14px;background:#302b25;padding:14px 18px;margin:0 0 18px;color:#f6e6c8}
-      #preview-notice strong{font-size:14px}#preview-notice p{font-size:13px;line-height:1.5;margin:4px 0 0;max-width:760px}.preview-actions{display:flex;flex-shrink:0;gap:8px}.preview-actions a{text-decoration:none}.preview-usage-note{font-size:13px;color:#e6c58b;line-height:1.5}
-      @media(max-width:680px){#preview-notice{align-items:flex-start;flex-direction:column;padding:12px;margin-bottom:12px}.preview-actions{flex-wrap:wrap}}
+      #preview-notice{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;border:1px solid #786745;border-radius:14px;background:#302b25;padding:12px 16px;margin:0 0 18px;color:#f6e6c8}
+      #preview-info{min-width:0}#preview-info summary{font-size:14px;font-weight:700;cursor:pointer;min-height:44px;display:list-item;padding:7px 2px;line-height:1.4}#preview-info summary:focus-visible{outline:2px solid #f6e6c8;outline-offset:2px}
+      #preview-info p{font-size:13px;line-height:1.5;margin:4px 0 10px;max-width:760px}#preview-restore{margin-bottom:4px}#preview-run-locally{white-space:nowrap;text-decoration:none;align-self:start} .preview-usage-note{font-size:13px;color:#e6c58b;line-height:1.5}
+      @media(max-width:680px){#preview-notice{gap:6px;padding:7px 10px;margin-bottom:10px}#preview-info summary{font-size:12px;min-height:44px;padding:7px 1px}#preview-run-locally{font-size:12px;padding:7px 9px;min-height:44px}#preview-info p{font-size:12px}}
     </style>\n  </head>`,
 );
 copies.set("index.html", Buffer.from(html));
