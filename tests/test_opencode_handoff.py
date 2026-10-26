@@ -7,6 +7,7 @@ they do not verify an installed OpenCode runtime or a provider account.
 from __future__ import annotations
 
 import json
+import urllib.request
 import uuid
 
 import pytest
@@ -336,3 +337,66 @@ def test_pruning_never_drops_active_receipts(tmp_path, fake, project, monkeypatc
     retained = [op["id"] for op in adapter.status()["operations"]]
     assert active["operation"]["id"] in retained
     assert len(retained) == 3
+
+
+def test_restart_with_submitted_receipt_and_empty_runtime_history_is_uncertain(
+    adapter, fake, project, tmp_path, monkeypatch,
+):
+    """A crash after durable admission may precede runtime history visibility."""
+    pair(adapter, project)
+    sent_request_id = str(uuid.uuid4())
+    # Model the runtime accepting an async request while its history index
+    # remains empty, followed by an office crash before an ACK was persisted.
+    def crash_before_ack(operation, pairing):
+        fake.prompt_calls.append({"parts": [{"type": "text", "text": operation["prompt"]}]})
+
+    monkeypatch.setattr(adapter, "_dispatch", crash_before_ack)
+    result, created = submit(adapter, "late-visible prompt", sent_request_id)
+    assert created and result["operation"]["state"] == "submitted"
+    operation_id = result["operation"]["id"]
+    restarted = OpenCodeHandoff(tmp_path / "handoff.json", transport=fake)
+    uncertain = restarted.refresh(operation_id)["operation"]
+    assert uncertain["state"] == "unknown"
+    assert uncertain["finished_at"] is None
+    again, created = restarted.submit({
+        "request_id": sent_request_id, "prompt": "late-visible prompt",
+    })
+    assert created is False and again["operation"]["id"] == operation_id
+    assert len(fake.prompt_calls) == 1
+    # The runtime writes the already-accepted message later. No redispatch.
+    fake.accept(fake.prompt_calls[0])
+    fake.complete_turn()
+    assert restarted.refresh(operation_id)["operation"]["state"] == "completed"
+    assert len(fake.prompt_calls) == 1
+
+
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1:not-a-port",
+    "http://127.0.0.1:70000",
+    "http://[::1",
+])
+def test_pairing_rejects_invalid_port_and_malformed_ipv6_as_400(
+    adapter, fake, project, url,
+):
+    with pytest.raises(HandoffError) as error:
+        adapter.pair({
+            "server_url": url,
+            "session_id": SESSION,
+            "project_directory": str(project),
+        })
+    assert error.value.status == 400
+    assert fake.prompt_calls == []
+
+
+def test_loopback_handoff_transport_ignores_system_proxy_settings(monkeypatch):
+    """Private loopback prompts must never use HTTP proxy environment values."""
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    opener = handoff._no_redirect_opener()
+    assert not any(
+        handler.proxies
+        for handler in opener.handlers
+        if isinstance(handler, urllib.request.ProxyHandler)
+    )
