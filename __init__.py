@@ -512,7 +512,7 @@ def _trusted_observer_origins(values=()) -> frozenset[str]:
     return frozenset(origins)
 
 
-def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
+def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handoff=None) -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -533,6 +533,33 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
         def do_GET(self) -> None:
             try:
                 route = self.path.split("?")[0]
+                if route == "/opencode-handoff" or route.startswith("/opencode-handoff/"):
+                    if not self._authorize_handoff_request(mutation=False):
+                        return
+                    if route == "/opencode-handoff":
+                        if opencode_handoff is None:
+                            self.respond(200, {
+                                "enabled": False,
+                                "token": None,
+                                "paired": False,
+                                "pairing": None,
+                                "operations": [],
+                                "max_prompt_chars": 8192,
+                                "max_active_operations": 2,
+                                "max_receipts": 200,
+                            })
+                        else:
+                            self.respond(200, opencode_handoff.status())
+                        return
+                    operation_id = route[len("/opencode-handoff/"):]
+                    if not operation_id or "/" in operation_id or opencode_handoff is None:
+                        self.respond(404, {"error": "handoff operation not found"})
+                        return
+                    try:
+                        self.respond(200, opencode_handoff.detail(operation_id))
+                    except Exception as exc:
+                        self._respond_handoff_error(exc)
+                    return
                 if route == "/task-runs" or route.startswith("/task-runs/"):
                     if not self._authorize_task_request(mutation=False):
                         return
@@ -692,6 +719,47 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
                     return False
             return True
 
+        def _authorize_handoff_request(self, *, mutation: bool) -> bool:
+            """Enforce the session handoff's loopback browser boundary.
+
+            Mirrors the task runner boundary exactly, with the handoff
+            adapter's own token: pairing and dispatch stay loopback-only.
+            """
+            import hmac
+
+            expected_host = f"127.0.0.1:{self.server.server_port}"
+            hosts = self.headers.get_all("Host", failobj=[])
+            if hosts != [expected_host]:
+                self.respond(403, {"error": "session handoff requires its exact loopback Host"})
+                return False
+            sites = self.headers.get_all("Sec-Fetch-Site", failobj=[])
+            if any(value.strip().lower() == "cross-site" for value in sites):
+                self.respond(403, {"error": "cross-site session handoff requests are forbidden"})
+                return False
+            origins = self.headers.get_all("Origin", failobj=[])
+            if len(origins) > 1 or (origins and origins[0] != f"http://{expected_host}"):
+                self.respond(403, {"error": "session handoff request origin is not allowed"})
+                return False
+            if mutation:
+                tokens = self.headers.get_all("X-Agent-Office-Token", failobj=[])
+                expected_token = opencode_handoff.token if opencode_handoff is not None else ""
+                supplied = tokens[0].encode("utf-8") if len(tokens) == 1 else b""
+                expected = expected_token.encode("utf-8")
+                if len(tokens) != 1 or not expected_token or not hmac.compare_digest(supplied, expected):
+                    self.respond(403, {"error": "session handoff token is missing or invalid"})
+                    return False
+            return True
+
+        def _respond_handoff_error(self, exc: Exception) -> None:
+            try:
+                from .opencode_handoff import HandoffError
+            except ImportError:
+                from opencode_handoff import HandoffError
+            if isinstance(exc, HandoffError):
+                self.respond(exc.status, {"error": exc.message})
+            else:
+                raise exc
+
         def _authorize_observer_request(self, *, check_site=True) -> bool:
             """Reject DNS rebinding and cross-origin access to local observations."""
             port = self.server.server_port
@@ -781,6 +849,39 @@ def _serve(task_runner=None, on_ready=None, observer_origins=()) -> None:
 
         def do_POST(self) -> None:
             route = self.path.split("?")[0]
+            if route.startswith("/opencode-handoff"):
+                if not self._authorize_handoff_request(mutation=True):
+                    return
+                payload = self._read_task_json()
+                if payload is None:
+                    return
+                if opencode_handoff is None:
+                    self.respond(404, {"error": "session handoff is disabled"})
+                    return
+                try:
+                    if route == "/opencode-handoff/pair":
+                        self.respond(200, opencode_handoff.pair(payload))
+                    elif route == "/opencode-handoff/unpair":
+                        self.respond(200, opencode_handoff.unpair(payload))
+                    elif route == "/opencode-handoff/submit":
+                        result, _created = opencode_handoff.submit(payload)
+                        self.respond(201, result)
+                    elif route.startswith("/opencode-handoff/") and (
+                            route.endswith("/refresh") or route.endswith("/cancel")):
+                        action = "refresh" if route.endswith("/refresh") else "cancel"
+                        operation_id = route[len("/opencode-handoff/"):-(len(action) + 1)]
+                        if not operation_id or "/" in operation_id or payload != {}:
+                            self.respond(400, {"error": f"{action} requires an empty JSON object"})
+                            return
+                        if action == "refresh":
+                            self.respond(200, opencode_handoff.refresh(operation_id))
+                        else:
+                            self.respond(200, opencode_handoff.cancel(operation_id))
+                    else:
+                        self.respond(404, {"error": "not found"})
+                except Exception as exc:
+                    self._respond_handoff_error(exc)
+                return
             if route in ("/task-runs", "/task-runs/refresh") or (route.startswith("/task-runs/") and route.endswith("/cancel")):
                 if not self._authorize_task_request(mutation=True):
                     return

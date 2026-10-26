@@ -14,6 +14,8 @@ def main():
                         help='explicit trusted observer forwarding origin (repeatable; does not enable forwarded task runs)')
     parser.add_argument('--enable-task-runner', action='store_true',
                         help='allow this server to launch supported local agent CLIs')
+    parser.add_argument('--enable-opencode-handoff', action='store_true',
+                        help='allow this server to hand reviewed prompts to one paired, existing OpenCode session')
     parser.add_argument('--workspace', action='append', default=[], metavar='/ABSOLUTE/PROJECT',
                         help='allowlisted project directory (repeatable; requires --enable-task-runner)')
     args = parser.parse_args()
@@ -32,6 +34,13 @@ def main():
             task_runner = TaskRunner([Path(path) for path in args.workspace])
         except ValueError as exc:
             parser.error(str(exc))
+    opencode_handoff = None
+    if args.enable_opencode_handoff:
+        from opencode_handoff import HandoffError, OpenCodeHandoff
+        try:
+            opencode_handoff = OpenCodeHandoff(office._office_dir() / 'opencode-handoff.json')
+        except HandoffError as exc:
+            parser.error(exc.message)
     def stop_on_sigterm(_signum, _frame):
         raise KeyboardInterrupt
 
@@ -41,6 +50,7 @@ def main():
     try:
         office._serve(
             task_runner=task_runner,
+            opencode_handoff=opencode_handoff,
             observer_origins=args.observer_origin,
             on_ready=lambda port: print(
                 f'Agent Office — http://127.0.0.1:{port} (Ctrl+C to stop)', flush=True
