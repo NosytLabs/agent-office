@@ -6,7 +6,6 @@ See which coding agents are working, waiting for input, or running subagents in 
 pixel-art office. Inspect reported tokens and cost estimates, follow session
 activity, and keep your agents' existing tools and permissions.
 
-[**Try the demo**](https://agent-office-preview-seven.vercel.app/) ·
 [Quick start](#start-locally) · [Setup guide](docs/setup.md) ·
 [Usage and costs](docs/usage.md) · [Documentation](docs/README.md)
 
@@ -14,8 +13,7 @@ activity, and keep your agents' existing tools and permissions.
 
 **Python 3.10+ · No frontend build required · Local storage · MIT project code**
 
-The hosted demo uses synthetic activity. Your real sessions appear only in your
-local office after you connect a runtime. The observer itself needs no account
+Your real sessions appear only in your local office after you connect a runtime. The observer itself needs no account
 or API key; any agent CLI you choose to run uses its own account and billing.
 
 ## Start locally
