@@ -69,10 +69,10 @@ States come from the runtime, not from process exit codes:
 | `executing` | Runtime history shows the prompt and the session is busy or retrying. |
 | `awaiting_input` | The session has a pending permission or question request. The office reports the wait; it never answers it. |
 | `completed` | The assistant message after the delivered prompt finished without an error. |
-| `failed` | The runtime reported an error for the turn, or a never-acknowledged submission left no trace in runtime history. |
+| `failed` | The runtime reported an error for the turn or dispatch definitively failed before the runtime could accept it. |
 | `rejected` | The runtime refused the submission with a client error. |
 | `cancelled` | Cancellation was acknowledged and the runtime recorded the turn as aborted. |
-| `unknown` | A dispatch may have been accepted but its acknowledgement was lost (timeout, reset, unexpected status). Delivery stays visibly uncertain. |
+| `unknown` | A dispatch may have been accepted but its acknowledgement was lost (timeout, reset, unexpected status or office restart before the receipt was updated). No history trace yet does not establish that the asynchronous prompt was never received. |
 
 **Refresh** reconciles one operation against runtime history: it looks for
 the exact prompt text after the history watermark recorded at submission,
@@ -80,6 +80,9 @@ then maps session status, pending permission/question requests, and the
 following assistant message onto the states above. An `unknown` operation
 whose prompt is found is confirmed delivered without any resubmission; one
 with no trace stays `unknown` rather than being resent or declared failed.
+Even a receipt still marked `submitted` after an office crash moves to
+`unknown` if the runtime has no visible history yet: the caller must not
+automatically create a new request ID to retry uncertain work.
 
 ## Cancellation
 
@@ -95,7 +98,8 @@ Cancelling never changes runtime trust, approval, or permission settings.
   (`GET /opencode-handoff`, `POST /opencode-handoff/pair|unpair|submit`,
   `POST /opencode-handoff/<id>/refresh|cancel`).
 - No credentials are accepted, stored, sent, or logged. The adapter sends
-  no `Authorization` header and never follows redirects.
+  no `Authorization` header, ignores system HTTP proxy settings for its private
+  loopback exchanges, and never follows redirects.
 - Runtime error details are redacted to a short printable summary before
   they reach a receipt; raw response bodies are not retained.
 - Furniture clicks, labels, logs, and model output can never dispatch a

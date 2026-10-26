@@ -96,7 +96,10 @@ def _no_redirect_opener() -> urllib.request.OpenerDirector:
         def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
             return None
 
-    return urllib.request.build_opener(RejectRedirect)
+    # Private loopback prompts must not inherit HTTP_PROXY/HTTPS_PROXY from
+    # the user's environment.  An empty ProxyHandler disables automatic
+    # system-proxy discovery while preserving the redirect rejection.
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectRedirect)
 
 
 def _urllib_transport(method: str, url: str, body: Optional[Dict[str, Any]],
@@ -463,13 +466,17 @@ class OpenCodeHandoff:
         else:
             assistant = self._assistant_after(operation, history)
         if delivered_id is None:
-            # No trace of the prompt in runtime history.  A submission that
-            # was never acknowledged is conclusively undelivered; one that
-            # was accepted stays uncertain rather than being resent.
+            # A durably submitted receipt can survive a crash between
+            # dispatch and acknowledgement.  An async runtime may not yet
+            # expose the accepted prompt in session history, so its absence
+            # is NOT proof of failed delivery.  Preserve the request identity
+            # and reconcile later without silently resending.
             if operation["state"] == "submitted":
-                operation["state"] = "failed"
-                operation["error"] = "the runtime history shows no trace of the submission"
-                operation["finished_at"] = time.time()
+                operation["state"] = "unknown"
+                operation["error"] = (
+                    "the office restarted before the submission outcome "
+                    "was recorded; delivery remains uncertain"
+                )
             operation["updated_at"] = time.time()
             self._ledger.put(operation)
             return
@@ -620,17 +627,26 @@ class OpenCodeHandoff:
             raise HandoffError(400, "expected exactly server_url, session_id, and project_directory")
         if not all(isinstance(payload[key], str) for key in expected):
             raise HandoffError(400, "pairing fields must be strings")
-        parsed = urlsplit(payload["server_url"])
-        if parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost", "::1") \
-                or parsed.username is not None or parsed.password is not None \
+        invalid_origin = (
+            "server_url must be a loopback OpenCode server origin "
+            "like http://127.0.0.1:4096"
+        )
+        try:
+            parsed = urlsplit(payload["server_url"])
+            hostname = parsed.hostname
+            port = parsed.port
+            username, password = parsed.username, parsed.password
+        except ValueError as exc:
+            # Malformed IPv6 brackets or non-numeric/out-of-range ports
+            # are caller errors, not unhandled server exceptions.
+            raise HandoffError(400, invalid_origin) from exc
+        if parsed.scheme != "http" or hostname not in ("127.0.0.1", "localhost", "::1") \
+                or username is not None or password is not None \
                 or parsed.path not in ("", "/") or parsed.query or parsed.fragment \
-                or parsed.port is None:
-            raise HandoffError(
-                400,
-                "server_url must be a loopback OpenCode server origin like http://127.0.0.1:4096",
-            )
-        host = parsed.hostname if parsed.hostname != "::1" else "[::1]"
-        server_url = f"http://{host}:{parsed.port}"
+                or port is None:
+            raise HandoffError(400, invalid_origin)
+        host = hostname if hostname != "::1" else "[::1]"
+        server_url = f"http://{host}:{port}
         session_id = payload["session_id"]
         if not session_id or len(session_id) > 256 or any(char.isspace() for char in session_id) \
                 or "/" in session_id or "?" in session_id or "#" in session_id:
