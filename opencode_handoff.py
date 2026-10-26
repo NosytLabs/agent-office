@@ -646,7 +646,7 @@ class OpenCodeHandoff:
                 or port is None:
             raise HandoffError(400, invalid_origin)
         host = hostname if hostname != "::1" else "[::1]"
-        server_url = f"http://{host}:{port}
+        server_url = f"http://{host}:{port}"
         session_id = payload["session_id"]
         if not session_id or len(session_id) > 256 or any(char.isspace() for char in session_id) \
                 or "/" in session_id or "?" in session_id or "#" in session_id:
