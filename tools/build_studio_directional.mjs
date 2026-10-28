@@ -17,26 +17,26 @@ const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 // The generated sheet is preserved as delivered. These reviewed transparent
 // gutters separate its actual twelve columns and six rows; no guessed grid.
 const columns = [
-  [37, 119],
-  [176, 255],
-  [312, 392],
-  [454, 533],
-  [584, 663],
-  [717, 798],
-  [867, 949],
-  [999, 1079],
-  [1132, 1213],
-  [1284, 1365],
-  [1417, 1497],
-  [1548, 1631],
+  [24, 119],
+  [146, 239],
+  [271, 365],
+  [401, 495],
+  [527, 618],
+  [656, 746],
+  [784, 879],
+  [909, 1005],
+  [1037, 1134],
+  [1165, 1263],
+  [1293, 1389],
+  [1416, 1511],
 ];
 const rows = [
-  [70, 187],
-  [205, 328],
-  [353, 468],
-  [495, 615],
-  [631, 754],
-  [777, 895],
+  [55, 187],
+  [201, 336],
+  [355, 487],
+  [510, 647],
+  [665, 806],
+  [832, 962],
 ];
 const directions = ["down", "up", "right", "left"];
 const poses = ["idle", "walk-a", "walk-b"];
@@ -66,7 +66,7 @@ try {
       const image = new Image();
       image.src = "/source.png";
       await image.decode();
-      if (image.width !== 1672 || image.height !== 941)
+      if (image.width !== 1536 || image.height !== 1024)
         throw new Error("Unexpected generated source dimensions");
       const input = document.createElement("canvas");
       input.width = image.width;
@@ -147,7 +147,7 @@ try {
     rgbaSha256: compiled.rgbaSha256,
     source: sourceName,
     sourceSha256: hash(source),
-    sourceDimensions: [1672, 941],
+    sourceDimensions: [1536, 1024],
     sourcePreservedUnmodified: true,
     sourceBounds: compiled.bounds,
     rowScales: compiled.scales,

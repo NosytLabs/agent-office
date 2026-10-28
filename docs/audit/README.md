@@ -46,11 +46,15 @@ Never commit live account data; keep reports outside Git. See
 | VS Code | Simulated APIs, packaging and HTTP checks are not actual extension-host activation or remote forwarding. [Extension guide](../../vscode/README.md). |
 | Product website | Static build tests cover public-only assets, canonical/social metadata, sitemap, configured URLs and link targets. Browser flows cover no-JavaScript content, setup, copy, tabs and responsive layouts. Metadata is not proof of indexing or ranking. |
 
-## Open investigations
+<a id="open-investigations"></a>
 
-- [Issue #56](https://github.com/NosytLabs/agent-office/issues/56): remaining historical
-  restart-readiness and observer delays. Reproduce the failing boundary and keep
-  diagnostic evidence; do not close it just because an isolated rerun passed.
+## Follow-up and historical verification limits
+
+- [Issue #56](https://github.com/NosytLabs/agent-office/issues/56) was closed on
+  24 October 2026. Its record distinguishes repaired listener/settings/arcade
+  failures from untraced historical timeouts. Those verification limits remain
+  relevant: reproduce any recurrence and retain diagnostic evidence; an isolated
+  passing rerun does not establish its cause.
 - [Issue #18](https://github.com/NosytLabs/agent-office/issues/18): follow-up work for
   existing-session OpenCode handoff. The opt-in HTTP adapter and durable delivery
   receipts are implemented; the browser review/pair/send flow and authenticated

@@ -16,8 +16,10 @@
   "references": [
     {
       "path": "web/assets/sprites/studio/directional.png",
-      "role": "style reference",
-      "sha256": "ef925f7ed12673d9858744426256f28de0fb5e7ce71eed68860ba63cb3b5bc8d"
+      "role": "historical style reference; prior directional artwork used when these room surfaces were generated",
+      "sha256": "ef925f7ed12673d9858744426256f28de0fb5e7ce71eed68860ba63cb3b5bc8d",
+      "commit": "9e97d5b79f9031ffe241b5cdee7a0fcd62656661",
+      "url": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/directional.png"
     },
     {
       "path": "web/assets/sprites/studio/studio-5.png",

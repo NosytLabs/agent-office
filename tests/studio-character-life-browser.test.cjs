@@ -201,8 +201,10 @@ test("eight character looks have distinct grounded native activity frames", asyn
             let left = 32,
               right = -1,
               top = 36,
-              bottom = -1;
-            for (let i = 3; i < d.length; i += 4)
+              bottom = -1,
+              partialAlpha = 0;
+            for (let i = 3; i < d.length; i += 4) {
+              if (d[i] > 0 && d[i] < 255) partialAlpha++;
               if (d[i] >= 160) {
                 const x = ((i - 3) / 4) % 32,
                   y = Math.floor((i - 3) / 4 / 32);
@@ -211,6 +213,7 @@ test("eight character looks have distinct grounded native activity frames", asyn
                 top = Math.min(top, y);
                 bottom = Math.max(bottom, y);
               }
+            }
             return {
               key,
               width: c.width,
@@ -219,6 +222,7 @@ test("eight character looks have distinct grounded native activity frames", asyn
               right,
               top,
               bottom,
+              partialAlpha,
               png: c.toDataURL(),
             };
           }),
@@ -232,6 +236,7 @@ test("eight character looks have distinct grounded native activity frames", asyn
           assert.equal(f.width, 32, f.key);
           assert.equal(f.height, 36, f.key);
           assert.equal(f.bottom, 34, f.key);
+          assert.equal(f.partialAlpha, 0, f.key + " keeps crisp native alpha");
           assert.ok(
             f.left >= 3 && f.right <= 28 && f.top >= 4 && f.top < f.bottom,
             f.key,
