@@ -49,6 +49,7 @@ def main():
         previous_sigterm = signal.signal(signal.SIGTERM, stop_on_sigterm)
     try:
         office._serve(
+            require_bind=True,
             task_runner=task_runner,
             opencode_handoff=opencode_handoff,
             observer_origins=args.observer_origin,

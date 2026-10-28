@@ -1070,7 +1070,10 @@
       im.src =
         "assets/sprites/studio/" +
         (typeof index === "number" ? `studio-${index}.png` : index) +
-        (revision ? "?v=" + revision : "");
+        (revision ? "?v=" + revision : "") +
+        (imageRetryToken
+          ? (revision ? "&" : "?") + "retry=" + imageRetryToken
+          : "");
     });
   }
   function paletteVariant(source, finish) {
@@ -1359,9 +1362,17 @@
   // Retry only the optional atlas. Keep the document, form drafts, focus,
   // observer transport and saved preferences intact. Concurrent retries share
   // one attempt; consumers rebuild their caches only after it settles.
-  let loadPromise = null;
+  let loadPromise = null,
+    imageRetryToken = "";
   art.reload = function () {
     if (loadPromise) return loadPromise;
+    // A partial deployment can cache incorrect bytes even at the hash URL.
+    // Failed attempts get a fresh token across documents; healthy reloads keep
+    // the last successful URL so normal image caching remains available.
+    if (art.error || art.directionalError || art.environmentError)
+      imageRetryToken =
+        root.crypto?.randomUUID?.() ||
+        `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     art.loading = true;
     art.error = "";
     status.textContent = "Loading studio sprites…";

@@ -5,14 +5,166 @@ Uses documented synthetic payloads, never invokes a provider or edits runtime se
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _cli_environment(tmp_path):
+    supplied_home = tmp_path / "supplied-home"
+    supplied_home.mkdir()
+    (supplied_home / "keep.txt").write_text("unrelated caller data\n")
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    env = {
+        **os.environ,
+        "HERMES_HOME": str(supplied_home),
+        "TMPDIR": str(temporary),
+        "TMP": str(temporary),
+        "TEMP": str(temporary),
+    }
+    for key in ("AGENT_OFFICE_DEMO", "AGENT_OFFICE_PORT", "AGENT_OFFICE_OBSERVER_ORIGINS"):
+        env.pop(key, None)
+    return env, supplied_home, temporary
+
+
+def _stop_owned_process(process):
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+
+
+@pytest.mark.parametrize("script", ["run.py", "demo_feed.py"])
+@pytest.mark.parametrize("occupied_by_office", [False, True], ids=["foreign", "office"])
+def test_cli_rejects_occupied_port_without_claiming_readiness(tmp_path, script, occupied_by_office):
+    body = b'{"agents": [], "mode": "live"}' if occupied_by_office else b"existing unrelated listener"
+
+    class ExistingListener(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    listener = ThreadingHTTPServer(("127.0.0.1", 0), ExistingListener)
+    worker = threading.Thread(target=listener.serve_forever, daemon=True)
+    worker.start()
+    env, supplied_home, temporary = _cli_environment(tmp_path)
+    try:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / script), "--port", str(listener.server_port)],
+            cwd=tmp_path, env=env, capture_output=True, text=True, timeout=5,
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "could not bind" in result.stderr
+        assert "choose an unused --port" in result.stderr
+        assert "Traceback" not in result.stderr
+        assert not result.stdout, "A launcher that did not bind must not announce readiness"
+        with urllib.request.urlopen(f"http://127.0.0.1:{listener.server_port}/state", timeout=2) as response:
+            assert response.read() == body
+        assert sorted(path.name for path in supplied_home.iterdir()) == ["keep.txt"]
+        assert not list(temporary.iterdir())
+    finally:
+        listener.shutdown()
+        listener.server_close()
+        worker.join(timeout=2)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX SIGINT/SIGTERM exercise graceful signal handlers")
+@pytest.mark.parametrize("script,mode", [("run.py", "live"), ("demo_feed.py", "demo")])
+@pytest.mark.parametrize("stop_signal", [signal.SIGINT, signal.SIGTERM], ids=["ctrl-c", "sigterm"])
+def test_cli_signal_stops_listener_and_cleans_temporary_demo(tmp_path, script, mode, stop_signal):
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    env, supplied_home, temporary = _cli_environment(tmp_path)
+    process = subprocess.Popen(
+        [sys.executable, str(ROOT / script), "--port", str(port)],
+        cwd=tmp_path, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        deadline = time.monotonic() + 6
+        while time.monotonic() < deadline:
+            assert process.poll() is None, "launcher exited before serving its office"
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/state", timeout=0.5) as response:
+                    state = json.load(response)
+                if state["mode"] == mode and (mode != "demo" or len(state["agents"]) == 6):
+                    break
+            except OSError:
+                pass
+            time.sleep(0.05)
+        else:
+            raise AssertionError("launcher did not serve its expected office state")
+        if mode == "demo":
+            assert len(list(temporary.glob("agent-office-demo-*"))) == 1
+        process.send_signal(stop_signal)
+        stdout, stderr = process.communicate(timeout=5)
+        assert process.returncode == 0, stdout + stderr
+        assert "Traceback" not in stderr
+        with pytest.raises(OSError):
+            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                pass
+        assert not list(temporary.iterdir()), "Demo temporary data must be removed after graceful stop"
+        assert (supplied_home / "keep.txt").read_text() == "unrelated caller data\n"
+        if mode == "demo":
+            assert sorted(path.name for path in supplied_home.iterdir()) == ["keep.txt"]
+    finally:
+        _stop_owned_process(process)
+
+
+def test_demo_producer_start_failure_reports_error_and_cleans_temporary_home(tmp_path):
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    env, supplied_home, temporary = _cli_environment(tmp_path)
+    wrapper = """
+import runpy, socket, sys, threading
+root, port = sys.argv[1], int(sys.argv[2])
+original = threading.Thread.start
+def start(thread, *args, **kwargs):
+    if thread.name == 'agent-office-demo-feed':
+        # Keep the real bind path: readiness must run after the socket listens.
+        with socket.create_connection(('127.0.0.1', port), timeout=1):
+            pass
+        raise RuntimeError('cannot start another thread')
+    return original(thread, *args, **kwargs)
+threading.Thread.start = start
+sys.path.insert(0, root)
+sys.argv = [root + '/demo_feed.py', '--port', str(port)]
+runpy.run_path(sys.argv[0], run_name='__main__')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", wrapper, str(ROOT), str(port)],
+        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=5,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "could not finish startup" in result.stderr
+    assert "cannot start another thread" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not result.stdout
+    with pytest.raises(OSError):
+        with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+            pass
+    assert not list(temporary.iterdir())
+    assert sorted(path.name for path in supplied_home.iterdir()) == ["keep.txt"]
 
 
 def test_standalone_tracks_hook_lifecycle_and_serves_new_props(tmp_path):

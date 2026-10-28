@@ -26,10 +26,13 @@ manifests with content ETags; unchanged assets can use an HTTP 304 response.
 Scripts, styles, HTML, local user artwork and the live asset inventory are not
 stored in the HTTP cache.
 
-Use **Retry artwork** for a failed Studio pack. Clearing browser site data is
-unnecessary for this update and would also remove browser-local preferences and
-saved briefs. A hosted demo's HTTP headers are controlled by its host; the local
-server's cache policy does not purge a remote CDN.
+Use **Retry artwork** for a failed Studio pack. After a failed load, Retry requests
+fresh image URLs so a cached image that failed validation cannot trap recovery.
+The loaded bytes must still pass the pack's integrity checks. Your current room
+and unsaved layout stay open during recovery. Clearing browser site data is
+unnecessary and would also remove browser-local preferences and saved briefs.
+A hosted demo's HTTP headers are controlled by its host; the local server's
+cache policy does not purge a remote CDN.
 
 ## Inspect or reduce office storage
 

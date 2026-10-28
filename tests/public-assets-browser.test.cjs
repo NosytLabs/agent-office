@@ -12,6 +12,7 @@ const prefix = "/";
 let temporary, output, server, browser, origin;
 let loungeCacheScenario = null;
 let runtimeCacheScenario = null;
+let studioRecoveryCacheScenario = null;
 
 test("delayed gallery styles are ready before artwork recovery publishes interactive controls", async () => {
   let releaseArtwork;
@@ -125,6 +126,110 @@ test("a warm browser image cache cannot mix a previous atlas with the current ma
   }
 });
 
+test("artwork retry escapes an incorrect PNG cached under the current manifest hash", async () => {
+  studioRecoveryCacheScenario = { wrong: true, requests: [] };
+  try {
+    await withPage(async (page) => {
+      const manifest = JSON.parse(
+        fs.readFileSync(
+          path.join(output, "assets/sprites/studio/lounge-life.json"),
+          "utf8",
+        ),
+      );
+      await page.waitForFunction(
+        () => officeStudio.ready && !officeStudio.loading,
+      );
+      assert.equal(studioRecoveryCacheScenario.requests.length, 1);
+      assert.deepEqual(
+        [
+          ...new URL(studioRecoveryCacheScenario.requests[0], origin)
+            .searchParams,
+        ],
+        [["v", manifest.rgbaSha256]],
+        "ordinary loads retain the content-hash URL",
+      );
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 0);
+      assert.match(
+        await page.evaluate(() => officeStudio.environmentError),
+        /lounge-life pixels failed integrity check/,
+      );
+      await page.click("#settingsbtn");
+      await page.fill("#room-name-input", "Keep this cache recovery draft");
+      await page.evaluate(() => {
+        window.__cacheRecoveryDocument = true;
+      });
+
+      // Use genuine cacheable HTTP responses, never interception: a transient
+      // deployment mismatch can cache the wrong bytes even at the hash URL.
+      // A still-broken retry must fetch again and keep rejecting those pixels.
+      await page.click("#studio-art-retry");
+      await page.waitForFunction(() => !officeStudio.loading);
+      assert.equal(
+        studioRecoveryCacheScenario.requests.length,
+        2,
+        "Retry must contact the server after rejecting cached pixels",
+      );
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 0);
+      assert.match(
+        await page.evaluate(() => officeStudio.environmentError),
+        /lounge-life pixels failed integrity check/,
+      );
+
+      studioRecoveryCacheScenario.wrong = false;
+      await page.click("#studio-art-retry");
+      await page.waitForFunction(() => !officeStudio.loading);
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 8);
+      assert.equal(
+        await page.evaluate(() => officeStudio.environmentError),
+        "",
+      );
+      assert.equal(studioRecoveryCacheScenario.requests.length, 3);
+      assert.equal(
+        await page.inputValue("#room-name-input"),
+        "Keep this cache recovery draft",
+      );
+      assert.equal(
+        await page.evaluate(() => window.__cacheRecoveryDocument),
+        true,
+      );
+      await page.evaluate(() => officeStudio.reload());
+      assert.equal(
+        studioRecoveryCacheScenario.requests.length,
+        3,
+        "healthy reloads can reuse the recovered image",
+      );
+
+      // A new document must not reuse the first document's failed retry URL.
+      // Navigating away and back preserves the real browser HTTP cache.
+      await page.goto("about:blank");
+      await page.goto(origin + prefix);
+      await page.waitForFunction(
+        () => officeStudio.ready && !officeStudio.loading,
+      );
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 0);
+      await page.click("#settingsbtn");
+      await page.click("#studio-art-retry");
+      await page.waitForFunction(() => !officeStudio.loading);
+      assert.equal(await page.evaluate(() => officeStudio.loungeLife.size), 8);
+      assert.equal(
+        await page.evaluate(() => officeStudio.environmentError),
+        "",
+      );
+      assert.equal(studioRecoveryCacheScenario.requests.length, 4);
+      assert.equal(new Set(studioRecoveryCacheScenario.requests).size, 4);
+      assert.ok(
+        studioRecoveryCacheScenario.requests.every(
+          (url) =>
+            new URL(url, origin).searchParams.get("v") === manifest.rgbaSha256,
+        ),
+        "recovery preserves the manifest hash and its integrity check",
+      );
+    });
+  } finally {
+    studioRecoveryCacheScenario = null;
+  }
+});
+
 test("the compact runtime atlas bypasses a stale unversioned browser cache", async () => {
   try {
     await withPage(async (page) => {
@@ -181,6 +286,27 @@ before(async () => {
   server = http.createServer((req, res) => {
     const url = new URL(req.url, "http://localhost"),
       pathname = url.pathname;
+    if (
+      studioRecoveryCacheScenario &&
+      pathname === "/assets/sprites/studio/lounge-life.png"
+    ) {
+      studioRecoveryCacheScenario.requests.push(req.url);
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=31536000",
+      });
+      return res.end(
+        fs.readFileSync(
+          path.join(
+            output,
+            "assets/sprites/studio",
+            studioRecoveryCacheScenario.wrong
+              ? "prop-life.png"
+              : "lounge-life.png",
+          ),
+        ),
+      );
+    }
     if (
       runtimeCacheScenario &&
       pathname === "/assets/sprites/runtime/office.png"

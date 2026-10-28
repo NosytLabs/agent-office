@@ -46,6 +46,125 @@ async function freezeWalking(page, id) {
     };
   }, id);
 }
+
+test("a canvas touch opens inspection without clicking through, and later touch controls and panning still work", async () => {
+  await observerFixture(
+    {
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      events: initialEvents(6),
+      settings: {
+        max_chars: 8,
+        agent_names: { "incumbent-0": "Touch target" },
+      },
+    },
+    async ({ page }) => {
+      await page.waitForFunction(
+        () => officeStudio.ready && !officeStudio.loading,
+      );
+      await page.evaluate(() => document.fonts.ready);
+      await page.locator("#room-view-toggle").tap();
+      const point = await page.evaluate(() => {
+        const scene = officeScene,
+          hit = scene.actorHits.find((actor) => actor.id === "incumbent-0"),
+          canvas = scene.canvas.getBoundingClientRect();
+        return {
+          x:
+            canvas.left +
+            scene.transform.ox +
+            (hit.x + hit.w / 2) * scene.transform.scale,
+          y:
+            canvas.top +
+            scene.transform.oy +
+            (hit.y + 8) * scene.transform.scale,
+        };
+      });
+      await page.touchscreen.tap(point.x, point.y);
+      assert.deepEqual(
+        await page.evaluate(() => ({
+          opened,
+          focusedId,
+          following: officeScene.following,
+          zoom: officeScene.zoom,
+        })),
+        {
+          opened: "sheet-inspector",
+          focusedId: "incumbent-0",
+          following: null,
+          zoom: 1,
+        },
+        "One canvas tap must not activate the newly exposed Follow button",
+      );
+      const follow = await page.locator("#agent-follow").boundingBox();
+      assert.ok(
+        point.x >= follow.x &&
+          point.x <= follow.x + follow.width &&
+          point.y >= follow.y &&
+          point.y <= follow.y + follow.height,
+        "The new Follow button occupies the original touch coordinates",
+      );
+      await page.locator("#agent-follow").tap();
+      assert.equal(await page.evaluate(() => opened), null);
+      assert.equal(
+        await page.evaluate(() => officeScene.following),
+        "incumbent-0",
+      );
+      assert.equal(await page.evaluate(() => officeScene.zoom), 1.75);
+
+      const input = await page.context().newCDPSession(page);
+      const before = await page.evaluate(() => ({ ...officeScene.pan }));
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: 180, y: 400 }],
+      });
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 220, y: 400 }],
+      });
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 260, y: 400 }],
+      });
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      const dragged = await page.evaluate(() => ({
+        opened,
+        following: officeScene.following,
+        pan: officeScene.pan,
+      }));
+      assert.equal(dragged.opened, null, "A drag does not inspect an agent");
+      assert.equal(
+        dragged.following,
+        null,
+        "Manual touch panning releases Follow",
+      );
+      assert.ok(
+        dragged.pan.x >= before.x + 60,
+        "The room moves with the touch drag",
+      );
+      await page.locator("#zoom-fit").tap();
+      assert.equal(await page.evaluate(() => officeScene.zoom), 1);
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: point.x, y: point.y }],
+      });
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchCancel",
+        touchPoints: [],
+      });
+      assert.equal(await page.evaluate(() => officeScene.drag), null);
+      assert.equal(await page.evaluate(() => opened), null);
+      await page.touchscreen.tap(point.x, point.y);
+      assert.equal(await page.evaluate(() => opened), "sheet-inspector");
+      await page.locator("#sheet-inspector .close").tap();
+      assert.equal(await page.evaluate(() => opened), null);
+    },
+  );
+});
+
 for (const mode of ["classic", "studio"])
   for (const viewport of [
     { width: 1440, height: 1000 },

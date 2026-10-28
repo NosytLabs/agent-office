@@ -90,6 +90,8 @@ async function observerFixture(options, run) {
     const page = await browser.newPage({
       viewport: options.viewport || { width: 1440, height: 1000 },
       reducedMotion: options.reducedMotion || "no-preference",
+      isMobile: !!options.isMobile,
+      hasTouch: !!options.hasTouch,
     });
     page.setDefaultTimeout(10000);
     page.on("pageerror", (error) => errors.push(error.message));
