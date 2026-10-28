@@ -130,9 +130,11 @@ try {
       "Source roster changed; review the runtime manifest version",
     );
   const png = Buffer.from(result.png, "base64");
+  const stored = check ? await readFile(resolve(output, "office.png")) : null;
   const manifest = {
     version: 1,
     sourceCount: 23,
+    imageSha256: hash(stored || png),
     width: result.width,
     height: result.height,
     entries: result.entries,
@@ -141,7 +143,6 @@ try {
   };
   const manifestJSON = JSON.stringify(manifest, null, 2) + "\n";
   if (check) {
-    const stored = await readFile(resolve(output, "office.png"));
     const equivalent = await page.evaluate(async (base64) => {
       const image = new Image();
       image.src = "data:image/png;base64," + base64;

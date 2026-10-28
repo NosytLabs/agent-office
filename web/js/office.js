@@ -70,7 +70,8 @@ let inspectorCopyVersion = 0,
   setupCopyRuntime = null;
 let preferenceWritePending = false,
   preferenceCleanupPending = false;
-let pendingHistoryScroll = null;
+let pendingHistoryScroll = null,
+  historyScrollGeneration = 0;
 let pollTimer = null,
   pollInFlight = null,
   pollFailures = 0,
@@ -412,6 +413,7 @@ function canSelectCopyFallback(button) {
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) panelInteractionVersion++;
+  else restoreHistoryScroll();
 });
 window.addEventListener("pagehide", () => panelInteractionVersion++);
 function positionNotices() {
@@ -512,8 +514,8 @@ function displayPanel(id) {
   syncPanelNavigation();
   const panel = $(id),
     view = panelViews.get(id);
-  if (id === "sheet-events" && eventMode === "history" && !historyLoaded)
-    pendingHistoryScroll = view?.scroll || 0;
+  if (id === "sheet-events")
+    pendingHistoryScroll = eventMode === "history" ? view?.scroll || 0 : null;
   refreshPanel();
   const target =
     view?.focus?.isConnected &&
@@ -524,7 +526,7 @@ function displayPanel(id) {
       : panel.querySelector(".close");
   target?.focus({ preventScroll: true });
   panel.scrollTop = view?.scroll || 0;
-  if (id === "sheet-events" && historyLoaded) pendingHistoryScroll = null;
+  if (id === "sheet-events") restoreHistoryScroll();
   persistView();
 }
 function closeSheets() {
@@ -626,6 +628,18 @@ for (const panel of document.querySelectorAll(".sheet")) {
     { passive: true },
   );
 }
+for (const type of [
+  "pointerdown",
+  "touchstart",
+  "wheel",
+  "keydown",
+  "input",
+  "change",
+])
+  $("sheet-events").addEventListener(type, cancelHistoryScroll, {
+    capture: true,
+    passive: true,
+  });
 // Keep the long Customize panel navigable without collapsing forms or drafts.
 const settingsSections = document.createElement("label"),
   settingsSectionSelect = document.createElement("select");
@@ -1957,6 +1971,47 @@ function reconcileEventRows(box, events, emptyText) {
   }
   eventNodeCaches.set(box, next);
 }
+function cancelHistoryScroll() {
+  if (pendingHistoryScroll === null) return;
+  pendingHistoryScroll = null;
+  historyScrollGeneration++;
+  rememberPanel("sheet-events");
+  queueViewSave();
+}
+function restoreHistoryScroll() {
+  if (
+    opened !== "sheet-events" ||
+    eventMode !== "history" ||
+    !historyLoaded ||
+    pendingHistoryScroll === null
+  )
+    return;
+  const target = pendingHistoryScroll,
+    generation = ++historyScrollGeneration,
+    request = historyRequest,
+    interaction = panelInteractionVersion;
+  const restore = () => {
+    if (
+      generation !== historyScrollGeneration ||
+      request !== historyRequest ||
+      interaction !== panelInteractionVersion ||
+      opened !== "sheet-events" ||
+      eventMode !== "history" ||
+      pendingHistoryScroll !== target
+    )
+      return;
+    $("sheet-events").scrollTop = target;
+    pendingHistoryScroll = null;
+    persistView();
+  };
+  $("sheet-events").scrollTop = target;
+  // A late font swap can move the browser's scroll anchor after rows exist.
+  // Keep the saved target through that layout, without blocking history tools
+  // or overwriting a reading position chosen while the font is loading.
+  if (document.fonts?.status === "loading")
+    document.fonts.ready.then(restore, restore);
+  else restore();
+}
 async function loadHistory(force = false) {
   if (historyLoading) return false;
   if (!force && historyLoaded && Date.now() - historyLastLoaded < 5000)
@@ -1991,11 +2046,7 @@ async function loadHistory(force = false) {
       historyLoading = false;
       if (opened === "sheet-events") {
         fillEvents();
-        if (historyLoaded && pendingHistoryScroll !== null) {
-          $("sheet-events").scrollTop = pendingHistoryScroll;
-          pendingHistoryScroll = null;
-          persistView();
-        }
+        restoreHistoryScroll();
       }
     }
   }

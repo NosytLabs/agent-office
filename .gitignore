@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 .coverage.*
+coverage/
 htmlcov/
 .venv/
 
@@ -13,6 +14,7 @@ htmlcov/
 .hermes/
 pixel-office/
 /settings.json
+/opencode-handoff.json
 progress.json
 events.jsonl
 office.sqlite3*
@@ -20,6 +22,7 @@ event-epoch
 inbox/
 
 # JavaScript, builds, and test output
+.ci/
 node_modules/
 dist/
 site-dist/
@@ -31,8 +34,13 @@ shots/
 
 # Temporary and OS files
 *.tmp
+*.bak
 *.log
 *.log.[0-9]*
+*.log.gz
+*.log.bz2
+*.log.xz
+*.log.zst
 logs/
 .DS_Store
 

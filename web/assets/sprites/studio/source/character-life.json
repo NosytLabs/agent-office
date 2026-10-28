@@ -1,19 +1,43 @@
 {
-  "tool": "built-in image_gen",
-  "created": "2026-10-15",
-  "purpose": "Generated character type/read/attention animation families for the six base looks; rose/moss palette variants derive in runtime",
+  "tool": "image_gen.imagegen",
+  "mode": "built-in edit",
+  "created": "2026-10-28",
+  "purpose": "Replacement typing, reading, and attention loops for the six existing Studio identities; runtime rose/moss variants retain their existing palette recipe",
   "source": "character-life.png",
   "source_preserved_unmodified": true,
   "requested_source_dimensions": [
     1536,
     1024
   ],
-  "prompt": "Use case: stylized-concept.\nAsset type: original transparent pixel-art character ACTIVITY animation atlas for a cozy top-down office.\nPrimary request: exactly 72 isolated full-body chibi sprites, arranged in exactly SIX horizontal rows and TWELVE columns, on a 1536x1024 transparent PNG. Each row is one consistent identity, each twelve-column row has three four-frame loops. Generous fully transparent gutters separate every sprite and row. Keep shoes on exactly the same ground baseline, body/head volume and head position consistent across a row. Native target is 32x36 pixels with a dark navy pixel outline and compact readable opaque square clusters. Warm muted colors, friendly expressive faces, roughly equal head/body height. Camera is front-facing, slightly top-down, fixed in every frame.\n\nRows, in exact order:\n1 Brown tousled-haired young office worker, light skin, navy suit jacket and trousers, cyan tie, cream shirt.\n2 Orange-haired woman with a high round ponytail, light skin, teal office shirt, dark navy overalls/trousers.\n3 Navy-haired office worker with black rectangular glasses, light skin, navy blazer/trousers and lavender tie.\n4 Tousled blond worker, light skin, vivid mid-blue zip hoodie with white zipper and dark navy trousers. Keep the hoodie visibly blue in every frame.\n5 Small ivory-white humanoid office robot with rounded square head, dark navy face screen, cyan/teal vertical eyes, teal antenna light, navy joints and boots.\n6 Brown-skinned courier with dark hair under a red cap, red jacket with cream zipper, dark navy trousers and boots.\n\nColumns1-4 in EACH row: calm focused TYPE loop, hands close to the lower chest/waist alternate tiny typing motions, subtle eye blink and small forearm motion. No keyboard or desk.\nColumns5-8: READ loop, the same character holds a small cream booklet at chest level, eyes glance down, blink, turn a tiny page, return. Robot uses a small cream tablet with no writing.\nColumns9-12: ATTENTION loop requesting human input, one hand rises close to the face, small gentle wrist wave, hand returns. Attentive friendly face, no jumping or exaggerated distress. Robot raises one tiny mechanical hand.\n\nAll four frames in every family must be visibly distinct and loop smoothly. Movement stays within the same compact footprint; no whole-body bob, jump, zoom, pose-size drift or camera changes. Hands remain close to the body so the maximum width stays consistent across all12 frames. Feet and head scale remain stable. No walking. No desks, keyboards, monitors, furniture, floor, ground shadows, speech bubbles, text, letters, numbers, labels, emoji, sparkles, watermarks or checkerboard. Actual alpha transparency everywhere outside the sprites. Crisp retro16-bit pixel clusters and dark navy silhouette outlines; no painterly soft shading, photorealism or motion blur. Every sprite is complete and isolated with transparent margin.",
-  "normalization": "Actual alpha-separated rows and columns, shared scale per identity, one nearest-neighbor fit into 32x36 native frame, bottom-center anchor(16,35).",
-  "style_inputs": "Existing Studio strips and directional-walk source were visually inspected to specify the text prompt. No reference-image or edit-target tool argument was supplied.",
   "actual_source_dimensions": [
     1536,
     1024
   ],
-  "source_sha256": "e0e73dc710ec7d90358dec68635cb04730285c3a896222e1bc948b59f92db690"
+  "source_sha256": "9f1ca1464ee4889b1ec9fa0e16a9f034b9f5cdca132cf7280032c9c0b8784829",
+  "transparent_background": true,
+  "generation_reference": {
+    "source": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/character-life.png",
+    "revision": "9e97d5b79f9031ffe241b5cdee7a0fcd62656661",
+    "source_sha256": "e0e73dc710ec7d90358dec68635cb04730285c3a896222e1bc948b59f92db690"
+  },
+  "supersedes": {
+    "source": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/character-life.png",
+    "metadata": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/character-life.json",
+    "revision": "9e97d5b79f9031ffe241b5cdee7a0fcd62656661",
+    "source_sha256": "e0e73dc710ec7d90358dec68635cb04730285c3a896222e1bc948b59f92db690"
+  },
+  "prompt": "Use case: stylized-concept. Production sprite artwork for the existing Agent Office canvas app. Improve the supplied existing sprite sheet while preserving exactly its six character identities, outfits, palettes and cozy pixel-art style. The result will be normalized to 32 by 36 logical pixels per character. Draw clean, intentional pixel clusters, readable dark-navy outlines, simple expressive faces, crisp opaque colors and true transparent space. No gradients, grain, fuzzy antialias halos, glows, outlines around the whole sheet, background colors, scenery, ground, shadows, desks, text, labels, logos or grid lines.\n\nCanvas: 1536 by 1024 pixels. EXACTLY twelve equal columns and six equal rows of isolated full-body sprites: 72 sprites total, not a poster. Use 128 by 160 pixel slots with 32px top and bottom outer margins. Each character stays entirely inside its slot with generous transparent gutters. All poses of one identity share the same head size, body proportions, costume details and foot baseline; feet are at the same y position within each slot. Treat this as crisp 32x36 game pixel art enlarged for production, with large readable color clusters rather than tiny decoration.\n\nRows, top to bottom, are the same existing six identities: (1) tousled brown hair, navy jacket/trousers, pale shirt and cyan tie; (2) copper-orange ponytail, teal jacket, pale blouse, dark trousers; (3) indigo hair and dark rectangular glasses, navy outfit with violet tie; (4) blond tousled hair, saturated blue hoodie and dark trousers—keep this blue clothing so existing rose/moss palette variants work; (5) compact ivory office robot, dark visor with two cyan rectangular eyes, cyan antenna tip, navy joints and feet; (6) warm dark skin, red cap, red jacket over pale shirt, dark trousers. Maintain the same character designs across all 12 cells in their row.\n\nWORK ACTIVITY SHEET: replace the existing character activity sheet. All 72 figures face toward the viewer in the same shallow top-down office perspective; keep the same full-body standing proportions so the renderer can position them at a workstation. In EVERY row: columns 1–4 are a four-frame typing loop with hands at chest/desk height alternating small left/right taps—NO baked-in table, desk or keyboard; columns 5–8 are a four-frame reading loop holding a small pale cream open document/book with a subtle gaze shift or one page change; columns 9–12 are a four-frame attentive loop with one hand gently raised to signal needing input, a small wave then a calm resting pose. Make the action frames distinct and readable at 32x36 without turning into exaggerated dancing. Mostly keep eyes open; one brief blink per loop at most. Feet and torso baseline stay fixed, hands and facial cues do the movement. Preserve outfits and readable faces. Genuine transparent RGBA background.",
+  "normalization": "Alpha-separated rows and columns; one shared scale per identity; nearest-neighbor fit into 32x36 native frames with bottom-center anchor (16,35). Native alpha is made binary at the same 160 silhouette threshold; original generated source bytes remain unchanged.",
+  "refinements": [
+    {
+      "tool": "image_gen.imagegen",
+      "mode": "built-in edit",
+      "created": "2026-10-28",
+      "transparent_background": true,
+      "input_source_sha256": "d18708e4f1294c088b1a1a0651428acc05249be05ed4397e676698820ff86493",
+      "output_source_sha256": "9f1ca1464ee4889b1ec9fa0e16a9f034b9f5cdca132cf7280032c9c0b8784829",
+      "purpose": "Keep the third identity’s rectangular glasses visible in its five closed-eye poses without changing the activity contract.",
+      "prompt": "Use case: precise-object-edit. Edit this exact 1536x1024 transparent character activity sprite sheet. Preserve its entire 12-column by 6-row layout, all six identities, all poses, all sizes, all colors, feet baselines, transparent background, and every other detail.\n\nONE SMALL CORRECTION ONLY: the indigo-haired worker in ROW THREE wears dark rectangular eyeglasses. Their glasses disappear in the closed-eye/blink poses. Restore the same dark rectangular eyeglass frames across the eyes in row three columns THREE, SIX, EIGHT, TEN and TWELVE. Keep the eyes closed behind the glasses in those five poses. Match the glasses visible in row three columns ONE, TWO, FOUR, FIVE, SEVEN, NINE and ELEVEN. The glasses should remain worn consistently across all twelve poses, with the same shape and scale.\n\nDo not change any other character, pose, row, action, outfit, face, book, hand, body, canvas dimensions, position or background. Do not add labels or text. Genuine transparent alpha background. This is production sprite continuity repair, not a redesign."
+    }
+  ]
 }

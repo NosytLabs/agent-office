@@ -25,12 +25,18 @@ the six existing character identities: down, up, right and left, each with three
 poses. The runtime creates 24 additional rose/moss palette variants using the
 existing tint recipe. Portraits and activity poses keep the base artwork.
 
-The built-in image-generation output is preserved unchanged at
-`source/directional-walk.png` (1672 × 941 RGBA). Its exact prompt and tool/reference
+The current built-in image-generation output is preserved unchanged at
+`source/directional-walk.png` (1536 × 1024 RGBA). Its exact prompt and tool/reference
 details are in `source/directional-walk.json`. `directional.json` records the
 source SHA-256, actual crop bounds, one scale per identity, native rectangles,
 foot anchors and decoded atlas SHA-256. The source and compiled PNG also appear
 in the complete repository asset-checksum inventory.
+
+The walking and character-activity refresh replaces the previous families in
+place, retaining the same six identities, native frame sizes and gallery keys.
+Each source record links its superseded image and prompt to their preserved Git
+revision. Historical style references retain the hashes of the art actually used;
+obsolete source variants are not duplicated in the current checkout.
 
 `node tools/build_studio_directional.mjs --check` reproduces the source fitting
 without changing files. Generation uses original artwork references; no external
@@ -59,7 +65,9 @@ The runtime creates 24 matching rose/moss palette variants. Each identity uses
 one shared scale and anchor (16,35), with a transparent margin and grounded feet.
 The unmodified 1536×1024 built-in imagegen source and complete prompt are retained
 in `source/character-life.*`; the manifest records the reviewed crops and decoded
-pixel checksum. The environment compiler reproduces this pack with the other
+pixel checksum. The refreshed native activity frames use binary alpha at the
+recorded silhouette threshold to remove faint edge haze; the generated source
+bytes remain unchanged. The environment compiler reproduces this pack with the other
 supplements. Stationary reported activity selects these loops; walking and the
 existing error/completion/shell poses retain their separate artwork.
 

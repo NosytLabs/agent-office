@@ -22,7 +22,6 @@ class OfficeScene {
     this.pan = { x: 0, y: 0 };
     this.paused = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.time = 0;
-    this.last = 0;
     this.edit = null;
     this.movingIndex = null;
     this.hitBoxes = [];
@@ -35,7 +34,24 @@ class OfficeScene {
       this.draw(0);
     });
     this.resize.observe(canvas);
+    document.addEventListener("visibilitychange", () =>
+      this.resetFrameTiming(),
+    );
     this.frame = requestAnimationFrame((t) => this.tick(t));
+  }
+  get paused() {
+    return this.motionPaused === true;
+  }
+  set paused(value) {
+    const paused = !!value;
+    if (this.motionPaused === paused) return;
+    this.motionPaused = paused;
+    this.resetFrameTiming();
+  }
+  resetFrameTiming() {
+    this.last = null;
+    this.nextPaint = null;
+    this.elapsed = 0;
   }
   runtimeSpriteSizes() {
     return {
@@ -68,6 +84,7 @@ class OfficeScene {
     this.spriteAssetSource = "loading";
     try {
       const response = await fetch("assets/sprites/runtime/manifest.json", {
+        cache: "no-store",
         signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error("Compact sprite manifest unavailable");
@@ -76,6 +93,7 @@ class OfficeScene {
       if (
         manifest.version !== 1 ||
         manifest.sourceCount !== 23 ||
+        !/^[a-f0-9]{64}$/.test(manifest.imageSha256) ||
         !Number.isInteger(manifest.width) ||
         !Number.isInteger(manifest.height) ||
         manifest.width < 1 ||
@@ -135,7 +153,8 @@ class OfficeScene {
         image.onload = () => finish();
         image.onerror = () =>
           finish(new Error("Compact sprite image unavailable"));
-        image.src = "assets/sprites/runtime/office.png";
+        image.src =
+          "assets/sprites/runtime/office.png?v=" + manifest.imageSha256;
       });
       if (
         image.naturalWidth !== manifest.width ||
@@ -549,16 +568,24 @@ class OfficeScene {
     return { w, h, seats, workstations, columns, rows };
   }
   tick(t) {
-    const dt = Math.min(0.05, (t - (this.last || t)) / 1000);
-    this.last = t;
-    if (
-      !document.hidden &&
-      t - (this.painted || 0) >= 1000 / (this.paused ? 8 : 30)
-    ) {
-      const elapsed = Math.min(0.1, (t - (this.painted || t)) / 1000);
-      this.painted = t;
-      if (!this.paused) this.time += elapsed;
-      this.draw(this.paused ? 0 : elapsed || dt);
+    if (document.hidden) this.resetFrameTiming();
+    else {
+      const dt = Number.isFinite(this.last)
+        ? Math.max(0, Math.min(0.1, (t - this.last) / 1000))
+        : 0;
+      this.last = t;
+      if (!this.paused) this.elapsed += dt;
+      if (this.nextPaint === null || t + 0.001 >= this.nextPaint) {
+        const interval = 1000 / (this.paused ? 8 : 30),
+          lag = this.nextPaint === null ? 0 : Math.max(0, t - this.nextPaint),
+          elapsed = this.paused ? 0 : Math.min(0.1, this.elapsed);
+        // Keep the fractional frame remainder at 60/120/144 Hz, while sharing
+        // one elapsed duration between travel and all sprite playback.
+        this.nextPaint = t + interval - (lag % interval);
+        this.elapsed = 0;
+        this.time += elapsed;
+        this.draw(elapsed);
+      }
     }
     this.frame = requestAnimationFrame((n) => this.tick(n));
   }
@@ -1067,7 +1094,7 @@ class OfficeScene {
       const target = { x: x + 8, y: y - 17 };
       c = this.chars.get(a.id);
       if (!c) {
-        const seated = this.initialIds?.delete(a.id);
+        const seated = this.initialIds?.delete(a.id) || this.paused;
         c = {
           x: seated ? target.x : 24,
           y: seated ? target.y : 0,
@@ -1080,7 +1107,6 @@ class OfficeScene {
       if (c.routeKey !== routeKey) {
         c.routeKey = routeKey;
         if (
-          this.paused ||
           this.relayout ||
           this.grid.seats.length > 16 ||
           !this.routeBudget ||
@@ -1110,28 +1136,33 @@ class OfficeScene {
           }
         }
       }
-      if (this.paused || this.relayout) {
+      if (this.relayout) {
         c.x = target.x;
         c.y = target.y;
         c.path = [];
         c.moving = false;
       }
-      const waypoint = c.path?.[0];
-      if (waypoint) {
-        const dx = waypoint.x - c.x,
+      let remaining = this.paused
+        ? 0
+        : 70 *
+          Math.max(0, Math.min(0.1, Number.isFinite(this.dt) ? this.dt : 0));
+      // Path cells are only four pixels apart. Spend the full frame's travel
+      // across them instead of adding a stationary frame at every waypoint.
+      for (
+        let count = 0;
+        count < 8 && c.path?.length && remaining > 0;
+        count++
+      ) {
+        const waypoint = c.path[0],
+          dx = waypoint.x - c.x,
           dy = waypoint.y - c.y,
-          d = Math.hypot(dx, dy);
-        if (d < 1) {
-          c.x = waypoint.x;
-          c.y = waypoint.y;
-          c.path.shift();
-          c.moving = c.path.length > 0;
-        } else {
-          const step = Math.min(d, 70 * this.dt);
+          d = Math.hypot(dx, dy),
+          step = Math.min(d, remaining);
+        if (d > 0) {
           c.x += (dx / d) * step;
           c.y += (dy / d) * step;
           c.distance += step;
-          c.moving = true;
+          remaining -= step;
           c.dir =
             Math.abs(dx) > Math.abs(dy)
               ? dx < 0
@@ -1141,10 +1172,16 @@ class OfficeScene {
                 ? "up"
                 : "down";
         }
-      } else {
+        if (d <= step) {
+          c.x = waypoint.x;
+          c.y = waypoint.y;
+          c.path.shift();
+        }
+      }
+      c.moving = !!c.path?.length;
+      if (!c.moving) {
         c.x = target.x;
         c.y = target.y;
-        c.moving = false;
       }
       // Stationary characters use their observed activity frames. Moving sprites
       // advance the four-frame walk cycle by distance travelled.

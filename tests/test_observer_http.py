@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import http.client
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -91,6 +92,35 @@ def observer(tmp_path):
         yield server
     finally:
         server.close()
+
+
+@pytest.mark.parametrize("route", [
+    "/assets/sprites/runtime/office.png",
+    "/assets/sprites/runtime/manifest.json",
+    "/assets/brands/codex.svg",
+    "/assets/fonts/geist-latin-variable.woff2",
+])
+def test_static_assets_revalidate_current_bytes_instead_of_reusing_day_old_art(observer, route):
+    status, body, headers = observer.request("GET", route)
+    assert status == 200
+    assert headers["Cache-Control"] == "no-cache"
+    expected = '"' + sha256((ROOT / "web" / route.lstrip("/")).read_bytes()).hexdigest() + '"'
+    assert headers["ETag"] == expected
+    for condition in (expected, "W/" + expected, '"old-art", W/' + expected, "*"):
+        status, cached, validated = observer.request("GET", route, headers={"If-None-Match": condition})
+        assert status == 304 and cached == b""
+        assert validated["ETag"] == expected
+        assert validated["Cache-Control"] == "no-cache"
+    status, fresh, refreshed = observer.request("GET", route, headers={"If-None-Match": '"old-art"'})
+    assert status == 200 and fresh == body
+    assert refreshed["ETag"] == expected
+
+
+@pytest.mark.parametrize("route", ["/", "/js/scene.js", "/assets-manifest", "/user/missing.svg", "/assets/missing.png"])
+def test_live_asset_indexes_and_missing_files_are_not_cached(observer, route):
+    status, _, headers = observer.request("GET", route)
+    assert status in (200, 404)
+    assert headers["Cache-Control"] == "no-store"
 
 
 @pytest.mark.parametrize("route", ["/", "/js/scene.js", "/state", "/history", "/settings", "/assets-manifest", "/user/missing.svg"])

@@ -122,7 +122,7 @@
       ],
       "result": "All four normalized states are distinct and readable at 24 × 34. The terminal stays grounded inside its existing collision box on desktop and mobile with no overlap or clipping. The running state adds only a two-frame activity lamp, which freezes with Pause and reduced motion.",
       "evidence": [
-        "docs/screenshots/task-console-running.png"
+        "https://github.com/NosytLabs/agent-office/blob/6f59428b2e64994fe21a9a7fedb2152abfc7ebaa/docs/screenshots/task-console-running.png"
       ]
     }
   }

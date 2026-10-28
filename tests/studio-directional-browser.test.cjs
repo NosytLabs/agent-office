@@ -237,3 +237,121 @@ test("missing directional artwork keeps the base set and retries without losing 
     assert.deepEqual(accounting(await state()), before);
   });
 });
+
+for (const artwork of ["classic", "studio"])
+  test(`${artwork} arrivals hold their route through Pause and hidden tabs, then finish walking`, async () => {
+    await observerFixture(
+      {
+        events: Array.from({ length: 5 }, (_, index) => ({
+          event: "session_start",
+          session_id: "seated-" + index,
+          platform: "codex",
+        })),
+        settings: { max_chars: 4, decorations: false, show_pets: false },
+      },
+      async ({ page, publish, state }) => {
+        await ready(page);
+        await page.click("#settingsbtn");
+        await page.selectOption("#studio-art-choice", artwork);
+        await page.locator("#sheet-settings .close").click();
+        publish([
+          {
+            event: "session_start",
+            session_id: "walking-arrival",
+            platform: "codex",
+          },
+        ]);
+        await page.evaluate(() => poll());
+        await page.waitForFunction(() => {
+          const c = officeScene.chars.get("walking-arrival");
+          return c?.moving && c.distance > 8;
+        });
+        const before = accounting(await state());
+        await page.evaluate(() => {
+          window.__walkingSnapshot = () => {
+            const c = officeScene.chars.get("walking-arrival");
+            return {
+              x: c.x,
+              y: c.y,
+              distance: c.distance,
+              path: c.path.map((point) => ({ ...point })),
+              time: officeScene.time,
+            };
+          };
+          document.getElementById("pausebtn").addEventListener(
+            "click",
+            () => {
+              window.__pausedArrival = __walkingSnapshot();
+            },
+            { capture: true, once: true },
+          );
+        });
+        await page.click("#pausebtn");
+        await page.waitForTimeout(220);
+        const paused = await page.evaluate(() => ({
+          before: __pausedArrival,
+          after: __walkingSnapshot(),
+          moving: officeScene.chars.get("walking-arrival").moving,
+        }));
+        assert.deepEqual(paused.after, paused.before);
+        assert.ok(paused.moving && paused.after.path.length > 0);
+        const directory =
+          process.env.OFFICE_SCREENSHOTS || "reports/animation-lifecycle";
+        fs.mkdirSync(directory, { recursive: true });
+        await page.screenshot({
+          path: path.join(directory, artwork + "-paused-arrival.png"),
+          fullPage: true,
+        });
+        await page.click("#pausebtn");
+        await page.waitForFunction(
+          (distance) =>
+            officeScene.chars.get("walking-arrival").distance > distance + 3,
+          paused.after.distance,
+        );
+        const hidden = await page.evaluate(() => {
+          Object.defineProperty(document, "hidden", {
+            configurable: true,
+            value: true,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+          return __walkingSnapshot();
+        });
+        await page.waitForTimeout(220);
+        assert.deepEqual(
+          await page.evaluate(() => __walkingSnapshot()),
+          hidden,
+        );
+        await page.evaluate(() => {
+          const tick = officeScene.tick;
+          officeScene.tick = function (time) {
+            tick.call(this, time);
+            if (!document.hidden) {
+              window.__visibleArrival = __walkingSnapshot();
+              this.tick = tick;
+            }
+          };
+          delete document.hidden;
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await page.waitForFunction(() => window.__visibleArrival);
+        assert.deepEqual(
+          await page.evaluate(() => __visibleArrival),
+          hidden,
+          "the first visible frame does not catch up hidden time",
+        );
+        await page.waitForFunction(
+          () => !officeScene.chars.get("walking-arrival").moving,
+        );
+        const arrived = await page.evaluate(() => {
+          const c = officeScene.chars.get("walking-arrival"),
+            s = officeScene.grid.seats.find(
+              (seat) => seat.a.id === "walking-arrival",
+            );
+          return { x: c.x, y: c.y, target: { x: s.x + 8, y: s.y - 17 } };
+        });
+        assert.equal(arrived.x, arrived.target.x);
+        assert.equal(arrived.y, arrived.target.y);
+        assert.deepEqual(accounting(await state()), before);
+      },
+    );
+  });

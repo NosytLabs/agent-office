@@ -401,6 +401,17 @@ try {
             });
           });
         }
+        if (name === "character-life") {
+          // Preserve the generated source while making the native silhouette
+          // fully opaque, without carrying faint source halos into the room.
+          const pixels = context.getImageData(0, 0, atlas.width, atlas.height);
+          for (let index = 0; index < pixels.data.length; index += 4) {
+            if (pixels.data[index + 3] < 160)
+              pixels.data.fill(0, index, index + 4);
+            else pixels.data[index + 3] = 255;
+          }
+          context.putImageData(pixels, 0, 0);
+        }
         return {
           png: atlas.toDataURL("image/png").split(",")[1],
           rgba: Array.from(
@@ -434,6 +445,9 @@ try {
       sourceBounds: compiled.sourceBounds,
       rowScales: compiled.rowScales,
       entries: compiled.entries,
+      ...(name === "character-life"
+        ? { alphaThreshold: 160, binaryAlpha: true }
+        : {}),
       ...(seed
         ? {
             seed:

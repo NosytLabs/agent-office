@@ -14,7 +14,7 @@ LOCAL_DIRS = frozenset({
     '.ci', '.hermes', '.venv', '.vercel', '__pycache__', '.pytest_cache',
     '.mypy_cache', '.ruff_cache', 'node_modules', 'dist', 'site-dist',
     'reports', 'playwright-report', 'test-results', 'coverage', 'htmlcov',
-    'logs', 'pixel-office',
+    'logs', 'pixel-office', 'shots',
 })
 TEXT_SUFFIXES = frozenset({'.py', '.js', '.mjs', '.cjs', '.css', '.html', '.md',
                            '.json', '.yml', '.yaml', '.toml', '.txt', '.sh'})
@@ -73,10 +73,12 @@ def local_only(name: str) -> bool:
     base = path.name
     return (any(part in LOCAL_DIRS for part in path.parts[:-1])
             or base.endswith(('.log', '.pyc', '.pyo', '.tmp', '.bak', '.vsix'))
-            or bool(re.search(r'\.log\.\d+(?:\.gz)?$', base))
+            or bool(re.search(r'\.log\.(?:\d[^/]*|gz|bz2|xz|zst)$', base))
             or base == '.DS_Store' or base.startswith('.coverage')
             or (base.startswith('.env') and base not in ('.env.example', '.env.sample'))
-            or (len(path.parts) == 1 and (base in ('settings.json', 'progress.json', 'events.jsonl', 'event-epoch')
+            or path.parts[0] == 'inbox'
+            or (len(path.parts) == 1 and (base in ('settings.json', 'progress.json', 'events.jsonl', 'event-epoch',
+                                                 'opencode-handoff.json')
                                           or base.startswith('office.sqlite3'))))
 
 

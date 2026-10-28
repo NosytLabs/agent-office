@@ -7,6 +7,7 @@
 | Output | Where it lives | How to maintain it |
 | --- | --- | --- |
 | Recorded sessions, history, XP and usage | `~/.hermes/pixel-office`, or `$HERMES_HOME/pixel-office` | Use the office's history and retention controls; this is user data |
+| Existing-session OpenCode pairing and delivery receipts | `opencode-handoff.json` in the office data directory | Retain the ledger across restarts; history cleanup and progress reset do not remove it |
 | Observer diagnostics | The launching terminal, Hermes or another host service | Capture the relevant error; configure log rotation in that launcher or service |
 | Browser-demo preferences and saved briefs | This browser's storage for the demo origin | Export any briefs you need before clearing site data |
 | Developer logs, screenshots and test reports | Ignored `reports/`, `playwright-report/` or `test-results/` | Retain useful evidence outside Git, then remove generated output you no longer need |
@@ -15,6 +16,20 @@
 
 The hosted demo contains synthetic activity. Its storage is separate from your
 local observer data and does not contain your installed runtimes' sessions.
+
+## Refresh artwork after an update
+
+Reload the office after updating the checkout. The compact atlas URL includes a
+hash of its image bytes, so an older image cached at the original URL cannot be
+reused for the current atlas. The local server revalidates bundled artwork and
+manifests with content ETags; unchanged assets can use an HTTP 304 response.
+Scripts, styles, HTML, local user artwork and the live asset inventory are not
+stored in the HTTP cache.
+
+Use **Retry artwork** for a failed Studio pack. Clearing browser site data is
+unnecessary for this update and would also remove browser-local preferences and
+saved briefs. A hosted demo's HTTP headers are controlled by its host; the local
+server's cache policy does not purge a remote CDN.
 
 ## Inspect or reduce office storage
 
@@ -62,15 +77,17 @@ previews and project paths before sharing them through the
 
 ## Keep development output out of Git
 
-The ignore rules exclude logs and rotated logs, generated reports, builds,
-dependency/cache folders, local credentials and office data. Before deleting
-generated output, stop any test or build writing it and preserve evidence you
-still need. Remove only the known output folders you selected.
+The ignore rules exclude logs and compressed/rotated logs, generated reports,
+coverage and screenshot output, backups, builds, dependency/cache folders,
+local credentials and office data. Before deleting generated output, stop any
+test or build writing it and preserve evidence you still need. Remove only the
+known output folders you selected.
 
 Avoid blanket ignored-file deletion such as `git clean -fdX`: ignored files can
 also be credentials or user data. SQLite files and sidecars, pending inbox files,
 legacy event logs, settings and optional licensed artwork are not disposable
-development caches.
+development caches. OpenCode handoff receipts also record uncertain deliveries;
+deleting them can lose the information needed to avoid a duplicate submission.
 
 Before committing, stage intended source changes and check the tracked files:
 

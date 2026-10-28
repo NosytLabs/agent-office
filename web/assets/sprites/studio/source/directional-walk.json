@@ -1,41 +1,36 @@
 {
-  "tool": "built-in image_gen",
-  "created": "2026-10-15",
-  "purpose": "Supplement the existing Studio style with complete character directional walking",
+  "tool": "image_gen.imagegen",
+  "created": "2026-10-28",
+  "purpose": "Replace the existing six-identity Studio directional walking artwork with clearer native silhouettes and visible alternating limbs",
   "source": "directional-walk.png",
-  "source_sha256": "54c3093e368b142df0c186c09a09f84be3c90e3cd0667a7672bd369b0c2593d6",
+  "source_sha256": "fa58d19651d542b830ac91c6bddee26bc265af6c32ccf5f20a1285d71b753d4c",
   "source_preserved_unmodified": true,
   "actual_source_dimensions": [
-    1672,
-    941
+    1536,
+    1024
   ],
   "requested_source_dimensions": [
     1536,
-    864
+    1024
   ],
-  "layout_note": "Generated canvas differs from requested dimensions. The reviewed actual rows/columns and source crop bounds are recorded in ../directional.json; no nominal-grid slicing is assumed.",
+  "transparent_background": true,
+  "layout_note": "The delivered sheet contains twelve columns and six rows. Actual transparent gutters were reviewed at alpha >= 160: rows [55,187], [201,336], [355,487], [510,647], [665,806], [832,962]. Nominal 160-pixel row boundaries would clip the blond and robot silhouettes; the compiler uses the reviewed bounds recorded in ../directional.json.",
   "references": [
     {
-      "path": "web/assets/sprites/studio/studio-0.png",
-      "role": "style and identity reference",
-      "sha256": "1ec81d40c0303ff8b89d9c4c24f2f92ad8a1f9ff31c5efe63afecc811071503f"
-    },
-    {
-      "path": "web/assets/sprites/studio/studio-1.png",
-      "role": "style and identity reference",
-      "sha256": "e8f91b7c8f5a3cfe27e96b53bda44bfa6cfbe3f237382c41373c267f1d93867c"
-    },
-    {
-      "path": "web/assets/sprites/studio/studio-2.png",
-      "role": "style and identity reference",
-      "sha256": "cf39a0ef1714063e570ca50565de998bdcaa9ccd3fc9cf8dcb1cbbc8abdf94d3"
-    },
-    {
-      "path": "web/assets/sprites/studio/studio-3.png",
-      "role": "style and identity reference",
-      "sha256": "58784341eb6c85f93e678c11969c283d07b908fd9ae9faa370afae18eb800605"
+      "path": "web/assets/sprites/studio/source/directional-walk.png",
+      "role": "sole edit reference; prior committed six-identity directional source",
+      "commit": "9e97d5b79f9031ffe241b5cdee7a0fcd62656661",
+      "url": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/directional-walk.png",
+      "sha256": "54c3093e368b142df0c186c09a09f84be3c90e3cd0667a7672bd369b0c2593d6"
     }
   ],
-  "prompt": "Use case: stylized-concept. Asset type: production transparent pixel-art sprite sheet for an existing cozy top-down office game. The four supplied image strips are STYLE AND IDENTITY REFERENCES, not edit targets. Generate a NEW supplementary directional walk sheet. Match their charming tiny chibi pixel art: large heads, tiny bodies, 1-pixel dark navy outlines at logical size, expressive simple faces, restrained warm colors, crisp opaque pixel clusters, readable silhouette. No photorealism, no 3D, no painterly texture, no text, labels, borders, grid lines, logos, props, desks, floor or cast shadows.\nCANVAS AND LAYOUT ARE CRITICAL: exactly 1536 pixels wide and 864 pixels high, genuine transparent background. A perfectly regular 12-column by 6-row grid, every cell exactly 128 x 144 pixels. One fully contained sprite centered in each cell, identical scale and baseline within its row, feet at y=132 within the cell. Leave transparent space around each sprite. The art should look like 32x36 logical pixels enlarged exactly fourfold. Never merge adjacent sprites or cross cell boundaries.\nEach row is ONE identity consistent across all twelve cells. Row1 brown-haired young office worker, navy outfit and light shirt; Row2 copper/orange-haired worker, teal outfit; Row3 indigo-haired worker, violet/navy outfit; Row4 blond worker, blue shirt; Row5 small ivory office robot with dark teal visor and navy feet; Row6 warm-skinned courier in a red cap and red jacket.\nEvery row has this exact sequence: cells1-3 face DOWN/toward viewer, walking neutral / left foot forward / right foot forward; cells4-6 face UP/away from viewer, walking neutral / left foot forward / right foot forward (show back of head, no face); cells7-9 face RIGHT in clear right-facing profile, neutral / left foot forward / right foot forward; cells10-12 face LEFT in clear left-facing profile, neutral / left foot forward / right foot forward. All characters remain upright. Arms swing subtly opposite feet. Use the same head height and body proportions across poses so animation has no size jitter. Six identities, twelve poses each, seventy-two isolated sprites total. Prioritize clean consistent directional silhouettes and leg motion suitable for downsampling and real game use.",
-  "normalization": "One shared scale per identity, nearest-neighbor sampling,32x36native frame, bottom-center anchor(16,35); original source is never overwritten."
+  "supersedes": {
+    "commit": "9e97d5b79f9031ffe241b5cdee7a0fcd62656661",
+    "source_url": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/directional-walk.png",
+    "metadata_url": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/source/directional-walk.json",
+    "compiled_url": "https://github.com/NosytLabs/agent-office/blob/9e97d5b79f9031ffe241b5cdee7a0fcd62656661/web/assets/sprites/studio/directional.png",
+    "source_sha256": "54c3093e368b142df0c186c09a09f84be3c90e3cd0667a7672bd369b0c2593d6"
+  },
+  "prompt": "Use case: stylized-concept. Production sprite artwork for the existing Agent Office canvas app. Improve the supplied existing sprite sheet while preserving exactly its six character identities, outfits, palettes and cozy pixel-art style. The result will be normalized to 32 by 36 logical pixels per character. Draw clean, intentional pixel clusters, readable dark-navy outlines, simple expressive faces, crisp opaque colors and true transparent space. No gradients, grain, fuzzy antialias halos, glows, outlines around the whole sheet, background colors, scenery, ground, shadows, desks, text, labels, logos or grid lines.\n\nCanvas: 1536 by 1024 pixels. EXACTLY twelve equal columns and six equal rows of isolated full-body sprites: 72 sprites total, not a poster. Use 128 by 160 pixel slots with 32px top and bottom outer margins. Each character stays entirely inside its slot with generous transparent gutters. All poses of one identity share the same head size, body proportions, costume details and foot baseline; feet are at the same y position within each slot. Treat this as crisp 32x36 game pixel art enlarged for production, with large readable color clusters rather than tiny decoration.\n\nRows, top to bottom, are the same existing six identities: (1) tousled brown hair, navy jacket/trousers, pale shirt and cyan tie; (2) copper-orange ponytail, teal jacket, pale blouse, dark trousers; (3) indigo hair and dark rectangular glasses, navy outfit with violet tie; (4) blond tousled hair, saturated blue hoodie and dark trousers—keep this blue clothing so existing rose/moss palette variants work; (5) compact ivory office robot, dark visor with two cyan rectangular eyes, cyan antenna tip, navy joints and feet; (6) warm dark skin, red cap, red jacket over pale shirt, dark trousers. Maintain the same character designs across all 12 cells in their row.\n\nWALK SHEET: replace the existing directional walk sheet with stronger, clearly distinct but restrained walk poses. In EVERY row, columns 1–3 face DOWN toward viewer; columns 4–6 face UP away from viewer with back of head and NO face; columns 7–9 face RIGHT in a clear side profile; columns 10–12 face LEFT in a clear side profile. Within each direction the three poses are: neutral balanced stance, left foot forward with opposite arm forward, right foot forward with opposite arm forward. The foot separation and arm swing must remain visible after downsampling to 32x36. Keep heads stable in height and width, avoid body-size changes or stretching. The robot follows the same heading and alternating-leg pattern. Each pose is a separate upright full-body figure. Match the supplied identities, improve silhouette clarity and direction readability. Genuine transparent RGBA background.",
+  "normalization": "Reviewed alpha >= 160 crop bounds; one shared scale per identity across all twelve poses; nearest-neighbor sampling; 32 x 36 native frames with bottom-center anchor (16, 35). Generated source bytes remain unmodified."
 }

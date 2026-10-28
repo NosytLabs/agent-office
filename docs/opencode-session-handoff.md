@@ -1,11 +1,16 @@
 # OpenCode session handoff
 
 The local task runner starts a **fresh** CLI process per run. The session
-handoff adapter is the separate, separately enabled counterpart tracked in
-issue #18: it sends a reviewed prompt to an **existing** OpenCode session on
-an already-running local OpenCode server, and it keeps a durable delivery
+handoff adapter is separately enabled: it sends a reviewed prompt to an
+**existing** OpenCode session on an already-running local OpenCode server,
+and it keeps a durable delivery
 receipt for every submission so a lost acknowledgement can be reconciled
 instead of retried blind.
+
+This adapter currently exposes an HTTP API. The browser interface for reviewing
+a destination, pairing, and sending is still to be built. Copying a prompt from
+Tasks does not submit it through this adapter. Follow-up interface work is tracked
+in [issue #18](https://github.com/NosytLabs/agent-office/issues/18).
 
 The adapter is off unless the standalone server is started with it:
 
@@ -120,6 +125,5 @@ provider-backed task. That verification is separate and still outstanding:
 the installed v2.0.29 adapter's provider path is account-gated (an active
 OpenCode Go subscription was required in the last smoke test), so
 authenticated provider execution remains unverified until it is exercised
-with a working account. The browser draft-review interface for pairing and
-sending is also still to be built; the HTTP contract above is the surface
-it will use.
+with a working account. The browser interface will use the HTTP contract above;
+its interaction flows are not covered by these adapter tests.
