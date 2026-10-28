@@ -566,39 +566,66 @@ for (const fault of ["manifest", "image", "integrity"])
     );
   });
 
-test("the reduced demo retains every Classic sheet when the compact atlas is unavailable", () =>
-  withPage(
-    async (page, requests) => {
-      await page.waitForFunction(
-        () =>
-          officeScene.spriteAssetSource === "source" &&
-          officeScene.loadedAssets === 23,
-      );
-      assert.equal(
-        await page.locator("html").getAttribute("data-office-art"),
-        "classic",
-      );
-      assert.deepEqual(await page.evaluate(() => officeScene.assetErrors), []);
-      const manifest = JSON.parse(
-        fs.readFileSync(
-          path.join(root, "web/assets/sprites/runtime/manifest.json"),
-          "utf8",
-        ),
-      );
-      const loaded = new Set(
-        requests.map((request) => new URL(request.url).pathname),
-      );
-      for (const file of Object.keys(manifest.sources))
-        assert.ok(loaded.has(prefix + "assets/sprites/" + file), file);
-      await page.locator("#floorbtn").click();
-      assert.ok((await page.locator("#roster .agent-card").count()) > 0);
-      fs.mkdirSync("reports/public-assets", { recursive: true });
-      await page.screenshot({
-        path: "reports/public-assets/classic-source-packed.png",
-      });
-    },
-    { classic: true, sourceFallback: true },
-  ));
+test("the reduced demo retains every Classic sheet when the compact atlas is unavailable", async () => {
+  let releaseArtwork;
+  const held = new Promise((resolve) => {
+    releaseArtwork = resolve;
+  });
+  try {
+    await withPage(
+      async (page, requests) => {
+        await page.waitForFunction(
+          () =>
+            officeScene.spriteAssetSource === "source" &&
+            officeScene.loadedAssets === 23,
+        );
+        // Classic sheets and the optional Studio loader finish independently.
+        // The saved artwork preference is published when Studio loading settles.
+        releaseArtwork();
+        await page.waitForFunction(
+          () => officeStudio.ready && !officeStudio.loading,
+        );
+        assert.equal(
+          await page.locator("html").getAttribute("data-office-art"),
+          "classic",
+        );
+        assert.deepEqual(
+          await page.evaluate(() => officeScene.assetErrors),
+          [],
+        );
+        const manifest = JSON.parse(
+          fs.readFileSync(
+            path.join(root, "web/assets/sprites/runtime/manifest.json"),
+            "utf8",
+          ),
+        );
+        const loaded = new Set(
+          requests.map((request) => new URL(request.url).pathname),
+        );
+        for (const file of Object.keys(manifest.sources))
+          assert.ok(loaded.has(prefix + "assets/sprites/" + file), file);
+        await page.locator("#floorbtn").click();
+        assert.ok((await page.locator("#roster .agent-card").count()) > 0);
+        fs.mkdirSync("reports/public-assets", { recursive: true });
+        await page.screenshot({
+          path: "reports/public-assets/classic-source-packed.png",
+        });
+      },
+      {
+        classic: true,
+        sourceFallback: true,
+        beforeNavigate: async (context) => {
+          await context.route("**/studio/prop-life.json", async (route) => {
+            await held;
+            await route.continue();
+          });
+        },
+      },
+    );
+  } finally {
+    releaseArtwork();
+  }
+});
 
 test("the packaged Duck Hunt loads its derived runtime without the authoring bundle", () =>
   withPage(async (page, requests) => {
