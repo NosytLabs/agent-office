@@ -911,6 +911,109 @@ test("delayed saved history restores its reading position after reload", () =>
     );
   }));
 
+async function deferredHistoryFont(p, run) {
+  await p.click("#eventsbtn");
+  await p.click('[data-event-view="history"]');
+  await p.waitForFunction(() => historyLoaded && !historyLoading);
+  const before = await p.locator("#sheet-events").evaluate((el) => {
+    el.scrollTop = 1800;
+    return el.scrollTop;
+  });
+  assert.ok(before > 1000);
+  await p.waitForFunction(
+    ({ key, before }) =>
+      JSON.parse(localStorage.getItem(key)).scroll["sheet-events"] === before,
+    { key: viewKey, before },
+  );
+  async function hold(pattern) {
+    let release, started;
+    const held = new Promise((resolve) => (release = resolve)),
+      requested = new Promise((resolve) => (started = resolve));
+    await p.route(pattern, async (route) => {
+      started();
+      if ((await held) === "fail") await route.abort().catch(() => {});
+      else await route.continue().catch(() => {});
+    });
+    return { release, requested };
+  }
+  const history = await hold("**/history?*"),
+    font = await hold("**/geist-latin-variable.woff2");
+  try {
+    await p.reload({ waitUntil: "domcontentloaded" });
+    await Promise.all([history.requested, font.requested]);
+    await p.waitForFunction(() => initialized && historyLoading);
+    history.release();
+    await p.waitForFunction(() => historyLoaded && !historyLoading);
+    assert.equal(await p.evaluate(() => document.fonts.status), "loading");
+    assert.equal(await p.locator("#refresh-history").isEnabled(), true);
+    assert.equal(await p.locator("#export-history").isEnabled(), true);
+    await run(before, font.release);
+  } finally {
+    history.release();
+    font.release();
+  }
+}
+
+for (const outcome of ["loaded", "failed"])
+  test(`saved history keeps its reading position until delayed fonts have ${outcome}`, () =>
+    withPage((p) =>
+      deferredHistoryFont(p, async (before, releaseFont) => {
+        assert.equal(
+          await p.locator("#sheet-events").evaluate((el) => el.scrollTop),
+          before,
+          "loaded rows show the saved position while the font is pending",
+        );
+        releaseFont(outcome === "failed" ? "fail" : undefined);
+        await p.evaluate(() => document.fonts.ready);
+        await p.waitForFunction(() => pendingHistoryScroll === null);
+        const after = await p
+          .locator("#sheet-events")
+          .evaluate((el) => el.scrollTop);
+        assert.ok(
+          Math.abs(after - before) < 3,
+          "font layout cannot replace the saved reading position",
+        );
+        assert.equal(
+          JSON.parse(
+            await p.evaluate((key) => localStorage.getItem(key), viewKey),
+          ).scroll["sheet-events"],
+          before,
+        );
+      }),
+    ));
+
+test("navigation and a new reading position cancel stale font-delayed history restoration", () =>
+  withPage((p) =>
+    deferredHistoryFont(p, async (before, releaseFont) => {
+      // Exercise a replacement panel visit at the same saved numeric offset;
+      // callbacks from the earlier visit must not reclaim its scroll position.
+      await p.evaluate(() => openSheet("sheet-floor"));
+      await p.locator("#sheet-floor .sheet-back").click();
+      assert.equal(await p.evaluate(() => opened), "sheet-events");
+      await p.locator("#sheet-events").hover();
+      await p.mouse.wheel(0, 500);
+      await p.waitForFunction(
+        (before) =>
+          document.getElementById("sheet-events").scrollTop > before + 350,
+        before,
+      );
+      assert.equal(await p.evaluate(() => pendingHistoryScroll), null);
+      releaseFont();
+      await p.evaluate(() => document.fonts.ready);
+      assert.ok(
+        (await p.locator("#sheet-events").evaluate((el) => el.scrollTop)) >
+          before + 350,
+        "a completed font load does not rewind deliberate scrolling",
+      );
+      await p.waitForFunction(
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).scroll["sheet-events"] ===
+          Math.round(document.getElementById("sheet-events").scrollTop),
+        viewKey,
+      );
+    }),
+  ));
+
 test("exact runtime usage wins over a Hermes alias bucket for the same session", () =>
   withPage(async (p) => {
     await p.click("#floorbtn");
