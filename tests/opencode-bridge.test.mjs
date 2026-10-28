@@ -43,8 +43,13 @@ function recordEvents(events, customHome = false, options = {}) {
         options.epoch + "\n",
       );
     }
-    const env = { ...process.env, HOME: home };
+    // Override the default home directory so the bridge targets the temp dir.
+    // Windows Node resolves os.homedir() from USERPROFILE (falling back to
+    // HOMEDRIVE/HOMEPATH), so leave the temporary dir there as well.
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
     delete env.HERMES_HOME;
+    delete env.HOMEDRIVE;
+    delete env.HOMEPATH;
     if (customHome) env.HERMES_HOME = hermesHome;
     const result = spawnSync(
       process.execPath,

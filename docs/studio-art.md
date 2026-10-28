@@ -143,17 +143,8 @@ coffee trips are not implemented by this presentation layer.
 
 ## Verification
 
-Run the existing checks:
-
-```sh
-python3 -m pytest -q
-npm test
-npm run check
-npm run format:check
-npm run test:browser
-npm run check:sprites
-npm run build:preview
-```
+Follow the complete [development checks](../CONTRIBUTING.md#checks), including
+sprite verification and both browser suites.
 
 The browser command first runs the compatibility suite in Original artwork mode
 using `tests/classic-artwork-preload.cjs`. This keeps its original pixel-identity,

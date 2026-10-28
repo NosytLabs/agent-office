@@ -64,8 +64,11 @@ pull request and push to `main`, including asset deletions that can break unchan
 Markdown links. It installs no development dependencies. The full
 [CI workflow](.github/workflows/ci.yml) runs on the same events, with Python and
 Node checks, formatting, sprite pixel verification, public builds, and all browser
-flows. It allows 20 minutes and keeps browser artifacts for three days on failed
-or manual runs. Builds create `dist/` (demo and product site) or `site-dist/`
+flows. After the non-browser checks pass, Original and Studio browser suites run
+in parallel. The final `verify` check requires every validation job to succeed.
+Each validation job allows 20 minutes; the aggregate check allows two minutes.
+Failure or manual-run artifacts are retained for three days.
+Builds create `dist/` (demo and product site) or `site-dist/`
 (`npm run build:site`); they do not deploy anything.
 
 The product site serves checked-in lossless, responsive screenshots. Original
@@ -220,5 +223,5 @@ records and link them from the existing documentation index.
 For focused browser debugging, `npm run test:browser:original` checks the Classic
 compatibility flows and `npm run test:browser:studio` checks Studio, public-package,
 navigation, panel-safety and saved-brief flows. `npm run test:browser` runs both;
-release verification must keep the complete command. The maintained tool and
+release verification must include both complete suites. The maintained tool and
 asset inventory is in [the asset pipeline](docs/asset-pipeline.md#maintainer-tool-inventory).
