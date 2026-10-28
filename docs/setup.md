@@ -16,6 +16,10 @@ Normal use requires Python 3.10+ with SQLite, Git for cloning/updating, and a
 modern browser. npm and Playwright are development tools, not installation
 requirements. The local observer itself does not call model providers.
 
+Keep the launching terminal open. Stop either server with **Ctrl+C**. The demo
+keeps its synthetic sessions in a separate temporary directory and removes that
+directory when stopped with Ctrl+C or, on macOS/Linux, SIGTERM.
+
 ## First connection
 
 Keep the server terminal open. In another terminal, change into the same checkout
@@ -142,9 +146,11 @@ terminal. The app does not require an npm installation. In Windows, try `py -3`
 instead of `python3`.
 
 **The port is in use.** An office may already be serving that data. Check the
-existing local page, or choose another port. Do not kill an unrelated process to
-free a port. The task runner intentionally refuses to attach itself to an
-existing observer-only server.
+existing local page, or choose another port with `--port`. Both `run.py` and
+`demo_feed.py` exit with an error if they cannot bind their requested port; a
+ready URL is printed only after the new server starts listening. Do not kill an
+unrelated process to free a port. The task runner intentionally refuses to attach
+itself to an existing observer-only server.
 
 **Tokens/cost are missing.** Missing reports are not zero-cost work. Claude and
 Gemini lifecycle hooks do not provide usage counters. See [coverage by runtime](usage.md#which-runtimes-report-usage).

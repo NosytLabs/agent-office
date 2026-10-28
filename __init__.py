@@ -513,7 +513,8 @@ def _trusted_observer_origins(values=()) -> frozenset[str]:
     return frozenset(origins)
 
 
-def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handoff=None) -> None:
+def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handoff=None,
+           require_bind=False) -> None:
     global _port
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -1056,6 +1057,13 @@ def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handof
                 f"local task runner could not bind http://127.0.0.1:{_port}: {exc}. "
                 "Stop the existing Agent Office or other listener, or choose an unused --port."
             ) from exc
+        if require_bind:
+            # Standalone launchers own their listener. Hooks retain the shared
+            # office/feed-only behavior below when another process already serves.
+            raise ObserverStartupError(
+                f"could not bind http://127.0.0.1:{_port}: {exc}. "
+                "Stop the existing Agent Office or other listener, or choose an unused --port."
+            ) from exc
         # Port already bound. Probe it: a healthy pixel-office answers /state
         # with JSON containing "agents". Anything else is a foreign squatter
         # (another app, or a ghost VS Code port-forward) — say so LOUDLY,
@@ -1089,11 +1097,17 @@ def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handof
             )
         return
     logger.info("pixel-office serving at http://127.0.0.1:%s", _port)
+    startup_complete = False
     try:
         if on_ready is not None:
             on_ready(_port)
+        startup_complete = True
         srv.serve_forever()
-    except Exception:
+    except Exception as exc:
+        if require_bind and not startup_complete:
+            raise ObserverStartupError(
+                f"could not finish startup at http://127.0.0.1:{_port}: {exc}"
+            ) from exc
         logger.debug("pixel-office server exited", exc_info=True)
     finally:
         srv.server_close()

@@ -1576,8 +1576,21 @@ class OfficeScene {
   }
   bindInput() {
     const cv = this.canvas;
+    let handledTouch = false;
+    cv.addEventListener(
+      "touchend",
+      (e) => {
+        if (!handledTouch) return;
+        handledTouch = false;
+        // A pointerup action can reveal a dialog under the finger. Consume
+        // its compatibility click before it activates a new dialog control.
+        if (e.cancelable) e.preventDefault();
+      },
+      { passive: false },
+    );
     cv.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || !e.isPrimary) return;
+      handledTouch = false;
       this.hoverAt(null);
       const point = this.point(e),
         at = this.edit === "move" ? this.propAt(point) : -1;
@@ -1631,6 +1644,7 @@ class OfficeScene {
       const p = this.point(e);
       if (!p) return;
       if (this.edit) {
+        handledTouch = e.pointerType === "touch";
         this.onPlace(p, this.grid);
         return;
       }
@@ -1641,6 +1655,7 @@ class OfficeScene {
         };
       const hit = this.agentAt(p, screen);
       if (hit) {
+        handledTouch = e.pointerType === "touch";
         this.onSelect(hit.id);
         return;
       }
@@ -1648,6 +1663,7 @@ class OfficeScene {
         (h) => p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h,
       );
       if (h) {
+        handledTouch = e.pointerType === "touch";
         this.petCat(h.key);
         return;
       }
@@ -1658,10 +1674,14 @@ class OfficeScene {
           p.y >= hit.y &&
           p.y <= hit.y + hit.h,
       );
-      if (prop) this.onProp?.(prop.kind, prop);
+      if (prop && this.onProp) {
+        handledTouch = e.pointerType === "touch";
+        this.onProp(prop.kind, prop);
+      }
     });
     cv.addEventListener("pointercancel", (e) => {
       if (!e.isPrimary || (this.drag && this.drag.id !== e.pointerId)) return;
+      handledTouch = false;
       this.drag = null;
       this.pointer = null;
       this.hoverAt(null);
