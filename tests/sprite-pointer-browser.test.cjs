@@ -114,21 +114,14 @@ test("a canvas touch opens inspection without clicking through, and later touch 
 
       const input = await page.context().newCDPSession(page);
       const before = await page.evaluate(() => ({ ...officeScene.pan }));
-      await input.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [{ x: 180, y: 400 }],
-      });
-      await input.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: 220, y: 400 }],
-      });
-      await input.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: 260, y: 400 }],
-      });
-      await input.send("Input.dispatchTouchEvent", {
-        type: "touchEnd",
-        touchPoints: [],
+      // Complete a native pan before the separate Fit tap. Raw touch packets
+      // can leave Chromium suppressing that next tap's compatibility click.
+      await input.send("Input.synthesizeScrollGesture", {
+        x: 180,
+        y: 400,
+        xDistance: 80,
+        gestureSourceType: "touch",
+        preventFling: true,
       });
       const dragged = await page.evaluate(() => ({
         opened,
