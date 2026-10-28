@@ -1,8 +1,9 @@
 # Contributing
 
-Agent Office observes existing runtimes. Its optional local task runner is a
-separate, explicitly enabled path. Observer hooks must never dispatch prompts,
-execute work, approve requests, or alter the runtime they observe.
+Agent Office observes existing runtimes. Its optional local task runner and
+OpenCode handoff HTTP adapter are separate, explicitly enabled paths. Observer
+hooks must never dispatch prompts, execute work, approve requests, or alter the
+runtime they observe.
 
 ## Development setup
 
@@ -111,6 +112,12 @@ history, admission limits, idempotency, cancellation, and uncertain-delivery sta
 Exit zero means a process finished, not that work passed review. Test using
 throwaway executable fixtures, not developer accounts. See
 [local runner boundaries](docs/local-task-runner.md).
+
+The independently enabled [OpenCode handoff adapter](docs/opencode-session-handoff.md)
+requires a reviewed loopback origin, project and session pairing. Preserve durable
+request identities and uncertain-delivery states across restarts; a missing
+acknowledgement must not trigger a duplicate prompt. Its receipt ledger is local
+user data and must remain outside Git.
 
 ### Persistence and accounting
 

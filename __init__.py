@@ -47,6 +47,7 @@ import sqlite3
 import sys
 import threading
 import time
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -630,6 +631,7 @@ def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handof
                     body = json.dumps(_asset_manifest()).encode("utf-8")
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
+                    self.send_header("Cache-Control", "no-store")
                 elif route.startswith("/user/aquarium/"):
                     name = route.rsplit("/", 1)[-1]
                     allowed = {"ember.png", "mint.png", "violet.png", "pearl.png", "manifest.json"}
@@ -654,21 +656,35 @@ def _serve(task_runner=None, on_ready=None, observer_origins=(), opencode_handof
                         self.send_response(404)
                         body = b"not found"
                         self.send_header("Content-Type", "text/plain")
+                    self.send_header("Cache-Control", "no-store")
                 else:
                     static_path = _safe_web_file(web_dir, route)
                     ctype = _STATIC_TYPES.get((static_path.suffix if static_path else ""), "")
                     if static_path and ctype:
                         body = static_path.read_bytes()
-                        self.send_response(200)
-                        self.send_header("Content-Type", ctype)
                         if static_path.suffix in (".js", ".css", ".html"):
+                            self.send_response(200)
                             self.send_header("Cache-Control", "no-store")
-                        elif static_path.suffix == ".png":
-                            self.send_header("Cache-Control", "max-age=86400")
+                        else:
+                            # Stable asset names can change on a local update.
+                            # Revalidate the actual bytes instead of holding a
+                            # day-old sprite alongside a fresh JSON manifest.
+                            etag = '"' + sha256(body).hexdigest() + '"'
+                            candidates = ",".join(self.headers.get_all("If-None-Match", []))
+                            unchanged = any(value.strip().removeprefix("W/") in (etag, "*")
+                                            for value in candidates.split(","))
+                            self.send_response(304 if unchanged else 200)
+                            self.send_header("Cache-Control", "no-cache")
+                            self.send_header("ETag", etag)
+                            if unchanged:
+                                self.end_headers()
+                                return
+                        self.send_header("Content-Type", ctype)
                     else:
                         self.send_response(404)
                         body = b"not found"
                         self.send_header("Content-Type", "text/plain")
+                        self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)

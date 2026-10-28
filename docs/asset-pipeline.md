@@ -47,8 +47,11 @@ The compiler uses the actual `OfficeScene.loadSourceAssets()` normalization path
 in an isolated browser with GPU acceleration disabled. CPU canvas rendering
 keeps source normalization independent of the local graphics driver's rounding;
 the compiler does not use a second resampling implementation. It writes the PNG,
-source-hash manifest, and runtime entry in `asset-checksums.json`. It does not read
-local observer data or private aquarium sheets. `--check` is read-only, verifies
+source-hash manifest, and runtime entry in `asset-checksums.json`. The manifest's
+`imageSha256` fingerprints the shipped PNG bytes for the runtime image URL; a
+pixel-equivalent re-encoding updates that value when intentionally rebuilt.
+The compiler does not read local observer data or private aquarium sheets.
+`--check` is read-only, verifies
 every source hash and rectangle, compares decoded pixels instead of PNG encoder
 bytes, and checks the shipped PNG's checksum.
 
@@ -61,10 +64,11 @@ continue to test genuine source failures.
 
 ## Measured scope
 
-The initial office source sheets total 11,889,720 bytes. This revision's compact
-PNG and manifest total 179,274 bytes before transport compression, about 98.5%
-less sprite data. This is a startup-asset comparison, not a measurement of total
-page size, frame rate, repository size, or aquarium loading. Source fallback
+The Classic source inventory and source byte sizes are recorded in
+`runtime/manifest.json`. Compare their sum with `runtime/office.png` and its
+manifest when measuring a revision; `npm run build:sprites` prints those totals.
+This measures startup artwork before transport compression. It does not measure
+total page size, frame rate, repository size, or aquarium loading. Source fallback
 still loads the larger originals when needed.
 
 ## Public package versus repository sources
@@ -116,13 +120,15 @@ compiler and publication path. Its idle frames match the seeds; every frame keep
 the exact seed alpha silhouette, dimensions and anchor. Generated sources, prompts
 and seeds remain in `studio/source/`, outside the public package.
 
-A same-input comparison on 15 October 2026, including the character activity
-supplement, omitted 25 authoring files. The packaged build shrank from 146 files
-and 25,052,300 bytes to 121 files and 15,376,620 bytes: about 9.7 MB (38.6%) before
-compression. Both builds used one source snapshot; the control disabled only the
-authoring-file exclusion. This measures packaged files, not initial browser
-traffic, frame rate, or repository size. The larger Classic source sheets remain
-available when the compact atlas cannot load.
+Use the generated `preview-build.json` inventory to measure public-package files
+for the revision under review. Keep release-specific comparisons with the source
+commit and build evidence in the relevant PR; they do not describe later packs,
+initial browser traffic, or frame rate.
+
+Historical signal and task-console screenshots are validation evidence, not
+sprite compiler inputs. Their generation records keep commit-pinned links to the
+original captures in Git history. Current documentation retains the Studio
+overview and the four PNG sources used by the responsive website pipeline.
 
 Focused publication checks are:
 

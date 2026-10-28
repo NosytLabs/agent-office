@@ -1,6 +1,9 @@
 /* Compiled art must remain pixel-equivalent to the preserved source loader. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
 const { observerFixture } = require("./observer-fixture.cjs");
 
 test("the office uses compact native sprites without downloading authoring sheets", async () => {
@@ -16,7 +19,19 @@ test("the office uses compact native sprites without downloading authoring sheet
       const requests = await page.evaluate(() =>
         performance.getEntriesByType("resource").map((entry) => entry.name),
       );
-      assert.ok(requests.some((url) => url.endsWith("/runtime/office.png")));
+      const imageSha256 = createHash("sha256")
+        .update(
+          fs.readFileSync(
+            path.join(__dirname, "../web/assets/sprites/runtime/office.png"),
+          ),
+        )
+        .digest("hex");
+      assert.ok(
+        requests.some((url) =>
+          url.endsWith("/runtime/office.png?v=" + imageSha256),
+        ),
+        "The current atlas bypasses older cached art with a content-derived URL",
+      );
       assert.ok(
         !requests.some((url) =>
           /\/(?:moss-engineer|orbit-courier|studio-assistant|studio-atlas)\.png$/.test(

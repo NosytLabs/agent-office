@@ -175,6 +175,10 @@ OpenCode uses a fresh private server (requires 2.0.29+). Refresh CLI discovery
 without losing the prompt, search/filter retained runs, and download a selected
 run with its prompt and output before restarting the server.
 
+Existing OpenCode sessions can use a separately enabled
+[HTTP handoff adapter](docs/opencode-session-handoff.md) with durable delivery
+receipts. Its browser pairing and sending interface is still pending.
+
 ## Usage, privacy, and local data
 
 **Missing usage is “Not reported,” not zero.** Cost is a runtime estimate in USD,

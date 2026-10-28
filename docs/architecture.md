@@ -1,6 +1,6 @@
 # Architecture
 
-Agent Office is a local observer with an optional standalone task runner. Runtime adapters publish observations; a Python server commits their effects to SQLite; a browser renders the office. The VS Code extension embeds that same frontend. Python's standard library provides the server, process management, and database, and the production frontend has no bundler or npm dependency.
+Agent Office is a local observer with optional standalone task execution and OpenCode session handoff. Runtime adapters publish observations; a Python server commits their effects to SQLite; a browser renders the office. The VS Code extension embeds that same frontend. Python's standard library provides the server, process management, and database, and the production frontend has no bundler or npm dependency.
 
 ## Data flow
 
@@ -25,6 +25,13 @@ not write synthetic observations or mark source task lists complete. The
 ordinary startup command, Hermes observer, and public static preview keep
 execution disabled. See [the runner contract](local-task-runner.md).
 
+The independent `--enable-opencode-handoff` option adds an HTTP adapter for an
+existing OpenCode session on a reviewed loopback server. It requires explicit
+project/session pairing and persists a delivery receipt before dispatching a
+prompt. Lost acknowledgements are reconciled against runtime history without
+resending uncertain work. The browser pairing/send interface remains pending.
+See [the handoff contract](opencode-session-handoff.md).
+
 ## Components
 
 | Component | Responsibility |
@@ -36,6 +43,7 @@ execution disabled. See [the runner contract](local-task-runner.md).
 | [`state_model.py`](../state_model.py) | Incremental sessions, concurrent tools, pending input, and lifecycle transitions |
 | [`tasks.py`](../tasks.py) | Bounded source task snapshots and capture replay memory, independent of lifecycle and XP |
 | [`task_runner.py`](../task_runner.py) | Optional fixed CLI adapters, validated project admission, process lifecycle, and bounded output |
+| [`opencode_handoff.py`](../opencode_handoff.py) | Optional existing-session pairing, prompt delivery, durable receipts, reconciliation, and cancellation |
 | [`settings_store.py`](../settings_store.py) | Revisioned settings reads, conditional atomic writes, and preservation of unavailable files |
 | [`progress.py`](../progress.py) | XP, the active achievement catalog, runtime aliases, and retired-record cleanup |
 | [`usage.py`](../usage.py) | Stable usage identities, replacement corrections, coverage, and materialized aggregates |
@@ -94,6 +102,7 @@ Files default to `~/.hermes/pixel-office/`; `HERMES_HOME` changes the parent dir
 | `event-epoch` | Atomic publication fence; after a reset, its durable reset intent |
 | `progress.json` | Legacy import source on first database creation; exported compatibility mirror afterward |
 | `settings.json` | Validated room, display, sound, aquarium, and retention preferences |
+| `opencode-handoff.json` | Optional existing-session pairing and durable delivery receipts, independent of observation history and resets |
 | `events.jsonl` | Optional legacy input; never rewritten or truncated by the new protocol |
 | `assets/` | Optional local user art, including a separately installed aquarium pack |
 
@@ -355,6 +364,10 @@ The VS Code extension hosts the shared frontend in an iframe. It forwards config
 | GET | `/js/*`, `/css/*`, `/assets/*` | Bundled frontend assets |
 | GET | `/assets-manifest`, `/user/<name>.svg` | Compatibility inventory and local user SVGs |
 | GET | `/user/aquarium/manifest.json`, `/user/aquarium/<fish-id>.png` | Optional local aquarium pack |
+
+Optional execution APIs have their own admission and same-origin contracts:
+[local runner routes](local-task-runner.md#availability-and-request-boundaries) and
+[OpenCode handoff routes](opencode-session-handoff.md#boundaries).
 
 The server binds to `127.0.0.1`. The [shareable preview](preview.md) is a separate demonstration, not a hosted endpoint for a user's local history or runtime controls.
 

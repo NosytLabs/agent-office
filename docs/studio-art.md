@@ -25,6 +25,10 @@ set. Each character look has front, back, left and right views with three walkin
 poses. Frames retain the existing 32 × 36 canvas and bottom-center anchor. Walking
 uses distance traveled and freezes on Pause/reduced motion; activity portraits
 and the original base poses remain available.
+Pausing a walking agent preserves its position and route. Resuming continues
+from the same position, and time spent in a hidden tab does not advance the
+walk. The scene uses the same elapsed time for movement and sprite playback
+across display refresh rates.
 The additional artwork covers the succulent, planter, desk robot, attention beacon,
 door and task terminal, including idle, running, finished, failed and disconnected
 terminal states. The base task-terminal entry shares its idle-state canvas.

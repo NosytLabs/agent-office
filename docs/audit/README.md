@@ -10,18 +10,10 @@ the exact commit's [CI run](https://github.com/NosytLabs/agent-office/actions/wo
 and deployed commit separately. A PR's tested merge tree must match the source
 actually merged. Test totals belong in that PR or CI run, not in a stale table here.
 
-Follow [development setup](../../CONTRIBUTING.md#development-setup), then run:
-
-```sh
-python3 tools/check_repository.py
-python -m pytest -q
-npm test
-npm run check
-npm run format:check
-npm run check:sprites
-npm run build:preview
-npm run test:browser
-```
+Follow [development setup](../../CONTRIBUTING.md#development-setup), then run the
+complete [development checks](../../CONTRIBUTING.md#checks), including sprite
+verification, both browser suites, and the public build. Keep the command list
+there so the release gate has one maintained source.
 
 Stage intended new source files before hygiene checks. The checker reads tracked
 working files and the Git index; it does not delete user data, validate external
@@ -49,6 +41,7 @@ Never commit live account data; keep reports outside Git. See
 | Observation and accounting | Synthetic inbox/store, reset/replay, retention, usage and task identities in isolated data. Unknown counters remain unknown. [Runtime coverage](../runtime-observers.md). |
 | Office and artwork | HTTP/browser flows cover panels, drafts, focus, settings conflicts, room controls, sprites, recovery, gallery exports, games and aquarium. Chromium is not independent Safari/iOS or physical-device verification. |
 | Local CLI runs | Temporary executables and process doubles cover admission, literal prompts, output, cancellation and in-memory retries. They do not establish installed versions, credentials, provider access or useful task completion. Native Windows cleanup remains best-effort. [Runner contract](../local-task-runner.md). |
+| Existing-session OpenCode handoff | Synthetic transport and HTTP fixtures cover the opt-in adapter's pairing, literal prompts, durable receipts, reconciliation and cancellation. The browser pairing/send interface is pending; authenticated provider execution is unverified. [Handoff contract](../opencode-session-handoff.md). |
 | Runtime integrations | Hook fixtures establish only the named contract. Optional native Gemini tests use a selected CLI and synthetic loopback provider, not a paid account. Label any installed-runtime/provider smoke test separately. |
 | VS Code | Simulated APIs, packaging and HTTP checks are not actual extension-host activation or remote forwarding. [Extension guide](../../vscode/README.md). |
 | Product website | Static build tests cover public-only assets, canonical/social metadata, sitemap, configured URLs and link targets. Browser flows cover no-JavaScript content, setup, copy, tabs and responsive layouts. Metadata is not proof of indexing or ranking. |
@@ -58,18 +51,21 @@ Never commit live account data; keep reports outside Git. See
 - [Issue #56](https://github.com/NosytLabs/agent-office/issues/56): remaining historical
   restart-readiness and observer delays. Reproduce the failing boundary and keep
   diagnostic evidence; do not close it just because an isolated rerun passed.
-- [Issue #18](https://github.com/NosytLabs/agent-office/issues/18): existing-session
-  OpenCode handoff and durable delivery receipts. Fresh CLI runs, saved briefs and
-  downloaded output snapshots do not implement this capability.
+- [Issue #18](https://github.com/NosytLabs/agent-office/issues/18): follow-up work for
+  existing-session OpenCode handoff. The opt-in HTTP adapter and durable delivery
+  receipts are implemented; the browser review/pair/send flow and authenticated
+  provider execution remain outstanding. See the
+  [maintained verification scope](../opencode-session-handoff.md#verification-scope).
 
 ## Documentation images and source records
 
 The [Studio overview](../screenshots/studio-office.png) and product-site screenshots
 are synthetic examples, not today's production state. Four original captures
 (appearance, usage, settings and aquarium) remain inputs to the checked responsive
-image pipeline. Source-art/provenance captures also remain where generation records
-reference them. One-off historical UI screenshots are available in Git rather
-than carried as current documentation.
+image pipeline. Original sprite sheets, prompts and fitting seeds remain
+reproducibility inputs. Historical signal and task-console UI captures are linked
+at a fixed Git revision from their generation records; they are validation
+evidence rather than source artwork or current documentation images.
 
 Keep the [asset notices](../../web/assets/ATTRIBUTION.md),
 [sprite provenance](../../web/assets/sprites/ATTRIBUTION.md),

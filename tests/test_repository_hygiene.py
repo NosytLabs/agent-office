@@ -6,6 +6,15 @@ import sys
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'check_repository.py'
+LOCAL_OUTPUTS = [
+    'server.log', 'server.log.1', 'server.log.2026-10-28', 'server.log.gz',
+    'server.log.bz2', 'server.log.xz', 'server.log.zst', 'server.log.2.xz',
+    'reports/latest.txt', 'dist/app.js', 'site-dist/app.js', 'shots/scene.png',
+    'coverage/index.html', 'source.py.bak', '.env', '.env.local',
+    '__pycache__/cached.pyc', '.ci/transport.txt', 'pixel-office/settings.json',
+    '.coverage', '.ruff_cache/file', 'logs/trace.txt', 'settings.json',
+    'opencode-handoff.json', 'inbox/pending.json',
+]
 
 
 def check(tmp_path, files):
@@ -48,11 +57,7 @@ def test_bad_local_links_fail_even_when_an_untracked_target_exists(tmp_path, des
     assert problem in result.stdout
 
 
-@pytest.mark.parametrize('name', [
-    'server.log', 'server.log.1', 'reports/latest.txt', 'dist/app.js',
-    '.env', '.env.local', '__pycache__/cached.pyc', '.ci/transport.txt',
-    'pixel-office/settings.json', '.coverage', 'logs/trace.txt',
-])
+@pytest.mark.parametrize('name', LOCAL_OUTPUTS)
 def test_generated_logs_local_state_and_credentials_cannot_be_tracked(tmp_path, name):
     result = check(tmp_path, {name: 'fixture only'})
     assert result.returncode == 1
@@ -61,7 +66,10 @@ def test_generated_logs_local_state_and_credentials_cannot_be_tracked(tmp_path, 
 
 def test_templates_and_deliberate_jsonl_test_fixtures_are_allowed(tmp_path):
     result = check(tmp_path, {'.env.example': 'MODEL=example\n',
-                              'tests/fixtures/sample-events.jsonl': '{}\n'})
+                              'tests/fixtures/sample-events.jsonl': '{}\n',
+                              'tests/fixtures/opencode-handoff.json': '{}\n',
+                              'tests/fixtures/inbox/pending.json': '{}\n',
+                              'docs/screenshots/README.md': '# Documentation captures\n'})
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -117,8 +125,7 @@ def test_ignore_rules_protect_development_output_and_local_credentials(tmp_path)
     root.mkdir()
     (root / '.gitignore').write_bytes((SCRIPT.parents[1] / '.gitignore').read_bytes())
     subprocess.run(['git', 'init', '-q', str(root)], check=True)
-    names = ['.env', '.env.local', 'server.log.2', '.coverage', '.ruff_cache/file',
-             'pixel-office/settings.json', 'reports/screenshot.png', 'settings.json']
+    names = LOCAL_OUTPUTS
     result = subprocess.run(['git', 'check-ignore', '--stdin'], cwd=root,
                             input='\n'.join(names) + '\n', capture_output=True, text=True)
     assert result.stdout.splitlines() == names

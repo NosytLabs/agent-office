@@ -33,7 +33,9 @@ inputs stay out of public builds. See the [asset pipeline](asset-pipeline.md).
 This cleanup imports no new third-party code or art. The runtime contracts are
 maintained in [observer coverage](runtime-observers.md) and
 [local task runner](local-task-runner.md), not inferred from reference products.
-Existing-session OpenCode delivery is tracked separately in
+Existing-session OpenCode delivery is available through the separately enabled
+[HTTP handoff adapter](opencode-session-handoff.md). Its browser pairing/send
+interface and authenticated provider verification remain follow-up work in
 [issue #18](https://github.com/NosytLabs/agent-office/issues/18).
 
 ## Historical research

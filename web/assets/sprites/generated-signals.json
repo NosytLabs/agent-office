@@ -130,8 +130,8 @@
       ],
       "result": "All four runtime-normalized sprites are nonempty, readable, contained on the floor, and free of overlapping placed props. Mobile reflow preserves saved positions.",
       "evidence": [
-        "docs/screenshots/signals.png",
-        "docs/screenshots/signals-mobile.png"
+        "https://github.com/NosytLabs/agent-office/blob/6f59428b2e64994fe21a9a7fedb2152abfc7ebaa/docs/screenshots/signals.png",
+        "https://github.com/NosytLabs/agent-office/blob/6f59428b2e64994fe21a9a7fedb2152abfc7ebaa/docs/screenshots/signals-mobile.png"
       ]
     }
   }

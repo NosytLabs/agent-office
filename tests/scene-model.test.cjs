@@ -608,3 +608,138 @@ test("nameplate status lines and edges select their session", () => {
   }
   assert.deepEqual(selected, ["session-0", "session-0"]);
 });
+
+function animationClock() {
+  const frames = [],
+    visibility = { hidden: false },
+    scene = Object.create(model.Scene.prototype);
+  model.document = visibility;
+  model.requestAnimationFrame = () => 1;
+  Object.assign(scene, {
+    time: 0,
+    last: 0,
+    paused: false,
+    draw(dt) {
+      frames.push({ dt, time: this.time });
+    },
+  });
+  return { scene, frames, visibility };
+}
+
+test("scene time and travel use the same elapsed seconds at different display rates", () => {
+  for (const hz of [30, 60, 120, 144]) {
+    const { scene, frames } = animationClock();
+    for (let frame = 0; frame <= hz * 2; frame++)
+      scene.tick((frame * 1000) / hz);
+    assert.ok(Math.abs(scene.time - 2) < 0.000001, `${hz} Hz scene clock`);
+    assert.ok(
+      Math.abs(frames.reduce((seconds, frame) => seconds + frame.dt, 0) - 2) <
+        0.000001,
+      `${hz} Hz movement clock matches sprite playback`,
+    );
+    assert.equal(frames.length, 61, `${hz} Hz paints at a steady 30 fps`);
+    assert.ok(frames.every(({ dt }) => dt >= 0 && dt <= 0.1));
+  }
+});
+
+test("scene resume starts a fresh frame without advancing through paused or hidden time", () => {
+  const { scene, frames, visibility } = animationClock();
+  scene.tick(100);
+  scene.tick(140);
+  const before = scene.time;
+  scene.paused = true;
+  scene.tick(160);
+  scene.paused = false;
+  scene.tick(10000);
+  assert.equal(scene.time, before, "Pause does not become elapsed travel");
+  assert.equal(frames.at(-1).dt, 0);
+  scene.tick(10040);
+  assert.ok(Math.abs(scene.time - before - 0.04) < 0.000001);
+  visibility.hidden = true;
+  scene.tick(10060);
+  const hidden = scene.time;
+  visibility.hidden = false;
+  scene.tick(20000);
+  assert.equal(
+    scene.time,
+    hidden,
+    "Hidden time does not become elapsed travel",
+  );
+  assert.equal(frames.at(-1).dt, 0);
+  scene.tick(20040);
+  assert.ok(Math.abs(scene.time - hidden - 0.04) < 0.000001);
+});
+
+function walkingScene(path) {
+  const scene = Object.create(model.Scene.prototype),
+    seat = { a: { id: "arrival", status: "idle" }, x: 200, y: 100 },
+    character = {
+      x: 24,
+      y: 0,
+      distance: 0,
+      moving: true,
+      dir: "right",
+      routeKey: "room:208:83",
+      path,
+    };
+  Object.assign(scene, {
+    ctx: {},
+    settings: {},
+    cosmetics: [],
+    sprites: {},
+    chars: new Map([[seat.a.id, character]]),
+    navigationKey: "room",
+    grid: { seats: [seat], workstations: [seat] },
+    paused: false,
+    relayout: false,
+    dt: 0,
+    time: 0,
+    hitBoxes: [],
+    walking: [],
+    rect() {},
+    shadow() {},
+    character() {},
+  });
+  return { scene, seat, character };
+}
+
+test("pausing a walking arrival preserves its route and resumes from the same feet", () => {
+  const { scene, seat, character } = walkingScene([
+    { x: 28, y: 0 },
+    { x: 28, y: 4 },
+    { x: 32, y: 4 },
+  ]);
+  const before = JSON.stringify(character);
+  scene.paused = true;
+  scene.dt = 0.1;
+  scene.desk(seat);
+  assert.equal(JSON.stringify(character), before);
+  scene.paused = false;
+  scene.desk(seat);
+  assert.equal(character.x, 28);
+  assert.equal(character.y, 3);
+  assert.equal(character.distance, 7);
+  assert.equal(character.dir, "down");
+  assert.equal(character.path.length, 2);
+});
+
+test("walking spends its elapsed travel across waypoints without corner stalls or redraw drift", () => {
+  for (const hz of [10, 30, 60]) {
+    const { scene, seat, character } = walkingScene(
+      Array.from({ length: 100 }, (_, index) => ({
+        x: 28 + index * 4,
+        y: 0,
+      })),
+    );
+    for (let frame = 0; frame < hz; frame++) {
+      scene.dt = 1 / hz;
+      scene.desk(seat);
+      const before = JSON.stringify(character);
+      scene.dt = 0;
+      scene.desk(seat);
+      assert.equal(JSON.stringify(character), before, "Repaint is not travel");
+    }
+    assert.ok(Math.abs(character.x - 94) < 0.000001, `${hz} Hz walking speed`);
+    assert.ok(Math.abs(character.distance - 70) < 0.000001);
+  }
+});

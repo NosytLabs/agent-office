@@ -13,7 +13,7 @@ to your runtime data. Demo activity is synthetic.
 | Connect Hermes, OpenCode, Codex, Claude, or Gemini reporting | [Runtime coverage and contracts](runtime-observers.md) |
 | Save, find, review and reuse a task brief | [Browser-local saved briefs](task-briefs.md) |
 | Start a fresh Codex, Claude Code, or OpenCode task locally | [Optional local runner](local-task-runner.md) |
-| Hand a reviewed prompt to an existing OpenCode session | [OpenCode session handoff](opencode-session-handoff.md) |
+| Use the opt-in HTTP adapter for an existing OpenCode session | [OpenCode session handoff and interface limits](opencode-session-handoff.md) |
 | Play Duck Hunt, Breakout, or Snake | [Arcade controls and recovery](arcade.md) |
 | Feed or greet fish, choose artwork, and install a local licensed pack | [Aquarium assets and care](aquarium-assets.md) |
 | Share or deploy the synthetic demonstration | [Public preview](preview.md) |

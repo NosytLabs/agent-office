@@ -215,4 +215,6 @@ on a native Windows host for this update.
 Full interactive terminals, attaching to existing sessions, responding to
 their questions, cross-CLI conversation transfer, persistent task scheduling,
 and automatic orchestration are separate capabilities and are not provided
-by the local runner.
+by the local runner. An independently enabled [OpenCode handoff HTTP adapter](opencode-session-handoff.md)
+supports paired existing-session delivery and durable receipts; its browser
+pairing and sending interface remains pending.

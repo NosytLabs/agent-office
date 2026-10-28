@@ -75,6 +75,13 @@ def test_sprite_checksums_match_complete_runtime_inventory():
     assert checksums == actual
 
 
+def test_runtime_manifest_fingerprints_the_published_atlas_bytes():
+    import hashlib
+    import json
+    manifest = json.loads((SPRITES / "runtime/manifest.json").read_text())
+    assert manifest["imageSha256"] == hashlib.sha256((SPRITES / "runtime/office.png").read_bytes()).hexdigest()
+
+
 def test_task_console_source_provenance_and_state_contract():
     import hashlib
     import json

@@ -11,6 +11,7 @@ const root = path.resolve(__dirname, "..");
 const prefix = "/";
 let temporary, output, server, browser, origin;
 let loungeCacheScenario = null;
+let runtimeCacheScenario = null;
 
 test("delayed gallery styles are ready before artwork recovery publishes interactive controls", async () => {
   let releaseArtwork;
@@ -124,6 +125,40 @@ test("a warm browser image cache cannot mix a previous atlas with the current ma
   }
 });
 
+test("the compact runtime atlas bypasses a stale unversioned browser cache", async () => {
+  try {
+    await withPage(async (page) => {
+      await page.waitForFunction(
+        () => officeScene.spriteAssetSource === "native",
+      );
+      runtimeCacheScenario = { old: true, unversionedRequests: 0 };
+      // Prime a genuine long-lived image cache without routing interception.
+      // The old URL must stay cached while loadAssets selects the current hash.
+      await page.evaluate(async () => {
+        const image = new Image();
+        image.src = "assets/sprites/runtime/office.png";
+        await image.decode();
+      });
+      assert.equal(runtimeCacheScenario.unversionedRequests, 1);
+      runtimeCacheScenario.old = false;
+      await page.evaluate(() => officeScene.loadAssets());
+      assert.equal(
+        await page.evaluate(() => officeScene.spriteAssetSource),
+        "native",
+      );
+      assert.equal(await page.evaluate(() => officeScene.loadedAssets), 23);
+      await page.evaluate(async () => {
+        const image = new Image();
+        image.src = "assets/sprites/runtime/office.png";
+        await image.decode();
+      });
+      assert.equal(runtimeCacheScenario.unversionedRequests, 1);
+    });
+  } finally {
+    runtimeCacheScenario = null;
+  }
+});
+
 before(async () => {
   temporary = fs.mkdtempSync(path.join(os.tmpdir(), "office-public-package-"));
   output = path.join(temporary, "site");
@@ -146,6 +181,28 @@ before(async () => {
   server = http.createServer((req, res) => {
     const url = new URL(req.url, "http://localhost"),
       pathname = url.pathname;
+    if (
+      runtimeCacheScenario &&
+      pathname === "/assets/sprites/runtime/office.png"
+    ) {
+      const unversioned = !url.searchParams.has("v");
+      if (unversioned) runtimeCacheScenario.unversionedRequests++;
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=31536000",
+      });
+      return res.end(
+        fs.readFileSync(
+          path.join(
+            output,
+            "assets/sprites",
+            unversioned && runtimeCacheScenario.old
+              ? "studio/directional.png"
+              : "runtime/office.png",
+          ),
+        ),
+      );
+    }
     if (
       loungeCacheScenario &&
       pathname === "/assets/sprites/studio/lounge-life.png"
