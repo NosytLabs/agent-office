@@ -1,0 +1,218 @@
+.handoff {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+#sheet-tasks.handoff-active {
+  width: min(820px, calc(100% - 36px));
+}
+
+.handoff-enable,
+.handoff-card,
+.handoff-form,
+.handoff-send,
+.handoff-history {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.handoff-enable code {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.65rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.handoff-form,
+.handoff-send {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.handoff-form > .setting-label,
+.handoff-form > .txt,
+.handoff-send > .setting-label,
+.handoff-send > .txt {
+  margin: 0;
+}
+
+.handoff-form textarea,
+.handoff-send textarea {
+  width: 100%;
+  min-height: 10rem;
+  resize: vertical;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.handoff-form input[type="text"],
+.handoff-form input[type="url"],
+.handoff-form textarea,
+.handoff-send textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.handoff-pairing-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem 0.9rem;
+  margin: 0.6rem 0;
+}
+
+.handoff-pairing-fields dt {
+  color: var(--dim);
+}
+
+.handoff-pairing-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.handoff-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+}
+
+.handoff-remember input {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--gold);
+}
+
+#handoff-send-status {
+  white-space: pre-line;
+}
+
+.handoff-history-tools {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+
+.handoff-history-tools > * {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+.handoff-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: min(44vh, 26rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.handoff-card[hidden],
+.handoff-form[hidden],
+.handoff-send[hidden],
+.handoff-card .btn[hidden] {
+  display: none;
+}
+
+.handoff-card {
+  width: 100%;
+  display: grid;
+  gap: 0.25rem 0.75rem;
+  padding: 0.65rem;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.handoff-card small {
+  grid-column: 1 / -1;
+}
+
+.handoff-card[aria-pressed="true"] {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.handoff-detail {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.handoff-detail-meta {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.handoff-prompt-text {
+  max-width: 100%;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.handoff-detail .cluster {
+  gap: 0.5rem;
+}
+
+.handoff-status-submitted,
+.handoff-status-accepted,
+.handoff-status-executing,
+.handoff-status-awaiting_input {
+  color: var(--gold);
+}
+
+.handoff-status-failed,
+.handoff-status-rejected {
+  color: var(--danger);
+}
+
+.handoff-status-completed {
+  color: var(--ok);
+}
+
+.handoff-status-cancelled {
+  color: var(--dim);
+}
+
+.handoff-status-unknown {
+  color: #cf8b28;
+}
+
+@media (max-width: 600px) {
+  #sheet-tasks.handoff-active {
+    inset: 8px;
+    width: auto;
+  }
+
+  .handoff-enable,
+  .handoff-card,
+  .handoff-form,
+  .handoff-send,
+  .handoff-history {
+    padding: 0.75rem;
+  }
+
+  .handoff-pairing-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .handoff-pairing-fields dt {
+    margin-top: 0.25rem;
+  }
+}

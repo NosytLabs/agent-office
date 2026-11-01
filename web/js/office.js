@@ -1210,18 +1210,22 @@ function fillTasks() {
   $("reported-taskboard").hidden = taskMode !== "reported";
   $("task-draft").hidden = taskMode !== "draft";
   window.officeTaskRunner?.setActive(taskMode === "local-runs");
+  window.officeHandoff?.setActive(taskMode === "handoff");
+  $("session-handoff").hidden = taskMode !== "handoff";
   for (const button of $("task-tabs").children)
     button.setAttribute(
       "aria-pressed",
       String(button.dataset.taskView === taskMode),
     );
   $("task-description").textContent =
-    taskMode === "local-runs"
-      ? "Start an explicit new CLI run in a server-configured project. Local runs do not create observed tasks, XP, or activity."
-      : taskMode === "reported"
-        ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
-        : "Observed session activity. Assign and approve work in your agent’s own terminal.";
-  if (taskMode === "local-runs") return;
+    taskMode === "handoff"
+      ? "Send one reviewed prompt to a paired, existing OpenCode session. Only an explicit Send dispatches; receipts are durable."
+      : taskMode === "local-runs"
+        ? "Start an explicit new CLI run in a server-configured project. Local runs do not create observed tasks, XP, or activity."
+        : taskMode === "reported"
+          ? "Read-only task lists reported by your runtimes. Update tasks in the source agent; ending a session does not complete its unfinished tasks."
+          : "Observed session activity. Assign and approve work in your agent’s own terminal.";
+  if (taskMode === "handoff" || taskMode === "local-runs") return;
   if (taskMode === "draft") {
     $("task-description").textContent =
       "Prepare a task without changing live agent activity. Copy or export when you are ready.";
@@ -1275,9 +1279,13 @@ function fillTasks() {
 for (const button of $("task-tabs").children)
   button.onclick = () => {
     if (button.dataset.taskView !== taskMode) panelInteractionVersion++;
-    taskMode = ["activity", "reported", "draft", "local-runs"].includes(
-      button.dataset.taskView,
-    )
+    taskMode = [
+      "activity",
+      "reported",
+      "draft",
+      "local-runs",
+      "handoff",
+    ].includes(button.dataset.taskView)
       ? button.dataset.taskView
       : "activity";
     fillTasks();

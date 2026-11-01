@@ -49,7 +49,9 @@ window.officeViewState = (() => {
       roomView: input.roomView === true,
       panel: panels.includes(input.panel) ? input.panel : null,
       eventMode: input.eventMode === "history" ? "history" : "latest",
-      taskMode: ["reported", "draft", "local-runs"].includes(input.taskMode)
+      taskMode: ["reported", "draft", "local-runs", "handoff"].includes(
+        input.taskMode,
+      )
         ? input.taskMode
         : "activity",
       rosterRuntime: runtimes.includes(input.rosterRuntime)
