@@ -1,0 +1,60 @@
+# Normalize line endings so the working tree matches the committed blobs on every
+# platform.
+#
+# Without this file, core.autocrlf=true checks text out as CRLF on Windows. Two things
+# then go wrong:
+#
+#   1. `npm run format:check` reports every text file as unformatted, because prettier's
+#      default endOfLine is "lf". The suite passes on CI (ubuntu checks out LF) and fails
+#      for every Windows developer, so the repo looks broken locally and healthy in CI.
+#   2. Every diff shows whole-file line-ending churn instead of the real change.
+#
+# Every blob in this repository is already stored with LF endings, so adding this file
+# changes no committed content - it only makes the checkout match.
+
+# Auto-detect text files and keep them LF in the working tree everywhere.
+# `text=auto` means git still detects binaries and leaves them alone; `eol=lf` stops
+# core.autocrlf from handing back CRLF for any type not listed explicitly below.
+*       text=auto eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# Source code
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.toml  text eol=lf
+
+# Lockfiles
+package-lock.json linguist-generated=true
+
+# Binary files
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.mp3   binary
+*.mp4   binary
+*.webm  binary
+*.wav   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary

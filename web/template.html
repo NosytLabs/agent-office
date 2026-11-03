@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="css/aquarium.css" />
     <link rel="stylesheet" href="css/arcade.css" />
     <link rel="stylesheet" href="css/task-runner.css" />
+    <link rel="stylesheet" href="css/handoff.css" />
     <link rel="stylesheet" href="css/quick-nav.css" />
     <link rel="stylesheet" href="css/prompt-library.css" />
     <link rel="stylesheet" href="css/studio.css" />
@@ -355,6 +356,9 @@
         <button data-task-view="local-runs" aria-pressed="false">
           Local runs
         </button>
+        <button data-task-view="handoff" aria-pressed="false">
+          Session handoff
+        </button>
       </div>
       <div id="taskboard"></div>
       <div id="reported-taskboard" hidden></div>
@@ -587,6 +591,190 @@
             role="status"
             aria-live="polite"
           ></p>
+        </section>
+      </section>
+      <section
+        id="session-handoff"
+        class="handoff"
+        aria-labelledby="handoff-heading"
+        hidden
+      >
+        <h3 id="handoff-heading">
+          Send a prompt to an existing OpenCode session
+        </h3>
+        <p
+          id="handoff-capability"
+          class="h"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <div id="handoff-enable" class="handoff-enable" hidden>
+          <strong>Enable session handoff when starting Agent Office</strong>
+          <code>python3 run.py --enable-opencode-handoff</code>
+        </div>
+
+        <div id="handoff-paired" class="handoff-card" hidden>
+          <h4>Paired destination</h4>
+          <p class="h">
+            Reviewed loopback OpenCode server. Before every send the adapter
+            re-checks that this exact server, runtime version, session and
+            project still match.
+          </p>
+          <dl class="handoff-pairing-fields">
+            <dt>Server</dt>
+            <dd id="handoff-pair-server"></dd>
+            <dt>Session</dt>
+            <dd id="handoff-pair-session"></dd>
+            <dt>Project</dt>
+            <dd id="handoff-pair-project"></dd>
+            <dt>Runtime version</dt>
+            <dd id="handoff-pair-version"></dd>
+            <dt>Paired</dt>
+            <dd id="handoff-pair-at"></dd>
+          </dl>
+          <div class="cluster">
+            <button id="handoff-change" class="btn" type="button">
+              Change destination
+            </button>
+            <button id="handoff-unpair" class="btn" type="button">
+              Unpair
+            </button>
+          </div>
+        </div>
+
+        <form id="handoff-form" class="handoff-form" hidden>
+          <h4>Review and pair a destination</h4>
+          <p class="h">
+            Only an explicit paste of your reviewed server, session and project
+            pairs a destination. The adapter verifies the runtime is healthy and
+            the session really belongs to that project before it allows any
+            send.
+          </p>
+          <label for="handoff-server-url" class="setting-label"
+            >OpenCode server</label
+          >
+          <input
+            id="handoff-server-url"
+            class="txt"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="http://127.0.0.1:4096"
+          />
+          <label for="handoff-session-id" class="setting-label"
+            >Session ID</label
+          >
+          <input
+            id="handoff-session-id"
+            class="txt"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="ses_… from your running OpenCode session"
+          />
+          <label for="handoff-project" class="setting-label"
+            >Project directory you reviewed</label
+          >
+          <input
+            id="handoff-project"
+            class="txt"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="C:/absolute/path/to/project"
+          />
+          <div class="cluster">
+            <button id="handoff-pair-submit" class="btn" type="submit">
+              Review &amp; pair
+            </button>
+            <button id="handoff-pair-cancel" class="btn" type="button" hidden>
+              Cancel
+            </button>
+          </div>
+          <p
+            id="handoff-pair-status"
+            class="h"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </form>
+
+        <form id="handoff-send" class="handoff-send" hidden>
+          <h4>Exact prompt for the paired session</h4>
+          <p class="h" id="handoff-send-disclosure">
+            Only the Send button dispatches the exact text below. Furniture
+            clicks, labels, logs and model output never submit a prompt, and the
+            office never answers permission or question requests.
+          </p>
+          <label for="handoff-prompt" class="setting-label">Exact prompt</label>
+          <textarea
+            id="handoff-prompt"
+            class="txt"
+            rows="10"
+            spellcheck="true"
+            aria-describedby="handoff-count handoff-send-status"
+            placeholder="Describe one concrete task and how its result should be verified."
+          ></textarea>
+          <output id="handoff-count" class="h" for="handoff-prompt"></output>
+          <label class="handoff-remember">
+            <input id="handoff-remember" type="checkbox" />
+            Keep this draft and destination in this tab
+          </label>
+          <p id="handoff-draft-status" class="h" role="status">
+            Optional. Retains the exact prompt across reloads until cleared;
+            never starts a send automatically.
+          </p>
+          <div class="cluster">
+            <button id="handoff-clear-draft" class="btn" type="button">
+              Clear draft
+            </button>
+            <button id="handoff-send-submit" class="btn" type="submit" disabled>
+              Send to paired session
+            </button>
+          </div>
+          <p
+            id="handoff-send-status"
+            class="h"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </form>
+
+        <section
+          class="handoff-history"
+          aria-labelledby="handoff-history-heading"
+        >
+          <h3 id="handoff-history-heading">Durable receipts</h3>
+          <p class="h">
+            Receipts are written before dispatch and survive office restarts.
+            Refresh reconciles one receipt against the runtime's history; Cancel
+            requests an acknowledged abort.
+          </p>
+          <div class="handoff-history-tools">
+            <label for="handoff-search" class="setting-label"
+              >Search receipts</label
+            >
+            <input
+              id="handoff-search"
+              class="txt"
+              type="search"
+              placeholder="Prompt, session, or project"
+            />
+            <label for="handoff-filter" class="setting-label">State</label>
+            <select id="handoff-filter" class="txt">
+              <option value="all">All states</option>
+            </select>
+            <button id="handoff-clear" class="btn" type="button">
+              Clear filters
+            </button>
+          </div>
+          <p
+            id="handoff-results"
+            class="h"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <div id="handoff-list" class="handoff-list"></div>
         </section>
       </section>
     </section>
@@ -1431,6 +1619,7 @@
     <script src="js/view-state.js"></script>
     <script src="js/tasks-view.js"></script>
     <script src="js/task-runner.js"></script>
+    <script src="js/handoff.js"></script>
     <script src="js/attention.js"></script>
     <script src="js/office.js"></script>
     <script src="js/task-desk.js"></script>
