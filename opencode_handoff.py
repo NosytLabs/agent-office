@@ -307,6 +307,12 @@ class OpenCodeHandoff:
         if health.status != 200 or not isinstance(health.data, dict) \
                 or health.data.get("healthy") is not True \
                 or not isinstance(health.data.get("version"), str):
+            api_version = self._api_layout_version(server_url)
+            if api_version is not None:
+                raise HandoffError(409, (
+                    f"the selected server runs OpenCode {api_version}, whose HTTP API "
+                    "is served under /api. This adapter speaks the 1.x layout, so it "
+                    "cannot pair with this runtime yet"))
             raise HandoffError(409, "the selected server did not report a healthy OpenCode runtime")
         version = health.data["version"]
         session = self._session(server_url, session_id)
@@ -594,6 +600,20 @@ class OpenCodeHandoff:
         if pairing is None:
             raise HandoffError(409, "no OpenCode session is paired; pair a session before submitting")
         return pairing
+
+    def _api_layout_version(self, server_url: str) -> Optional[str]:
+        """OpenCode 2.x serves its API under /api and reports the runtime
+        version at /api/info. Return that version when the server speaks the
+        2.x layout, so pairing can say which runtime it found instead of
+        reporting a dead server."""
+        try:
+            response = self._request("GET", server_url, "/api/info")
+        except HandoffError:
+            return None
+        if response.status == 200 and isinstance(response.data, dict) \
+                and isinstance(response.data.get("version"), str):
+            return response.data["version"]
+        return None
 
     def _session(self, server_url: str, session_id: str) -> Dict[str, Any]:
         response = self._request("GET", server_url, f"/session/{session_id}")
