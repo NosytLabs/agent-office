@@ -62,7 +62,7 @@ before(async () => {
     events.map((e) => JSON.stringify(e)).join("\n"),
   );
   server = spawn(
-    process.env.PYTHON || "python3",
+    process.env.PYTHON || "python",
     ["run.py", "--port", "18113"],
     {
       env: { ...process.env, HERMES_HOME: home, AGENT_OFFICE_DEMO: "1" },

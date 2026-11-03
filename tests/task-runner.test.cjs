@@ -120,7 +120,7 @@ async function startRealServer() {
   fs.mkdirSync(workspace);
   fs.mkdirSync(bin);
   const requestedPython =
-    process.env.PYTHON || process.env.OFFICE_PYTHON || "python3";
+    process.env.PYTHON || process.env.OFFICE_PYTHON || "python";
   const resolvedPython = spawnSync(
     requestedPython,
     ["-c", "import sys; print(sys.executable)"],
