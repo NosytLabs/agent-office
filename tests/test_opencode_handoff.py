@@ -400,3 +400,38 @@ def test_loopback_handoff_transport_ignores_system_proxy_settings(monkeypatch):
         for handler in opener.handlers
         if isinstance(handler, urllib.request.ProxyHandler)
     )
+
+
+class ApiLayoutOpenCode(FakeOpenCode):
+    """A stand-in for the OpenCode 2.x layout: the API lives under /api."""
+
+    def __call__(self, method, url, body, timeout):
+        path = url[len(SERVER):]
+        if path == "/api/info":
+            return TransportResponse(200, {"version": "2.2.1", "pid": 1})
+        if path == "/global/health":
+            return TransportResponse(404, None)
+        return super().__call__(method, url, body, timeout)
+
+
+def test_pair_names_the_2x_api_layout_instead_of_reporting_a_dead_server(tmp_path):
+    handoff = OpenCodeHandoff(tmp_path / "receipts.json",
+                              transport=ApiLayoutOpenCode("/tmp"))
+    with pytest.raises(HandoffError) as excinfo:
+        handoff.pair({"server_url": SERVER, "session_id": SESSION,
+                      "project_directory": "/tmp"})
+    assert excinfo.value.status == 409
+    message = str(excinfo.value)
+    assert "2.2.1" in message
+    assert "/api" in message
+
+
+def test_pair_still_reports_an_unhealthy_server_without_a_version(tmp_path):
+    unhealthy = FakeOpenCode("/tmp")
+    unhealthy.healthy = False
+    handoff = OpenCodeHandoff(tmp_path / "receipts.json", transport=unhealthy)
+    with pytest.raises(HandoffError) as excinfo:
+        handoff.pair({"server_url": SERVER, "session_id": SESSION,
+                      "project_directory": "/tmp"})
+    assert excinfo.value.status == 409
+    assert "did not report a healthy OpenCode runtime" in str(excinfo.value)
