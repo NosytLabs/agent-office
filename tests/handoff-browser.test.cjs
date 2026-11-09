@@ -412,6 +412,10 @@ test("unpair immediately disables sending after the acknowledged transition", as
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-unpair-"));
   office = await startOffice(project);
   const page = await pageready();
+  let releasePoll;
+  const pollsHeld = new Promise((resolve) => {
+    releasePoll = resolve;
+  });
   try {
     await openHandoffTab(page);
     await page.fill("#handoff-server-url", office.fake.url);
@@ -421,10 +425,11 @@ test("unpair immediately disables sending after the acknowledged transition", as
     await page.waitForFunction(() => window.officeHandoff.status().paired);
     await page.fill("#handoff-prompt", "keep this draft after unpairing");
     // Keep polling out of the assertion: the mutation response must drive UI.
-    await page.evaluate(() => window.officeHandoff.close());
-    await page.evaluate(() =>
-      document.querySelector("#handoff-unpair").click(),
-    );
+    await page.route("**/opencode-handoff", async (route) => {
+      await pollsHeld;
+      await route.continue();
+    });
+    await page.click("#handoff-unpair");
     await page.waitForFunction(() =>
       document
         .querySelector("#handoff-pair-status")
@@ -435,12 +440,32 @@ test("unpair immediately disables sending after the acknowledged transition", as
       false,
     );
     assert.equal(await page.locator("#handoff-send-submit").isDisabled(), true);
+    assert.equal(await page.locator("#handoff-form").isVisible(), true);
+    assert.match(
+      await page.locator("#handoff-capability").textContent(),
+      /Not paired/,
+    );
+    assert.equal(await page.locator("#handoff-pair-submit").isEnabled(), true);
+    assert.equal(await page.locator("#handoff-pair-cancel").isVisible(), false);
+    assert.equal(
+      await page.evaluate(() => document.activeElement.id),
+      "handoff-server-url",
+    );
+    assert.equal(
+      await page.locator("#handoff-prompt").inputValue(),
+      "keep this draft after unpairing",
+    );
+    assert.deepEqual(office.fake.prompts, []);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(() => window.officeHandoff.status().paired);
+    assert.equal(await page.locator("#handoff-send-submit").isEnabled(), true);
     assert.equal(
       await page.locator("#handoff-prompt").inputValue(),
       "keep this draft after unpairing",
     );
     assert.deepEqual(office.fake.prompts, []);
   } finally {
+    releasePoll();
     await page.close();
     await office.close();
     fs.rmSync(project, { recursive: true, force: true });

@@ -390,6 +390,8 @@
   }
 
   function pairValidity() {
+    if (preview || !connected || !capability?.enabled)
+      return "Pairing is unavailable until the local handoff adapter is connected and enabled.";
     if (sending || unpairing)
       return "Wait for the current handoff action before changing destination.";
     if (
@@ -684,6 +686,9 @@
 
   function syncPairingForm() {
     const p = pairing();
+    const available = !preview && connected && !!capability?.enabled;
+    pairForm.hidden = !available || (!!p && !pairingFormOpen);
+    pairCancel.hidden = !p;
     if (p) {
       setText(pairServer, p.server_url);
       setText(
@@ -694,7 +699,6 @@
       setText(pairVersion, p.runtime_version || "unknown");
       setText(pairAt, timeLabel(p.paired_at));
       pairedCard.hidden = false;
-      if (!pairingFormOpen) pairForm.hidden = true;
       sendForm.hidden = false;
       pairSubmit.textContent = "Update & pair";
     } else {
@@ -702,13 +706,17 @@
       sendForm.hidden = true;
       pairSubmit.textContent = "Review & pair";
     }
-    unpairButton.disabled = destinationBusy() || !p;
-    changeButton.disabled = destinationBusy();
-    pairSubmit.disabled = destinationBusy();
+    unpairButton.disabled = !available || destinationBusy() || !p;
+    changeButton.disabled = !available || destinationBusy();
+    pairSubmit.disabled = !available || destinationBusy();
     syncSendForm();
   }
 
   function openPairingForm() {
+    if (preview || !connected || !capability?.enabled) {
+      syncPairingForm();
+      return;
+    }
     pairingFormOpen = true;
     pairForm.hidden = false;
     pairCancel.hidden = !pairing();
@@ -764,7 +772,7 @@
       formEdited = true;
       pairingFormOpen = false;
       setText(pairStatus, "Paired. Review the exact prompt before sending.");
-      syncPairingForm();
+      syncCapability();
       persistDraft();
       restoreDraft();
     } catch (error) {
@@ -787,6 +795,8 @@
 
   unpairButton.addEventListener("click", async () => {
     if (!pairing() || destinationBusy()) return;
+    const ownedFocus = document.activeElement === unpairButton;
+    const interactionCurrent = capturePanelInteraction();
     unpairing = true;
     syncPairingForm();
     setText(pairStatus, "Unpairing…");
@@ -811,7 +821,19 @@
         pairStatus,
         "Unpaired. No prompt can be sent until you pair again.",
       );
-      syncPairingForm();
+      const focusStillOwned =
+        ownedFocus &&
+        (document.activeElement === unpairButton ||
+          document.activeElement === document.body);
+      syncCapability();
+      if (
+        active &&
+        focusStillOwned &&
+        interactionCurrent() &&
+        (document.activeElement === unpairButton ||
+          document.activeElement === document.body)
+      )
+        pairServerInput.focus({ preventScroll: true });
       persistDraft();
     } catch (error) {
       const uncertain = !error.status || error.name === "AbortError";
