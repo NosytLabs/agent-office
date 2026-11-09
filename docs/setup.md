@@ -11,6 +11,7 @@
 | Preview integrations | `python3 install.py --dry-run` | Detects existing installations; does not write their configuration |
 | Connect a runtime | `python3 install.py --only codex` | Adds observer definitions only for the selected detected runtime |
 | Optional task execution | See the [local runner guide](local-task-runner.md) | Launches new supported CLI tasks only after you enable it |
+| Optional existing-session delivery | See the [session handoff guide](opencode-session-handoff.md) | Sends a reviewed prompt to a paired local OpenCode session only after you enable it |
 
 Normal use requires Python 3.10+ with SQLite, Git for cloning/updating, and a
 modern browser. npm and Playwright are development tools, not installation

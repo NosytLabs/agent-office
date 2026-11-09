@@ -17,10 +17,10 @@ python -m pip install -r requirements-dev.txt
 npm ci --ignore-scripts
 ```
 
-Run `python3 run.py` for an empty office on port 8113. For interface development,
-use `python3 demo_feed.py` on port 8114: it creates isolated temporary data even
-when `HERMES_HOME` points to a real workspace. Never add synthetic events to a
-user's history.
+Run `python3 run.py` to serve the existing local office on port 8113. For interface
+development, use `python3 demo_feed.py` on port 8114: it creates isolated temporary
+data even when `HERMES_HOME` points to a real workspace. Never add synthetic events
+to a user's history.
 
 ## Checks
 
@@ -53,6 +53,8 @@ npm run build:preview
 ```
 
 An existing browser works with `CHROMIUM_PATH=/absolute/path/to/chrome`.
+Keep the development virtual environment active: browser fixtures launch `python`
+from `PATH`, or the interpreter selected by `PYTHON=/absolute/path/to/python`.
 Browser tests use temporary data and local HTTP routes, without provider calls.
 `OFFICE_SCREENSHOTS=reports/screenshots npm run test:browser` saves visual
 evidence. `npm run format` applies Prettier; inspect the diff afterward.

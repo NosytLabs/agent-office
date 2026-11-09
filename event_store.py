@@ -673,7 +673,7 @@ class EventStore:
                 if platform in ("cli", "telegram", "gateway"):
                     session_keys.add(("hermes", agent["id"]))
             usage = snapshot_usage(db, session_keys=session_keys)
-            tasks = model.snapshot_tasks(now)
+            tasks = model.snapshot_tasks(now, visible_agents=visible)
             data["progress"]["stats"]["usage_reports"] = usage["totals"]["reports"]
             progress.ingest(data["progress"], [], new_batch=True)
             progress.apply_live(data["progress"], sum(

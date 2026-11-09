@@ -1398,12 +1398,9 @@ class OfficeScene {
     // Per-row rugs establish workstation groups without covering footpaths.
     const theme = THEMES.find((t) => t.id === this.settings.theme) || THEMES[0];
     for (let row = 0; row < room.rows; row++) {
-      const seats = room.workstations.filter(
-        (seat) => Math.floor(seat.slot / room.columns) === row,
-      );
-      if (!seats.length) continue;
-      const first = seats[0],
-        last = seats.at(-1);
+      // layout() keeps complete, ordered rows, including vacant workstations.
+      const first = room.workstations[row * room.columns],
+        last = room.workstations[(row + 1) * room.columns - 1];
       this.rect(
         first.x - 7,
         first.y - 10,
@@ -1463,17 +1460,19 @@ class OfficeScene {
           name = name.slice(0, -2) + "…";
         g.fillStyle = "#f4f6f2";
         g.fillText(name, x, y + 13);
-        g.font = '500 12px "Geist", sans-serif';
-        g.fillStyle = STATUS_COLORS[s.a.status] || "#a7b2bd";
-        let detail =
-          s.a.status === "waiting"
-            ? "Needs input"
-            : s.a.tool
-              ? String(s.a.tool).replaceAll("_", " ")
-              : STATUS_NAMES[s.a.status] || s.a.status;
-        while (g.measureText(detail).width > max && detail.length > 2)
-          detail = detail.slice(0, -2) + "…";
-        if (details) g.fillText(detail, x, y + 26);
+        if (details) {
+          g.font = '500 12px "Geist", sans-serif';
+          g.fillStyle = STATUS_COLORS[s.a.status] || "#a7b2bd";
+          let detail =
+            s.a.status === "waiting"
+              ? "Needs input"
+              : s.a.tool
+                ? String(s.a.tool).replaceAll("_", " ")
+                : STATUS_NAMES[s.a.status] || s.a.status;
+          while (g.measureText(detail).width > max && detail.length > 2)
+            detail = detail.slice(0, -2) + "…";
+          g.fillText(detail, x, y + 26);
+        }
         this.labelBoxes.push({
           id: s.a.id,
           x: x - width / 2,

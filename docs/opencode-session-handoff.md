@@ -104,6 +104,20 @@ Even a receipt still marked `submitted` after an office crash moves to
 `unknown` if the runtime has no visible history yet: the caller must not
 automatically create a new request ID to retry uncertain work.
 
+## Read and filter receipts
+
+Search and the state filter apply locally without requesting or dispatching work.
+Every supported state remains available in the filter, including when no receipts
+match; incoming receipts do not reset your selection. **Clear filters** shows the
+full retained list again.
+
+Selecting a receipt opens one detail view beside its card. Unchanged polls keep
+the same rows and keyboard focus. A filtered receipt's details hide with its card;
+if an update hides or removes the focused receipt, focus returns to Search.
+Refresh and Cancel controls recover when their request settles, without waiting
+for another poll. Cancelling still requires runtime acknowledgement as described
+below.
+
 ## Cancellation
 
 **Cancel** posts to `POST /session/<id>/abort` for the paired session only.

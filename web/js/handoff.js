@@ -427,41 +427,15 @@
 
   // -- receipt rendering ---------------------------------------------------
 
-  function receiptTitle(op) {
-    const p = pairing();
-    return (
-      op.project_directory ||
-      (p?.project_directory ? `${p.project_directory}` : "Paired project")
-    );
-  }
-
-  function renderFilters() {
-    // Build the state filter from the states actually present so a user can
-    // filter to a single visible delivery state.
-    const states = [...new Set(operations.map((op) => op.state))].sort();
-    const wanted = new Set(states);
-    const keep = [...filter.options].filter(
-      (option) => option.value === "all" || wanted.has(option.value),
-    );
-    const current = filter.value;
-    if (keep.length !== filter.options.length) {
-      const was = filter.value;
-      filter.replaceChildren(...keep);
-      if ([...filter.options].some((option) => option.value === was))
-        filter.value = was;
-      else filter.value = "all";
-    }
-    if (current !== filter.value) renderOperations();
-  }
-
   function renderOperations() {
-    renderFilters();
-    const empty = list.querySelector(".handoff-empty");
+    const focused = list.contains(document.activeElement)
+      ? document.activeElement
+      : null;
     const query = (search?.value || "").trim().toLowerCase();
     const state = filter?.value || "all";
     let matches = 0;
     const wanted = new Set();
-    empty?.remove();
+    const nodes = [];
     for (const op of operations) {
       const id = String(op.id);
       wanted.add(id);
@@ -493,7 +467,12 @@
             .includes(query),
         );
       if (!node.hidden) matches++;
-      list.append(node);
+      nodes.push(node);
+      if (selectedOp && id === selectedId) {
+        const detail = operationDetailNode(selectedOp);
+        detail.hidden = node.hidden;
+        nodes.push(detail);
+      }
     }
     for (const [id, node] of opNodes) {
       if (!wanted.has(id)) {
@@ -501,18 +480,29 @@
         opNodes.delete(id);
       }
     }
+    for (const detail of list.querySelectorAll(".handoff-detail")) {
+      if (!nodes.includes(detail)) detail.remove();
+    }
+    let cursor = list.firstChild;
+    for (const node of nodes) {
+      if (node === cursor) cursor = cursor.nextSibling;
+      else list.insertBefore(node, cursor);
+    }
     setText(results, `${matches} of ${operations.length} receipts`);
+    let note = list.querySelector(".handoff-empty");
     if (!matches) {
-      let note = list.querySelector(".handoff-empty");
       if (!note) {
         note = document.createElement("p");
         note.className = "h handoff-empty";
-        note.textContent = operations.length
-          ? "No receipts match these filters. Clear filters to see all receipts."
-          : "No handoff receipts yet. Pair a destination and send a prompt.";
         list.append(note);
       }
-    }
+      setText(
+        note,
+        operations.length
+          ? "No receipts match these filters. Clear filters to see all receipts."
+          : "No handoff receipts yet. Pair a destination and send a prompt.",
+      );
+    } else note?.remove();
     if (selectedId && !operations.some((op) => String(op.id) === selectedId)) {
       detailSequence++;
       detailPromise = null;
@@ -520,9 +510,14 @@
       selectedId = null;
       selectedOp = null;
     }
-    if (selectedId) loadDetail(selectedId);
     if (selectedOp) renderDetail();
     syncSendForm();
+    if (focused && !root.closest("[hidden]")) {
+      if (!focused.isConnected || focused.closest("[hidden]"))
+        search?.focus({ preventScroll: true });
+      else if (document.activeElement === document.body)
+        focused.focus({ preventScroll: true });
+    }
   }
 
   function updateOpNode(node, op) {
@@ -651,7 +646,7 @@
     if (detailPromise && detailRequestId === String(id)) return detailPromise;
     const sequence = ++detailSequence;
     detailRequestId = String(id);
-    detailPromise = request(`opencode-handoff/${encodeURIComponent(id)}`)
+    const pending = request(`opencode-handoff/${encodeURIComponent(id)}`)
       .then((body) => {
         if (sequence !== detailSequence || selectedId !== String(id)) return;
         const op = body?.operation;
@@ -674,12 +669,13 @@
           );
       })
       .finally(() => {
-        if (sequence === detailSequence) {
+        if (detailPromise === pending) {
           detailPromise = null;
           detailRequestId = null;
         }
       });
-    return detailPromise;
+    detailPromise = pending;
+    return pending;
   }
 
   // -- pair / unpair ------------------------------------------------------
@@ -931,6 +927,7 @@
     refreshing = true;
     const sequence = ++detailSequence;
     syncSendForm();
+    renderDetail();
     try {
       const body = await request(
         `opencode-handoff/${encodeURIComponent(id)}/refresh`,
@@ -970,6 +967,7 @@
     } finally {
       refreshing = false;
       syncSendForm();
+      renderDetail();
     }
   }
 
@@ -980,6 +978,7 @@
     cancelling = true;
     cancelTarget = id;
     const sequence = ++detailSequence;
+    renderDetail();
     setText(
       list.querySelector('[data-detail="' + id + '"] .handoff-detail-status'),
       "Requesting cancellation…",
@@ -1025,6 +1024,7 @@
       cancelling = false;
       cancelTarget = null;
       syncSendForm();
+      renderDetail();
     }
   }
 
@@ -1151,6 +1151,16 @@
 
   function close() {
     setActive(false);
+  }
+
+  // Keep filters stable as receipts arrive or change state.
+  for (const [value, label] of Object.entries(STATE_LABEL)) {
+    filter.append(
+      Object.assign(document.createElement("option"), {
+        value,
+        textContent: label,
+      }),
+    );
   }
 
   // Wire the initial pairing form + send form visibility.

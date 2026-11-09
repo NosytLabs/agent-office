@@ -240,6 +240,32 @@ def test_other_runtime_with_same_session_id_cannot_make_a_board_live():
     assert model.snapshot_tasks(1000)[0]["session_status"] == "unobserved"
 
 
+@pytest.mark.parametrize("now", [1001, 1301, 2801])
+def test_shared_display_projection_preserves_task_lifecycle_and_runtime_scope(now, monkeypatch):
+    model = StateModel()
+    model.apply([
+        {"event": "tool_start", "session_id": "session", "platform": "opencode", "ts": 1000},
+        update([task()]),
+        update([task()], runtime="codex"),
+        {"event": "input_request", "session_id": "waiting", "platform": "opencode",
+         "ts": 1000, "request_id": "question", "question": "Choose a branch"},
+        update([task()], session="waiting"),
+    ], 1000)
+    projection = model.visible(now)
+    original = copy.deepcopy(projection)
+    expected = model.snapshot_tasks(now)
+
+    def unexpected_projection(*args, **kwargs):
+        pytest.fail("task projection must use the supplied same-tick display")
+
+    monkeypatch.setattr(model, "visible", unexpected_projection)
+    actual = model.snapshot_tasks(now, visible_agents=projection)
+    assert actual == expected
+    assert projection == original
+    actual[0]["tasks"][0]["content"] = "Changed display"
+    assert model.snapshot_tasks(now, visible_agents=projection) == expected
+
+
 def test_task_boards_keep_the_most_recent_128_and_do_not_truncate_a_full_valid_board():
     model = StateModel()
     model.apply([update([task(str(i), "x" * 512) for i in range(100)], session="old")], 1000)
@@ -257,7 +283,7 @@ def test_task_boards_keep_the_most_recent_128_and_do_not_truncate_a_full_valid_b
 
 
 def test_task_input_checkpoint_and_display_objects_are_independent():
-    records = [update([task()])]
+    records = [update([task()], task_capture_id="fixture-capture", task_sequence=1)]
     original = copy.deepcopy(records)
     model = StateModel()
     model.apply(records, 1000)
@@ -266,7 +292,12 @@ def test_task_input_checkpoint_and_display_objects_are_independent():
     second = StateModel(checkpoint)
     records[0]["tasks"][0]["content"] = "Input changed"
     checkpoint["task_boards"][0]["tasks"][0]["content"] = "Checkpoint changed"
+    checkpoint["task_boards"][0]["task_capture_watermarks"][0]["sequence"] = 100
     model.snapshot_tasks(1000)[0]["tasks"][0]["content"] = "View changed"
     assert original[0]["tasks"][0]["content"] == "Inspect the failing test"
     assert model.snapshot_tasks(1000)[0]["tasks"][0]["content"] == "Inspect the failing test"
     assert second.snapshot_tasks(1000)[0]["tasks"][0]["content"] == "Inspect the failing test"
+    assert model.dump()["task_boards"][0]["task_capture_watermarks"] == [
+        {"id": "fixture-capture", "sequence": 1},
+    ]
+    assert second.dump() == model.dump()
