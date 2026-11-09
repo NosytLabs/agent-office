@@ -236,6 +236,36 @@ def test_inputs_snapshots_and_display_results_are_independent():
     assert model.dump() == second.dump()
 
 
+@pytest.mark.parametrize("request_kind,response,choice", [
+    ("approval_request", "approval_response", "once"),
+    ("approval_request", "approval_response", "deny"),
+    ("input_request", "input_response", "answer"),
+    ("input_request", "input_response", "reject"),
+])
+def test_delayed_identified_response_cannot_restart_completed_work(request_kind, response, choice):
+    model = StateModel()
+    model.apply([
+        event("tool_start", call_id="finished", tool_name="Read"),
+        event(request_kind, 1001, request_id="old", call_id="finished"),
+        event("tool_end", 1002, call_id="finished", tool_name="Read"),
+    ], 1002)
+    model = restored(model)
+    before = model.dump()
+    model.apply([event(response, 1301, request_id="old", call_id="finished", choice=choice)], 1301)
+    assert model.dump() == before
+    assert model.visible(1303)[0]["quiet"] is True
+
+
+def test_identified_denial_still_cancels_active_call_when_request_was_not_observed():
+    model = StateModel()
+    model.apply([
+        event("tool_start", call_id="running", tool_name="Read"),
+        event("approval_response", 1001, request_id="unobserved", call_id="running", choice="deny"),
+    ], 1001)
+    assert model.visible(1001)[0]["status"] == "thinking"
+    assert not model.active_tools["a"]
+
+
 def test_expiration_removes_stale_ordinary_maps_without_removing_waits():
     model = StateModel()
     model.apply([

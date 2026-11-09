@@ -177,7 +177,8 @@ run with its prompt and output before restarting the server.
 
 Existing OpenCode sessions can use a separately enabled
 [HTTP handoff adapter](docs/opencode-session-handoff.md) with durable delivery
-receipts. Its browser pairing and sending interface is still pending.
+receipts. Open Tasks → Session handoff to review a destination, pair, send a
+prompt explicitly, and inspect or reconcile its receipt.
 
 ## Usage, privacy, and local data
 

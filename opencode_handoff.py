@@ -218,8 +218,13 @@ class ReceiptLedger:
 
     def set_pairing(self, pairing: Optional[Dict[str, Any]]) -> None:
         with self._lock:
-            self._pairing = pairing
-            self._save_locked()
+            previous = self._pairing
+            self._pairing = None if pairing is None else dict(pairing)
+            try:
+                self._save_locked()
+            except Exception:
+                self._pairing = previous
+                raise
 
     def get(self, operation_id: str) -> Optional[Dict[str, Any]]:
         with self._lock:
@@ -235,11 +240,21 @@ class ReceiptLedger:
 
     def put(self, operation: Dict[str, Any]) -> None:
         with self._lock:
+            previous_operations = self._operations.copy()
+            previous_order = self._order.copy()
             if operation["id"] not in self._operations:
                 self._order.append(operation["id"])
             self._operations[operation["id"]] = dict(operation)
-            self._prune_locked()
-            self._save_locked()
+            try:
+                self._prune_locked()
+                self._save_locked()
+            except Exception:
+                # A receipt becomes observable only after durable publication.
+                # Restore pruned receipts too, and keep a previously committed
+                # submitted identity if recording its dispatch outcome fails.
+                self._operations = previous_operations
+                self._order = previous_order
+                raise
 
     def all(self) -> list[Dict[str, Any]]:
         with self._lock:
@@ -351,7 +366,7 @@ class OpenCodeHandoff:
     # -- submission -----------------------------------------------------
 
     def submit(self, payload: Any) -> tuple[Dict[str, Any], bool]:
-        request_id, prompt = self._validate_submit_payload(payload)
+        request_id, prompt, expected_pairing = self._validate_submit_payload(payload)
         with self._lock:
             previous = self._ledger.find_by_request(request_id)
             if previous is not None:
@@ -359,6 +374,10 @@ class OpenCodeHandoff:
                     raise HandoffError(409, "request_id was already used for a different prompt")
                 return {"operation": self._receipt(previous)}, False
             pairing = self._require_pairing()
+            if expected_pairing is not None and any(
+                    pairing.get(key) != value for key, value in expected_pairing.items()):
+                raise HandoffError(
+                    409, "the paired destination changed after review; review and pair again before sending")
             active = [op for op in self._ledger.all() if op["state"] in ACTIVE_STATES]
             if len(active) >= MAX_ACTIVE_OPERATIONS:
                 raise HandoffError(409, "the handoff adapter is at its active operation limit")
@@ -683,12 +702,22 @@ class OpenCodeHandoff:
         return server_url, session_id, project
 
     @staticmethod
-    def _validate_submit_payload(payload: Any) -> tuple[str, str]:
+    def _validate_submit_payload(payload: Any) -> tuple[str, str, Optional[Dict[str, str]]]:
         expected = {"request_id", "prompt"}
-        if not isinstance(payload, dict) or set(payload) != expected:
-            raise HandoffError(400, "expected exactly request_id and prompt")
+        if not isinstance(payload, dict) or set(payload) not in (
+                expected, expected | {"expected_pairing"}):
+            raise HandoffError(400, "expected request_id and prompt, with optional expected_pairing")
         if not all(isinstance(payload[key], str) for key in expected):
             raise HandoffError(400, "handoff fields must be strings")
+        expected_pairing = None
+        if "expected_pairing" in payload:
+            binding = payload["expected_pairing"]
+            fields = {"server_url", "session_id", "project_directory", "runtime_version"}
+            if not isinstance(binding, dict) or set(binding) != fields or not all(
+                    isinstance(value, str) and 0 < len(value) <= 8192
+                    for value in binding.values()):
+                raise HandoffError(400, "expected_pairing must contain the four reviewed destination strings")
+            expected_pairing = dict(binding)
         try:
             parsed = uuid.UUID(payload["request_id"])
         except (ValueError, AttributeError):
@@ -700,7 +729,7 @@ class OpenCodeHandoff:
             raise HandoffError(400, f"prompt must contain 1–{MAX_PROMPT_CHARS} characters")
         if any(0xD800 <= ord(char) <= 0xDFFF for char in prompt):
             raise HandoffError(400, "prompt contains invalid Unicode")
-        return str(parsed), prompt
+        return str(parsed), prompt, expected_pairing
 
     # -- presentation -------------------------------------------------------
 

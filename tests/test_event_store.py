@@ -52,6 +52,23 @@ def test_publication_order_is_independent_of_payload_clock_and_creation_order(tm
     assert [ev["event"] for ev in state["events"]] == ["tool_start", "tool_end"]
 
 
+def test_stale_response_is_retained_without_restarting_completed_work(tmp_path):
+    publish(tmp_path, 1, event(call_id="finished"))
+    publish(tmp_path, 2, event("approval_request", request_id="old", call_id="finished"))
+    publish(tmp_path, 3, event("tool_end", call_id="finished"))
+    initial = consume(tmp_path)
+    response = event("approval_response", request_id="old", call_id="finished", choice="once")
+    ready = publish(tmp_path, 4, response)
+    state = consume(tmp_path, now=1301)
+    assert state["agents"][0]["status"] == "idle"
+    assert state["agents"][0]["quiet"] is True
+    assert state["agents"][0]["observed_at"] == initial["agents"][0]["observed_at"]
+    assert state["tracking"]["received"] == 4
+    assert state["events"][-1] == response
+    assert EventStore(tmp_path).history()[0]["event"] == "approval_response"
+    assert not ready.exists()
+
+
 def test_failure_before_checkpoint_commit_preserves_inputs_and_no_xp(tmp_path, monkeypatch):
     ready = publish(tmp_path, 1, event())
     original = EventStore._save

@@ -291,9 +291,8 @@ class StateModel:
             elif kind in ("approval_response", "input_response"):
                 if key in inactive_sessions or key not in agents:
                     continue
-                a = ensure(key, ev)
                 request_kind = kind.replace("response", "request")
-                waiting = pending_input.setdefault(key, {})
+                waiting = pending_input.get(key, {})
                 request_id = ev.get("request_id") or ev.get("call_id")
                 resolved = waiting.pop((request_kind, str(request_id or "legacy")), None)
                 if resolved is None and not ev.get("request_id") and ev.get("tool_name"):
@@ -304,6 +303,14 @@ class StateModel:
                 if not request_id:
                     for request in [r for r in waiting if r[0] == request_kind]:
                         resolved = waiting.pop(request)
+                if (resolved is None and request_id
+                        and str(ev.get("call_id") or "") not in active_tools.get(key, {})):
+                    # A delayed/duplicate identified response is not a new
+                    # heartbeat or proof of work. Keep it in event history,
+                    # but transition only a known request or active call.
+                    # ID-less legacy responses retain their fallback behavior.
+                    continue
+                a = ensure(key, ev)
                 choice = str(ev.get("choice") or "").lower()
                 accepted = choice in ("once", "always", "allow", "approve", "approved", "yes", "y")
                 detail = ""

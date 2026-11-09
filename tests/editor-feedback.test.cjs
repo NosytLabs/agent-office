@@ -81,6 +81,72 @@ function delaySave(page, fail) {
     .then(() => ({ requested, release, handler }));
 }
 
+test("modified scene keys leave selected furniture and settings unchanged", async () => {
+  await observerFixture(
+    { settings: { furniture: [], show_pets: false } },
+    async ({ page, state }) => {
+      await placeFern(page);
+      await page.click("#arrange-furniture");
+      await page.locator("#c").focus();
+      await page.keyboard.press("Space");
+      await page.waitForFunction(() => officeScene.movingIndex === 0);
+      const before = (await state()).settings.furniture;
+      let writes = 0;
+      page.on("request", (request) => {
+        if (
+          request.method() === "POST" &&
+          new URL(request.url()).pathname === "/settings"
+        )
+          writes++;
+      });
+      const result = await page.evaluate(() => {
+        const canvas = document.getElementById("c"),
+          before = { ...officeScene.pointer },
+          consumed = [];
+        for (const modifier of ["altKey", "ctrlKey", "metaKey", "isComposing"])
+          for (const key of [" ", "Delete", "Backspace", "ArrowLeft", "Enter"])
+            consumed.push(
+              !canvas.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key,
+                  [modifier]: true,
+                  bubbles: true,
+                  cancelable: true,
+                }),
+              ),
+            );
+        return {
+          before,
+          after: officeScene.pointer,
+          selected: officeScene.movingIndex,
+          consumed,
+          saving: furnitureSaving,
+        };
+      });
+      assert.deepEqual(result.after, result.before);
+      assert.equal(result.selected, 0);
+      assert.equal(result.saving, false);
+      assert.ok(result.consumed.every((value) => !value));
+      assert.deepEqual((await state()).settings.furniture, before);
+      assert.equal(writes, 0, "Browser shortcuts never enqueue a layout write");
+      await page.keyboard.press("Shift+ArrowRight");
+      assert.equal(
+        await page.evaluate(() => officeScene.pointer.x),
+        result.before.x + 8,
+      );
+      await page.keyboard.press("Delete");
+      await page.waitForFunction(
+        () => !furnitureSaving && settings.furniture.length === 0,
+      );
+      assert.equal(
+        (await state()).settings.furniture.length,
+        0,
+        "Unmodified Delete still works",
+      );
+    },
+  );
+});
+
 test("a failed move never reports success and can be retried through native controls", async () => {
   await observerFixture(
     { settings: { furniture: [], show_pets: false } },

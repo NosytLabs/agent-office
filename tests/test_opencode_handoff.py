@@ -191,6 +191,61 @@ def test_double_submit_with_same_request_id_dispatches_once(adapter, fake, proje
     assert len(fake.prompt_calls) == 1
 
 
+def reviewed_destination(adapter):
+    pairing = adapter.status()["pairing"]
+    return {key: pairing[key] for key in (
+        "server_url", "session_id", "project_directory", "runtime_version")}
+
+
+def test_reviewed_destination_change_rejects_new_dispatch(adapter, fake, project, tmp_path):
+    pair(adapter, project)
+    reviewed = reviewed_destination(adapter)
+    other = tmp_path / "other"
+    other.mkdir()
+    fake.sessions[SESSION]["directory"] = str(other)
+    pair(adapter, other)
+    with pytest.raises(HandoffError) as caught:
+        adapter.submit({"request_id": str(uuid.uuid4()), "prompt": "reviewed task",
+                        "expected_pairing": reviewed})
+    assert caught.value.status == 409
+    assert adapter.status()["operations"] == []
+    assert fake.prompt_calls == []
+
+
+def test_bound_retry_after_destination_change_returns_original_receipt(
+        adapter, fake, project, tmp_path):
+    pair(adapter, project)
+    payload = {"request_id": str(uuid.uuid4()), "prompt": "reviewed task",
+               "expected_pairing": reviewed_destination(adapter)}
+    first, _ = adapter.submit(payload)
+    other = tmp_path / "other"
+    other.mkdir()
+    fake.sessions[SESSION]["directory"] = str(other)
+    pair(adapter, other)
+    retried, created = adapter.submit(payload)
+    assert not created and retried == first
+    assert len(fake.prompt_calls) == 1
+
+
+@pytest.mark.parametrize("binding", [None, [], {}, "server", {
+    "server_url": "x", "session_id": "x", "project_directory": "x",
+    "runtime_version": 1,
+}, {
+    "server_url": "x", "session_id": "x", "project_directory": "x" * 8193,
+    "runtime_version": "x",
+}, {
+    "server_url": "x", "session_id": "x", "project_directory": "x",
+    "runtime_version": "x", "unexpected": "x",
+}])
+def test_malformed_explicit_destination_is_rejected(adapter, fake, project, binding):
+    pair(adapter, project)
+    with pytest.raises(HandoffError) as caught:
+        adapter.submit({"request_id": str(uuid.uuid4()), "prompt": "reviewed task",
+                        "expected_pairing": binding})
+    assert caught.value.status == 400
+    assert fake.prompt_calls == []
+
+
 def test_request_id_reuse_with_different_prompt_is_rejected(adapter, fake, project):
     pair(adapter, project)
     request_id = str(uuid.uuid4())
@@ -212,6 +267,92 @@ def test_lost_acknowledgement_reconciles_without_redispatch(adapter, fake, proje
     assert refreshed["state"] == "completed"
     assert refreshed["delivered_message_id"] is not None
     assert len(fake.prompt_calls) == 1  # reconciled, never resent
+
+
+def test_failed_initial_receipt_save_is_retryable_without_a_phantom_receipt(
+        adapter, fake, project, monkeypatch):
+    pair(adapter, project)
+    request_id = str(uuid.uuid4())
+    before = adapter._ledger.path.read_bytes()
+    replace = handoff.os.replace
+
+    def fail_replace(*args):
+        raise OSError("fixture disk failure")
+
+    monkeypatch.setattr(handoff.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="fixture disk failure"):
+        submit(adapter, "save before dispatch", request_id)
+    assert adapter.status()["operations"] == []
+    assert fake.prompt_calls == []
+    assert adapter._ledger.path.read_bytes() == before
+
+    monkeypatch.setattr(handoff.os, "replace", replace)
+    result, created = submit(adapter, "save before dispatch", request_id)
+    assert created and result["operation"]["state"] == "accepted"
+    assert len(fake.prompt_calls) == 1
+
+
+def test_failed_pairing_save_preserves_the_reviewed_destination(
+        adapter, fake, project, monkeypatch):
+    pair(adapter, project)
+    before = adapter.status()["pairing"]
+    stored = adapter._ledger.path.read_bytes()
+
+    def fail_replace(*args):
+        raise OSError("fixture disk failure")
+
+    monkeypatch.setattr(handoff.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="fixture disk failure"):
+        adapter.unpair({})
+    assert adapter.status()["pairing"] == before
+    assert adapter._ledger.path.read_bytes() == stored
+
+
+def test_failed_receipt_save_restores_pruned_history(adapter, fake, project, monkeypatch):
+    pair(adapter, project)
+    first, _ = submit(adapter, "first")
+    fake.complete_turn()
+    adapter.refresh(first["operation"]["id"])
+    before = adapter.status()["operations"]
+    stored = adapter._ledger.path.read_bytes()
+    monkeypatch.setattr(handoff, "MAX_RECEIPTS", 1)
+
+    def fail_replace(*args):
+        raise OSError("fixture disk failure")
+
+    monkeypatch.setattr(handoff.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="fixture disk failure"):
+        submit(adapter, "second")
+    assert adapter.status()["operations"] == before
+    assert adapter._ledger.path.read_bytes() == stored
+    assert len(fake.prompt_calls) == 1
+
+
+def test_failed_outcome_save_keeps_durable_submission_and_never_redispatches(
+        adapter, fake, project, monkeypatch):
+    pair(adapter, project)
+    request_id = str(uuid.uuid4())
+    replace = handoff.os.replace
+    saves = 0
+
+    def fail_second_replace(*args):
+        nonlocal saves
+        saves += 1
+        if saves == 2:
+            raise OSError("fixture disk failure")
+        return replace(*args)
+
+    monkeypatch.setattr(handoff.os, "replace", fail_second_replace)
+    with pytest.raises(OSError, match="fixture disk failure"):
+        submit(adapter, "already dispatched", request_id)
+    receipt = adapter.status()["operations"][0]
+    assert receipt["state"] == "submitted"
+    assert len(fake.prompt_calls) == 1
+    result, created = submit(adapter, "already dispatched", request_id)
+    assert not created and result["operation"]["id"] == receipt["id"]
+    fake.complete_turn()
+    assert adapter.refresh(receipt["id"])["operation"]["state"] == "completed"
+    assert len(fake.prompt_calls) == 1
 
 
 def test_uncertain_delivery_with_no_runtime_trace_stays_unknown(adapter, fake, project):

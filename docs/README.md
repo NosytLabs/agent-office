@@ -26,6 +26,8 @@ to your runtime data. Demo activity is synthetic.
 
 [Contributing](../CONTRIBUTING.md) covers development checks and source contracts.
 [Architecture](architecture.md) describes tracking, storage, and UI boundaries.
+[State machines and transition contracts](state-machines.md) maps lifecycle
+owners, events, guards and recovery paths across the app.
 [Logs and maintenance](maintenance.md) separates event retention, service logs,
 browser storage and disposable build/test output.
 [The asset pipeline](asset-pipeline.md) explains compact sprites, source artwork,

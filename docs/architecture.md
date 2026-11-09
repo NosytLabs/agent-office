@@ -29,7 +29,8 @@ The independent `--enable-opencode-handoff` option adds an HTTP adapter for an
 existing OpenCode session on a reviewed loopback server. It requires explicit
 project/session pairing and persists a delivery receipt before dispatching a
 prompt. Lost acknowledgements are reconciled against runtime history without
-resending uncertain work. The browser pairing/send interface remains pending.
+resending uncertain work. Tasks → Session handoff provides explicit pairing,
+sending, receipt inspection, refresh and cancellation controls.
 See [the handoff contract](opencode-session-handoff.md).
 
 ## Components
@@ -246,6 +247,13 @@ If an unreadable or continuously changing legacy file prevents a complete, stabl
 ## Live state and display lifetime
 
 Call IDs keep simultaneous tools separate. Pending permission and question records have independent identities; resolving one does not clear another. Completed or ended sessions keep inactive markers so late completions do not recreate their avatars.
+
+An identified approval or input response changes live state only when it matches
+a pending request or names a currently active call. A late response to a completed
+call stays in activity history and receives its normal receipt acknowledgement,
+but cannot restart its animation or refresh its activity clock. A denial can
+still cancel a known active call when its request was not observed. Older
+responses without request or call IDs retain their legacy matching fallback.
 
 | Condition | Display behavior |
 | --- | --- |
