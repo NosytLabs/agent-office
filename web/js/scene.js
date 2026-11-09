@@ -1695,6 +1695,9 @@ class OfficeScene {
       this.hoverAt(null);
     });
     cv.addEventListener("keydown", (e) => {
+      // Only scene commands may enter the edit/selection state machine.
+      // Browser shortcuts and IME confirmation must not mutate furniture.
+      if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
       if (
         this.edit === "move" &&
         e.key === " " &&

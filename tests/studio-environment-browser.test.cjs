@@ -320,12 +320,26 @@ test("the companion gallery exports the selected four-frame native strip", async
         canvas.height = 26;
         const g = canvas.getContext("2d", { willReadFrequently: true });
         g.drawImage(image, 0, 0);
+        // Compare decoded PNG pixels on both sides. Direct reads from the
+        // accelerated source canvas can round translucent channels differently
+        // before and after Chromium moves its backing store to the CPU.
+        // Independent native PNGs retain an exact assertion for every channel.
+        const expectedFrames = new Map();
+        for (const pose of ["idle", "walk-a", "walk-b"]) {
+          const source = officeStudio.petDirectional.get(`pet-0-up-${pose}`),
+            exported = new Image();
+          exported.src = source.toDataURL("image/png");
+          await exported.decode();
+          const frame = document.createElement("canvas");
+          frame.width = 28;
+          frame.height = 26;
+          const context = frame.getContext("2d", { willReadFrequently: true });
+          context.drawImage(exported, 0, 0);
+          expectedFrames.set(pose, context.getImageData(0, 0, 28, 26).data);
+        }
         return ["idle", "walk-a", "walk-b", "walk-a"].map((pose, i) => {
           const actual = g.getImageData(i * 28, 0, 28, 26).data,
-            expected = officeStudio.petDirectional
-              .get(`pet-0-up-${pose}`)
-              .getContext("2d")
-              .getImageData(0, 0, 28, 26).data;
+            expected = expectedFrames.get(pose);
           return actual.every((value, index) => value === expected[index]);
         });
       }, png.toString("base64"));

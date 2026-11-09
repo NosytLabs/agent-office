@@ -481,12 +481,15 @@
       applyState(state());
     }
     async function refreshOtherView() {
+      const revision = settingsRevision;
       const response = await fetch("state");
       if (!response.ok) return;
       clearHistoryCache();
       // The committed transaction is authoritative; the notification merely
       // triggers a read and can arrive before or after another save.
-      applyState(await response.json());
+      // Match ordinary polling: a late cross-tab read cannot replace an edit
+      // acknowledged after this read started, including its confirmed ETag.
+      applyState(await response.json(), revision);
     }
     window.addEventListener("storage", (event) => {
       if (event.key === storageKey || event.key === null)

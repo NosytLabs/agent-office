@@ -609,6 +609,59 @@ test("nameplate status lines and edges select their session", () => {
   assert.deepEqual(selected, ["session-0", "session-0"]);
 });
 
+test("scene keyboard transitions ignore browser shortcuts and composition", () => {
+  const handlers = new Map(),
+    actions = [],
+    scene = Object.create(model.Scene.prototype);
+  Object.assign(scene, {
+    canvas: {
+      addEventListener: (name, handler) => handlers.set(name, handler),
+    },
+    settings: { furniture: [{ kind: "fern", x: 0.5, y: 0.5 }] },
+    grid: { w: 200, h: 200 },
+    edit: "move",
+    movingIndex: 0,
+    pointer: { x: 80, y: 80 },
+    onPick: () => actions.push("pick"),
+    onRemove: () => actions.push("remove"),
+    onPlace: () => actions.push("place"),
+    onSelect: () => actions.push("inspect"),
+    list: () => [{ id: "alpha" }],
+  });
+  scene.bindInput();
+  const keydown = (key, detail = {}) =>
+    handlers.get("keydown")({
+      key,
+      preventDefault: () => actions.push("prevent"),
+      ...detail,
+    });
+  for (const modifier of ["altKey", "ctrlKey", "metaKey", "isComposing"])
+    for (const key of [" ", "Delete", "Backspace", "ArrowLeft", "Enter"]) {
+      keydown(key, { [modifier]: true });
+      assert.deepEqual(actions, [], `${modifier} + ${key} remains untouched`);
+      assert.deepEqual(scene.pointer, { x: 80, y: 80 });
+    }
+  scene.edit = null;
+  keydown("Enter", { metaKey: true });
+  keydown("Enter", { isComposing: true });
+  assert.deepEqual(actions, [], "modified Enter does not open an inspector");
+  scene.edit = "move";
+  keydown("ArrowRight", { shiftKey: true });
+  assert.deepEqual(scene.pointer, { x: 88, y: 80 });
+  keydown("Enter");
+  keydown("Delete");
+  keydown(" ");
+  assert.deepEqual(actions, [
+    "prevent",
+    "prevent",
+    "place",
+    "prevent",
+    "remove",
+    "prevent",
+    "pick",
+  ]);
+});
+
 function animationClock() {
   const frames = [],
     visibility = { hidden: false },

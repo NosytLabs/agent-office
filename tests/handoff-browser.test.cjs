@@ -273,7 +273,7 @@ test("pair, send, reconcile, and cancel a reviewed prompt end to end", async () 
     );
     assert.equal(
       await page.locator("#handoff-pair-project").innerText(),
-      office.project,
+      fs.realpathSync(office.project),
     );
 
     // Only an explicit Send dispatches. Clicking furniture (the paired card,
@@ -358,11 +358,19 @@ test("draft retry after reload reuses the request identity without a second disp
     await page.check("#handoff-remember");
     const promptText = "duplicate-safe prompt";
     await page.fill("#handoff-prompt", promptText);
+    // Lose only the browser acknowledgement after the real adapter has sent.
+    // An acknowledged send is a new intentional run when submitted again.
+    await page.route("**/opencode-handoff/submit", async (route) => {
+      await route.fetch();
+      await route.abort("failed");
+    });
     await page.click("#handoff-send-submit");
-    await page.waitForFunction(
-      () =>
-        document.querySelectorAll("#handoff-list .handoff-card").length >= 1,
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-send-status")
+        .textContent.includes("result is uncertain"),
     );
+    await page.unroute("**/opencode-handoff/submit");
     const firstDispatches = office.fake.prompts.length;
     assert.equal(firstDispatches, 1);
 
@@ -386,9 +394,10 @@ test("draft retry after reload reuses the request identity without a second disp
     // Re-send the unchanged draft; the server returns the existing receipt and
     // does not dispatch a second prompt.
     await page.click("#handoff-send-submit");
-    await page.waitForFunction(
-      () =>
-        document.querySelectorAll("#handoff-list .handoff-card").length >= 1,
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-send-status")
+        .textContent.includes("Prompt sent"),
     );
     assert.equal(office.fake.prompts.length, 1);
     assert.match(reusedId, /request ID/i);
@@ -396,5 +405,218 @@ test("draft retry after reload reuses the request identity without a second disp
     await page.close();
     await office.close();
     fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("unpair immediately disables sending after the acknowledged transition", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-unpair-"));
+  office = await startOffice(project);
+  const page = await pageready();
+  try {
+    await openHandoffTab(page);
+    await page.fill("#handoff-server-url", office.fake.url);
+    await page.fill("#handoff-session-id", "ses_browser");
+    await page.fill("#handoff-project", office.project);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(() => window.officeHandoff.status().paired);
+    await page.fill("#handoff-prompt", "keep this draft after unpairing");
+    // Keep polling out of the assertion: the mutation response must drive UI.
+    await page.evaluate(() => window.officeHandoff.close());
+    await page.evaluate(() =>
+      document.querySelector("#handoff-unpair").click(),
+    );
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-pair-status")
+        .textContent.includes("Unpaired."),
+    );
+    assert.equal(
+      await page.evaluate(() => window.officeHandoff.status().paired),
+      false,
+    );
+    assert.equal(await page.locator("#handoff-send-submit").isDisabled(), true);
+    assert.equal(
+      await page.locator("#handoff-prompt").inputValue(),
+      "keep this draft after unpairing",
+    );
+    assert.deepEqual(office.fake.prompts, []);
+  } finally {
+    await page.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("polling cannot supersede a send acknowledgement or change its destination", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-send-race-"));
+  office = await startOffice(project);
+  const page = await pageready();
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  let arrived;
+  const dispatched = new Promise((resolve) => {
+    arrived = resolve;
+  });
+  try {
+    await openHandoffTab(page);
+    await page.fill("#handoff-server-url", office.fake.url);
+    await page.fill("#handoff-session-id", "ses_browser");
+    await page.fill("#handoff-project", office.project);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(() => window.officeHandoff.status().paired);
+    await page.route("**/opencode-handoff/submit", async (route) => {
+      const response = await route.fetch();
+      arrived();
+      await held;
+      await route.fulfill({ response });
+    });
+    await page.fill("#handoff-prompt", "held acknowledgement");
+    await page.click("#handoff-send-submit");
+    await dispatched;
+    assert.equal(await page.locator("#handoff-unpair").isDisabled(), true);
+    assert.equal(await page.locator("#handoff-change").isDisabled(), true);
+    await page.evaluate(() => window.officeHandoff.refresh());
+    release();
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-send-status")
+        .textContent.includes("Prompt sent"),
+    );
+    assert.deepEqual(office.fake.prompts, ["held acknowledgement"]);
+    assert.equal(
+      await page.locator("#handoff-list .handoff-prompt-text").textContent(),
+      "held acknowledgement",
+    );
+  } finally {
+    release();
+    await page.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("a stale browser cannot send to a destination paired by another client", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-stale-pair-"));
+  office = await startOffice(project);
+  const secondRuntime = await startFakeOpenCode(project);
+  const page = await pageready();
+  try {
+    await openHandoffTab(page);
+    await page.fill("#handoff-server-url", office.fake.url);
+    await page.fill("#handoff-session-id", "ses_browser");
+    await page.fill("#handoff-project", office.project);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(() => window.officeHandoff.status().paired);
+    const stale = await (
+      await page.request.get(`${office.base}/opencode-handoff`)
+    ).json();
+    await page.route("**/opencode-handoff", (route) =>
+      route.fulfill({ json: stale }),
+    );
+    const changed = await page.request.post(
+      `${office.base}/opencode-handoff/pair`,
+      {
+        headers: { Origin: office.base, "X-Agent-Office-Token": office.token },
+        data: {
+          server_url: secondRuntime.url,
+          session_id: "ses_browser",
+          project_directory: office.project,
+        },
+      },
+    );
+    assert.equal(changed.status(), 200);
+    await page.fill("#handoff-prompt", "only for the reviewed server");
+    await page.click("#handoff-send-submit");
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-send-status")
+        .textContent.includes("destination changed after review"),
+    );
+    assert.deepEqual(office.fake.prompts, []);
+    assert.deepEqual(secondRuntime.prompts, []);
+    assert.equal(
+      await page.locator("#handoff-prompt").inputValue(),
+      "only for the reviewed server",
+    );
+  } finally {
+    await page.close();
+    await secondRuntime.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("legacy uncertain drafts require review and pairing preserves their text", async () => {
+  const project = fs.mkdtempSync(
+    path.join(os.tmpdir(), "handoff-legacy-draft-"),
+  );
+  office = await startOffice(project);
+  const page = await pageready();
+  try {
+    await openHandoffTab(page);
+    await page.fill("#handoff-server-url", office.fake.url);
+    await page.fill("#handoff-session-id", "ses_browser");
+    await page.fill("#handoff-project", office.project);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(() => window.officeHandoff.status().paired);
+    const current = await (
+      await page.request.get(`${office.base}/opencode-handoff`)
+    ).json();
+    const pendingId = "d843207f-0a37-4b26-8ee8-28b051c44b73";
+    await page.evaluate(
+      ({ current, pendingId }) => {
+        sessionStorage.setItem(
+          "agent-office:handoff-draft:v1",
+          JSON.stringify({
+            version: 1,
+            prompt: "keep this uncertain draft",
+            ...current.pairing,
+            instance_id: current.instance_id,
+            pending_id: pendingId,
+            review_required: false,
+          }),
+        );
+      },
+      { current, pendingId },
+    );
+    await page.reload();
+    await revealHandoffTab(page);
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#handoff-prompt").value ===
+        "keep this uncertain draft",
+    );
+    assert.equal(await page.locator("#handoff-send-submit").isDisabled(), true);
+    assert.deepEqual(office.fake.prompts, []);
+    await page.click("#handoff-change");
+    await page.fill("#handoff-server-url", office.fake.url);
+    await page.fill("#handoff-session-id", "ses_browser");
+    await page.fill("#handoff-project", office.project);
+    await page.click("#handoff-pair-submit");
+    await page.waitForFunction(
+      () => !document.querySelector("#handoff-send-submit").disabled,
+    );
+    assert.equal(
+      await page.locator("#handoff-prompt").inputValue(),
+      "keep this uncertain draft",
+    );
+    assert.deepEqual(office.fake.prompts, []);
+    const outgoing = page.waitForRequest("**/opencode-handoff/submit");
+    await page.click("#handoff-send-submit");
+    const body = (await outgoing).postDataJSON();
+    assert.notEqual(body.request_id, pendingId);
+    assert.equal(body.expected_pairing.server_url, office.fake.url);
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#handoff-send-status")
+        .textContent.includes("Prompt sent"),
+    );
+    assert.deepEqual(office.fake.prompts, ["keep this uncertain draft"]);
+  } finally {
+    await page.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
   }
 });

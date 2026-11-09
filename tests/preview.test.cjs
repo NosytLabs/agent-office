@@ -760,6 +760,60 @@ test("a queued demo read cannot replace a visit-only edit after a failed transac
     );
   }));
 
+test("a delayed cross-tab refresh cannot roll back a newer acknowledged settings save", () =>
+  withPage(async (page) => {
+    await page.evaluate(async () => {
+      pollStopped = true;
+      clearTimeout(pollTimer);
+      await pollInFlight;
+      const originalFetch = window.fetch;
+      window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (String(args[0]) === "state") {
+          window.refreshSnapshot = await response.clone().json();
+          await new Promise((resolve) => {
+            window.releaseRefresh = resolve;
+          });
+        }
+        return response;
+      };
+      const originalApply = applyState;
+      applyState = (...args) => {
+        const result = originalApply(...args);
+        window.refreshApplied = true;
+        return result;
+      };
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "agent-office:static-preview:v1",
+        }),
+      );
+    });
+    await page.waitForFunction(() => typeof releaseRefresh === "function");
+    await page.click("#settingsbtn");
+    await page.fill("#room-name-input", "Newer acknowledged office");
+    await page.click("#room-name-save");
+    await page.waitForFunction(() => pendingSaves === 0);
+    const committed = await savedRecord(page);
+    assert.equal(committed.settings.room_name, "Newer acknowledged office");
+    assert.notEqual(
+      await page.evaluate(() => refreshSnapshot.settings_revision),
+      committed.settingsRevision,
+      "the delayed notification holds an older, actually read revision",
+    );
+    await page.evaluate(() => releaseRefresh());
+    await page.waitForFunction(() => window.refreshApplied);
+    assert.equal(
+      await page.textContent("#room-name"),
+      "Newer acknowledged office",
+    );
+    assert.equal(
+      await page.evaluate(() => confirmedSettingsRevision),
+      committed.settingsRevision,
+    );
+    assert.deepEqual(await savedRecord(page), committed);
+  }));
+
 test("invalid legacy preferences stay untouched until repaired and migrate exactly once", () =>
   withPage(async (page) => {
     await page.evaluate(previewStore, "clear");

@@ -7,10 +7,11 @@ and it keeps a durable delivery
 receipt for every submission so a lost acknowledgement can be reconciled
 instead of retried blind.
 
-This adapter currently exposes an HTTP API. The browser interface for reviewing
-a destination, pairing, and sending is still to be built. Copying a prompt from
-Tasks does not submit it through this adapter. Follow-up interface work is tracked
-in [issue #18](https://github.com/NosytLabs/agent-office/issues/18).
+Open **Tasks → Session handoff** to review and pair a destination, enter a
+prompt, and select **Send to paired session**. The panel shows delivery receipts with
+refresh and cancellation actions. Pairing, unpairing, and sending are exclusive
+actions: background polling cannot replace their acknowledgement. Copying a
+prompt from a draft does not submit it through this adapter.
 
 The adapter is off unless the standalone server is started with it:
 
@@ -56,12 +57,26 @@ request ID, the same idempotency contract as the task runner:
   shell command. The 8,192 code-point bound matches the task runner.
 - At most two operations may be active at once.
 
+The browser also sends `expected_pairing`, an exact snapshot containing
+`server_url`, `session_id`, `project_directory`, and `runtime_version`. A new
+submission is rejected if another client changed that reviewed destination
+before Send. An unchanged uncertain retry retains its original snapshot and
+request ID; an existing receipt is returned even if the destination changed
+after dispatch. Older API callers may omit this optional field and retain the
+legacy current-pairing behavior; explicit null, missing keys, non-string values,
+and values over 8,192 characters are rejected. Older retained browser drafts
+without a provable destination binding require explicit review and pairing
+before a new send. Pairing preserves the draft and never sends it itself.
+
 Receipts live in `opencode-handoff.json` in the office directory, written
 atomically (temporary file, fsync, rename). The ledger retains at most 200
 operations; only terminal receipts are pruned. Office reset, history prune,
 XP, usage, and the task runner never read or write this file. A corrupt
 ledger is an explicit error — it is never silently reset, because losing
-receipts would break the no-duplicate guarantee.
+receipts would break the no-duplicate guarantee. A failed ledger write restores
+the previous in-memory pairing and receipts, including any receipts considered
+for pruning. A failed acknowledgement write after dispatch retains the durable
+`submitted` receipt; it never makes an uncertain operation safe to resend.
 
 ## Delivery states
 
@@ -125,5 +140,7 @@ provider-backed task. That verification is separate and still outstanding:
 the installed v2.0.29 adapter's provider path is account-gated (an active
 OpenCode Go subscription was required in the last smoke test), so
 authenticated provider execution remains unverified until it is exercised
-with a working account. The browser interface will use the HTTP contract above;
-its interaction flows are not covered by these adapter tests.
+with a working account. [`handoff-browser.test.cjs`](../tests/handoff-browser.test.cjs)
+separately exercises the browser with a synthetic local server, including
+pairing, unpairing, draft retention, a lost submission acknowledgement, and
+polling during a send. These checks do not contact a provider account.

@@ -107,17 +107,47 @@
     return capability?.paired ? capability?.pairing : null;
   }
 
-  // Identifier of the reviewed destination used to keep a pending request bound
-  // to exactly one server+session+project across reloads.
-  function destinationSignature() {
+  // Destination changes and dispatch share one exclusive transition. Polls
+  // may observe its result afterward, but cannot supersede its acknowledgement.
+  function destinationBusy() {
+    return pairingInFlight || unpairing || sending;
+  }
+
+  const pairingFields = [
+    "server_url",
+    "session_id",
+    "project_directory",
+    "runtime_version",
+  ];
+
+  function reviewedPairing() {
     const p = pairing();
-    if (!p) return "";
-    return JSON.stringify([
-      p.server_url,
-      p.session_id,
-      p.project_directory,
-      capability?.instance_id || "",
-    ]);
+    return p
+      ? Object.fromEntries(pairingFields.map((key) => [key, p[key]]))
+      : null;
+  }
+
+  function validPairingSnapshot(value) {
+    return (
+      value &&
+      typeof value === "object" &&
+      Object.keys(value).length === pairingFields.length &&
+      pairingFields.every(
+        (key) =>
+          typeof value[key] === "string" &&
+          value[key].length > 0 &&
+          value[key].length <= 8192,
+      )
+    );
+  }
+
+  function matchesReviewedPairing(value) {
+    const p = pairing();
+    return (
+      !!p &&
+      validPairingSnapshot(value) &&
+      pairingFields.every((key) => value[key] === p[key])
+    );
   }
 
   function timeLabel(value) {
@@ -185,6 +215,10 @@
           pendingRequest?.signature === payloadSignature(payload)
             ? pendingRequest.id
             : null,
+        expected_pairing:
+          pendingRequest?.signature === payloadSignature(payload)
+            ? pendingRequest.pairing
+            : reviewedPairing(),
         review_required: reviewRequired,
       };
       sessionStorage.setItem(draftKey, JSON.stringify(savedDraft));
@@ -223,6 +257,12 @@
       p.server_url === retained.server_url &&
       p.session_id === retained.session_id &&
       p.project_directory === retained.project_directory;
+    if (retained.pending_id)
+      pendingRequest = {
+        id: retained.pending_id,
+        signature: payloadSignature(formPayload()),
+        pairing: retained.expected_pairing || null,
+      };
     if (destinationMatches) {
       // Reuse the previous request identity for the unchanged prompt so a
       // reload neither duplicates nor loses an uncertain submission.
@@ -230,18 +270,13 @@
         retained.review_required ||
         (!!retained.pending_id &&
           (editedBeforeRestore ||
+            !matchesReviewedPairing(retained.expected_pairing) ||
             !uuid.test(capability.instance_id || "") ||
             capability.instance_id !== retained.instance_id));
-      if (retained.pending_id && !reviewRequired)
-        pendingRequest = {
-          id: retained.pending_id,
-          signature: payloadSignature(formPayload()),
-        };
     } else {
       // The destination changed or is no longer paired; never reuse the old
       // request identity silently. The prompt stays, but review is required.
       reviewRequired = true;
-      pendingRequest = null;
     }
     recallPairingForm();
     setText(
@@ -282,6 +317,8 @@
           value.project_directory.length > 4096 ||
           !uuid.test(value.instance_id || "") ||
           (value.pending_id != null && !uuid.test(value.pending_id)) ||
+          (value.expected_pairing != null &&
+            !validPairingSnapshot(value.expected_pairing)) ||
           typeof value.review_required !== "boolean"
         )
           throw new Error("Invalid draft");
@@ -335,6 +372,8 @@
       return "Handoff controls are disconnected. Open Agent Office in your local browser and keep python3 run.py running.";
     if (!capability?.enabled)
       return "Session handoff is disabled. Restart Agent Office with the command shown above.";
+    if (pairingInFlight || unpairing)
+      return "Wait for the destination change to finish before sending.";
     if (!pairing()) return "Choose and review a destination before sending.";
     if (reviewRequired)
       return "Review the previous uncertain submission as a new send, or clear this draft, before sending.";
@@ -351,6 +390,8 @@
   }
 
   function pairValidity() {
+    if (sending || unpairing)
+      return "Wait for the current handoff action before changing destination.";
     if (
       !pairServerInput.value.trim() ||
       !pairSessionInput.value.trim() ||
@@ -661,7 +702,9 @@
       sendForm.hidden = true;
       pairSubmit.textContent = "Review & pair";
     }
-    unpairButton.disabled = unpairing || !p;
+    unpairButton.disabled = destinationBusy() || !p;
+    changeButton.disabled = destinationBusy();
+    pairSubmit.disabled = destinationBusy();
     syncSendForm();
   }
 
@@ -696,7 +739,7 @@
       project_directory: pairProjectInput.value.trim(),
     };
     pairingInFlight = true;
-    pairSubmit.disabled = true;
+    syncPairingForm();
     setText(pairStatus, "Reviewing the server, session and project…");
     try {
       const sequence = ++refreshSequence;
@@ -716,11 +759,9 @@
         pairing: body.pairing,
       };
       // A new destination invalidates any pending request identity.
-      if (pendingRequest) {
-        pendingRequest = null;
-        reviewRequired = false;
-        formEdited = true;
-      }
+      pendingRequest = null;
+      reviewRequired = false;
+      formEdited = true;
       pairingFormOpen = false;
       setText(pairStatus, "Paired. Review the exact prompt before sending.");
       syncPairingForm();
@@ -745,9 +786,9 @@
   pairCancel.addEventListener("click", closePairingForm);
 
   unpairButton.addEventListener("click", async () => {
-    if (!pairing() || unpairing) return;
+    if (!pairing() || destinationBusy()) return;
     unpairing = true;
-    unpairButton.disabled = true;
+    syncPairingForm();
     setText(pairStatus, "Unpairing…");
     try {
       const sequence = ++refreshSequence;
@@ -760,9 +801,9 @@
         body: "{}",
       });
       if (sequence !== refreshSequence) return;
-      if (body?.pairing !== null) {
-        capability = { ...capability, paired: false, pairing: null };
-      }
+      if (body?.pairing !== null)
+        throw new Error("Server returned an invalid unpairing response");
+      capability = { ...capability, paired: false, pairing: null };
       pendingRequest = null;
       reviewRequired = false;
       formEdited = true;
@@ -780,7 +821,7 @@
       );
     } finally {
       unpairing = false;
-      unpairButton.disabled = !pairing();
+      syncPairingForm();
     }
   });
 
@@ -806,15 +847,17 @@
       pendingRequest = {
         signature,
         id: crypto.randomUUID(),
+        pairing: reviewedPairing(),
       };
     payload.request_id = pendingRequest.id;
+    payload.expected_pairing = pendingRequest.pairing;
     persistDraft();
     sending = true;
     setText(
       sendStatus,
       "Recording the receipt, then sending the exact prompt…",
     );
-    syncSendForm();
+    syncPairingForm();
     try {
       const sequence = ++refreshSequence;
       const body = await request("opencode-handoff/submit", {
@@ -855,7 +898,7 @@
       );
     } finally {
       sending = false;
-      syncSendForm();
+      syncPairingForm();
     }
   });
 
@@ -966,6 +1009,13 @@
   // -- capability sync ----------------------------------------------------
 
   function syncCapability() {
+    if (pendingRequest && !matchesReviewedPairing(pendingRequest.pairing)) {
+      reviewRequired = true;
+      setText(
+        sendStatus,
+        "The destination changed after an uncertain send. Review and pair again before starting a new send.",
+      );
+    }
     if (remember)
       remember.disabled = preview || !connected || !capability?.enabled;
     enableHelp.hidden = preview || !!capability?.enabled;
@@ -1016,6 +1066,7 @@
       syncCapability();
       return;
     }
+    if (destinationBusy()) return;
     if (refreshPromise) return refreshPromise;
     const sequence = ++refreshSequence;
     refreshPromise = request("opencode-handoff")

@@ -91,6 +91,11 @@ browser checks. Report unavailable native environments as unverified.
 
 ## Change boundaries
 
+For lifecycle changes, use the [state-machine map](docs/state-machines.md).
+Name the owner, triggering event, identity/revision guard, durable effects and
+failure recovery. Test the affected boundary, including delayed or duplicate
+completion when relevant; keep derived UI status separate from runtime truth.
+
 ### Runtime adapters
 
 Use documented runtime payloads and preserve session, tool-call, request, and
