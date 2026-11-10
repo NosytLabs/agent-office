@@ -213,11 +213,262 @@ async function openHandoffTab(page) {
 
 let office;
 
+test("receipt refreshes preserve nodes, focus, filters and one selected detail", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-reading-"));
+  office = await startOffice(project);
+  const page = await pageready();
+  const receipts = ["accepted", "completed"].map((state, index) => ({
+    id: `d843207f-0a37-4b26-8ee8-28b051c44b7${index}`,
+    state,
+    prompt: `Synthetic prompt ${index}`,
+    session_id: `ses_reading_${index}`,
+    project_directory: project,
+    server_url: office.fake.url,
+    created_at: 1700000000 + index,
+  }));
+  let operations = [];
+  let detailReads = 0;
+  let holdPolls = false;
+  let releasePolls;
+  const pollsHeld = new Promise((resolve) => {
+    releasePolls = resolve;
+  });
+  try {
+    const capability = await (
+      await page.request.get(`${office.base}/opencode-handoff`)
+    ).json();
+    await page.route("**/opencode-handoff{,/**}", async (route) => {
+      const id = new URL(route.request().url()).pathname.split("/")[2];
+      if (id) detailReads++;
+      if (!id && holdPolls) await pollsHeld;
+      await route.fulfill({
+        json: id
+          ? { operation: operations.find((op) => op.id === id) }
+          : { ...capability, operations },
+      });
+    });
+    await openHandoffTab(page);
+    assert.equal(await page.locator("#handoff-filter option").count(), 10);
+    operations = receipts;
+    await page.evaluate(() => officeHandoff.refresh());
+    const first = page.locator(`[data-operation-id="${receipts[0].id}"]`);
+    await first.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".handoff-prompt-text")?.textContent ===
+        "Synthetic prompt 0",
+    );
+    await first.focus();
+    await page.evaluate(() => {
+      const list = document.querySelector("#handoff-list");
+      window.receiptChildren = [...list.children];
+      window.receiptMutations = [];
+      window.receiptObserver = new MutationObserver((records) => {
+        receiptMutations.push(...records);
+      });
+      receiptObserver.observe(list, { childList: true });
+    });
+    for (let repeat = 0; repeat < 3; repeat++)
+      await page.evaluate(() => officeHandoff.refresh());
+    assert.equal(
+      await first.evaluate((node) => document.activeElement === node),
+      true,
+    );
+    assert.deepEqual(
+      await page.evaluate(() => {
+        receiptObserver.disconnect();
+        return {
+          mutations: receiptMutations.length,
+          sameChildren: [
+            ...document.querySelector("#handoff-list").children,
+          ].every((node, index) => node === receiptChildren[index]),
+        };
+      }),
+      { mutations: 0, sameChildren: true },
+    );
+
+    await page.locator(`[data-operation-id="${receipts[1].id}"]`).click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".handoff-prompt-text")?.textContent ===
+        "Synthetic prompt 1",
+    );
+    assert.equal(await page.locator(".handoff-detail").count(), 1);
+    const readsBeforeFilter = detailReads;
+    await page.selectOption("#handoff-filter", "accepted");
+    assert.equal(await page.locator(".handoff-card:visible").count(), 1);
+    assert.equal(await page.locator(".handoff-detail:visible").count(), 0);
+    await page.fill("#handoff-search", "no matching prompt");
+    assert.equal(await page.locator(".handoff-empty").count(), 1);
+    await page.click("#handoff-clear");
+    assert.equal(await page.locator(".handoff-detail:visible").count(), 1);
+    assert.equal(
+      detailReads,
+      readsBeforeFilter,
+      "Filtering is local and does not read receipts again",
+    );
+
+    await page.selectOption("#handoff-filter", "completed");
+    await page.locator(".handoff-prompt-text").focus();
+    receipts[1].state = "accepted";
+    await page.evaluate(() => officeHandoff.refresh());
+    assert.equal(
+      await page
+        .locator("#handoff-search")
+        .evaluate((node) => document.activeElement === node),
+      true,
+      "A hidden detail returns owned focus to search",
+    );
+    await page.click("#handoff-clear");
+
+    holdPolls = true;
+    await page.click(".handoff-refresh");
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".handoff-detail-status")
+        ?.textContent.includes("Reconciled"),
+    );
+    assert.equal(
+      await page.locator(".handoff-refresh").isEnabled(),
+      true,
+      "Refresh recovers without another poll",
+    );
+    await first.click();
+    await page.click(".handoff-cancel");
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".handoff-detail-status")
+        ?.textContent.includes("Cancellation recorded"),
+    );
+    assert.equal(
+      await page.locator(".handoff-cancel").isEnabled(),
+      true,
+      "Cancel recovers without another poll",
+    );
+    holdPolls = false;
+    releasePolls();
+    await page.locator(`[data-operation-id="${receipts[1].id}"]`).click();
+    operations = [receipts[0]];
+    await page.evaluate(() => officeHandoff.refresh());
+    assert.equal(await page.locator(".handoff-detail").count(), 0);
+    await page.selectOption("#handoff-filter", "completed");
+    operations = [];
+    await page.evaluate(() => officeHandoff.refresh());
+    assert.equal(
+      await page.locator("#handoff-filter").inputValue(),
+      "completed",
+    );
+    assert.equal(await page.locator("#handoff-filter option").count(), 10);
+    assert.deepEqual(office.fake.prompts, []);
+  } finally {
+    releasePolls();
+    await page.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
 async function pageready() {
   const page = await browser.newPage({ viewport: { width: 820, height: 900 } });
   page.setDefaultTimeout(5000);
   return page;
 }
+
+test("a superseded receipt read releases ownership after reconciliation", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-read-owner-"));
+  office = await startOffice(project);
+  const page = await pageready();
+  const receipt = {
+    id: "d843207f-0a37-4b26-8ee8-28b051c44b70",
+    state: "accepted",
+    prompt: "Synthetic receipt ownership check",
+    session_id: "ses_read_owner",
+    project_directory: project,
+    server_url: office.fake.url,
+    created_at: 1700000000,
+  };
+  let detailReads = 0;
+  let releaseDetail;
+  const detailHeld = new Promise((resolve) => {
+    releaseDetail = resolve;
+  });
+  try {
+    const capability = await (
+      await page.request.get(`${office.base}/opencode-handoff`)
+    ).json();
+    await page.addInitScript((id) => {
+      const originalFetch = window.fetch;
+      window.receiptReadsConsumed = 0;
+      window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (
+          new URL(args[0], location.href).pathname === `/opencode-handoff/${id}`
+        ) {
+          const readJSON = response.json.bind(response);
+          response.json = async () => {
+            const body = await readJSON();
+            window.receiptReadsConsumed++;
+            return body;
+          };
+        }
+        return response;
+      };
+    }, receipt.id);
+    await page.route("**/opencode-handoff{,/**}", async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === "/opencode-handoff") {
+        await route.fulfill({
+          json: { ...capability, operations: [receipt] },
+        });
+      } else if (pathname.endsWith("/refresh")) {
+        await route.fulfill({
+          json: { operation: { ...receipt, state: "executing" } },
+        });
+      } else {
+        const firstRead = ++detailReads === 1;
+        if (firstRead) await detailHeld;
+        await route.fulfill({
+          json: {
+            operation: {
+              ...receipt,
+              state: firstRead ? "accepted" : "completed",
+            },
+          },
+        });
+      }
+    });
+    await openHandoffTab(page);
+    const reading = page.waitForRequest(`**/opencode-handoff/${receipt.id}`);
+    await page.locator(`[data-operation-id="${receipt.id}"]`).click();
+    await reading;
+    await page.click(".handoff-refresh");
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".handoff-detail-status")
+        ?.textContent.includes("Reconciled: Executing"),
+    );
+    releaseDetail();
+    await page.waitForFunction(() => window.receiptReadsConsumed >= 1);
+    assert.match(
+      await page.locator(".handoff-detail-meta").textContent(),
+      /state executing/,
+      "The obsolete GET cannot undo the reconciled result",
+    );
+    await page.evaluate(() => officeHandoff.refresh());
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".handoff-detail-meta")
+        ?.textContent.includes("state completed"),
+    );
+    assert.ok(detailReads >= 2, "Later polls can read the selected receipt");
+    assert.deepEqual(office.fake.prompts, []);
+  } finally {
+    releaseDetail();
+    await page.close();
+    await office.close();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
 
 test("pair, send, reconcile, and cancel a reviewed prompt end to end", async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-proj-"));

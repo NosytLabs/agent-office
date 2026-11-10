@@ -7,6 +7,7 @@ import sys
 
 from event_store import EventStore
 from event_inbox import publish
+from state_model import StateModel
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,6 +38,35 @@ def opencode_publish(home, records):
 
 def consume(home, now, **options):
     return EventStore(home / "pixel-office").consume(lambda: [], now, **options)
+
+
+def test_one_projection_per_poll_keeps_task_status_in_sync(tmp_path, monkeypatch):
+    directory = tmp_path / "pixel-office"
+    for event in (
+        {"event": "tool_start", "tool_name": "Read", "call_id": "read"},
+        {"event": "tasks_update", "task_source": "synthetic.plan", "tasks": [
+            {"id": "review", "content": "Review the result", "status": "pending"},
+        ]},
+    ):
+        publish(directory, {**event, "ts": 1000, "platform": "codex", "session_id": "fixture"})
+    calls = []
+    visible = StateModel.visible
+
+    def project(model, now, *args, **kwargs):
+        calls.append(now)
+        return visible(model, now, *args, **kwargs)
+
+    monkeypatch.setattr(StateModel, "visible", project)
+    for now, status in ((1000, "working"), (1301, "idle")):
+        state = consume(tmp_path, now)
+        assert state["agents"][0]["status"] == state["tasks"][0]["session_status"] == status
+        assert state["tasks"][0]["historical"] is False
+        assert calls.count(now) == 1
+    state = consume(tmp_path, 2801)
+    assert state["agents"] == []
+    assert state["tasks"][0]["historical"] is True
+    assert state["tasks"][0]["session_status"] == "unobserved"
+    assert calls.count(2801) == 1
 
 
 def test_task_only_opencode_reports_do_not_earn_runtime_achievements_or_progress(tmp_path):

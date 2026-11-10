@@ -56,7 +56,7 @@ class StateModel:
 
     def dump(self) -> Dict[str, Any]:
         """Return an independent JSON-safe checkpoint, preserving arrival order."""
-        return copy.deepcopy({
+        checkpoint = copy.deepcopy({
             "version": 1,
             "agents": list(self.agents.values()),
             "active_tools": {
@@ -67,8 +67,9 @@ class StateModel:
                 for key, records in self.pending_input.items()
             },
             "inactive_sessions": self.inactive_sessions,
-            "task_boards": self.task_boards.dump(),
         })
+        checkpoint["task_boards"] = self.task_boards.dump()
+        return checkpoint
 
     def apply(self, events: Iterable[Dict[str, Any]], now: float, *, received_at: Optional[float] = None) -> None:
         """Fold observations in arrival order.
@@ -339,9 +340,11 @@ class StateModel:
                     a["status"] = "working"
 
 
-    def snapshot_tasks(self, now: float) -> list[Dict[str, Any]]:
-        """Report source snapshots separately from the current office lifecycle."""
-        visible = {agent["id"]: agent for agent in self.visible(now)}
+    def snapshot_tasks(self, now: float, *, visible_agents: Optional[Iterable[Dict[str, Any]]] = None) -> list[Dict[str, Any]]:
+        """Report tasks using an optional display projection from the same tick."""
+        if visible_agents is None:
+            visible_agents = self.visible(now)
+        visible = {agent["id"]: agent for agent in visible_agents}
         boards = self.task_boards.snapshot(now)
         for board in boards:
             agent = self.agents.get(board["session_id"])

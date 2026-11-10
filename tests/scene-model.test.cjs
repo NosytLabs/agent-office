@@ -511,11 +511,14 @@ test("editing hit tests and placement use displayed furniture after relocation",
   assert.equal(scene.placement({ x: 168, y: 217 }).valid, false);
   assert.equal(scene.placement({ x: 105, y: 119 }).valid, true);
 });
-test("nameplate status lines and edges select their session", () => {
+function scenePaintFixture(width = 1100, height = 650) {
   model.devicePixelRatio = 1;
   const noop = () => {},
     handlers = new Map(),
-    selected = [];
+    selected = [],
+    rectangles = [],
+    labels = [],
+    measurements = [];
   const ctx = Object.fromEntries(
     [
       "setTransform",
@@ -531,15 +534,19 @@ test("nameplate status lines and edges select their session", () => {
       "fillText",
     ].map((name) => [name, noop]),
   );
-  ctx.measureText = (text) => ({ width: text.length * 7 });
+  ctx.fillText = (text, x, y) => labels.push([text, x, y]);
+  ctx.measureText = (text) => {
+    measurements.push(text);
+    return { width: text.length * 7 };
+  };
   const scene = Object.create(model.Scene.prototype);
   Object.assign(scene, {
     canvas: {
       style: {},
-      clientWidth: 1100,
-      clientHeight: 650,
-      width: 1100,
-      height: 650,
+      clientWidth: width,
+      clientHeight: height,
+      width,
+      height,
       getBoundingClientRect: () => ({ left: 0, top: 0 }),
       addEventListener: (name, handler) => handlers.set(name, handler),
       setPointerCapture: noop,
@@ -566,7 +573,7 @@ test("nameplate status lines and edges select their session", () => {
     onSelect: (id) => selected.push(id),
     onPlace: noop,
     room: noop,
-    rect: noop,
+    rect: (...args) => rectangles.push(args),
     shadow: noop,
     text: noop,
   });
@@ -582,6 +589,10 @@ test("nameplate status lines and edges select their session", () => {
     null,
     "every",
   );
+  return { scene, handlers, selected, rectangles, labels, measurements };
+}
+test("nameplate status lines and edges select their session", () => {
+  const { scene, handlers, selected } = scenePaintFixture();
   scene.draw(0);
   scene.bindInput();
   // Independent coordinates cover the lower status line and left label edge.
@@ -607,6 +618,86 @@ test("nameplate status lines and edges select their session", () => {
     handlers.get("pointerup")(event);
   }
   assert.deepEqual(selected, ["session-0", "session-0"]);
+});
+
+test("workstation rugs retain their bounds without rescanning every desk per row", () => {
+  for (const width of [390, 1100])
+    for (const count of [0, 1, 7, 128]) {
+      const { scene, rectangles } = scenePaintFixture(width);
+      scene.settings.show_labels = false;
+      scene.desk = () => {};
+      scene.update(
+        Array.from({ length: count }, (_, i) => ({
+          id: "session-" + i,
+          platform: i % 2 ? "codex" : "claude",
+        })),
+        scene.settings,
+        null,
+        null,
+        "claude",
+      );
+      const layout = scene.layout.bind(scene);
+      let slotReads = 0;
+      scene.layout = (...args) => {
+        const room = layout(...args);
+        for (const seat of room.workstations) {
+          const slot = seat.slot;
+          Object.defineProperty(seat, "slot", {
+            get() {
+              slotReads++;
+              return slot;
+            },
+          });
+        }
+        return room;
+      };
+      scene.draw(0);
+      const room = scene.grid;
+      assert.ok(
+        slotReads <= room.workstations.length,
+        `${count} agents at ${width}px: rug work remains linear (${slotReads} slot reads)`,
+      );
+      const expected = [];
+      for (let row = 0; row < room.rows; row++) {
+        const seats = room.workstations.filter(
+          (seat) => Math.floor(seat.slot / room.columns) === row,
+        );
+        const first = seats[0],
+          last = seats.at(-1);
+        expected.push(
+          [first.x - 7, first.y - 10, last.x - first.x + 54, 40],
+          [first.x - 5, first.y + 28, last.x - first.x + 50, 1],
+        );
+      }
+      assert.deepEqual(
+        rectangles.map((rect) => rect.slice(0, 4)),
+        expected,
+        "filtered occupants and vacant stations retain the same rug geometry",
+      );
+    }
+});
+
+test("compact nameplates skip hidden status text and restore it when zoomed in", () => {
+  const { scene, labels, measurements } = scenePaintFixture();
+  scene.desk = () => {};
+  scene.agents.forEach((agent, index) => (agent.label = `A${index}`));
+  scene.zoom = 0.5;
+  scene.draw(0);
+  assert.equal(scene.labelBoxes.length, 6);
+  assert.ok(scene.labelBoxes.every((box) => box.h === 18));
+  assert.equal(labels.length, 6);
+  assert.deepEqual(
+    measurements,
+    scene.agents.map((agent) => agent.label),
+  );
+  labels.length = measurements.length = 0;
+  scene.agents[0].status = "waiting";
+  scene.zoom = 1;
+  scene.draw(0);
+  assert.equal(labels.length, 12);
+  assert.ok(scene.labelBoxes.every((box) => box.h === 32));
+  assert.ok(labels.some(([text]) => text === "Needs input"));
+  assert.ok(labels.some(([text]) => text === "terminal"));
 });
 
 test("scene keyboard transitions ignore browser shortcuts and composition", () => {

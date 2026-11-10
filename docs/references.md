@@ -2,9 +2,10 @@
 
 [Documentation](README.md) · [Asset pipeline](asset-pipeline.md)
 
-Agent Office combines a local observer with a separately enabled fresh-process
-runner. Reference products inform interaction ideas; they are not dependencies,
-proof of supported features, or permission to redistribute their artwork.
+Agent Office combines a local observer with separately enabled fresh-process
+execution and existing-session handoff. Reference products inform interaction
+ideas; they are not dependencies, proof of supported features, or permission to
+redistribute their artwork.
 Current behavior belongs in the feature guides, not in a comparison backlog.
 
 ## Shipped source and attribution
@@ -30,13 +31,11 @@ inputs stay out of public builds. See the [asset pipeline](asset-pipeline.md).
 | [Termi](https://termiprotocol.com/), [BridgeMind](https://www.bridgemind.ai/) | Workspace and task-preparation references. Marketing descriptions do not establish reusable application source or verified local behavior. |
 | [Star Office UI](https://github.com/ringhyacinth/Star-Office-UI) and other reviewed rooms | Check code and artwork rights separately; use the assets covered by this repository's own source records. |
 
-This cleanup imports no new third-party code or art. The runtime contracts are
-maintained in [observer coverage](runtime-observers.md) and
-[local task runner](local-task-runner.md), not inferred from reference products.
-Existing-session OpenCode delivery is available through the separately enabled
-[HTTP handoff adapter](opencode-session-handoff.md). Its browser pairing/send
-interface and authenticated provider verification remain follow-up work in
-[issue #18](https://github.com/NosytLabs/agent-office/issues/18).
+Runtime contracts are maintained in [observer coverage](runtime-observers.md),
+[local task runner](local-task-runner.md), and
+[OpenCode session handoff](opencode-session-handoff.md), not inferred from
+reference products. The handoff guide owns current interface behavior and
+[provider verification limits](opencode-session-handoff.md#verification-scope).
 
 ## Historical research
 

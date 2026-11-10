@@ -56,9 +56,9 @@ Never commit live account data; keep reports outside Git. See
   relevant: reproduce any recurrence and retain diagnostic evidence; an isolated
   passing rerun does not establish its cause.
 - [Issue #18](https://github.com/NosytLabs/agent-office/issues/18): follow-up work for
-  existing-session OpenCode handoff. The opt-in HTTP adapter and durable delivery
-  receipts are implemented; the browser review/pair/send flow and authenticated
-  provider execution remain outstanding. See the
+  existing-session OpenCode handoff. The opt-in HTTP adapter, durable delivery
+  receipts and browser review/pair/send flow are implemented. Authenticated
+  provider execution remains unverified. See the
   [maintained verification scope](../opencode-session-handoff.md#verification-scope).
 
 ## Documentation images and source records
