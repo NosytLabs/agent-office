@@ -18,7 +18,7 @@
     "test:browser:studio": "node --test --test-concurrency=2 tests/site.test.cjs tests/studio-browser.test.cjs tests/studio-directional-browser.test.cjs tests/studio-tools-browser.test.cjs tests/studio-polish-browser.test.cjs tests/studio-environment-browser.test.cjs tests/quick-nav.test.cjs tests/attention-browser.test.cjs tests/studio-pet-life-browser.test.cjs tests/studio-tools-audit.test.cjs tests/panel-safety-browser.test.cjs tests/prompt-library-browser.test.cjs tests/public-assets-browser.test.cjs tests/studio-character-life-browser.test.cjs tests/prompt-library-backup-browser.test.cjs tests/site-images.test.cjs tests/room-view-browser.test.cjs tests/sprite-pointer-browser.test.cjs tests/workplace-art-browser.test.cjs tests/scene-readiness-browser.test.cjs"
   },
   "devDependencies": {
-    "playwright": "1.63.0",
+    "playwright": "1.65.0",
     "prettier": "3.9.9"
   },
   "engines": {
