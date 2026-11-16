@@ -172,7 +172,14 @@ test("connection guide explains each runtime and distinguishes demo from live tr
     await p.selectOption("#setup-runtime", "hermes");
     assert.match(await p.textContent("#setup-observed"), /1 recorded/);
     await p.route("**/state", (route) => route.abort());
-    await p.waitForTimeout(1700);
+    await p.waitForFunction(
+      () =>
+        /disconnected/.test(
+          document.querySelector("#setup-observed")?.textContent ?? "",
+        ),
+      null,
+      { timeout: 15000 },
+    );
     assert.match(await p.textContent("#setup-observed"), /disconnected/);
     assert.equal(await p.inputValue("#setup-runtime"), "hermes");
     await p.setViewportSize({ width: 390, height: 844 });
@@ -372,7 +379,11 @@ test("saved theme and desk settings survive a reload", () =>
       data: { theme: "amber", max_chars: 2 },
     });
     await p.reload();
-    await p.waitForTimeout(1800);
+    await p.waitForFunction(
+      () => document.documentElement.getAttribute("data-theme") === "amber",
+      null,
+      { timeout: 15000 },
+    );
     assert.equal(await p.locator("html").getAttribute("data-theme"), "amber");
     await p.locator("#settingsbtn").click();
     assert.equal(await p.locator("#mc").inputValue(), "2");
@@ -593,7 +604,11 @@ test("focused settings controls update their selected state without losing focus
       await amber.evaluate((b) => b === document.activeElement),
       true,
     );
-    await p.waitForTimeout(1700);
+    await p.waitForFunction(
+      (el) => el?.getAttribute("aria-pressed") === "true",
+      await amber.elementHandle(),
+      { timeout: 15000 },
+    );
     assert.equal(await amber.getAttribute("aria-pressed"), "true");
   }));
 test("malformed event names do not interrupt polling or activity rendering", () =>
@@ -632,7 +647,13 @@ test("mobile scene and dialogs fit, loaded sprites are valid", () =>
     const errors = [];
     p.on("pageerror", (e) => errors.push(e.message));
     await p.setViewportSize({ width: 390, height: 844 });
-    await p.waitForTimeout(500);
+    await p.waitForFunction(
+      () => document.body.scrollWidth <= innerWidth,
+      null,
+      {
+        timeout: 15000,
+      },
+    );
     assert.ok(await p.evaluate(() => document.body.scrollWidth <= innerWidth));
     await p.locator("#settingsbtn").click();
     const box = await p.locator("#sheet-settings").boundingBox();
