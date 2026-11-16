@@ -155,15 +155,17 @@
           `${runtimeNames[board.runtime] || board.runtime || "Unknown runtime"} · ${board.label}`,
         ),
       );
-      const metaLines = [
-        `${board.source} · Session ${board.session}`,
-        `Received ${dateLabel(board.observed_at)}`,
-      ];
-      // Some sources (opencode todos, codex exec lists) provide no source
-      // update time; omit the line rather than printing a placeholder.
-      if (board.source_updated_at !== null)
-        metaLines.push(`Source updated ${dateLabel(board.source_updated_at)}`);
-      section.append(node("p", "task-board-meta", metaLines.join("\n")));
+      const sourceTime =
+        board.source_updated_at === null
+          ? "Source update time unavailable."
+          : `Source updated ${dateLabel(board.source_updated_at)}`;
+      section.append(
+        node(
+          "p",
+          "task-board-meta",
+          `${board.source} · Session ${board.session}\nReceived ${dateLabel(board.observed_at)}\n${sourceTime}`,
+        ),
+      );
       if (board.tasks === null) {
         section.append(
           node("p", "task-empty", "This source's task list is unavailable."),
