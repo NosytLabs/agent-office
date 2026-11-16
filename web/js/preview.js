@@ -271,6 +271,16 @@
     result.settings_status = storageError
       ? { available: false, error: storageError }
       : { available: true };
+    // A static fixture has no live sessions: hold every agent's age at its
+    // recorded value. Otherwise the server's staleness windows (done after
+    // 120 s, quiet after 300 s, dropped after 1800 s) erase the sample
+    // floor a few minutes after load or Restore sample.
+    for (const agent of result.agents) {
+      const observedAge = fixture.base_time - (agent.observed_at - shift);
+      const firstAge = fixture.base_time - (agent.first_received_at - shift);
+      agent.observed_at = now - observedAge;
+      agent.first_received_at = now - firstAge;
+    }
     const recordedAgents = clone(result.agents);
     result.agents = result.agents.filter((agent) => {
       const age = Math.max(0, now - agent.observed_at);
@@ -503,6 +513,8 @@
       const result = await changeSaved(() => {
         saved.reset = false;
         saved.historyCleared = false;
+        saved.settings = {};
+        saved.settingsRevision = newSettingsRevision();
       });
       if (result instanceof Response && !result.ok) {
         applyState(state());
