@@ -924,7 +924,7 @@ class OfficeScene {
         r(x + windowWidth - 17, 10, 8, 1, "#e6f0e8");
       }
     }
-    r(w / 2 - 20, 7, 40, 14, "#26313a");
+    r(w / 2 - 26, 7, 52, 14, "#26313a");
     this.text(
       this.settings.room_name || "AGENT OFFICE",
       w / 2,
@@ -932,7 +932,7 @@ class OfficeScene {
       "#e9d4a4",
       4,
       "center",
-      36,
+      48,
     );
     r(4, h - 8, w - 8, 4, t.trim);
     r(4, 28, 2, h - 36, t.trim);
@@ -1443,7 +1443,7 @@ class OfficeScene {
       for (const s of room.seats) {
         const x = ox + (s.x + 20) * scale,
           y = oy + (s.y + 22) * scale,
-          width = Math.min(154, 68 * scale - 10),
+          width = Math.min(176, 68 * scale - 10),
           max = width - 14,
           // Reserve the next row's approval bubble before adding a detail line.
           details = 26 * scale - 3 >= 32,
@@ -1456,8 +1456,17 @@ class OfficeScene {
         g.textBaseline = "alphabetic";
         g.font = '600 13px "Geist", sans-serif';
         let name = String(s.a.label || s.a.id).replace(/[_-]+/g, " ");
-        while (g.measureText(name).width > max && name.length > 2)
+        let nameWidth = g.measureText(name).width;
+        if (nameWidth > max) {
+          // Shrink the name before truncating it: most session titles fit
+          // at 11px, so only genuinely long titles lose their tail.
+          g.font = '600 11px "Geist", sans-serif';
+          nameWidth = g.measureText(name).width;
+        }
+        while (nameWidth > max && name.length > 2) {
           name = name.slice(0, -2) + "…";
+          nameWidth = g.measureText(name).width;
+        }
         g.fillStyle = "#f4f6f2";
         g.fillText(name, x, y + 13);
         if (details) {
