@@ -513,8 +513,6 @@
       const result = await changeSaved(() => {
         saved.reset = false;
         saved.historyCleared = false;
-        saved.settings = {};
-        saved.settingsRevision = newSettingsRevision();
       });
       if (result instanceof Response && !result.ok) {
         applyState(state());
