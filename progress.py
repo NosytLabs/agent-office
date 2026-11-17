@@ -258,7 +258,14 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
     BROWSE = {"web_search", "web_extract", "browser_navigate", "webfetch", "websearch", "WebFetch", "WebSearch"}
     SHELL = {"terminal", "execute_code", "process", "bash", "Bash"}
 
-    by_tool = dict(stats.get("by_tool") or {})
+    # Tool names arrive with runtime-specific casing ("Read" vs "read");
+    # fold stored counts into one lowercase bucket per tool so a single
+    # tool is never listed twice.
+    by_tool = {}
+    for stored_name, stored_count in (stats.get("by_tool") or {}).items():
+        stored_key = str(stored_name).strip().lower()
+        if stored_key:
+            by_tool[stored_key] = int(by_tool.get(stored_key) or 0) + int(stored_count or 0)
     by_plat = dict(stats.get("by_platform") or {})
 
     for ev in events:
@@ -315,7 +322,9 @@ def ingest(data: Dict[str, Any], events: List[Dict[str, Any]], *,
             data["xp"] = int(data.get("xp") or 0) + 1
             tool = str(ev.get("tool_name") or "")
             if tool:
-                by_tool[tool] = int(by_tool.get(tool) or 0) + 1
+                tool_key = tool.strip().lower()
+                if tool_key:
+                    by_tool[tool_key] = int(by_tool.get(tool_key) or 0) + 1
             if tool in READ:
                 stats["reads"] = int(stats.get("reads") or 0) + 1
             elif tool in WRITE:

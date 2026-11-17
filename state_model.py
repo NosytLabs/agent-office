@@ -235,7 +235,7 @@ class StateModel:
                     clear_pending(ck)
                     clear_tool(a)
                     a["kind"] = "subagent"
-                    a["label"] = _short(ev.get("child_goal"), 26) or f"sub {ck[-6:]}"
+                    a["label"] = _short(ev.get("child_goal"), 60) or f"sub {ck[-6:]}"
                     a["status"] = "working"
                     a["detail"] = _short(ev.get("child_goal"))
                     a["parent"] = str(ev.get("parent_session_id") or "")
