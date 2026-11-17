@@ -1659,9 +1659,9 @@
         "id": "demo-review",
         "idle_s": 32,
         "kind": "subagent",
-        "label": "Demo \u00b7 Review accessibili\u2026",
+        "label": "Demo \u00b7 Review accessibility",
         "observed_at": 1791374368.0,
-        "observed_label": "Demo \u00b7 Review accessibili\u2026",
+        "observed_label": "Demo \u00b7 Review accessibility",
         "parent": "demo-opencode",
         "platform": "opencode",
         "status": "done",
@@ -2206,7 +2206,7 @@
           "hint": "10 distinct tools used",
           "id": "toolkit",
           "name": "Toolkit",
-          "progress": 30,
+          "progress": 20,
           "reward": "Filing cabinet with saved history",
           "xp": 25
         },
@@ -2215,7 +2215,7 @@
           "hint": "one tool 50 times",
           "id": "specialist",
           "name": "Specialist",
-          "progress": 58,
+          "progress": 60,
           "reward": null,
           "xp": 25
         },
@@ -2437,9 +2437,8 @@
           "opencode": 7
         },
         "by_tool": {
-          "Read": 29,
           "edit": 1,
-          "read": 1
+          "read": 30
         },
         "errors": 0,
         "max_concurrent": 5,
