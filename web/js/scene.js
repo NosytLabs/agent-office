@@ -925,15 +925,16 @@ class OfficeScene {
       }
     }
     r(w / 2 - 26, 7, 52, 14, "#26313a");
-    this.text(
-      this.settings.room_name || "AGENT OFFICE",
-      w / 2,
-      16,
-      "#e9d4a4",
-      4,
-      "center",
-      48,
-    );
+    const signName = this.settings.room_name || "AGENT OFFICE";
+    // Shrink the sign lettering before truncating it: room names may run
+    // to 48 characters, far more than the plaque fits at full size.
+    let signSize = 4;
+    this.ctx.font = signSize + "px ui-monospace,monospace";
+    while (signSize > 2 && this.ctx.measureText(signName).width > 48) {
+      signSize -= 0.5;
+      this.ctx.font = signSize + "px ui-monospace,monospace";
+    }
+    this.text(signName, w / 2, 16, "#e9d4a4", signSize, "center", 48);
     r(4, h - 8, w - 8, 4, t.trim);
     r(4, 28, 2, h - 36, t.trim);
     r(w - 6, 28, 2, h - 36, t.trim);
@@ -1457,10 +1458,13 @@ class OfficeScene {
         g.font = '600 13px "Geist", sans-serif';
         let name = String(s.a.label || s.a.id).replace(/[_-]+/g, " ");
         let nameWidth = g.measureText(name).width;
-        if (nameWidth > max) {
-          // Shrink the name before truncating it: most session titles fit
-          // at 11px, so only genuinely long titles lose their tail.
-          g.font = '600 11px "Geist", sans-serif';
+        // Shrink the name before truncating it: step the font down and
+        // re-measure at each size, so typical session titles fit whole
+        // inside the desk pitch at the current zoom; only genuinely long
+        // titles lose their tail.
+        for (const size of [11, 10, 9, 8]) {
+          if (nameWidth <= max) break;
+          g.font = `600 ${size}px "Geist", sans-serif`;
           nameWidth = g.measureText(name).width;
         }
         while (nameWidth > max && name.length > 2) {
