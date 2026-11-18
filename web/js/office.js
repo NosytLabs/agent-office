@@ -2324,6 +2324,13 @@ $("attention-dismiss").onclick = () => {
 $("attention-inspect").onclick = () => {
   if (attentionNotice) selectAgent(attentionNotice.id);
 };
+function syncFloorCount() {
+  const n = agents.filter(
+    (a) => platFilter === "every" || platOf(a) === platFilter,
+  ).length;
+  $("count").textContent =
+    n + " agent" + (n === 1 ? "" : "s") + " on the floor";
+}
 function applyState(state, pollRevision = settingsRevision) {
   if (!state || !Array.isArray(state.agents) || !Array.isArray(state.events))
     throw new Error("Invalid office state");
@@ -2382,9 +2389,7 @@ function applyState(state, pollRevision = settingsRevision) {
       : "Connected";
   $("mode").hidden = state.mode !== "demo";
   $("agent-total").textContent = agents.length;
-  const n = agents.length;
-  $("count").textContent =
-    n + " agent" + (n === 1 ? "" : "s") + " on the floor";
+  syncFloorCount();
   if (opened === "sheet-setup") fillSetup();
   syncEmptyState();
   syncHealth();
@@ -3118,6 +3123,7 @@ $("resetbtn").onclick = async () => {
 $("filterbtn").onchange = (e) => {
   platFilter = e.target.value;
   updateScene();
+  syncFloorCount();
   syncEmptyState();
   persistView();
 };
