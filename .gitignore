@@ -50,5 +50,3 @@ logs/
 !.env.example
 !.env.sample
 .vercel/
-.vercel
-.env*
