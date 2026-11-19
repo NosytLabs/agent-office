@@ -147,6 +147,13 @@ The build script does not deploy or create a Vercel project. The existing
 `agent-office-preview` project builds the connected GitHub branch. Use the
 deployment's source commit and check results when reviewing later updates.
 
+The checked-in `vercel.json` permanently redirects `/about` to the canonical
+`/about/`. Without it, Vercel serves the product site at both paths, and the
+page's relative links resolve one directory too high from the slash-less
+form — the footer `credits.html` link lands on `/credits.html`, which does
+not exist. The redirect is path-only, so it names no deployment host and
+applies unchanged to every preview deployment.
+
 References:
 
 - [Vercel build configuration](https://vercel.com/docs/builds/configure-a-build)

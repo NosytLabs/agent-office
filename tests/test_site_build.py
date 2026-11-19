@@ -291,6 +291,42 @@ def test_invalid_search_base_preserves_the_previous_generated_site(tmp_path, bas
     assert sentinel.read_text() == "preserve this build"
 
 
+def test_vercel_redirects_slashless_about_to_the_canonical_directory():
+    # The product site's canonical address ends in /about/ (see
+    # test_search_metadata_matches_canonical_sitemap_and_real_social_image).
+    # Without a redirect Vercel serves the same page at /about and /about/,
+    # and the page's relative links resolve one directory too high from the
+    # slash-less form (credits.html -> /credits.html, a 404). Pin the checked-in
+    # Vercel redirect that makes /about/ the only serving path. The redirect
+    # stays path-only: it must not name a deployment host, so every preview
+    # deployment normalizes its own /about.
+    config = json.loads((ROOT / "vercel.json").read_text())
+    redirects = config.get("redirects")
+    assert isinstance(redirects, list)
+    assert {
+        "source": "/about",
+        "destination": "/about/",
+        "permanent": True,
+    } in redirects
+    for redirect in redirects:
+        assert not urlsplit(redirect["destination"]).scheme, redirect
+
+
+def test_credits_link_resolves_from_the_canonical_about_directory(tmp_path):
+    from urllib.parse import urljoin
+
+    output = tmp_path / "site"
+    build(output)
+    parser = Links()
+    parser.feed((output / "index.html").read_text())
+    assert "credits.html" in parser.local
+    # Resolved from the canonical /about/ directory, the relative footer link
+    # lands on the credits page the same build publishes alongside the index.
+    resolved = urljoin("https://example.test/about/", "credits.html")
+    assert urlsplit(resolved).path == "/about/credits.html"
+    assert (output / "credits.html").is_file()
+
+
 def test_product_onboarding_explains_optional_runs_without_enabling_every_adapter():
     page = (ROOT / "site/index.html").read_text()
     assert 'id="setup-run"' in page
