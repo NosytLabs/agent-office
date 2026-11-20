@@ -58,7 +58,7 @@ jobs:
     name: browser (${{ matrix.suite }})
     needs: checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -80,15 +80,14 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -r requirements-dev.txt
           npm ci --ignore-scripts
-      - name: Use the runner's maintained Chrome
-        run: |
-          chrome_path="$(command -v google-chrome)"
-          "$chrome_path" --version
-          echo "CHROMIUM_PATH=$chrome_path" >> "$GITHUB_ENV"
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
       - name: Browser user flows and screenshots
         run: npm run test:browser:${{ matrix.suite }}
+        timeout-minutes: 25
         env:
           OFFICE_SCREENSHOTS: reports/screenshots
+          NODE_OPTIONS: --test-reporter=tap
       - name: Keep failure or requested browser evidence briefly
         if: failure() || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
