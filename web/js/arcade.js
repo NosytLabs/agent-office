@@ -1012,6 +1012,7 @@
     open() {
       openSheet("sheet-arcade");
       sync();
+      sendDuck("resume", { controlRevision: ++duckControlRevision });
       const control = byId(
         !selected
           ? "arcade-game-breakout"
