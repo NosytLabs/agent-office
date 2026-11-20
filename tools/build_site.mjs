@@ -58,6 +58,7 @@ if (fs.existsSync(output)) {
 const inputs = new Map([
   ["index.html", "site/index.html"],
   ["style.css", "site/style.css"],
+  ["no-js.css", "site/no-js.css"],
   ["site.js", "site/site.js"],
   ["credits.html", "site/credits.html"],
   ["LICENSE.txt", "LICENSE"],
