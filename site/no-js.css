@@ -1,0 +1,7 @@
+/* Loaded only when scripting is unavailable. The tour panels after the
+   first ship hidden so their lazy screenshots cannot load before the tab
+   enhancement runs; without that enhancement every panel stays readable
+   in the stack instead. */
+.tour-panel[hidden] {
+  display: grid !important;
+}
