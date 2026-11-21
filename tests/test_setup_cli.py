@@ -64,6 +64,49 @@ def test_dry_run_describes_selected_runtime_without_connecting_others(tmp_path):
     assert not list((tmp_path / 'home').rglob('*.json'))
 
 
+def invoke_bare(tmp_path, script, *args, extra_env=None):
+    """Run a setup script with an empty HOME and PATH so nothing is detected."""
+    home = tmp_path / 'bare-home'
+    home.mkdir(exist_ok=True)
+    binary = tmp_path / 'bare-bin'
+    binary.mkdir(exist_ok=True)
+    env = {**os.environ, 'HOME': str(home), 'USERPROFILE': str(home),
+           'HERMES_HOME': str(home / '.hermes'), 'CODEX_HOME': str(home / '.codex'),
+           'GEMINI_CLI_HOME': str(home), 'PATH': str(binary), **(extra_env or {})}
+    return subprocess.run([sys.executable, str(ROOT / script), *args],
+                          cwd=ROOT, env=env, capture_output=True, text=True, timeout=10)
+
+
+def test_installer_with_nothing_detected_explains_next_steps(tmp_path):
+    result = invoke_bare(tmp_path, 'install.py')
+    assert result.returncode == 0, result.stderr
+    assert 'Nothing was connected' in result.stdout
+    assert 'Restart connected runtimes' not in result.stdout
+
+
+def test_installer_dry_run_with_nothing_detected_explains_next_steps(tmp_path):
+    result = invoke_bare(tmp_path, 'install.py', '--dry-run')
+    assert result.returncode == 0, result.stderr
+    assert 'no changes' in result.stdout.lower()
+    assert 'No selected runtime was detected' in result.stdout
+    assert 'Remove --dry-run to connect' not in result.stdout
+
+
+def test_installer_only_undetected_runtime_reports_nothing_connected(tmp_path):
+    result = invoke(tmp_path, 'install.py', '--only', 'hermes')
+    assert result.returncode == 0, result.stderr
+    assert 'skip hermes (not installed)' in result.stdout
+    assert 'Nothing was connected' in result.stdout
+    assert 'Restart connected runtimes' not in result.stdout
+
+
+def test_invalid_environment_port_names_the_variable(tmp_path):
+    result = invoke(tmp_path, 'run.py', extra_env={'AGENT_OFFICE_PORT': 'not-a-port'})
+    assert result.returncode == 2
+    assert 'AGENT_OFFICE_PORT' in result.stderr
+    assert 'Traceback' not in result.stderr
+
+
 @pytest.mark.parametrize('args', [('--help',), ('--port', '8120', '--help')])
 def test_server_help_ignores_a_malformed_environment_port(tmp_path, args):
     result = invoke(tmp_path, 'run.py', *args, extra_env={'AGENT_OFFICE_PORT': 'not-a-port'})
