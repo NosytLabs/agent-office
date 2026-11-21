@@ -305,6 +305,8 @@ def main(argv=()) -> int:
     print("detected:", ", ".join(k for k, v in found.items() if v) or "nothing")
     print()
     failed = False
+    attempted = 0
+    connected = 0
     for name, enable in (("hermes", enable_hermes), ("opencode", enable_opencode),
                          ("claude", enable_claude), ("codex", enable_codex),
                          ("gemini", enable_gemini), ("vscode", enable_vscode)):
@@ -315,17 +317,34 @@ def main(argv=()) -> int:
             continue
         if args.dry_run:
             print(f"• would connect {name}")
+            connected += 1
             continue
+        attempted += 1
         try:
-            print("•", enable())
+            result = enable()
+            print("•", result)
+            if not result.startswith("skip"):
+                connected += 1
         except OSError as exc:
             print(f"• {name} setup failed: {exc}")
             failed = True
     print()
     if args.dry_run:
-        print("Dry run: no changes made. Remove --dry-run to connect the selected runtimes.")
-    else:
+        if connected:
+            print("Dry run: no changes made. Remove --dry-run to connect the selected runtimes.")
+        else:
+            print("Dry run: no changes made. No selected runtime was detected — install "
+                  "Hermes, OpenCode, Claude Code, Codex, Gemini CLI or VS Code first, "
+                  "or explore the demo below.")
+    elif connected:
         print("Restart connected runtimes to load their observer hooks.")
+    elif attempted:
+        print("Nothing new was connected — follow the notes above for the detected "
+              "runtimes, then restart them.")
+    else:
+        print("Nothing was connected: no selected runtime was detected on this machine. "
+              "Install Hermes, OpenCode, Claude Code, Codex, Gemini CLI or VS Code, "
+              "then rerun — or explore the demo below.")
     print("serve python3 run.py  — open http://127.0.0.1:8113")
     print("demo  python3 demo_feed.py  — separate demo at http://127.0.0.1:8114")
     return 1 if failed else 0

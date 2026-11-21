@@ -36,7 +36,8 @@ def _feed(office, sessions, stopped):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', type=int, default=8114)
+    parser.add_argument('--port', type=int, default=8114,
+                        help='port to serve the demo on (default: 8114)')
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error('port must be between 1 and 65535')

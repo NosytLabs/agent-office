@@ -23,6 +23,15 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 100px;
 }
+/* Fragment and tab-reveal targets land below the sticky header: the root
+   scroll padding reserves the header height and this margin adds clearance,
+   so section headings and tab rows are not clipped at the resting position. */
+section[id],
+main[id],
+[data-tab-group],
+[data-tab-panel] {
+  scroll-margin-top: 16px;
+}
 body {
   margin: 0;
   background: var(--paper);
