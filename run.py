@@ -9,7 +9,8 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', type=int, default=os.environ.get('AGENT_OFFICE_PORT', '8113'))
+    parser.add_argument('--port', type=int, default=None,
+                        help='port to serve on (default: 8113, or the AGENT_OFFICE_PORT environment variable)')
     parser.add_argument('--observer-origin', action='append', default=[], metavar='HTTP(S)://HOST[:PORT]',
                         help='explicit trusted observer forwarding origin (repeatable; does not enable forwarded task runs)')
     parser.add_argument('--enable-task-runner', action='store_true',
@@ -19,6 +20,13 @@ def main():
     parser.add_argument('--workspace', action='append', default=[], metavar='/ABSOLUTE/PROJECT',
                         help='allowlisted project directory (repeatable; requires --enable-task-runner)')
     args = parser.parse_args()
+    if args.port is None:
+        raw_port = os.environ.get('AGENT_OFFICE_PORT', '8113')
+        try:
+            args.port = int(raw_port)
+        except ValueError:
+            parser.error(f"AGENT_OFFICE_PORT must be a whole number, got {raw_port!r}; "
+                         'fix the variable or pass --port explicitly')
     if not 1 <= args.port <= 65535:
         parser.error('port must be between 1 and 65535')
     if args.enable_task_runner and not args.workspace:
