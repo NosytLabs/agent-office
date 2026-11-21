@@ -240,6 +240,43 @@ test("native games share one loop, and hiding the panel pauses without auto-resu
   h.click("arcade-game-breakout");
   assert.equal(h.frames.size, 0);
 });
+test("reopening the panel never resumes Duck Hunt on its own", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-duck-hunt");
+  h.click("arcade-duck-start");
+  h.childMessage("ready");
+  assert.equal(h.snapshot().duck.paused, false);
+  const frame = h.get("arcade-duck-frame");
+  h.get("sheet-arcade").hidden = true;
+  h.sandbox.officeArcade.sync();
+  assert.equal(h.snapshot().duck.paused, true);
+  const sentBeforeReopen = frame.messages.length;
+  h.open();
+  assert.equal(
+    frame.messages
+      .slice(sentBeforeReopen)
+      .some((message) => message.action === "resume"),
+    false,
+    "opening the panel must not resume the child",
+  );
+  assert.equal(h.snapshot().duck.paused, true);
+  h.click("arcade-pause");
+  assert.equal(h.snapshot().duck.paused, false, "explicit Resume still works");
+});
+test("a native game pauses when the sheet has no rendered boxes", () => {
+  const h = host();
+  h.open();
+  h.click("arcade-game-breakout");
+  h.click("arcade-start");
+  assert.equal(h.frames.size, 1);
+  // An ancestor hiding the panel leaves the sheet's own hidden flag off,
+  // but the sheet renders no boxes; the loop must still stop.
+  h.get("sheet-arcade").getClientRects = () => [];
+  h.tick(1000);
+  assert.equal(h.snapshot().paused, true);
+  assert.equal(h.frames.size, 0);
+});
 test("enabling reduced motion pauses a running game after an explicit start", () => {
   const h = host();
   h.open();

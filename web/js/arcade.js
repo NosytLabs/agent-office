@@ -408,7 +408,14 @@
     return !!window.officeScene?.paused;
   }
   function lifecycleBlocked() {
-    return document.hidden || !sheetOpen();
+    if (document.hidden || !sheetOpen()) return true;
+    // The panel can also be hidden by an ancestor (a display:none wrapper):
+    // it then has no rendered boxes even though its own hidden flag is off.
+    // A game must not keep playing in a panel the player cannot see.
+    return (
+      typeof sheet.getClientRects === "function" &&
+      sheet.getClientRects().length === 0
+    );
   }
   function sendDuck(action, detail = {}) {
     if (!duckFrame?.contentWindow || !duckNonce) return;
@@ -513,7 +520,12 @@
   }
   function tick(time) {
     frame = null;
-    if (userPaused || lifecycleBlocked() || !nativeSelected()) return;
+    if (!nativeSelected()) return;
+    if (lifecycleBlocked()) {
+      pause("Arcade paused while the panel or tab is hidden.");
+      return;
+    }
+    if (userPaused) return;
     const seconds = lastFrame ? Math.min(0.05, (time - lastFrame) / 1000) : 0;
     lastFrame = time;
     const game = nativeGame();
@@ -1012,7 +1024,6 @@
     open() {
       openSheet("sheet-arcade");
       sync();
-      sendDuck("resume", { controlRevision: ++duckControlRevision });
       const control = byId(
         !selected
           ? "arcade-game-breakout"
