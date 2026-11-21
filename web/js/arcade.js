@@ -982,12 +982,22 @@
       localMotionOptIn = false;
       status =
         "Duck Hunt paused. Press Escape in the game or Resume below to continue.";
+      // Confirm the child's own stop with a host control. The child's
+      // newest control is otherwise still the resume that started it, so
+      // a replayed copy of that resume report would arrive carrying the
+      // current revision and be accepted as a fresh decision.
+      pauseDuck();
       render();
     } else {
       duckPaused = false;
       userPaused = false;
       localMotionOptIn = true;
       status = "Duck Hunt resumed.";
+      // Confirm the child's own resume with a host control, mirroring the
+      // pause confirmation above: the child's newest control then always
+      // postdates its last report, so a replayed copy of that report is
+      // stale on arrival instead of matching the current revision.
+      sendDuck("resume");
       render();
     }
   });
@@ -1024,6 +1034,12 @@
     open() {
       openSheet("sheet-arcade");
       sync();
+      // openSheet only leaves this panel displayed when it was hidden, and
+      // a hidden panel means a stopped game. A close and reopen inside one
+      // observer turn can hide the close from sync, leaving the stop
+      // unsent; restate it so the child always holds a control newer than
+      // any resume from before the panel was hidden.
+      if (sheetOpen() && selected === "duck-hunt" && duckReady) pause();
       const control = byId(
         !selected
           ? "arcade-game-breakout"
