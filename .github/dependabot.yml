@@ -10,6 +10,10 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    # Playwright stays pinned at 1.63.0 in this repo - never propose bumps.
+    ignore:
+      - dependency-name: "playwright"
+      - dependency-name: "@playwright/test"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
