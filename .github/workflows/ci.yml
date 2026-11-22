@@ -4,13 +4,13 @@ on:
     # Docs/log-only changes cannot affect the code or the browser suites.
     # The Repository hygiene workflow still runs on them and guards links.
     paths-ignore:
-      - '**.md'
-      - '**.log'
+      - "**.md"
+      - "**.log"
   push:
     branches: [main]
     paths-ignore:
-      - '**.md'
-      - '**.log'
+      - "**.md"
+      - "**.log"
   workflow_dispatch:
 permissions:
   contents: read
