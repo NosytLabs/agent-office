@@ -51,9 +51,16 @@ let eventMode = "latest",
   attentionNotice = null;
 const seenAttention = new Set();
 const seenUnlocks = new Set();
-let guardrailCaps = window.OfficeGuardrails
-  ? OfficeGuardrails.loadCaps(window.localStorage)
-  : {};
+let guardrailCaps = {};
+try {
+  // Accessing window.localStorage itself can throw when storage is denied;
+  // caps then simply live for this visit, like other view preferences.
+  guardrailCaps = window.OfficeGuardrails
+    ? OfficeGuardrails.loadCaps(window.localStorage)
+    : {};
+} catch {
+  guardrailCaps = {};
+}
 const settingsDrafts = new Set();
 const settingsDraftVersions = new Map();
 const panelViews = new Map(),
@@ -1682,7 +1689,12 @@ function fillGuardrails(sectionEl, a) {
       tokens: inputs.tokens.value,
       cost_usd: inputs.cost.value,
     });
-    const saved = OfficeGuardrails.saveCaps(window.localStorage, guardrailCaps);
+    let saved = false;
+    try {
+      saved = OfficeGuardrails.saveCaps(window.localStorage, guardrailCaps);
+    } catch {
+      saved = false;
+    }
     toast(
       saved
         ? "Guard rail caps saved for this browser."
