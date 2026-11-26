@@ -7,6 +7,7 @@ across checkpoints without retaining the entire historical event stream.
 from __future__ import annotations
 
 import copy
+import hashlib
 import math
 from typing import Any, Dict, Iterable, Optional
 
@@ -27,6 +28,20 @@ def _agent_key(ev: Dict[str, Any]) -> Optional[str]:
 def _short(text: Any, n: int = 60) -> str:
     s = str(text or "").strip().replace("\n", " ")
     return s[: n - 1] + "…" if len(s) > n else s
+
+
+def _preview_signature(preview: Any) -> str:
+    """Identify a tool call's preview without truncating away its differences.
+
+    The first characters keep checkpoints human-greppable; the digest covers
+    the whole normalized preview, so two calls that share a long prefix but
+    diverge later no longer count as the same call. Signatures are only ever
+    compared for equality, so entries checkpointed in the older truncated
+    form simply stop matching and age out of the guard window — no migration.
+    """
+    s = str(preview or "").strip().replace("\n", " ")
+    digest = hashlib.sha256(s.encode("utf-8")).hexdigest()[:10]
+    return f"{s[:24]}#{digest}"
 
 
 # Guard rails (circuit breaker), after the Munder Difflin pattern: watch each
@@ -66,8 +81,9 @@ class StateModel:
         if isinstance(guard, dict):
             self.guard = {
                 str(key): {
-                    "tools": [list(item) for item in record.get("tools", [])
-                              if isinstance(item, (list, tuple)) and len(item) == 2],
+                    "tools": [[float(item[0]), item[1]] for item in record.get("tools", [])
+                              if isinstance(item, (list, tuple)) and len(item) == 2
+                              and isinstance(item[0], (int, float))],
                     "errors": [float(ts) for ts in record.get("errors", [])
                                if isinstance(ts, (int, float))],
                     "trip": copy.deepcopy(record.get("trip"))
@@ -103,7 +119,7 @@ class StateModel:
 
     def _guard_note_tool(self, key: str, ev: Dict[str, Any], at: float) -> None:
         record = self._guard_record(key)
-        signature = f"{ev.get('tool_name') or ''}|{_short(ev.get('preview'), 60)}"
+        signature = f"{ev.get('tool_name') or ''}|{_preview_signature(ev.get('preview'))}"
         record["tools"] = [
             item for item in record["tools"] if at - float(item[0]) <= GUARD_WINDOW_S
         ]

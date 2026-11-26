@@ -340,3 +340,42 @@ def test_guard_trip_survives_checkpoint_and_clears_when_the_session_settles():
     model.apply([event("session_idle", 1010)], 1010)
     assert not model.visible(1010)[0].get("guard")
     assert "a" not in model.dump()["guard"]
+
+
+def test_guard_loop_long_previews_that_diverge_late_are_distinct_calls():
+    # Previews sharing a prefix longer than the old 59-char truncation used
+    # to collapse into one signature; diverging after it must not trip.
+    model = StateModel()
+    prefix = "run the full pipeline against /srv/data/warehouse/nightly/exports/"
+    assert len(prefix) > 60
+    for i in range(6):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview=f"{prefix}region-{i}.csv")], 1000 + i)
+    assert not model.visible(1006)[0].get("guard")
+
+
+def test_guard_loop_still_trips_on_identical_long_previews():
+    model = StateModel()
+    preview = ("run the full pipeline against /srv/data/warehouse/nightly/"
+               "exports/region-0.csv --overwrite --verify-checksums")
+    assert len(preview) > 60
+    for i in range(6):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview=preview)], 1000 + i)
+    assert model.visible(1006)[0]["guard"]["kind"] == "loop"
+
+
+def test_guard_restore_drops_tool_entries_with_non_numeric_timestamps():
+    model = StateModel()
+    for i in range(5):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview="npm test")], 1000 + i)
+    snapshot = model.dump()
+    snapshot["guard"]["a"]["tools"] = [["not-a-time", "Bash|npm test"],
+                                       [1004.0, "Bash|npm test"]]
+    model = StateModel(json.loads(json.dumps(snapshot)))
+    assert model.guard["a"]["tools"] == [[1004.0, "Bash|npm test"]]
+    # The next tool event prunes by timestamp; a corrupt entry used to crash
+    # here with ValueError instead of being dropped at load.
+    model.apply([event("tool_start", 1005, call_id="c5",
+                       tool_name="Bash", preview="npm test")], 1005)

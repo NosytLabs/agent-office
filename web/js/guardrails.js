@@ -107,7 +107,7 @@
           agentId: agent.id,
           kind: cost.state === "exceeded" ? "cap-exceeded" : "cap-near",
           field: "cost_usd",
-          detail: `Reported cost estimate against a $${Number(cap.cost_usd).toLocaleString()} cap`,
+          detail: `Reported $${Number(usage.cost_usd).toLocaleString()} cost estimate against a $${Number(cap.cost_usd).toLocaleString()} cap`,
         });
     }
     return findings;

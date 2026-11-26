@@ -25,9 +25,11 @@ does not ship.
 
 ## 2. Color tokens
 
-Defined once in `:root` in [site/style.css](site/style.css). Rules reference
-tokens, not literal hex values; illustration clusters inside the hero artwork
-frame are the only exception.
+Defined once in `:root` in [site/style.css](site/style.css). Light-surface
+semantic colors resolve through these tokens, not literal hex values;
+illustration clusters inside the hero artwork frame are the exception. The
+tour and setup-terminal dark palettes are still literal hex, pending
+tokenization.
 
 ### Paper and ink
 
@@ -71,6 +73,12 @@ frame are the only exception.
 | `--gold-deep` | `#a16c24`   | Focus outline                         |
 | `--gold-text` | `#a37425`   | Needs-input dot                       |
 | `--gold-halo` | `#ecdab380` | Needs-input halo ring                 |
+
+### Type
+
+| Token     | Value                             | Use               |
+| --------- | --------------------------------- | ----------------- |
+| `--serif` | Georgia, "Times New Roman", serif | Editorial accents |
 
 ## 3. Typography
 
