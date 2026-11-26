@@ -214,6 +214,56 @@
             >
           </article>
         </div>
+        <div class="status-window" aria-labelledby="status-title">
+          <div class="status-window-head">
+            <h3 id="status-title">The floor at a glance.</h3>
+            <p>
+              Every observed session carries one state, read from the events its
+              runtime reports. The labels are written from your side of the
+              desk.
+            </p>
+          </div>
+          <ul class="status-list">
+            <li>
+              <span class="status-dot status-working" aria-hidden="true"></span>
+              <div>
+                <strong>Working</strong>
+                <small>A tool is running, or a response is streaming.</small>
+              </div>
+            </li>
+            <li>
+              <span class="status-dot status-input" aria-hidden="true"></span>
+              <div>
+                <strong>Needs input</strong>
+                <small
+                  >A question or a permission request is waiting. You answer in
+                  the original runtime.</small
+                >
+              </div>
+            </li>
+            <li>
+              <span class="status-dot status-idle" aria-hidden="true"></span>
+              <div>
+                <strong>Idle</strong>
+                <small>Connected and quiet. Nothing is waiting on you.</small>
+              </div>
+            </li>
+            <li>
+              <span class="status-dot status-ended" aria-hidden="true"></span>
+              <div>
+                <strong>Ended</strong>
+                <small
+                  >The session closed. Its activity and reported usage stay in
+                  the record.</small
+                >
+              </div>
+            </li>
+          </ul>
+          <p class="status-note">
+            Animation reflects reported activity. It does not prove that an
+            agent completed useful work.
+          </p>
+        </div>
       </section>
 
       <section id="tour" class="tour-section" aria-labelledby="tour-title">
