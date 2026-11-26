@@ -63,6 +63,19 @@ test("evaluateAgent surfaces a tripped breaker before cap findings", () => {
   assert.equal(findings[1].kind, "cap-near");
 });
 
+test("cost cap finding reports the actual cost figure", () => {
+  const findings = guardrails.evaluateAgent(
+    { id: "a" },
+    { a: { cost_usd: 2 } },
+    { total_tokens: 0, cost_usd: 1.9 },
+  );
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, "cap-near");
+  assert.equal(findings[0].field, "cost_usd");
+  assert.match(findings[0].detail, /\$1\.9/);
+  assert.match(findings[0].detail, /\$2 cap/);
+});
+
 test("firstAlert returns the first agent with findings", () => {
   const agents = [
     { id: "quiet" },
