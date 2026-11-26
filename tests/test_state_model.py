@@ -284,3 +284,59 @@ def test_malformed_records_do_not_poison_the_serializable_checkpoint():
                  event("tool_start", "invalid"), event("session_start", 1000, "valid")], 1000)
     assert [a["id"] for a in model.visible(1001)] == ["valid"]
     json.dumps(model.dump(), allow_nan=False)
+
+
+def test_guard_loop_trips_on_repeated_identical_tool_calls():
+    model = StateModel()
+    for i in range(5):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview="npm test")], 1000 + i)
+    assert not model.visible(1005)[0].get("guard")
+    model.apply([event("tool_start", 1005, call_id="c5",
+                       tool_name="Bash", preview="npm test")], 1005)
+    guard = model.visible(1005)[0]["guard"]
+    assert guard["kind"] == "loop"
+    assert "Bash" in guard["detail"]
+    assert guard["since"] == 1005
+
+
+def test_guard_loop_needs_the_same_call_not_just_the_same_tool():
+    model = StateModel()
+    for i in range(6):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Read", preview=f"file-{i}.py")], 1000 + i)
+    assert not model.visible(1006)[0].get("guard")
+
+
+def test_guard_loop_window_expires_old_repeats():
+    model = StateModel()
+    for i in range(5):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview="npm test")], 1000 + i)
+    model.apply([event("tool_start", 1700, call_id="late",
+                       tool_name="Bash", preview="npm test")], 1700)
+    assert not model.visible(1700)[0].get("guard")
+
+
+def test_guard_error_storm_trips_across_tool_and_session_errors():
+    model = StateModel()
+    model.apply([event("tool_start", call_id="c", tool_name="Bash")], 1000)
+    for i in range(4):
+        model.apply([event("tool_end", 1001 + i, call_id="c", tool_name="Bash",
+                           status="error", error_message="boom")], 1001 + i)
+    assert not model.visible(1005)[0].get("guard")
+    model.apply([event("session_error", 1005, error_message="died")], 1005)
+    guard = model.visible(1005)[0]["guard"]
+    assert guard["kind"] == "error-storm"
+
+
+def test_guard_trip_survives_checkpoint_and_clears_when_the_session_settles():
+    model = StateModel()
+    for i in range(6):
+        model.apply([event("tool_start", 1000 + i, call_id=f"c{i}",
+                           tool_name="Bash", preview="npm test")], 1000 + i)
+    model = restored(model)
+    assert model.visible(1006)[0]["guard"]["kind"] == "loop"
+    model.apply([event("session_idle", 1010)], 1010)
+    assert not model.visible(1010)[0].get("guard")
+    assert "a" not in model.dump()["guard"]
