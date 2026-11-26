@@ -23,7 +23,7 @@ test("inspector headings survive polling and elapsed-time updates", async () => 
         agent.duration_s += 3;
         agent.idle_s += 3;
         fillInspector();
-        return before.length === 2 && before.every((node) => node.isConnected);
+        return before.length === 3 && before.every((node) => node.isConnected);
       });
       assert.equal(stable, true);
     },

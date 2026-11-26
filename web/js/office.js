@@ -51,6 +51,16 @@ let eventMode = "latest",
   attentionNotice = null;
 const seenAttention = new Set();
 const seenUnlocks = new Set();
+let guardrailCaps = {};
+try {
+  // Accessing window.localStorage itself can throw when storage is denied;
+  // caps then simply live for this visit, like other view preferences.
+  guardrailCaps = window.OfficeGuardrails
+    ? OfficeGuardrails.loadCaps(window.localStorage)
+    : {};
+} catch {
+  guardrailCaps = {};
+}
 const settingsDrafts = new Set();
 const settingsDraftVersions = new Map();
 const panelViews = new Map(),
@@ -1052,14 +1062,22 @@ function agentCard(a, existing) {
   }
   setText(body.querySelector("strong"), a.label || a.id);
   const runtime = body.querySelector(".agent-runtime"),
-    runtimeSignature = JSON.stringify([a.platform, a.tool, a.detail]);
+    runtimeSignature = JSON.stringify([
+      a.platform,
+      a.tool,
+      a.detail,
+      a.guard?.kind || "",
+    ]);
   if (contentSignatures.get(runtime) !== runtimeSignature) {
+    const parts = [a.tool, a.detail].filter(Boolean);
+    if (a.guard?.kind)
+      parts.push(
+        "⚠ Guard rail: " +
+          (a.guard.kind === "loop" ? "possible loop" : "error storm"),
+      );
     runtime.replaceChildren(
       runtimeBadge(a),
-      document.createTextNode(
-        " · " +
-          ([a.tool, a.detail].filter(Boolean).join(" · ") || "Between tasks"),
-      ),
+      document.createTextNode(" · " + (parts.join(" · ") || "Between tasks")),
     );
     contentSignatures.set(runtime, runtimeSignature);
   }
@@ -1584,6 +1602,7 @@ function fillInspector() {
   const usageBox = usageSection.lastChild;
   const usageHTML = usageSummary(sessionUsageForAgent(a));
   if (usageBox.innerHTML !== usageHTML) usageBox.innerHTML = usageHTML;
+  fillGuardrails(section("guardrails"), a);
   const eventSection = section("events");
   if (!eventSection.firstChild) {
     const heading = document.createElement("h3");
@@ -1605,6 +1624,92 @@ function fillInspector() {
   }
   if (eventSection.lastChild.innerHTML !== rows.innerHTML)
     eventSection.lastChild.replaceWith(rows);
+}
+function fillGuardrails(sectionEl, a) {
+  if (!sectionEl.firstChild) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Guard rails";
+    sectionEl.append(heading, document.createElement("div"));
+  }
+  const body = sectionEl.lastChild;
+  if (body.contains(document.activeElement)) return;
+  const fragment = document.createElement("div");
+  if (a.guard?.kind) {
+    const note = document.createElement("p");
+    note.className = "guard-note";
+    note.textContent =
+      (a.guard.kind === "loop"
+        ? "Circuit breaker: possible loop. "
+        : "Circuit breaker: error storm. ") +
+      (a.guard.detail || "") +
+      " The office reports this only; it does not stop or message the agent. Respond in the original runtime.";
+    fragment.append(note);
+  }
+  const cap = guardrailCaps[a.id] || {},
+    metrics = sessionUsageForAgent(a),
+    rows = [
+      ["tokens", "Token cap", cap.tokens, metrics?.total_tokens],
+      ["cost", "Cost cap (USD)", cap.cost_usd, metrics?.cost_usd],
+    ];
+  for (const [field, label, capValue, used] of rows) {
+    const state = window.OfficeGuardrails?.capState(used, capValue || 0),
+      line = document.createElement("p");
+    line.className = "h";
+    line.textContent = capValue
+      ? `${label}: ${Number(capValue).toLocaleString()} — reported ${typeof used === "number" && Number.isFinite(used) ? Number(used).toLocaleString() : "not reported"}${state ? ` (${state.state})` : ""}.`
+      : `${label}: not set.`;
+    fragment.append(line);
+  }
+  const form = document.createElement("form");
+  form.className = "guard-form";
+  const inputs = {};
+  for (const [field, label, capValue] of rows) {
+    const wrap = document.createElement("label");
+    wrap.className = "setting-label";
+    wrap.textContent = label + " ";
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.step = field === "cost" ? "0.01" : "1";
+    input.value = capValue || "";
+    input.placeholder = "No cap";
+    inputs[field] = input;
+    wrap.append(input);
+    form.append(wrap);
+  }
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.className = "btn";
+  save.textContent = "Save caps";
+  form.append(save);
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (!window.OfficeGuardrails) return;
+    guardrailCaps = OfficeGuardrails.setCap(guardrailCaps, a.id, {
+      tokens: inputs.tokens.value,
+      cost_usd: inputs.cost.value,
+    });
+    let saved = false;
+    try {
+      saved = OfficeGuardrails.saveCaps(window.localStorage, guardrailCaps);
+    } catch {
+      saved = false;
+    }
+    toast(
+      saved
+        ? "Guard rail caps saved for this browser."
+        : "Caps kept for this visit; browser storage is unavailable.",
+    );
+    syncGuardrails();
+  };
+  fragment.append(form);
+  const help = document.createElement("p");
+  help.className = "h";
+  help.textContent =
+    "Caps are stored in this browser and compared with reported usage. They warn; they do not stop the agent.";
+  fragment.append(help);
+  if (body.innerHTML !== fragment.innerHTML)
+    body.replaceChildren(...fragment.children);
 }
 function resetInspectorReport(id) {
   const report = $("inspector-report");
@@ -2457,6 +2562,7 @@ function applyState(state, pollRevision = settingsRevision) {
   if (typeof syncFurnitureControls === "function") syncFurnitureControls();
   fillTrackingStatus();
   syncBudget();
+  syncGuardrails();
   if (restoredView?.panel) openSheet(restoredView.panel);
 }
 function poll() {
@@ -2834,6 +2940,23 @@ function syncBudget() {
     "Usage alert · " + usageValue(totals, "cost_usd");
 }
 $("budget-alert").onclick = () => openSheet("sheet-floor");
+function syncGuardrails() {
+  const button = $("guard-alert");
+  if (!button) return;
+  const alert = window.OfficeGuardrails
+    ? OfficeGuardrails.firstAlert(agents, guardrailCaps, (agent) =>
+        sessionUsageForAgent(agent),
+      )
+    : null;
+  button.hidden = !alert;
+  if (!alert) return;
+  const first = alert.findings[0],
+    label = alert.agent.label || alert.agent.id;
+  button.textContent =
+    first.kind === "breaker" ? `Guard rail · ${label}` : `Usage cap · ${label}`;
+  button.title = `${label}: ${alert.findings.map((f) => f.detail).join(" ")} Reported by the observer; nothing was stopped or sent.`;
+  button.onclick = () => selectAgent(alert.agent.id);
+}
 $("budget-form").onsubmit = async (e) => {
   e.preventDefault();
   const submitted = { "budget-input": $("budget-input").value };

@@ -29,6 +29,15 @@ def _short(text: Any, n: int = 60) -> str:
     return s[: n - 1] + "…" if len(s) > n else s
 
 
+# Guard rails (circuit breaker), after the Munder Difflin pattern: watch each
+# session for a repeated identical tool call (a loop) and for a burst of error
+# outcomes (an error storm). The observer only reports a trip; it never stops,
+# messages, or otherwise controls the observed agent.
+GUARD_WINDOW_S = 600.0
+GUARD_LOOP_THRESHOLD = 6
+GUARD_ERROR_THRESHOLD = 5
+
+
 class StateModel:
     """Durable activity plus independently derived display state."""
 
@@ -37,6 +46,7 @@ class StateModel:
         self.active_tools: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self.pending_input: Dict[str, Dict[tuple, Dict[str, Any]]] = {}
         self.inactive_sessions: Dict[str, float] = {}
+        self.guard: Dict[str, Dict[str, Any]] = {}
         self.task_boards = TaskBoards()
         if not snapshot:
             return
@@ -52,6 +62,19 @@ class StateModel:
             for key, records in data.get("pending_input", {}).items()
         }
         self.inactive_sessions = data.get("inactive_sessions", {})
+        guard = data.get("guard", {})
+        if isinstance(guard, dict):
+            self.guard = {
+                str(key): {
+                    "tools": [list(item) for item in record.get("tools", [])
+                              if isinstance(item, (list, tuple)) and len(item) == 2],
+                    "errors": [float(ts) for ts in record.get("errors", [])
+                               if isinstance(ts, (int, float))],
+                    "trip": copy.deepcopy(record.get("trip"))
+                    if isinstance(record.get("trip"), dict) else None,
+                }
+                for key, record in guard.items() if isinstance(record, dict)
+            }
         self.task_boards = TaskBoards(data.get("task_boards", []))
 
     def dump(self) -> Dict[str, Any]:
@@ -67,9 +90,54 @@ class StateModel:
                 for key, records in self.pending_input.items()
             },
             "inactive_sessions": self.inactive_sessions,
+            "guard": {
+                key: record for key, record in self.guard.items()
+                if record.get("tools") or record.get("errors") or record.get("trip")
+            },
         })
         checkpoint["task_boards"] = self.task_boards.dump()
         return checkpoint
+
+    def _guard_record(self, key: str) -> Dict[str, Any]:
+        return self.guard.setdefault(key, {"tools": [], "errors": [], "trip": None})
+
+    def _guard_note_tool(self, key: str, ev: Dict[str, Any], at: float) -> None:
+        record = self._guard_record(key)
+        signature = f"{ev.get('tool_name') or ''}|{_short(ev.get('preview'), 60)}"
+        record["tools"] = [
+            item for item in record["tools"] if at - float(item[0]) <= GUARD_WINDOW_S
+        ]
+        record["tools"].append([at, signature])
+        if record["trip"] is not None:
+            return
+        repeats = sum(1 for item in record["tools"] if item[1] == signature)
+        if repeats >= GUARD_LOOP_THRESHOLD:
+            record["trip"] = {
+                "kind": "loop",
+                "detail": f"Same tool call reported {repeats} times in "
+                          f"{int(GUARD_WINDOW_S // 60)} minutes: "
+                          f"{_short(ev.get('tool_name') or 'tool', 40)}",
+                "since": at,
+            }
+
+    def _guard_note_error(self, key: str, at: float) -> None:
+        record = self._guard_record(key)
+        record["errors"] = [
+            ts for ts in record["errors"] if at - float(ts) <= GUARD_WINDOW_S
+        ]
+        record["errors"].append(at)
+        if record["trip"] is not None:
+            return
+        if len(record["errors"]) >= GUARD_ERROR_THRESHOLD:
+            record["trip"] = {
+                "kind": "error-storm",
+                "detail": f"{len(record['errors'])} error outcomes reported in "
+                          f"{int(GUARD_WINDOW_S // 60)} minutes",
+                "since": at,
+            }
+
+    def _guard_clear(self, key: str) -> None:
+        self.guard.pop(key, None)
 
     def apply(self, events: Iterable[Dict[str, Any]], now: float, *, received_at: Optional[float] = None) -> None:
         """Fold observations in arrival order.
@@ -176,6 +244,7 @@ class StateModel:
 
             if kind == "session_start":
                 inactive_sessions.pop(key, None)
+                self._guard_clear(key)
                 a = ensure(key, ev)
                 clear_pending(key)
                 clear_tool(a)
@@ -206,6 +275,10 @@ class StateModel:
                     continue
                 mark_inactive(key, ev)
                 a = ensure(key, ev)
+                if kind == "session_error":
+                    self._guard_note_error(key, observed(ev))
+                else:
+                    self._guard_clear(key)
                 previous_error = a["detail"] if a["status"] == "idle" and a["detail"].startswith("⚠ ") else ""
                 clear_pending(key)
                 clear_tool(a)
@@ -217,6 +290,7 @@ class StateModel:
             elif kind == "session_end":
                 if key in agents and agents[key]["status"] == "gone":
                     continue
+                self._guard_clear(key)
                 mark_inactive(key, ev)
                 if key in agents:
                     clear_pending(key)
@@ -246,6 +320,7 @@ class StateModel:
                 if child:
                     mark_inactive(str(child), ev)
                 if child and str(child) in agents:
+                    self._guard_clear(str(child))
                     clear_pending(str(child))
                     clear_tool(agents[str(child)])
                     agents[str(child)]["status"] = "done"
@@ -254,6 +329,7 @@ class StateModel:
             elif kind == "tool_start":
                 inactive_sessions.pop(key, None)
                 a = ensure(key, ev)
+                self._guard_note_tool(key, ev, observed(ev))
                 call = str(ev.get("call_id") or f"legacy:{ev.get('tool_name') or ''}")
                 active_tools.setdefault(key, {})[call] = ev
                 settle(a, key)
@@ -281,6 +357,7 @@ class StateModel:
                         waiting.pop(request)
                 detail = ""
                 if ev.get("status") == "error":
+                    self._guard_note_error(key, observed(ev))
                     detail = f"⚠ {_short(ev.get('error_message'), 40) or 'tool failed'}"
                 settle(a, key, detail)
             elif kind in ("approval_request", "input_request"):
@@ -368,6 +445,9 @@ class StateModel:
             ):
                 continue
             agent = copy.deepcopy(durable)
+            trip = self.guard.get(key, {}).get("trip")
+            if trip:
+                agent["guard"] = copy.deepcopy(trip)
             if agent["status"] in ("working", "thinking") and age > 300 and not waiting:
                 agent.update(status="idle", tool="", activity="", detail="",
                              quiet=True, recorded_status=durable["status"],
@@ -393,6 +473,7 @@ class StateModel:
                 self.agents.pop(key)
                 self.active_tools.pop(key, None)
                 self.pending_input.pop(key, None)
+                self.guard.pop(key, None)
         for key, timestamp in list(self.inactive_sessions.items()):
             latest = max(timestamp, self.agents.get(key, {}).get("observed_at", timestamp))
             if now - latest > stale_seconds and not self.pending_input.get(key):
